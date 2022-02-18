@@ -1,0 +1,54 @@
+
+#- name: Update apt packages
+#  become: true
+#  apt:
+#    update_cache: yes
+    
+- name: Install prerequisites
+  package:
+    name: 
+     - curl
+     - apt-transport-https
+     - gnupg
+    state: latest   
+    
+- name: Get repo key
+  shell: curl https://couchdb.apache.org/repo/keys.asc | gpg --dearmor | tee /usr/share/keyrings/couchdb-archive-keyring.gpg >/dev/null 2>&1 
+  
+- name: Source os-release
+  shell: source /etc/os-release 
+  args:
+     executable: /bin/bash
+     
+- name: Update sources.list
+  shell: echo "deb [signed-by=/usr/share/keyrings/couchdb-archive-keyring.gpg] https://apache.jfrog.io/artifactory/couchdb-deb/ focal main" | tee /etc/apt/sources.list.d/couchdb.list >/dev/null     
+  # antes en vez de focal tenia ${VERSION_CODENAME}, pero no lo resolvia
+
+- name: Update apt packages
+  become: true
+  apt:
+    update_cache: yes   
+
+#- name: Copy config for debian couchdb installation
+#  template:
+#    src: debian_couchdb_conf.dat
+#    dest: debian_couchdb_conf.dat
+
+- name: Prepare non-interactive installation and install CouchDB
+  shell: debconf-copydb importmedb configdb  \
+    --config=Name:importmedb               \
+    --config=Driver:File                   \
+    --config=Filename:debian_couchdb_conf.dat && \
+    apt-get install -y couchdb
+
+#- name: Install couchdb
+#  become: true
+#  package:
+#    name: couchdb
+#    state: latest  
+    
+- name: Start couchdb
+  become: true
+  service: 
+    name=couchdb 
+    state=started    

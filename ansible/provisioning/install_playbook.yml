@@ -1,0 +1,28 @@
+# Setup server
+- hosts: localhost
+  become: yes
+
+  vars_files:
+    - vars/main.yml
+
+  handlers:
+    - import_tasks: handlers/main.yml
+  tasks:
+    #- import_tasks: tasks/install/couchdb_setup.yml
+    #- import_tasks: tasks/install/bdwatchdog_setup.yml
+    #- import_tasks:  tasks/install/serverless_containers_setup.yml
+    
+    ### start OPENTSDB y EVE_TIMES
+    
+# Setup nodes
+- hosts: nodes
+  become: yes
+
+  vars_files:
+    - vars/main.yml
+
+  handlers:
+    - import_tasks: handlers/main.yml
+  tasks:
+    #- import_tasks:  tasks/install/serverless_containers_setup.yml
+    - import_tasks:  tasks/install/lxd_setup.yml

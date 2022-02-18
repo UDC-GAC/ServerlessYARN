@@ -1,0 +1,37 @@
+- name: Install lxd
+  package:
+    name: lxd
+    state: latest
+
+- name: Create development directory
+  file:
+    path: /root/development
+    state: directory
+
+# ansible-galaxy collection install community.crypto
+
+- name: Generate an OpenSSL private key with the default values (4096 bits, RSA)
+  community.crypto.openssl_privatekey:
+    path: /root/development/lxd.key
+
+- name: Generate a OpenSSL certificate
+  community.crypto.x509_certificate:
+    state: present
+    path: /root/development/lxd.crt
+    privatekey_path: /root/development/lxd.key
+    provider: selfsigned
+    
+- name: Setup lxd (1)
+  shell: lxc config trust add /root/development/lxd.crt
+  args:
+    executable: /bin/bash
+    
+- name: Setup lxd (2)
+  shell: lxc config set core.https_address [::]:8443
+  args:
+    executable: /bin/bash
+    
+- name: Setup lxd (3)
+  shell: lxc config set core.trust_password TRUE
+  args:
+    executable: /bin/bash

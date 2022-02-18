@@ -1,0 +1,25 @@
+---
+# Setup server
+- hosts: localhost
+  become: yes
+
+  vars_files:
+    - vars/main.yml
+
+  handlers:
+    - import_tasks: handlers/main.yml
+  tasks:
+    - import_tasks: tasks/couchdb_setup.yml
+    - import_tasks: tasks/bdwatchdog_setup.yml
+    
+# Setup nodes
+- hosts: nodes
+  become: yes
+
+  vars_files:
+    - vars/main.yml
+
+  handlers:
+    - import_tasks: handlers/main.yml
+  tasks:
+    - import_tasks: tasks/test.yml

@@ -1,0 +1,11 @@
+- name: Copy Script for creating metrics
+  copy:
+    src: /root/ServerlessContainers/scripts/databases/create-rescaler-opentsdb-metrics.sh
+    dest: /root/BDWatchdog/deployment/metrics/opentsdb/create-rescaler-opentsdb-metrics.sh
+    remote_src: yes
+    
+- name: Run metrics script
+  shell: bash create-rescaler-opentsdb-metrics.sh
+  args:
+    chdir: /root/BDWatchdog/deployment/metrics/opentsdb/
+    executable: /bin/bash
