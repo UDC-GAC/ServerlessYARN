@@ -1,0 +1,29 @@
+# Setup server
+- hosts: localhost
+  become: yes
+
+  vars_files:
+    - vars/main.yml
+
+  handlers:
+    - import_tasks: handlers/main.yml
+  tasks:
+    - import_tasks: tasks/launch/opentsdb_setup.yml
+    - import_tasks: tasks/launch/serverless_containers_launch.yml
+    
+# Setup nodes
+- hosts: nodes
+  become: yes
+
+  vars_files:
+    - vars/main.yml
+
+  #environment:
+    #BDWATCHDOG_PATH: /root/BDWatchdog/
+    #RESCALING_PATH: /root/ServerlessContainers/scripts/
+    #PYTHONPATH: /root/BDWatchdog/:/root/ServerlessContainers/scripts/
+
+  handlers:
+    - import_tasks: handlers/main.yml
+  tasks:
+    - import_tasks: tasks/launch/node_rescaler_launch.yml

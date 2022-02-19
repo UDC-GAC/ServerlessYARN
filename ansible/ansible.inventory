@@ -1,4 +1,4 @@
 [server]
-server.local
+server.local host_ip=192.168.56.100
 [nodes]
 host0.local

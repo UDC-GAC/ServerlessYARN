@@ -20,7 +20,7 @@ Vagrant.configure("2") do |config|
   	server.vm.network "private_network", ip: "192.168.56.100"
   	#server.vm.network "forwarded_port", quest: 8000, host: 8000, host_ip: "127.0.0.1"	
   	server.vm.provider "virtualbox" do |vb|
-  	  	vb.name = "Server - ServerlessContainers Quickstart"
+  	  	vb.name = "Server - ServerlessContainers"
   		vb.cpus = 2
   		vb.memory = "4096"
   	end
@@ -34,7 +34,7 @@ Vagrant.configure("2") do |config|
   	node1.vm.network "private_network", ip: "192.168.56.101"
   	#node1.vm.network "forwarded_port", quest: 8000, host: 8000, host_ip: "127.0.0.1"
     	node1.vm.provider "virtualbox" do |vb|
-  	  	vb.name = "Node1 - ServerlessContainers Quickstart"
+  	  	vb.name = "Node1 - ServerlessContainers"
   		vb.cpus = 4
   		vb.memory = "4096"
   	end		

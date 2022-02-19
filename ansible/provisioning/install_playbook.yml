@@ -8,11 +8,11 @@
   handlers:
     - import_tasks: handlers/main.yml
   tasks:
-    #- import_tasks: tasks/install/couchdb_setup.yml
-    #- import_tasks: tasks/install/bdwatchdog_setup.yml
-    #- import_tasks:  tasks/install/serverless_containers_setup.yml
-    
-    ### start OPENTSDB y EVE_TIMES
+    - import_tasks: tasks/install/couchdb_setup.yml
+    - import_tasks: tasks/install/bdwatchdog_setup.yml
+    - import_tasks: tasks/install/serverless_containers_setup.yml
+    - import_tasks: tasks/install/hosts_setup_server.yml
+
     
 # Setup nodes
 - hosts: nodes
@@ -24,5 +24,8 @@
   handlers:
     - import_tasks: handlers/main.yml
   tasks:
-    #- import_tasks:  tasks/install/serverless_containers_setup.yml
-    - import_tasks:  tasks/install/lxd_setup.yml
+    - import_tasks: tasks/install/serverless_containers_setup.yml
+    - import_tasks: tasks/install/lxd_setup.yml
+    - import_tasks: tasks/install/metrics_feeder_setup.yml
+    - import_tasks: tasks/install/hosts_setup_nodes.yml
+    

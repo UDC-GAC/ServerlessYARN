@@ -1,0 +1,7 @@
+  
+- name: Copy BDWatchdog
+  copy:
+    src: bdwatchdog/
+    dest: /root/BDWatchdog
+    
+    

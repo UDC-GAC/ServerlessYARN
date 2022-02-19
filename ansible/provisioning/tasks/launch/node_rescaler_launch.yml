@@ -1,0 +1,23 @@
+
+- name: Prepare Environment for scripts - BDWATCHDOG_PATH
+  lineinfile:
+    path: /etc/environment
+    line: export BDWATCHDOG_PATH=/root/BDWatchdog/
+
+- name: Prepare Environment for scripts - RESCALING_PATH
+  lineinfile:
+    path: /etc/environment
+    line: export RESCALING_PATH=/root/ServerlessContainers/scripts/
+
+- name: Prepare Environment for scripts - PYTHONPATH
+  lineinfile:
+    path: /etc/environment
+    line: export PYTHONPATH=:/root/ServerlessContainers/scripts/
+
+# Starting Node Rescaler
+- name: Starting Services - node rescaler
+  shell: bash scripts/services/start_node_rescaler.sh 
+  args:
+    chdir: /root/ServerlessContainers
+    executable: /bin/bash
+

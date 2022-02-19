@@ -1,0 +1,101 @@
+
+#- name: Source pythonpath
+#  shell: source set_pythonpath.sh
+#  args:
+#     chdir: /root/ServerlessContainers
+#     executable: /bin/bash
+
+# Prepare environment for scripts
+- name: Prepare Environment for scripts - BDWATCHDOG_PATH
+  lineinfile:
+    path: /etc/environment
+    line: export BDWATCHDOG_PATH=/root/BDWatchdog/
+
+- name: Prepare Environment for scripts - RESCALING_PATH
+  lineinfile:
+    path: /etc/environment
+    line: export RESCALING_PATH=/root/ServerlessContainers/scripts/
+
+- name: Prepare Environment for scripts - PYTHONPATH
+  lineinfile:
+    path: /etc/environment
+    line: export PYTHONPATH=:/root/ServerlessContainers/scripts/
+
+# Initializing State Database
+#### creo que falla sin hacer un src a pythonpath.sh primero
+- name: Initializing State Database - services
+  shell: python3 quickstart/StateDatabase/services.py
+  args:
+    chdir: /root/ServerlessContainers
+    executable: /bin/bash
+  #environment:
+    #BDWATCHDOG_PATH: /root/BDWatchdog/
+    #RESCALING_PATH: /root/ServerlessContainers/scripts/
+    #PYTHONPATH: /root/BDWatchdog/:/root/ServerlessContainers/scripts/
+    
+- name: Initializing State Database - events and requests
+  shell: python3 quickstart/StateDatabase/events_and_requests.py
+  args:
+    chdir: /root/ServerlessContainers
+    executable: /bin/bash
+    
+- name: Initializing State Database - rules
+  shell: python3 quickstart/StateDatabase/rules.py
+  args:
+    chdir: /root/ServerlessContainers
+    executable: /bin/bash
+    
+- name: Initializing State Database - limits
+  shell: python3 quickstart/StateDatabase/limits.py
+  args:
+    chdir: /root/ServerlessContainers
+    executable: /bin/bash
+    
+- name: Initializing State Database - structures
+  shell: python3 quickstart/StateDatabase/structures.py
+  args:
+    chdir: /root/ServerlessContainers
+    executable: /bin/bash
+    
+# Starting Services
+- name: Starting Services - orchestrator
+  shell: bash scripts/services/start_orchestrator.sh 
+  args:
+    chdir: /root/ServerlessContainers
+    executable: /bin/bash
+    
+- name: Starting Services - database snapshoter
+  shell: bash scripts/services/start_database_snapshoter.sh 
+  args:
+    chdir: /root/ServerlessContainers
+    executable: /bin/bash
+    
+- name: Starting Services - structure snapshoter
+  shell: bash scripts/services/start_structure_snapshoter.sh 
+  args:
+    chdir: /root/ServerlessContainers
+    executable: /bin/bash
+    
+- name: Starting Services - guardian
+  shell: bash scripts/services/start_guardian.sh 
+  args:
+    chdir: /root/ServerlessContainers
+    executable: /bin/bash
+   
+- name: Starting Services - Activate guardian
+  shell: bash scripts/Orchestrator/Guardian/activate_guardian.sh 
+  args:
+    chdir: /root/ServerlessContainers
+    executable: /bin/bash
+    
+- name: Starting Services - scaler
+  shell: bash scripts/services/start_scaler.sh 
+  args:
+    chdir: /root/ServerlessContainers
+    executable: /bin/bash
+ 
+- name: Starting Services - Activate scaler
+  shell: bash scripts/Orchestrator/Scaler/activate_scaler.sh
+  args:
+    chdir: /root/ServerlessContainers
+    executable: /bin/bash   

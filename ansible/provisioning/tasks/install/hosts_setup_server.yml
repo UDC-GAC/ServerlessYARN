@@ -1,0 +1,5 @@
+
+- name: Add server aliases to /etc/hosts
+  lineinfile:
+    path: /etc/hosts
+    line: 127.0.0.1 couchdb orchestrator opentsdb
