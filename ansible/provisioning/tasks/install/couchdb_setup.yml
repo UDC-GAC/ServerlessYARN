@@ -1,8 +1,3 @@
-
-#- name: Update apt packages
-#  become: true
-#  apt:
-#    update_cache: yes
     
 - name: Install prerequisites
   package:
@@ -29,11 +24,6 @@
   apt:
     update_cache: yes   
 
-#- name: Copy config for debian couchdb installation
-#  template:
-#    src: debian_couchdb_conf.dat
-#    dest: debian_couchdb_conf.dat
-
 - name: Prepare non-interactive installation and install CouchDB
   shell: debconf-copydb importmedb configdb  \
     --config=Name:importmedb               \
@@ -50,5 +40,5 @@
 - name: Start couchdb
   become: true
   service: 
-    name=couchdb 
-    state=started    
+    name: couchdb 
+    state: started    

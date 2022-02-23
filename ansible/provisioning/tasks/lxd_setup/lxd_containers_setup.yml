@@ -1,0 +1,41 @@
+# Install atop on host in order to get binary
+- name: Install atop on host
+  package: 
+    name: atop
+    state: latest
+
+## A lo mejor no interesa pararlos por si estaban corriendo de normal
+- name: Stop atop on host
+  become: true
+  service: 
+    name: atop 
+    state: stopped 
+
+- name: Stop atopacct on host
+  become: true
+  service: 
+    name: atopacct 
+    state: stopped 
+
+- name: Copy atop executable to containers
+  shell: lxc file push /usr/bin/atop {{ item }}/usr/bin/
+  args:
+    executable: /bin/bash
+  loop: "{{ hostvars[inventory_hostname].containers }}"
+
+- name: Copy BDWatchdog to containers
+  shell: lxc file push -r BDWatchdog/ {{ item }}/root
+  args:
+    chdir: /root/
+    executable: /bin/bash
+  loop: "{{ hostvars[inventory_hostname].containers }}"
+
+- name: Install requirements in containers and start sending metrics to opentsdb
+  shell: lxc exec {{ item }} -- sudo bash -c "echo '{{ hostvars[groups['server'][0]].host_ip }} opentsdb' >> /etc/hosts &&
+    apt-get -y update &&
+    apt-get install -y --no-install-recommends python3-pip &&
+    cd /root/BDWatchdog/MetricsFeeder &&
+    pip3 install -r requirements.txt &&
+    bash scripts/run_atop_stream.sh"
+  loop: "{{ hostvars[inventory_hostname].containers }}"
+    

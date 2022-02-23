@@ -19,7 +19,7 @@
 - name: Prepare Environment for scripts - PYTHONPATH
   lineinfile:
     path: /etc/environment
-    line: export PYTHONPATH=:/root/ServerlessContainers/scripts/
+    line: export PYTHONPATH=:/root/ServerlessContainers/
 
 # Initializing State Database
 #### creo que falla sin hacer un src a pythonpath.sh primero
@@ -28,10 +28,6 @@
   args:
     chdir: /root/ServerlessContainers
     executable: /bin/bash
-  #environment:
-    #BDWATCHDOG_PATH: /root/BDWatchdog/
-    #RESCALING_PATH: /root/ServerlessContainers/scripts/
-    #PYTHONPATH: /root/BDWatchdog/:/root/ServerlessContainers/scripts/
     
 - name: Initializing State Database - events and requests
   shell: python3 quickstart/StateDatabase/events_and_requests.py

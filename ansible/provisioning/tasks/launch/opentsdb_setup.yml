@@ -1,5 +1,6 @@
 
 ### start OPENTSDB y EVE_TIMES
+## puedo hacer un when : no haya sesiones de OPENTSDB y EVE_TIMES
 
 - name: Copy Script for creating metrics
   copy:

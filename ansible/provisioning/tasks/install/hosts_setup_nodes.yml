@@ -2,5 +2,4 @@
 - name: Add server aliases to /etc/hosts
   lineinfile:
     path: /etc/hosts
-    #line: "{{ hostvars['server'].ansible_host }} couchdb orchestrator opentsdb"
     line: "{{ hostvars[groups['server'][0]].host_ip }} couchdb orchestrator opentsdb"

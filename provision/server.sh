@@ -2,7 +2,12 @@
 
 # Install ansible and other stuff
 apt-get -y update
-apt-get -y install python-setuptools wget curl sshpass vim nano ansible
+apt-get -y install python-setuptools wget curl sshpass vim nano
+
+apt-get install -y software-properties-common
+add-apt-repository --yes --update ppa:ansible/ansible
+apt-get install -y ansible
+
 mkdir -p /etc/ansible
 cp /vagrant/ansible/ansible.cfg /etc/ansible
 cp /vagrant/ansible/ansible.inventory /etc/ansible/hosts

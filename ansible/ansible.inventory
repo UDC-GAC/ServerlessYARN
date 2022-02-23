@@ -1,4 +1,4 @@
 [server]
-server.local host_ip=192.168.56.100
+sc-server host_ip=192.168.56.100
 [nodes]
-host0.local
+host0 containers='["cont0","cont1"]'
