@@ -1,5 +1,11 @@
+
+- name: Check if BDWatchdog directory is already there
+  stat:
+    path: /root/BDWatchdog
+  register: stat_output
   
 - name: Copy BDWatchdog
+  when: not stat_output.stat.exists
   copy:
     src: bdwatchdog/
     dest: /root/BDWatchdog

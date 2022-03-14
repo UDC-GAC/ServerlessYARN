@@ -24,7 +24,11 @@
   apt:
     update_cache: yes   
 
+- name: Populate service facts
+  service_facts:
+
 - name: Prepare non-interactive installation and install CouchDB
+  when: "'couchdb' not in services"
   shell: debconf-copydb importmedb configdb  \
     --config=Name:importmedb               \
     --config=Driver:File                   \

@@ -1,6 +1,7 @@
 # Setup server
 - hosts: localhost
   become: yes
+  gather_facts: no
 
   vars_files:
     - vars/main.yml
@@ -8,12 +9,14 @@
   handlers:
     - import_tasks: handlers/main.yml
   tasks:
+    - import_tasks: tasks/launch/couchdb_launch.yml
     - import_tasks: tasks/launch/opentsdb_setup.yml
     - import_tasks: tasks/launch/serverless_containers_launch.yml
     
 # Setup nodes
 - hosts: nodes
   become: yes
+  gather_facts: no
 
   vars_files:
     - vars/main.yml

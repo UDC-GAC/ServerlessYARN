@@ -1,0 +1,5 @@
+- name: Start couchdb
+  become: true
+  service: 
+    name: couchdb 
+    state: started 

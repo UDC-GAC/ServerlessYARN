@@ -17,11 +17,24 @@
     name: atopacct 
     state: stopped 
 
+- name: Atop executable check in containers
+  shell: lxc exec {{ item }} -- sudo bash -c "ls /usr/bin/atop"
+  register: ls_output
+  loop: "{{ hostvars[inventory_hostname].containers }}"
+
 - name: Copy atop executable to containers
-  shell: lxc file push /usr/bin/atop {{ item }}/usr/bin/
+  shell: lxc file push /usr/bin/atop {{ item.item }}/usr/bin/
+  when: "'atop' not in item.stdout"
   args:
     executable: /bin/bash
-  loop: "{{ hostvars[inventory_hostname].containers }}"
+  with_items: "{{ ls_output.results }}"
+
+# repitiendo la copia del ejecutable - da fallo cuando se está ejecutando atop
+#- name: Copy atop executable to containers
+#  shell: lxc file push /usr/bin/atop {{ item }}/usr/bin/
+#  args:
+#    executable: /bin/bash
+#  loop: "{{ hostvars[inventory_hostname].containers }}"
 
 - name: Copy BDWatchdog to containers
   shell: lxc file push -r BDWatchdog/ {{ item }}/root
@@ -30,12 +43,29 @@
     executable: /bin/bash
   loop: "{{ hostvars[inventory_hostname].containers }}"
 
-- name: Install requirements in containers and start sending metrics to opentsdb
+- name: Install requirements in containers
   shell: lxc exec {{ item }} -- sudo bash -c "echo '{{ hostvars[groups['server'][0]].host_ip }} opentsdb' >> /etc/hosts &&
     apt-get -y update &&
     apt-get install -y --no-install-recommends python3-pip &&
     cd /root/BDWatchdog/MetricsFeeder &&
-    pip3 install -r requirements.txt &&
-    bash scripts/run_atop_stream.sh"
+    pip3 install -r requirements.txt"
   loop: "{{ hostvars[inventory_hostname].containers }}"
-    
+  
+- name: Tmux session check in containers
+  shell: lxc exec {{ item }} -- sudo bash -c "tmux ls"
+  register: tmux_output
+  loop: "{{ hostvars[inventory_hostname].containers }}"
+  ignore_errors: yes
+  #no_log: True
+  
+  
+- name: Start sending metrics to opentsdb
+  shell: lxc exec {{ item.item }} -- sudo bash -c "cd /root/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream.sh"
+  when: "'ATOP' not in item.stdout"
+  with_items: "{{ tmux_output.results }}"
+  
+# sin evitar la ejecucion cuando ya hay una sesion ATOP
+#- name: Start sending metrics to opentsdb
+#  shell: lxc exec {{ item }} -- sudo bash -c "cd /root/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream.sh"
+#  loop: "{{ hostvars[inventory_hostname].containers }}"  
+  

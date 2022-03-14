@@ -3,4 +3,3 @@ http_user: "Oscar Castellanos Rodriguez"
 http_host: "ocr-aisi2021-vhost"
 http_conf: "ocr-aisi2021.conf"
 default_site: "000-default.conf"
-#java_home: /usr/lib/jvm/java-1.8.0-openjdk-amd64

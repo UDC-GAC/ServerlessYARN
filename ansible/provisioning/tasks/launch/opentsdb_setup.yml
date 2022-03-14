@@ -1,6 +1,29 @@
 
-### start OPENTSDB y EVE_TIMES
-## puedo hacer un when : no haya sesiones de OPENTSDB y EVE_TIMES
+- name: Tmux session check
+  shell: tmux ls
+  register: tmux_output
+  ignore_errors: yes
+  #no_log: True
+
+- name: Starting Services - TIMESTAMPING Service
+  shell: bash start.sh 
+  when: "'EVE_TIMES' not in tmux_output.stdout"
+  args:
+    chdir: /root/BDWatchdog/deployment/timestamps
+    executable: /bin/bash
+
+- name: Starting Services - OPENTSDB
+  shell: bash start.sh 
+  when: "'OPENTSDB' not in tmux_output.stdout"
+  args:
+    chdir: /root/BDWatchdog/deployment/metrics
+    executable: /bin/bash
+
+- name: Starting Services - Web Server
+  shell: bash start.sh 
+  args:
+    chdir: /root/BDWatchdog/deployment/webviewer
+    executable: /bin/bash
 
 - name: Copy Script for creating metrics
   copy:

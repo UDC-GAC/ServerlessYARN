@@ -54,26 +54,37 @@
     executable: /bin/bash
     
 # Starting Services
+
+- name: Tmux session check
+  shell: tmux ls
+  register: tmux_output
+  ignore_errors: yes
+  #no_log: True
+
 - name: Starting Services - orchestrator
   shell: bash scripts/services/start_orchestrator.sh 
+  when: "'Orchestrator' not in tmux_output.stdout"
   args:
     chdir: /root/ServerlessContainers
     executable: /bin/bash
     
 - name: Starting Services - database snapshoter
   shell: bash scripts/services/start_database_snapshoter.sh 
+  when: "'DatabaseSnapshoter' not in tmux_output.stdout"
   args:
     chdir: /root/ServerlessContainers
     executable: /bin/bash
     
 - name: Starting Services - structure snapshoter
   shell: bash scripts/services/start_structure_snapshoter.sh 
+  when: "'StructuresSnapshoter' not in tmux_output.stdout"
   args:
     chdir: /root/ServerlessContainers
     executable: /bin/bash
     
 - name: Starting Services - guardian
   shell: bash scripts/services/start_guardian.sh 
+  when: "'Guardian' not in tmux_output.stdout"
   args:
     chdir: /root/ServerlessContainers
     executable: /bin/bash
@@ -86,6 +97,7 @@
     
 - name: Starting Services - scaler
   shell: bash scripts/services/start_scaler.sh 
+  when: "'Scaler' not in tmux_output.stdout"
   args:
     chdir: /root/ServerlessContainers
     executable: /bin/bash

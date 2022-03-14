@@ -21,9 +21,15 @@
     path: /root/development/lxd.crt
     privatekey_path: /root/development/lxd.key
     provider: selfsigned
-    
+
+
+- name: Check if certificate already added to trust store
+  shell: lxc config trust list -f csv | wc -l  
+  register: lxc_trust_output
+        
 - name: Setup lxd (1)
   shell: lxc config trust add /root/development/lxd.crt
+  when: lxc_trust_output.stdout | int == 0
   args:
     executable: /bin/bash
     

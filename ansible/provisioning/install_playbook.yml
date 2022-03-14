@@ -1,6 +1,7 @@
 # Setup server
 - hosts: localhost
   become: yes
+  gather_facts: no
 
   vars_files:
     - vars/main.yml
@@ -17,6 +18,7 @@
 # Setup nodes
 - hosts: nodes
   become: yes
+  gather_facts: no
 
   vars_files:
     - vars/main.yml

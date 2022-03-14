@@ -15,8 +15,16 @@
     line: export PYTHONPATH=:/root/ServerlessContainers/scripts/
 
 # Starting Node Rescaler
+
+- name: Tmux session check
+  shell: tmux ls
+  register: tmux_output
+  ignore_errors: yes
+  #no_log: True
+
 - name: Starting Services - node rescaler
   shell: bash scripts/services/start_node_rescaler.sh 
+  when: "'NodeRescaler' not in tmux_output.stdout"
   args:
     chdir: /root/ServerlessContainers
     executable: /bin/bash

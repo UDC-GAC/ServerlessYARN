@@ -1,5 +1,11 @@
         
+- name: Check if BDWatchdog directory is already there
+  stat:
+    path: /root/BDWatchdog
+  register: stat_output
+        
 - name: Copy BDWatchdog
+  when: not stat_output.stat.exists
   copy:
     src: bdwatchdog/
     dest: /root/BDWatchdog
@@ -15,6 +21,7 @@
   args:
     chdir: /root/BDWatchdog/deployment/
     executable: /bin/bash
+    creates: /root/BDWatchdog/deployment/metrics/opentsdb/build/tsdb
     
 ## puede estar bien para asegurarse de que esten instalados?
 
