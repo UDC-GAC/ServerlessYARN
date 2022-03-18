@@ -42,3 +42,13 @@
   shell: lxc config set core.trust_password TRUE
   args:
     executable: /bin/bash
+
+# checkear antes de init lxd si se hizo? (lxc network list -> lxdbr0 not in output)
+    
+- name: Init lxd
+  shell: lxd init --auto
+  
+  
+  
+  
+

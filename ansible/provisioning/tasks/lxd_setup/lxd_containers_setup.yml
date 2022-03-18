@@ -17,9 +17,37 @@
     name: atopacct 
     state: stopped 
 
+## Start containers
+
+- name: Check containers status
+  shell: lxc list -f csv 
+  register: lxc_list_output
+  args:
+    executable: /bin/bash
+  
+- name: Init containers
+  shell: lxc init ubuntu:20.04 {{ item }}
+  when: "item not in lxc_list_output.stdout"
+  loop: "{{ hostvars[inventory_hostname].containers }}"
+  
+- name: Check again containers status
+  shell: lxc list -f csv | grep {{ item }}
+  register: lxc_list_output
+  loop: "{{ hostvars[inventory_hostname].containers }}"
+  ignore_errors: yes
+  args:
+    executable: /bin/bash
+  
+- name: Start containers
+  shell: lxc start {{ item.item }}
+  when: "'STOPPED' in item.stdout"
+  with_items: "{{ lxc_list_output.results }}"
+  
+## Send metrics  
 - name: Atop executable check in containers
   shell: lxc exec {{ item }} -- sudo bash -c "ls /usr/bin/atop"
   register: ls_output
+  ignore_errors: yes
   loop: "{{ hostvars[inventory_hostname].containers }}"
 
 - name: Copy atop executable to containers
