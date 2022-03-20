@@ -22,7 +22,6 @@
     line: export PYTHONPATH=:/root/ServerlessContainers/
 
 # Initializing State Database
-#### creo que falla sin hacer un src a pythonpath.sh primero
 - name: Initializing State Database - services
   shell: python3 quickstart/StateDatabase/services.py
   args:

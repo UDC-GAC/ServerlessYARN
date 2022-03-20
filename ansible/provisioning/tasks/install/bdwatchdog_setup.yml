@@ -23,8 +23,8 @@
     executable: /bin/bash
     creates: /root/BDWatchdog/deployment/metrics/opentsdb/build/tsdb
     
+    
 ## puede estar bien para asegurarse de que esten instalados?
-
 #- name: Update apt packages
 #  become: true
 #  apt:
