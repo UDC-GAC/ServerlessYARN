@@ -18,10 +18,13 @@
 # Setup nodes
 - hosts: nodes
   become: yes
-  gather_facts: no
+  gather_facts: yes
 
   vars_files:
     - vars/main.yml
+
+  vars:
+    - lxd_key_name: "lxd-{{ ansible_hostname }}"
 
   handlers:
     - import_tasks: handlers/main.yml

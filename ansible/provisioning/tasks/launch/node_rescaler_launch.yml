@@ -2,17 +2,17 @@
 - name: Prepare Environment for scripts - BDWATCHDOG_PATH
   lineinfile:
     path: /etc/environment
-    line: export BDWATCHDOG_PATH=/root/BDWatchdog/
+    line: "export BDWATCHDOG_PATH={{ bdwatchdog_path }}/"
 
 - name: Prepare Environment for scripts - RESCALING_PATH
   lineinfile:
     path: /etc/environment
-    line: export RESCALING_PATH=/root/ServerlessContainers/scripts/
+    line: "export RESCALING_PATH={{ serverless_containers_path }}/scripts/"
 
 - name: Prepare Environment for scripts - PYTHONPATH
   lineinfile:
     path: /etc/environment
-    line: export PYTHONPATH=:/root/ServerlessContainers/scripts/
+    line: "export PYTHONPATH=:{{ serverless_containers_path }}/scripts/"
 
 # Starting Node Rescaler
 
@@ -22,10 +22,12 @@
   ignore_errors: yes
   #no_log: True
 
-- name: Starting Services - node rescaler
-  shell: bash scripts/services/start_node_rescaler.sh 
-  when: "'NodeRescaler' not in tmux_output.stdout"
+- name: Starting Services - node scaler
+  #shell: bash scripts/services/start_node_rescaler.sh
+  shell: bash scripts/services/node_scaler/start_tmux.sh
+  #when: "'NodeRescaler' not in tmux_output.stdout"
+  when: "'node_scaler' not in tmux_output.stdout"
   args:
-    chdir: /root/ServerlessContainers
+    chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
 

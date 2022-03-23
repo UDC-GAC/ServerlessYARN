@@ -4,31 +4,46 @@
     name: lxd
     state: latest
 
-- name: Create development directory
-  file:
-    path: /root/development
-    state: directory
+#- name: Create key path directory
+#  file:
+#    path: "{{ lxd_key_path }}"
+#    state: directory
 
 # ansible-galaxy collection install community.crypto
 
-- name: Generate an OpenSSL private key with the default values (4096 bits, RSA)
-  community.crypto.openssl_privatekey:
-    path: /root/development/lxd.key
+### Install OpenSSL key manually
+#- name: Generate an OpenSSL private key with the default values (4096 bits, RSA)
+#  community.crypto.openssl_privatekey:
+#    path: "{{ lxd_key_path }}/{{ lxd_key_name }}.key"
 
-- name: Generate a OpenSSL certificate
-  community.crypto.x509_certificate:
-    state: present
-    path: /root/development/lxd.crt
-    privatekey_path: /root/development/lxd.key
-    provider: selfsigned
+#- name: Generate an OpenSSL certificate
+#  community.crypto.x509_certificate:
+#    state: present
+#    path: "{{ lxd_key_path }}/{{ lxd_key_name }}.crt"
+#    privatekey_path: "{{ lxd_key_path }}/{{ lxd_key_name }}.key"
+#    provider: selfsigned
+
+## Install OpenSSL key with provided script
+
+- name: Create OpenSSL key and certificate
+  #vars:
+  #  lxd_key_name: "lxd-{{ ansible_hostname }}"
+  shell: bash scripts/lxd/create_lxd_key.sh
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+    creates: "{{ lxd_key_path }}/{{ lxd_key_name }}.crt"
 
 
+## Add certificate to trust store
 - name: Check if certificate already added to trust store
   shell: lxc config trust list -f csv | wc -l  
   register: lxc_trust_output
         
 - name: Setup lxd (1)
-  shell: lxc config trust add /root/development/lxd.crt
+  #vars:
+  #  lxd_key_name: "lxd-{{ ansible_hostname }}"
+  shell: "lxc config trust add {{ lxd_key_path }}/{{ lxd_key_name }}.crt"
   when: lxc_trust_output.stdout | int == 0
   args:
     executable: /bin/bash

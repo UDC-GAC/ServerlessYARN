@@ -9,30 +9,30 @@
   shell: bash start.sh 
   when: "'EVE_TIMES' not in tmux_output.stdout"
   args:
-    chdir: /root/BDWatchdog/deployment/timestamps
+    chdir: "{{ bdwatchdog_path }}/deployment/timestamps"
     executable: /bin/bash
 
 - name: Starting Services - OPENTSDB
   shell: bash start.sh 
   when: "'OPENTSDB' not in tmux_output.stdout"
   args:
-    chdir: /root/BDWatchdog/deployment/metrics
+    chdir: "{{ bdwatchdog_path }}/deployment/metrics"
     executable: /bin/bash
 
 - name: Starting Services - Web Server
   shell: bash start.sh 
   args:
-    chdir: /root/BDWatchdog/deployment/webviewer
+    chdir: "{{ bdwatchdog_path }}/deployment/webviewer"
     executable: /bin/bash
 
 - name: Copy Script for creating metrics
   copy:
-    src: /root/ServerlessContainers/scripts/databases/create-rescaler-opentsdb-metrics.sh
-    dest: /root/BDWatchdog/deployment/metrics/opentsdb/create-rescaler-opentsdb-metrics.sh
+    src: "{{ serverless_containers_path }}/scripts/databases/create-rescaler-opentsdb-metrics.sh"
+    dest: "{{ bdwatchdog_path }}/deployment/metrics/opentsdb/create-rescaler-opentsdb-metrics.sh"
     remote_src: yes
     
 - name: Run metrics script
   shell: bash create-rescaler-opentsdb-metrics.sh
   args:
-    chdir: /root/BDWatchdog/deployment/metrics/opentsdb/
+    chdir: "{{ bdwatchdog_path }}/deployment/metrics/opentsdb/"
     executable: /bin/bash

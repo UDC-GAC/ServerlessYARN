@@ -9,47 +9,47 @@
 - name: Prepare Environment for scripts - BDWATCHDOG_PATH
   lineinfile:
     path: /etc/environment
-    line: export BDWATCHDOG_PATH=/root/BDWatchdog/
+    line: "export BDWATCHDOG_PATH={{ bdwatchdog_path }}"
 
 - name: Prepare Environment for scripts - RESCALING_PATH
   lineinfile:
     path: /etc/environment
-    line: export RESCALING_PATH=/root/ServerlessContainers/scripts/
+    line: "export RESCALING_PATH={{ serverless_containers_path }}/scripts/"
 
 - name: Prepare Environment for scripts - PYTHONPATH
   lineinfile:
     path: /etc/environment
-    line: export PYTHONPATH=:/root/ServerlessContainers/
+    line: "export PYTHONPATH=:{{ serverless_containers_path }}"
 
 # Initializing State Database
 - name: Initializing State Database - services
   shell: python3 quickstart/StateDatabase/services.py
   args:
-    chdir: /root/ServerlessContainers
+    chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
 - name: Initializing State Database - events and requests
   shell: python3 quickstart/StateDatabase/events_and_requests.py
   args:
-    chdir: /root/ServerlessContainers
+    chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
 - name: Initializing State Database - rules
   shell: python3 quickstart/StateDatabase/rules.py
   args:
-    chdir: /root/ServerlessContainers
+    chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
 - name: Initializing State Database - limits
   shell: python3 quickstart/StateDatabase/limits.py
   args:
-    chdir: /root/ServerlessContainers
+    chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
 - name: Initializing State Database - structures
   shell: python3 quickstart/StateDatabase/structures.py
   args:
-    chdir: /root/ServerlessContainers
+    chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
 # Starting Services
@@ -61,48 +61,58 @@
   #no_log: True
 
 - name: Starting Services - orchestrator
-  shell: bash scripts/services/start_orchestrator.sh 
-  when: "'Orchestrator' not in tmux_output.stdout"
+  #shell: bash scripts/services/start_orchestrator.sh 
+  shell: bash scripts/services/orchestrator/start_tmux.sh 
+  #when: "'Orchestrator' not in tmux_output.stdout"
+  when: "'orchestrator' not in tmux_output.stdout"
   args:
-    chdir: /root/ServerlessContainers
+    chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
 - name: Starting Services - database snapshoter
-  shell: bash scripts/services/start_database_snapshoter.sh 
-  when: "'DatabaseSnapshoter' not in tmux_output.stdout"
+  #shell: bash scripts/services/start_database_snapshoter.sh 
+  shell: bash scripts/services/database_snapshoter/start_tmux.sh 
+  #when: "'DatabaseSnapshoter' not in tmux_output.stdout"
+  when: "'database_snapshoter' not in tmux_output.stdout"
   args:
-    chdir: /root/ServerlessContainers
+    chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
 - name: Starting Services - structure snapshoter
-  shell: bash scripts/services/start_structure_snapshoter.sh 
-  when: "'StructuresSnapshoter' not in tmux_output.stdout"
+  #shell: bash scripts/services/start_structure_snapshoter.sh
+  shell: bash scripts/services/structure_snapshoter/start_tmux.sh 
+  #when: "'StructuresSnapshoter' not in tmux_output.stdout"
+  when: "'structure_snapshoter' not in tmux_output.stdout"
   args:
-    chdir: /root/ServerlessContainers
+    chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
 - name: Starting Services - guardian
-  shell: bash scripts/services/start_guardian.sh 
-  when: "'Guardian' not in tmux_output.stdout"
+  #shell: bash scripts/services/start_guardian.sh 
+  shell: bash scripts/services/guardian/start_tmux.sh 
+  #when: "'Guardian' not in tmux_output.stdout"
+  when: "'guardian' not in tmux_output.stdout"
   args:
-    chdir: /root/ServerlessContainers
+    chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
    
 - name: Starting Services - Activate guardian
-  shell: bash scripts/Orchestrator/Guardian/activate_guardian.sh 
+  shell: bash scripts/orchestrator/Guardian/activate_guardian.sh 
   args:
-    chdir: /root/ServerlessContainers
+    chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
 - name: Starting Services - scaler
-  shell: bash scripts/services/start_scaler.sh 
-  when: "'Scaler' not in tmux_output.stdout"
+  #shell: bash scripts/services/start_scaler.sh
+  shell: bash scripts/services/scaler/start_tmux.sh
+  #when: "'Scaler' not in tmux_output.stdout"
+  when: "'scaler' not in tmux_output.stdout"
   args:
-    chdir: /root/ServerlessContainers
+    chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
  
 - name: Starting Services - Activate scaler
-  shell: bash scripts/Orchestrator/Scaler/activate_scaler.sh
+  shell: bash scripts/orchestrator/Scaler/activate_scaler.sh
   args:
-    chdir: /root/ServerlessContainers
+    chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash   

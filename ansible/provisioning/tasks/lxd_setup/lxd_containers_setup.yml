@@ -65,9 +65,9 @@
 #  loop: "{{ hostvars[inventory_hostname].containers }}"
 
 - name: Copy BDWatchdog to containers
-  shell: lxc file push -r BDWatchdog/ {{ item }}/root
+  shell: "lxc file push -r BDWatchdog/ {{ item }}{{ installation_path }}"
   args:
-    chdir: /root/
+    chdir: "{{ installation_path }}"
     executable: /bin/bash
   loop: "{{ hostvars[inventory_hostname].containers }}"
 
@@ -75,7 +75,7 @@
   shell: lxc exec {{ item }} -- sudo bash -c "echo '{{ hostvars[groups['server'][0]].host_ip }} opentsdb' >> /etc/hosts &&
     apt-get -y update &&
     apt-get install -y --no-install-recommends python3-pip &&
-    cd /root/BDWatchdog/MetricsFeeder &&
+    cd {{ bdwatchdog_path }}/MetricsFeeder &&
     pip3 install -r requirements.txt"
   loop: "{{ hostvars[inventory_hostname].containers }}"
   
@@ -88,7 +88,7 @@
   
   
 - name: Start sending metrics to opentsdb
-  shell: lxc exec {{ item.item }} -- sudo bash -c "cd /root/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream.sh"
+  shell: lxc exec {{ item.item }} -- sudo bash -c "cd {{ bdwatchdog_path }}/MetricsFeeder && bash scripts/run_atop_stream.sh"
   when: "'ATOP' not in item.stdout"
   with_items: "{{ tmux_output.results }}"
   

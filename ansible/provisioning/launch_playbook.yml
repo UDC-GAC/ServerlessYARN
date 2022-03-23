@@ -22,6 +22,8 @@
     - vars/main.yml
 
   #environment:
+    #LXD_KEY_PATH: "{{ lxd_key_path }}"
+    #LXD_KEY_NAME: "{{ lxd_key_name }}"
     #BDWATCHDOG_PATH: /root/BDWatchdog/
     #RESCALING_PATH: /root/ServerlessContainers/scripts/
     #PYTHONPATH: /root/BDWatchdog/:/root/ServerlessContainers/scripts/

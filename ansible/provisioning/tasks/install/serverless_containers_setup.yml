@@ -6,18 +6,18 @@
 
 - name: Check if ServerlessContainers directory is already there
   stat:
-    path: /root/ServerlessContainers
+    path: "{{ serverless_containers_path }}"
   register: stat_output
 
 - name: Copy ServerlessContainers
   when: not stat_output.stat.exists
   copy:
     src: ServerlessContainers/
-    dest: /root/ServerlessContainers    
+    dest: "{{ serverless_containers_path }}"
     
 - name: Install specified python requirements
   pip:
-    requirements: /root/ServerlessContainers/requirements.txt
+    requirements: "{{ serverless_containers_path }}/requirements.txt"
     
 - name: Install gunicorn
   package:

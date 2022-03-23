@@ -1,5 +1,6 @@
-# Modify variables http_user, http_host y http_conf accordingly
-http_user: "Oscar Castellanos Rodriguez"
-http_host: "ocr-aisi2021-vhost"
-http_conf: "ocr-aisi2021.conf"
-default_site: "000-default.conf"
+installation_path: /root
+bdwatchdog_path: /root/BDWatchdog
+serverless_containers_path: /root/ServerlessContainers
+#lxd_key_path: /root/development
+lxd_key_path: "{{ serverless_containers_path }}"
+#lxd_key_name: lxd-serv-dev-0

@@ -1,27 +1,27 @@
         
 - name: Check if BDWatchdog directory is already there
   stat:
-    path: /root/BDWatchdog
+    path: "{{ bdwatchdog_path }}"
   register: stat_output
         
 - name: Copy BDWatchdog
   when: not stat_output.stat.exists
   copy:
     src: bdwatchdog/
-    dest: /root/BDWatchdog
+    dest: "{{ bdwatchdog_path }}"
     
 - name: Create a BDWatchdog data directory
   file:
-    path: /root/BDWatchdog_data
+    path: "{{ installation_path }}/BDWatchdog_data"
     state: directory
     #mode: '0755'
 
 - name: Install BDWatchdog
   shell: bash install.sh
   args:
-    chdir: /root/BDWatchdog/deployment/
+    chdir: "{{ bdwatchdog_path }}/deployment/"
     executable: /bin/bash
-    creates: /root/BDWatchdog/deployment/metrics/opentsdb/build/tsdb
+    creates: "{{ bdwatchdog_path }}/deployment/metrics/opentsdb/build/tsdb"
     
     
 ## puede estar bien para asegurarse de que esten instalados?
