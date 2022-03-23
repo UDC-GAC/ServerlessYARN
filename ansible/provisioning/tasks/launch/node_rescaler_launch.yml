@@ -23,9 +23,7 @@
   #no_log: True
 
 - name: Starting Services - node scaler
-  #shell: bash scripts/services/start_node_rescaler.sh
   shell: bash scripts/services/node_scaler/start_tmux.sh
-  #when: "'NodeRescaler' not in tmux_output.stdout"
   when: "'node_scaler' not in tmux_output.stdout"
   args:
     chdir: "{{ serverless_containers_path }}"

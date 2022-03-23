@@ -45,13 +45,33 @@
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-    
+ 
+# Using quickstart script    
 - name: Initializing State Database - structures
   shell: python3 quickstart/StateDatabase/structures.py
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
+## Using new script 
+#-> aún lo estoy ajustando para usarlo en lugar del anterior y así usar los contenedores definidos en el ansible.inventory   
+
+#- name: Copy add_containers script
+#  copy:
+#    src: stateDatabase/add_containers.py
+#    dest: "{{ serverless_containers_path }}/quickstart/StateDatabase/add_containers.py"
+
+#- name: Initializing State Database - structures
+#  shell: "python3 quickstart/StateDatabase/add_containers.py app1 {{ hostvars[groups['nodes'][item]].inventory_hostname }} {{ hostvars[groups['nodes'][item]].containers | replace('[','') | replace(']','') }}"
+  #debug: 
+  #  msg: "An item: {{ hostvars[groups['nodes'][item]].containers | replace('[','') | replace(']','') }}"
+#  args:
+#    chdir: "{{ serverless_containers_path }}"
+#    executable: /bin/bash
+  #with_items: "{{ hostvars[groups['nodes']] | length }}"
+#  with_items:
+#   - 0
+ 
 # Starting Services
 
 - name: Tmux session check
@@ -61,51 +81,41 @@
   #no_log: True
 
 - name: Starting Services - orchestrator
-  #shell: bash scripts/services/start_orchestrator.sh 
-  shell: bash scripts/services/orchestrator/start_tmux.sh 
-  #when: "'Orchestrator' not in tmux_output.stdout"
+  shell: bash scripts/services/orchestrator/start_tmux.sh
   when: "'orchestrator' not in tmux_output.stdout"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
 - name: Starting Services - database snapshoter
-  #shell: bash scripts/services/start_database_snapshoter.sh 
-  shell: bash scripts/services/database_snapshoter/start_tmux.sh 
-  #when: "'DatabaseSnapshoter' not in tmux_output.stdout"
+  shell: bash scripts/services/database_snapshoter/start_tmux.sh
   when: "'database_snapshoter' not in tmux_output.stdout"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
 - name: Starting Services - structure snapshoter
-  #shell: bash scripts/services/start_structure_snapshoter.sh
-  shell: bash scripts/services/structure_snapshoter/start_tmux.sh 
-  #when: "'StructuresSnapshoter' not in tmux_output.stdout"
+  shell: bash scripts/services/structure_snapshoter/start_tmux.sh
   when: "'structure_snapshoter' not in tmux_output.stdout"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
 - name: Starting Services - guardian
-  #shell: bash scripts/services/start_guardian.sh 
-  shell: bash scripts/services/guardian/start_tmux.sh 
-  #when: "'Guardian' not in tmux_output.stdout"
+  shell: bash scripts/services/guardian/start_tmux.sh
   when: "'guardian' not in tmux_output.stdout"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
    
 - name: Starting Services - Activate guardian
-  shell: bash scripts/orchestrator/Guardian/activate_guardian.sh 
+  shell: bash scripts/orchestrator/Guardian/activate_guardian.sh
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
 - name: Starting Services - scaler
-  #shell: bash scripts/services/start_scaler.sh
   shell: bash scripts/services/scaler/start_tmux.sh
-  #when: "'Scaler' not in tmux_output.stdout"
   when: "'scaler' not in tmux_output.stdout"
   args:
     chdir: "{{ serverless_containers_path }}"
@@ -115,4 +125,18 @@
   shell: bash scripts/orchestrator/Scaler/activate_scaler.sh
   args:
     chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash   
+    executable: /bin/bash
+    
+- name: Starting Services - refeeder
+  shell: bash scripts/services/refeeder/start_tmux.sh
+  when: "'refeeder' not in tmux_output.stdout"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+    
+- name: Starting Services - sanity checker
+  shell: bash scripts/services/sanity_checker/start_tmux.sh
+  when: "'sanity_checker' not in tmux_output.stdout"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash 

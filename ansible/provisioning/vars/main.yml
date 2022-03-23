@@ -1,6 +1,6 @@
 installation_path: /root
-bdwatchdog_path: /root/BDWatchdog
-serverless_containers_path: /root/ServerlessContainers
+bdwatchdog_path: "{{ installation_path }}/BDWatchdog"
+serverless_containers_path: "{{ installation_path }}/ServerlessContainers"
 #lxd_key_path: /root/development
 lxd_key_path: "{{ serverless_containers_path }}"
 #lxd_key_name: lxd-serv-dev-0

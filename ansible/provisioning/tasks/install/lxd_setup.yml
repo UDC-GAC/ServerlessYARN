@@ -9,7 +9,7 @@
 #    path: "{{ lxd_key_path }}"
 #    state: directory
 
-# ansible-galaxy collection install community.crypto
+### ansible-galaxy collection install community.crypto
 
 ### Install OpenSSL key manually
 #- name: Generate an OpenSSL private key with the default values (4096 bits, RSA)
@@ -58,7 +58,7 @@
   args:
     executable: /bin/bash
 
-# checkear antes de init lxd si se hizo? (lxc network list -> lxdbr0 not in output)  
+# checkear antes de init lxd si se hizo? (lxc network list -> lxdbr0 not in output)
 - name: Init lxd
   shell: lxd init --auto
   

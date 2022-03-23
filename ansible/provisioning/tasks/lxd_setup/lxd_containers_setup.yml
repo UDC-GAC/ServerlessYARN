@@ -57,13 +57,6 @@
     executable: /bin/bash
   with_items: "{{ ls_output.results }}"
 
-# repitiendo la copia del ejecutable - da fallo cuando se está ejecutando atop
-#- name: Copy atop executable to containers
-#  shell: lxc file push /usr/bin/atop {{ item }}/usr/bin/
-#  args:
-#    executable: /bin/bash
-#  loop: "{{ hostvars[inventory_hostname].containers }}"
-
 - name: Copy BDWatchdog to containers
   shell: "lxc file push -r BDWatchdog/ {{ item }}{{ installation_path }}"
   args:
@@ -86,14 +79,8 @@
   ignore_errors: yes
   #no_log: True
   
-  
 - name: Start sending metrics to opentsdb
   shell: lxc exec {{ item.item }} -- sudo bash -c "cd {{ bdwatchdog_path }}/MetricsFeeder && bash scripts/run_atop_stream.sh"
   when: "'ATOP' not in item.stdout"
   with_items: "{{ tmux_output.results }}"
-  
-# sin evitar la ejecucion cuando ya hay una sesion ATOP
-#- name: Start sending metrics to opentsdb
-#  shell: lxc exec {{ item }} -- sudo bash -c "cd /root/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream.sh"
-#  loop: "{{ hostvars[inventory_hostname].containers }}"  
   
