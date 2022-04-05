@@ -46,32 +46,27 @@
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
  
-# Using quickstart script    
-- name: Initializing State Database - structures
-  shell: python3 quickstart/StateDatabase/structures.py
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-    
-## Using new script 
-#-> aún lo estoy ajustando para usarlo en lugar del anterior y así usar los contenedores definidos en el ansible.inventory   
-
-#- name: Copy add_containers script
-#  copy:
-#    src: stateDatabase/add_containers.py
-#    dest: "{{ serverless_containers_path }}/quickstart/StateDatabase/add_containers.py"
-
+## Structures Using quickstart script    
 #- name: Initializing State Database - structures
-#  shell: "python3 quickstart/StateDatabase/add_containers.py app1 {{ hostvars[groups['nodes'][item]].inventory_hostname }} {{ hostvars[groups['nodes'][item]].containers | replace('[','') | replace(']','') }}"
-  #debug: 
-  #  msg: "An item: {{ hostvars[groups['nodes'][item]].containers | replace('[','') | replace(']','') }}"
+#  shell: python3 quickstart/StateDatabase/structures.py
 #  args:
 #    chdir: "{{ serverless_containers_path }}"
 #    executable: /bin/bash
-  #with_items: "{{ hostvars[groups['nodes']] | length }}"
-#  with_items:
-#   - 0
+    
+## Structures Using new script 
+- name: Copy add_containers script
+  copy:
+    src: stateDatabase/add_containers.py
+    dest: "{{ serverless_containers_path }}/quickstart/StateDatabase/add_containers.py"
+
+- name: Initializing State Database - structures
+  shell: "python3 quickstart/StateDatabase/add_containers.py app1 {{ item }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }}"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+  with_items: "{{ groups['nodes'] }}"
  
+
 # Starting Services
 
 - name: Tmux session check
