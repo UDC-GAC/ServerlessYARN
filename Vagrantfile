@@ -5,7 +5,7 @@ Vagrant.configure("2") do |config|
 
   #config.vm.box = "hashicorp/bionic64"
   config.vm.box = "bento/ubuntu-20.04" 
-    
+
   # hostmanager plugin
   config.hostmanager.enabled = true
   config.hostmanager.manage_host = true
@@ -24,16 +24,23 @@ Vagrant.configure("2") do |config|
   	end
   end	
 
-  # Client Node
-  config.vm.define "node1", primary: true do |node1|
-  	node1.vm.host_name = "host0"
-  	node1.vm.provision "shell", path: "provision/nodes.sh"
-  	node1.vm.network "private_network", ip: "192.168.56.101"
-    	node1.vm.provider "virtualbox" do |vb|
-  	  	vb.name = "Node1 - ServerlessContainers"
-  		vb.cpus = 4
-  		vb.memory = "4096"
-  	end		
-  end	
-  
+
+  ## N Client Nodes
+  N = 1
+  CPUS_PER_NODE = 4
+  MEMORY_PER_NODE = 4096
+
+  (0..N-1).each do |i|
+    config.vm.define "node#{i}" do |node|
+	node.vm.hostname = "host#{i}"
+	node.vm.provision "shell", path: "provision/nodes.sh"
+	node.vm.network :private_network, ip: "192.168.56.#{101+i}"
+	node.vm.provider "virtualbox" do |vb|
+  	  	vb.name = "Node#{i} - ServerlessContainers"
+  		vb.cpus = CPUS_PER_NODE
+  		vb.memory = MEMORY_PER_NODE
+  	end
+    end
+  end
+
 end
