@@ -1,0 +1,2 @@
+# You should change the default django secret key
+DJANGO_SECRET_KEY: 'django-insecure-sqy8cfm^_e-=_!4!ftw94k&9fdm*sc41kcjp!@^5hpn^8foii*'
