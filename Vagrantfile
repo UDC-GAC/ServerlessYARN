@@ -17,6 +17,7 @@ Vagrant.configure("2") do |config|
   	server.vm.host_name = "sc-server"
   	server.vm.provision "shell", path: "provision/server.sh"
   	server.vm.network "private_network", ip: "192.168.56.100"	
+  	server.vm.network "forwarded_port", guest: 9000, host: 9000, host_ip: "127.0.0.1"
   	server.vm.provider "virtualbox" do |vb|
   	  	vb.name = "Server - ServerlessContainers"
   		vb.cpus = 2

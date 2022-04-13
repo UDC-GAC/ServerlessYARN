@@ -1,0 +1,13 @@
+- name: Tmux session check
+  shell: tmux ls
+  register: tmux_output
+  ignore_errors: yes
+  #no_log: True
+
+- name: Starting Services - web_interface
+  shell: "bash start_tmux.sh {{ web_interface_port }}"
+  when: "'web_interface' not in tmux_output.stdout"
+  args:
+    chdir: "{{ web_interface_path }}"
+    executable: /bin/bash
+

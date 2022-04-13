@@ -12,6 +12,7 @@
     - import_tasks: tasks/launch/couchdb_launch.yml
     - import_tasks: tasks/launch/opentsdb_setup.yml
     - import_tasks: tasks/launch/serverless_containers_launch.yml
+    - import_tasks: tasks/launch/web_interface_launch.yml
     
 # Setup nodes
 - hosts: nodes
