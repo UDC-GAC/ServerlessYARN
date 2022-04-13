@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+
+<HR>
+
+<!-- MENU -->
+ <div class="vertical-menu">
+  <a href="{% url 'index' %}">Home</a>
+  <a href="{% url 'structures' %}">Structures</a>
+  <a href="{% url 'containers' %}">Containers</a>
+  <a href="{% url 'hosts' %}">Hosts</a>
+  <a href="{% url 'apps' %}">Apps</a>
+  <a href="{% url 'services' %}">Services</a>
+  <a href="{% url 'rules' %}" class="active">Rules</a>
+</div> 
+
+<div class="content">
+    
+<H4>Rules</H4>
+  <ul id="tabs">
+    {% for resource in resources %}
+    <li>
+    <button class="accordion">{{ resource }}</button>
+	<div class="panel">
+		<p></p>
+		{% for type in types %}
+		<button class="accordion">{{ type }}</button>
+		<div class="panel">
+			<p></p>
+			{% for item in data %}
+    		{% if item.resource == resource and item.generates == type %}
+				
+    		<button class="accordion">{{ item.name }}</button>
+			<div class="panel">
+  				<p>Active: {{ item.active }} </p>
+				{% if item.action.events %} <p> Events: {{ item.action.events }} </p> {% endif %}
+				{% if item.amount %} <p> Amount: {{ item.amount }} </p> {% endif %}
+				{% if item.events_to_remove %} <p> Events to remove: {{ item.events_to_remove }} </p> {% endif %}
+				{% if item.percentage_reduction %} <p> Percentage reduction: {{ item.percentage_reduction }} </p> {% endif %}
+				{% if item.rescale_by %} <p> Rescale by: {{ item.rescale_by }} </p> {% endif %}
+				<p>Rule: {{ item.rule_readable }} </p>
+  			</div>
+
+  			{% endif %}
+    		{% endfor %}
+			<p></p>
+		</div>
+		{% endfor %}
+	</div>    	
+    </li>    
+    {% endfor %}
+  </ul>
+</div>
+<HR> 
+
+{% endblock %}

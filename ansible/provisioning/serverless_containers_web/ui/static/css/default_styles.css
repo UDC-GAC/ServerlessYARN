@@ -1,0 +1,116 @@
+/* Vertical Menu */
+/* Based on https://www.w3schools.com/howto/howto_css_vertical_menu.asp */
+.vertical-menu {
+  width: 200px; /* Set a width if you like */
+}
+
+.vertical-menu a {
+  background-color: #eee; /* Grey background color */
+  color: black; /* Black text color */
+  display: block; /* Make the links appear below each other */
+  padding: 12px; /* Add some padding */
+  text-decoration: none; /* Remove underline from links */
+}
+
+.vertical-menu a:hover {
+  background-color: #ccc; /* Dark grey background on mouse-over */
+}
+
+.vertical-menu a.active {
+  background-color: #04AA6D; /* Add a green color to the "active/current" link */
+  color: white;
+}
+
+.vertical-menu {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  width: 7%;
+  background-color: #f1f1f1;
+  height: 100%; /* Full height */
+  position: fixed; /* Make it stick, even on scroll */
+  overflow: auto; /* Enable scrolling if the sidenav has too much content */
+}
+
+.content {
+  position: absolute;
+  left: 150px;
+}
+
+/* Boxes with hosts */
+/* Based on https://stackoverflow.com/questions/31228601/overflowing-horizontal-list-with-scrollbar*/
+body {
+  margin: 0;
+  padding: 0;
+}
+ul#tabs {
+  border-bottom: 1px solid black;
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  overflow-x: scroll;
+  overflow-y: hidden;
+  width: 100%;
+  /*white-space: nowrap;*/
+}
+ul#tabs::-webkit-scrollbar {
+   display: none;
+}
+ul#tabs li {
+  /*width: 100% !important;*/
+  height: 100% !important;
+  padding-top: 5px;
+  border: 1px solid red;
+  text-align: center;
+  margin: 0;
+  display: inline-block;
+}
+ul#tabs li:hover {
+  /*background: #eee;*/
+  /*color: #00f;*/
+}
+
+/* Accordion list */
+/* Based on https://www.w3schools.com/howto/howto_js_accordion.asp */
+ /* Style the buttons that are used to open and close the accordion panel */
+.accordion {
+  background-color: #eee;
+  color: #444;
+  cursor: pointer;
+  padding: 18px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  outline: none;
+  transition: 0.4s;
+}
+
+/* Add a background color to the button if it is clicked on (add the .active class with JS), and when you move the mouse over it (hover) */
+.active, .accordion:hover {
+  background-color: #ccc;
+}
+
+/* Style the accordion panel. Note: hidden by default */
+.panel {
+  padding: 0 18px;
+  background-color: white;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.2s ease-out;
+}
+
+.accordion:after {
+  content: '\02795'; /* Unicode character for "plus" sign (+) */
+  font-size: 13px;
+  color: #777;
+  float: right;
+  margin-left: 5px;
+}
+
+.accordion.active:after {
+  content: "\2796"; /* Unicode character for "minus" sign (-) */
+}
+
+a {
+  color: blue;
+}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+
+<HR>
+
+<!-- MENU -->
+ <div class="vertical-menu">
+  <a href="{% url 'index' %}">Home</a>
+  <a href="{% url 'structures' %}" class="active">Structures</a>
+  <a href="{% url 'containers' %}">Containers</a>
+  <a href="{% url 'hosts' %}">Hosts</a>
+  <a href="{% url 'apps' %}">Apps</a>
+  <a href="{% url 'services' %}">Services</a>
+  <a href="{% url 'rules' %}">Rules</a>
+</div> 
+
+<div class="content">
+<H4>Containers</H4>
+    {% for item in data %}
+    	{% if item.subtype == 'container' %}
+    		<a class="button" href="{% url 'structure_detail' item.name %}">{{ item.name }}</a>
+    		<HR> 
+    	{% endif %}
+    {% endfor %}
+    
+    
+<H4>Hosts</H4>
+    {% for item in data %}
+    	{% if item.subtype == 'host' %}
+    		<a class="button" href="{% url 'structure_detail' item.name %}">{{ item.name }}</a>
+    		<HR> 
+    	{% endif %}
+    {% endfor %}
+
+
+<H4>Apps</H4>
+    {% for item in data %}
+    	{% if item.subtype == 'application' %}
+    		<a class="button" href="{% url 'structure_detail' item.name %}">{{ item.name }}</a>
+    		<HR> 
+    	{% endif %}
+    {% endfor %}
+   
+</div>
+
+<HR> 
+
+{% endblock %}
+

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+
+<HR>
+
+<!-- MENU -->
+ <div class="vertical-menu">
+  <a href="{% url 'index' %}">Home</a>
+  <a href="{% url 'structures' %}">Structures</a>
+  <a href="{% url 'containers' %}">Containers</a>
+  <a href="{% url 'hosts' %}">Hosts</a>
+  <a href="{% url 'apps' %}">Apps</a>
+  <a href="{% url 'services' %}" class="active">Services</a>
+  <a href="{% url 'rules' %}">Rules</a>
+</div> 
+
+<div class="content">
+    
+<H4>Services</H4>
+  <ul id="tabs">
+    {% for item in data %}
+    <li>
+    <button class="accordion">{{ item.name }}</button>
+  	Heartbeat: {{ item.heartbeat_human }}
+	<div class="panel">
+		<HR>
+  		<p>Config: </p>
+  		{% for config,values in item.config.items %}
+  		<p>{{ config }}:{{ values }}</p>  
+  		{% endfor %}
+	</div>    	
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+<HR> 
+
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+
+<HR>
+
+<!-- MENU -->
+<ul class="vertical-menu">
+  <a href="{% url 'index' %}" class="active">Home</a>
+  <a href="{% url 'structures' %}">Structures</a>
+  <a href="{% url 'containers' %}">Containers</a>
+  <a href="{% url 'hosts' %}">Hosts</a>
+  <a href="{% url 'apps' %}">Apps</a>
+  <a href="{% url 'services' %}">Services</a>
+  <a href="{% url 'rules' %}">Rules</a>
+</ul>
+
+<div class="content">
+
+	<H1>Serverless Containers Web Interface</H1>
+	<HR>
+	<H2>Heartbeat Status: </H2>
+	{% if data.status == 'alive' %} ALIVE
+	{% else %} DEAD
+	{% endif %}
+
+</div>
+
+<HR> 
+
+{% endblock %}

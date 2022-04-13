@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+
+<HR>
+
+<!-- MENU -->
+ <div class="vertical-menu">
+  <a href="{% url 'index' %}">Home</a>
+  <a href="{% url 'structures' %}">Structures</a>
+  <a href="{% url 'containers' %}" class="active">Containers</a>
+  <a href="{% url 'hosts' %}">Hosts</a>
+  <a href="{% url 'apps' %}">Apps</a>
+  <a href="{% url 'services' %}">Services</a>
+  <a href="{% url 'rules' %}">Rules</a>
+</div> 
+
+<div class="content">
+    
+<H4>Containers</H4>
+  <ul id="tabs">
+    {% for item in data %}
+    <li>
+    <button class="accordion">{{ item.name }}</button>
+	<div class="panel">
+		<p>Guard: {{ item.guard }}</p>
+		<p>Guard Policy: {{ item.guard_policy }}</p>
+		<p>Host: {{ item.host }}</p>
+   		<button class="accordion">Resources</button>
+  		<div class="panel">
+  			{% for resource,values in item.resources.items %}
+  		  	<p>{{ resource }}:{{ values }}</p>  
+  			{% endfor %}
+  		</div>
+  		<button class="accordion">Limits</button>
+  		<div class="panel">
+  			{% for resource,values in item.limits.items %}
+  		  	<p>{{ resource }}:{{ values }}</p>  
+  			{% endfor %}
+  		</div>
+  		<a class="button" href="{% url 'structure_detail' item.name %}">Full details</a>
+	</div>
+
+    </li>    
+    {% endfor %}
+  </ul>
+   
+</div>
+<HR> 
+
+{% endblock %}

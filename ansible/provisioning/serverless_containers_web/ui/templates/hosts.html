@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+
+<HR>
+
+<!-- MENU -->
+ <div class="vertical-menu">
+  <a href="{% url 'index' %}">Home</a>
+  <a href="{% url 'structures' %}">Structures</a>
+  <a href="{% url 'containers' %}">Containers</a>
+  <a href="{% url 'hosts' %}" class="active">Hosts</a>
+  <a href="{% url 'apps' %}">Apps</a>
+  <a href="{% url 'services' %}">Services</a>
+  <a href="{% url 'rules' %}">Rules</a>
+</div> 
+
+<div class="content">
+    
+<H4>Hosts</H4>
+  <ul id="tabs">
+    {% for item in data %}
+    <li>
+    <button class="accordion">{{ item.name }}</button>
+	<div class="panel">
+	<p></p>
+   		<button class="accordion">Resources</button>
+  		<div class="panel">
+  			{% for resource,values in item.resources.items %}
+  			{% if resource == "cpu_cores" %}
+  		  		<p>Core Mapping</p>
+  		  		{% for core,mapping in values.items %}
+  		  		<p>{{ core }}:{{ mapping }}</p>
+  		  		{% endfor %}
+  		  		<HR>
+  		  	{% else %}
+  		  		<p>{{ resource }}:{{ values }}</p>
+			{% endif %}
+  			{% endfor %}
+  		</div>
+  		<a class="button" href="{% url 'structure_detail' item.name %}">Full details</a>
+	</div>    	
+    <HR>
+	<HR>
+    Containers:
+    {% for cont in item.containers %}
+    <button class="accordion">{{ cont.name }}</button>
+	<div class="panel">
+  		<p>Guard: {{ cont.guard }}</p>
+  		<p>Guard Policy: {{ cont.guard_policy }}</p>
+   		<button class="accordion">Resources</button>
+  		<div class="panel">
+  			{% for resource,values in cont.resources.items %}
+  		  	<p>{{ resource }}:{{ values }}</p>  
+  			{% endfor %}
+  		</div>
+  		<button class="accordion">Limits</button>
+  		<div class="panel">
+  			{% for resource,values in cont.limits.items %}
+  		  	<p>{{ resource }}:{{ values }}</p>  
+  			{% endfor %}
+  		</div>
+		<a class="button" href="{% url 'structure_detail' cont.name %}">Full details</a>
+		<p></p>
+	</div>
+    {% endfor %}
+
+    </li>    
+    {% endfor %}
+  </ul>
+</div>
+<HR> 
+
+{% endblock %}
