@@ -22,3 +22,9 @@ Value: standalone
 Owners: couchdb
 Flags: seen
 
+Name: couchdb/cookie
+Template: couchdb/cookie
+Value: abcd
+Owners: couchdb
+Flags: seen
+
