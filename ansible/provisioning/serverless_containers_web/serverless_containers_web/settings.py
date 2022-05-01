@@ -25,8 +25,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 ## Default key
 #SECRET_KEY = 'django-insecure-sqy8cfm^_e-=_!4!ftw94k&9fdm*sc41kcjp!@^5hpn^8foii*'
 
-## Key read from environment (loaded from ansible)
-SECRET_KEY = os.environ['SECRET_KEY']
+## Key read from file
+with open('/etc/secret_key.txt') as f:
+    SECRET_KEY = f.read().strip()
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -44,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'ui',
+    'crispy_forms',
 ]
 
 MIDDLEWARE = [
