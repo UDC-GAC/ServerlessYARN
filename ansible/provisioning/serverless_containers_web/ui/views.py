@@ -1,7 +1,9 @@
-from django.shortcuts import render
+from django.shortcuts import render,redirect
+from ui.forms import RuleForm
 from django.http import HttpResponse
 import urllib.request
 import json
+import requests
 
 base_url = "http://192.168.56.100:5000"
 
@@ -170,6 +172,41 @@ def services(request):
 def rules(request):
     url = base_url + "/rule/"
 
+    #if ('rule_switch' in request.POST):
+    if ('amount' in request.POST):
+    #    new_state = request.POST['rule_switch']
+    #    rule_name = "e"
+        rule_name = request.POST['name']
+        amount = request.POST['amount']
+
+        put_field_data = {'value': amount}
+        headers = {'Content-Type': 'application/json'}
+
+        #req = urllib.request.Request(url + rule_name + "/amount", data=json.dumps(put_field_data), headers=headers, method='PUT')
+        r = requests.put(url + rule_name + "/amount", data=json.dumps(put_field_data), headers=headers)
+
+        if (r.status_code == requests.codes.ok):
+            print(r.content)
+        else:
+            pass       
+
+        return redirect('rules')
+
+    #    if (new_state == "rule_off"):
+    #        action = "/deactivate"
+    #    else:
+    #        action = "/activate"
+
+    #    req = urllib.request.Request(url + rule_name + action, method='PUT')
+        #DATA=b'' 
+
+    #    try:
+    #        response = urllib.request.urlopen(req)
+    #        print(response)
+    #    except:
+    #        pass
+
+
     response = urllib.request.urlopen(url)
     data_json = json.loads(response.read())
     
@@ -179,5 +216,32 @@ def rules(request):
     for item in data_json:
         item['rule_readable'] = jsonBooleanToHumanReadable(item['rule'])
 
+        ruleForm=RuleForm(initial = {'name' : item['name'] })
+        #ruleForm.instance.name = item['name']
+        item['form'] = ruleForm
+
+
     return render(request, 'rules.html', {'data': data_json, 'resources':rulesResources, 'types':ruleTypes})
     
+def rule_switch(request,rule_name):
+
+    state = request.POST['rule_switch']
+
+    ## send put to stateDatabase
+    url = base_url + "/rule/" + rule_name 
+
+    if (state == "rule_off"):
+        url += "/deactivate"
+    else:
+        url += "/activate"
+
+    req = urllib.request.Request(url, method='PUT')
+    #DATA=b'' 
+
+    try:
+        response = urllib.request.urlopen(req)
+    except:
+        pass
+
+    return redirect('rules')
+

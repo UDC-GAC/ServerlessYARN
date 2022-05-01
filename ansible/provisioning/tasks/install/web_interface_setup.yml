@@ -7,3 +7,8 @@
   pip:
     name: Django
     state: latest
+    
+- name: Install Django Crispy Forms
+  pip:
+    name: django-crispy-forms
+    state: latest

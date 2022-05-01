@@ -11,5 +11,6 @@ urlpatterns = [
     path('apps', views.apps, name='apps'),
     path('services', views.services, name='services'),
     path('rules', views.rules, name='rules'),
+    path('rules/<rule_name>/switch', views.rule_switch, name='rule_switch')
 ]
 

@@ -33,9 +33,36 @@
 				
     		<button class="accordion">{{ item.name }}</button>
 			<div class="panel">
-  				<p>Active: {{ item.active }} </p>
+  				<p>Active: {{ item.active }} 
+
+					{% if item.active == True %}
+					<!-- <form action="/rules/{{ item.name }}/switch" method="GET"> --> 
+						<form action="{% url 'rule_switch' item.name %}" method="POST"> 
+							{% csrf_token %}
+							<input type="submit" name="rule_switch" value="rule_off"> 
+						</form>
+						
+						<!--
+						  <label class="switch">
+							  <input type="checkbox">
+							  <span class="slider"></span>
+						</label>
+						-->
+					{% else %}
+					<form action="{% url 'rule_switch' item.name %}" method="POST"> 
+						{% csrf_token %}
+						<input type="submit" name="rule_switch" value="rule_on"> 
+					</form>
+					{% endif %}
+
+  				</p>
 				{% if item.action.events %} <p> Events: {{ item.action.events }} </p> {% endif %}
 				{% if item.amount %} <p> Amount: {{ item.amount }} </p> {% endif %}
+
+				<p>
+					{% load crispy_forms_tags %} {% crispy item.form item.form.helper %}
+				</p>
+
 				{% if item.events_to_remove %} <p> Events to remove: {{ item.events_to_remove }} </p> {% endif %}
 				{% if item.percentage_reduction %} <p> Percentage reduction: {{ item.percentage_reduction }} </p> {% endif %}
 				{% if item.rescale_by %} <p> Rescale by: {{ item.rescale_by }} </p> {% endif %}
