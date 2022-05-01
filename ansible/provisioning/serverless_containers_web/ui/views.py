@@ -172,17 +172,14 @@ def services(request):
 def rules(request):
     url = base_url + "/rule/"
 
-    #if ('rule_switch' in request.POST):
     if ('amount' in request.POST):
-    #    new_state = request.POST['rule_switch']
-    #    rule_name = "e"
+
         rule_name = request.POST['name']
         amount = request.POST['amount']
 
         put_field_data = {'value': amount}
         headers = {'Content-Type': 'application/json'}
 
-        #req = urllib.request.Request(url + rule_name + "/amount", data=json.dumps(put_field_data), headers=headers, method='PUT')
         r = requests.put(url + rule_name + "/amount", data=json.dumps(put_field_data), headers=headers)
 
         if (r.status_code == requests.codes.ok):
@@ -191,20 +188,6 @@ def rules(request):
             pass       
 
         return redirect('rules')
-
-    #    if (new_state == "rule_off"):
-    #        action = "/deactivate"
-    #    else:
-    #        action = "/activate"
-
-    #    req = urllib.request.Request(url + rule_name + action, method='PUT')
-        #DATA=b'' 
-
-    #    try:
-    #        response = urllib.request.urlopen(req)
-    #        print(response)
-    #    except:
-    #        pass
 
 
     response = urllib.request.urlopen(url)
@@ -216,10 +199,20 @@ def rules(request):
     for item in data_json:
         item['rule_readable'] = jsonBooleanToHumanReadable(item['rule'])
 
-        ruleForm=RuleForm(initial = {'name' : item['name'] })
-        #ruleForm.instance.name = item['name']
-        item['form'] = ruleForm
+        form_initial_data = {'name' : item['name']}
+        editable_data = 0
+        
+        if ('amount' in item):
+            editable_data += 1
+            form_initial_data['amount'] = item['amount']
 
+        ruleForm=RuleForm(initial = form_initial_data)
+
+        if ('amount' not in item):
+            ruleForm.helper['amount'].update_attributes(type="hidden")
+
+        item['form'] = ruleForm
+        item['editable_data'] = editable_data
 
     return render(request, 'rules.html', {'data': data_json, 'resources':rulesResources, 'types':ruleTypes})
     

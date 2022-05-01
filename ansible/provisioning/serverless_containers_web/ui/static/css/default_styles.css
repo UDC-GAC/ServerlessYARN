@@ -111,71 +111,102 @@ ul#tabs li:hover {
   content: "\2796"; /* Unicode character for "minus" sign (-) */
 }
 
+
+/* Modal dialog form */
+.caja{ 
+	font-family: Century Gothic,CenturyGothic,AppleGothic,sans-serif; 
+	color: white; 
+	font-size: 14px; 
+	font-weight: 800; 
+	text-align: center; 
+	background: rgb(12, 148, 238); 
+	margin: 10px 0 20px; 
+	overflow: hidden; 
+	padding: 6px;  
+	border: 2px solid #5878ca;
+}
+
+.modalDialog{
+	position: fixed;
+	font-family: Arial, Helvetica, sans-serif;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	background: rgba(0,0,0,0.8);
+	z-index: 99999;
+	opacity:0;
+	-webkit-transition: opacity 400ms ease-in;
+	-moz-transition: opacity 400ms ease-in;
+	transition: opacity 400ms ease-in;
+	pointer-events: none;
+}
+
+.modalDialog:target{
+	opacity:1;
+	pointer-events: auto;
+}
+
+.modalDialog > div{
+	width: 40%;
+	position: relative;
+	margin: 10% auto;
+	padding: 5px 20px 13px 20px;
+	border-radius: 10px;
+	background: #fff;
+	background: -moz-linear-gradient(#fff, #999);
+	background: -webkit-linear-gradient(#fff, #999);
+	background: -o-linear-gradient(#fff, #999);
+  -webkit-transition: opacity 400ms ease-in;
+-moz-transition: opacity 400ms ease-in;
+transition: opacity 400ms ease-in;
+}
+
+.close{
+	background: #606061;
+	color: #FFFFFF;
+	line-height: 25px;
+	position: absolute;
+	right: -12px;
+	text-align: center;
+	top: -10px;
+	width: 24px;
+	text-decoration: none;
+	font-weight: bold;
+	-webkit-border-radius: 12px;
+	-moz-border-radius: 12px;
+	border-radius: 12px;
+	-moz-box-shadow: 1px 1px 3px #000;
+	-webkit-box-shadow: 1px 1px 3px #000;
+	box-shadow: 1px 1px 3px #000;
+}
+
+.close:hover{
+	background: #00d9ff;
+}
+
 a {
   color: blue;
 }
 
-/* Toggle button */
-/* From https://www.w3schools.com/howto/howto_css_switch.asp */
- /* The switch - the box around the slider */
- .switch {
-  position: relative;
-  display: inline-block;
-  width: 60px;
-  height: 34px;
+.deactivate-btn{
+  background: rgb(194, 66, 66);
+  color: white; 
+	font-size: 14px; 
+	font-weight: 800; 
 }
 
-/* Hide default HTML checkbox */
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
+.deactivate-btn:hover{
+  background: rgb(156, 62, 62);
 }
 
-/* The slider */
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  -webkit-transition: .4s;
-  transition: .4s;
+.activate-btn{
+  background: rgb(134, 194, 66);
+  color: black; 
+	font-size: 14px; 
+	font-weight: 800; 
 }
 
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 26px;
-  width: 26px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  -webkit-transition: .4s;
-  transition: .4s;
+.activate-btn:hover{
+  background: rgb(115, 156, 68);
 }
-
-input:checked + .slider {
-  background-color: #2196F3;
-}
-
-input:focus + .slider {
-  box-shadow: 0 0 1px #2196F3;
-}
-
-input:checked + .slider:before {
-  -webkit-transform: translateX(26px);
-  -ms-transform: translateX(26px);
-  transform: translateX(26px);
-}
-
-/* Rounded sliders */
-.slider.round {
-  border-radius: 34px;
-}
-
-.slider.round:before {
-  border-radius: 50%;
-} 
