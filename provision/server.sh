@@ -4,9 +4,15 @@
 apt-get -y update
 apt-get -y install python-setuptools wget curl sshpass vim nano
 
-apt-get install -y software-properties-common
-add-apt-repository --yes --update ppa:ansible/ansible
-apt-get install -y ansible
+## Apt install (broken for some reason)
+#apt-get install -y software-properties-common
+#add-apt-repository --yes --update ppa:ansible/ansible
+#apt-get -y update
+#apt-get install -y ansible
+
+## Pip install
+apt-get install -y python3-pip
+python3 -m pip install ansible
 
 mkdir -p /etc/ansible
 cp /vagrant/ansible/ansible.cfg /etc/ansible
