@@ -10,6 +10,7 @@ urlpatterns = [
     path('hosts', views.hosts, name='hosts'),
     path('apps', views.apps, name='apps'),
     path('services', views.services, name='services'),
+    path('services/<service_name>/switch', views.service_switch, name='service_switch'),
     path('rules', views.rules, name='rules'),
     path('rules/<rule_name>/switch', views.rule_switch, name='rule_switch')
 ]

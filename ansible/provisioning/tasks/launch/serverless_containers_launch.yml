@@ -102,13 +102,7 @@
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-   
-- name: Starting Services - Activate guardian
-  shell: bash scripts/orchestrator/Guardian/activate_guardian.sh
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-    
+       
 - name: Starting Services - scaler
   shell: bash scripts/services/scaler/start_tmux.sh
   when: "'scaler' not in tmux_output.stdout"
@@ -116,12 +110,6 @@
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
  
-- name: Starting Services - Activate scaler
-  shell: bash scripts/orchestrator/Scaler/activate_scaler.sh
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-    
 - name: Starting Services - refeeder
   shell: bash scripts/services/refeeder/start_tmux.sh
   when: "'refeeder' not in tmux_output.stdout"
@@ -135,3 +123,29 @@
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash 
+    
+## Activate Services
+
+- name: Starting Services - Activate database snapshoter
+  shell: bash scripts/orchestrator/DatabaseSnapshoter/activate.sh
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+
+- name: Starting Services - Activate structures snapshoter
+  shell: bash scripts/orchestrator/StructuresSnapshoter/activate.sh
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+
+- name: Starting Services - Activate guardian
+  shell: bash scripts/orchestrator/Guardian/activate_guardian.sh
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+
+- name: Starting Services - Activate scaler
+  shell: bash scripts/orchestrator/Scaler/activate_scaler.sh
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash

@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect
-from ui.forms import RuleForm
+from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm
 from django.http import HttpResponse
 import urllib.request
 import json
@@ -161,31 +161,226 @@ def apps(request):
 def services(request):
     url = base_url + "/service/"
 
+    if (len(request.POST) > 0):
+
+        headers = {'Content-Type': 'application/json'}
+
+        if ("name" in request.POST):
+            service_name = request.POST['name']
+
+            if (service_name == 'database_snapshoter'):
+
+                if ("polling_frequency" in request.POST):
+                    polling_frequency = request.POST['polling_frequency']
+                    put_field_data = {'value': polling_frequency}
+                
+                    r = requests.put(url + service_name + "/POLLING_FREQUENCY", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+            if (service_name == 'guardian'):
+
+                if ("event_timeout" in request.POST):
+                    event_timeout = request.POST['event_timeout']
+                    put_field_data = {'value': event_timeout}
+                
+                    r = requests.put(url + service_name + "/EVENT_TIMEOUT", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+                if ("guardable_resources" in request.POST):
+                    guardable_resources = request.POST['guardable_resources']
+
+                    guardable_resources_list = guardable_resources.strip("[").strip("]").split(",")
+                    put_field_data = json.dumps({"value":[v.strip().strip('"') for v in guardable_resources_list]})
+
+                    r = requests.put(url + service_name + "/GUARDABLE_RESOURCES", data=put_field_data, headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+                if ("structure_guarded" in request.POST):
+                    structure_guarded = request.POST['structure_guarded']
+                    put_field_data = {'value': structure_guarded}
+                
+                    r = requests.put(url + service_name + "/STRUCTURE_GUARDED", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+                if ("window_delay" in request.POST):
+                    window_delay = request.POST['window_delay']
+                    put_field_data = {'value': window_delay}
+                
+                    r = requests.put(url + service_name + "/WINDOW_DELAY", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+                if ("window_timelapse" in request.POST):
+                    window_timelapse = request.POST['window_timelapse']
+                    put_field_data = {'value': window_timelapse}
+                
+                    r = requests.put(url + service_name + "/WINDOW_TIMELAPSE", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+            if (service_name == 'scaler'):
+
+                if ("check_core_map" in request.POST):
+                    check_core_map = request.POST['check_core_map']
+                    print(check_core_map.lower())
+                    #if (check_core_map == "on"): check_core_map_bool = "true"
+                    #else: check_core_map_bool = "false"
+                    put_field_data = {'value': check_core_map.lower()}
+                
+                    r = requests.put(url + service_name + "/CHECK_CORE_MAP", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+                if ("polling_frequency" in request.POST):
+                    polling_frequency = request.POST['polling_frequency']
+                    put_field_data = {'value': polling_frequency}
+                
+                    r = requests.put(url + service_name + "/POLLING_FREQUENCY", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+                if ("request_timeout" in request.POST):
+                    request_timeout = request.POST['request_timeout']
+                    put_field_data = {'value': request_timeout}
+                
+                    r = requests.put(url + service_name + "/REQUEST_TIMEOUT", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+            if (service_name == 'structures_snapshoter'):
+
+                if ("polling_frequency" in request.POST):
+                    polling_frequency = request.POST['polling_frequency']
+                    put_field_data = {'value': polling_frequency}
+                
+                    r = requests.put(url + service_name + "/POLLING_FREQUENCY", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+        return redirect('services')
+
     response = urllib.request.urlopen(url)
     data_json = json.loads(response.read())
     
     #hosts = getHosts(data_json)
     
+
+    for item in data_json:
+
+        form_initial_data = {'name' : item['name']}
+        editable_data = 0
+        
+        serviceForm = {}
+
+        if (item['name'] == 'database_snapshoter'):
+            if ('POLLING_FREQUENCY' in item['config']): form_initial_data['polling_frequency'] = item['config']['POLLING_FREQUENCY']
+            editable_data += 1
+            serviceForm = DBSnapshoterForm(initial = form_initial_data)
+
+        elif (item['name'] == 'guardian'):
+            if ('EVENT_TIMEOUT' in item['config']): form_initial_data['event_timeout'] = item['config']['EVENT_TIMEOUT']
+            if ('GUARDABLE_RESOURCES' in item['config']): form_initial_data['guardable_resources'] = item['config']['GUARDABLE_RESOURCES']
+            if ('STRUCTURE_GUARDED' in item['config']): form_initial_data['structure_guarded'] = item['config']['STRUCTURE_GUARDED']
+            if ('WINDOW_DELAY' in item['config']): form_initial_data['window_delay'] = item['config']['WINDOW_DELAY']
+            if ('WINDOW_TIMELAPSE' in item['config']): form_initial_data['window_timelapse'] = item['config']['WINDOW_TIMELAPSE']
+            editable_data += 5
+            serviceForm = GuardianForm(initial = form_initial_data)
+
+        elif (item['name'] == 'scaler'):
+            if ('CHECK_CORE_MAP' in item['config']): form_initial_data['check_core_map'] = item['config']['CHECK_CORE_MAP']
+            if ('POLLING_FREQUENCY' in item['config']): form_initial_data['polling_frequency'] = item['config']['POLLING_FREQUENCY']
+            if ('REQUEST_TIMEOUT' in item['config']): form_initial_data['request_timeout'] = item['config']['REQUEST_TIMEOUT']
+            editable_data += 3
+            serviceForm = ScalerForm(initial = form_initial_data)
+
+        if (item['name'] == 'structures_snapshoter'):
+            if ('POLLING_FREQUENCY' in item['config']): form_initial_data['polling_frequency'] = item['config']['POLLING_FREQUENCY']
+            editable_data += 1
+            serviceForm = StructuresSnapshoterForm(initial = form_initial_data)
+
+        item['form'] = serviceForm
+        item['editable_data'] = editable_data
+
     return render(request, 'services.html', {'data': data_json})
     
+def service_switch(request,service_name):
+
+    state = request.POST['service_switch']
+
+    ## send put to stateDatabase
+    url = base_url + "/service/" + service_name + "/ACTIVE"
+
+    if (state == "service_off"):
+        activate = "false"
+    else:
+        activate = "true"
+
+    headers = {'Content-Type': 'application/json'}
+
+    put_field_data = {'value': activate}
+    r = requests.put(url, data=json.dumps(put_field_data), headers=headers)
+
+    if (r.status_code == requests.codes.ok):
+        print(r.content)
+    else:
+        pass
+
+    return redirect('services')
+
 ## Rules
 def rules(request):
     url = base_url + "/rule/"
 
-    if ('amount' in request.POST):
+    if (len(request.POST) > 0):
 
-        rule_name = request.POST['name']
-        amount = request.POST['amount']
-
-        put_field_data = {'value': amount}
         headers = {'Content-Type': 'application/json'}
 
-        r = requests.put(url + rule_name + "/amount", data=json.dumps(put_field_data), headers=headers)
+        rule_name = request.POST['name']
 
-        if (r.status_code == requests.codes.ok):
-            print(r.content)
-        else:
-            pass       
+        if ("amount" in request.POST):
+            amount = request.POST['amount']
+            put_field_data = {'value': amount}
+        
+            r = requests.put(url + rule_name + "/amount", data=json.dumps(put_field_data), headers=headers)
+
+            if (r.status_code == requests.codes.ok):
+                print(r.content)
+            else:
+                pass       
 
         return redirect('rules')
 
