@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect
-from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm
+from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm
 from django.http import HttpResponse
 import urllib.request
 import json
@@ -170,6 +170,30 @@ def services(request):
 
             if (service_name == 'database_snapshoter'):
 
+                if ("debug" in request.POST):
+                    debug = request.POST['debug']
+                    put_field_data = {'value': debug.lower()}
+                
+                    r = requests.put(url + service_name + "/DEBUG", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+                if ("documents_persisted" in request.POST):
+                    documents_persisted = request.POST['documents_persisted']
+
+                    documents_persisted_list = documents_persisted.strip("[").strip("]").split(",")
+                    put_field_data = json.dumps({"value":[v.strip().strip('"') for v in documents_persisted_list]})
+
+                    r = requests.put(url + service_name + "/DOCUMENTS_PERSISTED", data=put_field_data, headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
                 if ("polling_frequency" in request.POST):
                     polling_frequency = request.POST['polling_frequency']
                     put_field_data = {'value': polling_frequency}
@@ -182,6 +206,28 @@ def services(request):
                         pass
 
             if (service_name == 'guardian'):
+
+                if ("cpu_shares_per_watt" in request.POST):
+                    cpu_shares_per_watt = request.POST['cpu_shares_per_watt']
+                    put_field_data = {'value': cpu_shares_per_watt}
+                
+                    r = requests.put(url + service_name + "/CPU_SHARES_PER_WATT", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+                if ("debug" in request.POST):
+                    debug = request.POST['debug']
+                    put_field_data = {'value': debug.lower()}
+                
+                    r = requests.put(url + service_name + "/DEBUG", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
 
                 if ("event_timeout" in request.POST):
                     event_timeout = request.POST['event_timeout']
@@ -244,12 +290,20 @@ def services(request):
 
                 if ("check_core_map" in request.POST):
                     check_core_map = request.POST['check_core_map']
-                    print(check_core_map.lower())
-                    #if (check_core_map == "on"): check_core_map_bool = "true"
-                    #else: check_core_map_bool = "false"
                     put_field_data = {'value': check_core_map.lower()}
                 
                     r = requests.put(url + service_name + "/CHECK_CORE_MAP", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+                if ("debug" in request.POST):
+                    debug = request.POST['debug']
+                    put_field_data = {'value': debug.lower()}
+                
+                    r = requests.put(url + service_name + "/DEBUG", data=json.dumps(put_field_data), headers=headers)
 
                     if (r.status_code == requests.codes.ok):
                         print(r.content)
@@ -291,6 +345,126 @@ def services(request):
                     else:
                         pass
 
+                if ("debug" in request.POST):
+                    debug = request.POST['debug']
+                    put_field_data = {'value': debug.lower()}
+                
+                    r = requests.put(url + service_name + "/DEBUG", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+                if ("persist_apps" in request.POST):
+                    persist_apps = request.POST['persist_apps']
+                    put_field_data = {'value': persist_apps.lower()}
+                
+                    r = requests.put(url + service_name + "/PERSIST_APPS", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+                if ("resources_persisted" in request.POST):
+                    resources_persisted = request.POST['resources_persisted']
+                
+                    resources_persisted_list = resources_persisted.strip("[").strip("]").split(",")
+                    put_field_data = json.dumps({"value":[v.strip().strip('"') for v in resources_persisted_list]})
+
+                    r = requests.put(url + service_name + "/RESOURCES_PERSISTED", data=put_field_data, headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        print(r.content)
+                        pass
+
+            if (service_name == 'sanity_checker'):
+
+                if ("debug" in request.POST):
+                    debug = request.POST['debug']
+                    put_field_data = {'value': debug.lower()}
+                
+                    r = requests.put(url + service_name + "/DEBUG", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+                if ("delay" in request.POST):
+                    delay = request.POST['delay']
+                    put_field_data = {'value': delay}
+                
+                    r = requests.put(url + service_name + "/DELAY", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+            if (service_name == 'refeeder'):
+
+                if ("debug" in request.POST):
+                    debug = request.POST['debug']
+                    put_field_data = {'value': debug.lower()}
+                
+                    r = requests.put(url + service_name + "/DEBUG", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+                if ("generated_metrics" in request.POST):
+                    generated_metrics = request.POST['generated_metrics']
+                
+                    generated_metrics_list = generated_metrics.strip("[").strip("]").split(",")
+                    put_field_data = json.dumps({"value":[v.strip().strip('"') for v in generated_metrics_list]})
+
+                    r = requests.put(url + service_name + "/GENERATED_METRICS", data=put_field_data, headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        print(r.content)
+                        pass
+
+                if ("polling_frequency" in request.POST):
+                    polling_frequency = request.POST['polling_frequency']
+                    put_field_data = {'value': polling_frequency}
+                
+                    r = requests.put(url + service_name + "/POLLING_FREQUENCY", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+                if ("window_delay" in request.POST):
+                    window_delay = request.POST['window_delay']
+                    put_field_data = {'value': window_delay}
+                
+                    r = requests.put(url + service_name + "/WINDOW_DELAY", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
+                if ("window_timelapse" in request.POST):
+                    window_timelapse = request.POST['window_timelapse']
+                    put_field_data = {'value': window_timelapse}
+                
+                    r = requests.put(url + service_name + "/WINDOW_TIMELAPSE", data=json.dumps(put_field_data), headers=headers)
+
+                    if (r.status_code == requests.codes.ok):
+                        print(r.content)
+                    else:
+                        pass
+
         return redirect('services')
 
     response = urllib.request.urlopen(url)
@@ -307,30 +481,53 @@ def services(request):
         serviceForm = {}
 
         if (item['name'] == 'database_snapshoter'):
+            if ('DEBUG' in item['config']): form_initial_data['debug'] = item['config']['DEBUG']
+            if ('DOCUMENTS_PERSISTED' in item['config']): form_initial_data['documents_persisted'] = item['config']['DOCUMENTS_PERSISTED']
             if ('POLLING_FREQUENCY' in item['config']): form_initial_data['polling_frequency'] = item['config']['POLLING_FREQUENCY']
             editable_data += 1
             serviceForm = DBSnapshoterForm(initial = form_initial_data)
 
         elif (item['name'] == 'guardian'):
+            if ('CPU_SHARES_PER_WATT' in item['config']): form_initial_data['cpu_shares_per_watt'] = item['config']['CPU_SHARES_PER_WATT']
+            if ('DEBUG' in item['config']): form_initial_data['debug'] = item['config']['DEBUG']
             if ('EVENT_TIMEOUT' in item['config']): form_initial_data['event_timeout'] = item['config']['EVENT_TIMEOUT']
             if ('GUARDABLE_RESOURCES' in item['config']): form_initial_data['guardable_resources'] = item['config']['GUARDABLE_RESOURCES']
             if ('STRUCTURE_GUARDED' in item['config']): form_initial_data['structure_guarded'] = item['config']['STRUCTURE_GUARDED']
             if ('WINDOW_DELAY' in item['config']): form_initial_data['window_delay'] = item['config']['WINDOW_DELAY']
             if ('WINDOW_TIMELAPSE' in item['config']): form_initial_data['window_timelapse'] = item['config']['WINDOW_TIMELAPSE']
-            editable_data += 5
+            editable_data += 1
             serviceForm = GuardianForm(initial = form_initial_data)
 
         elif (item['name'] == 'scaler'):
             if ('CHECK_CORE_MAP' in item['config']): form_initial_data['check_core_map'] = item['config']['CHECK_CORE_MAP']
+            if ('DEBUG' in item['config']): form_initial_data['debug'] = item['config']['DEBUG']
             if ('POLLING_FREQUENCY' in item['config']): form_initial_data['polling_frequency'] = item['config']['POLLING_FREQUENCY']
             if ('REQUEST_TIMEOUT' in item['config']): form_initial_data['request_timeout'] = item['config']['REQUEST_TIMEOUT']
-            editable_data += 3
+            editable_data += 1
             serviceForm = ScalerForm(initial = form_initial_data)
 
         if (item['name'] == 'structures_snapshoter'):
             if ('POLLING_FREQUENCY' in item['config']): form_initial_data['polling_frequency'] = item['config']['POLLING_FREQUENCY']
+            if ('DEBUG' in item['config']): form_initial_data['debug'] = item['config']['DEBUG']
+            if ('PERSIST_APPS' in item['config']): form_initial_data['persist_apps'] = item['config']['PERSIST_APPS']
+            if ('RESOURCES_PERSISTED' in item['config']): form_initial_data['resources_persisted'] = item['config']['RESOURCES_PERSISTED']
             editable_data += 1
             serviceForm = StructuresSnapshoterForm(initial = form_initial_data)
+
+        if (item['name'] == 'sanity_checker'):
+            if ('DEBUG' in item['config']): form_initial_data['debug'] = item['config']['DEBUG']
+            if ('DELAY' in item['config']): form_initial_data['delay'] = item['config']['DELAY']
+            editable_data += 1
+            serviceForm = SanityCheckerForm(initial = form_initial_data)
+
+        if (item['name'] == 'refeeder'):
+            if ('DEBUG' in item['config']): form_initial_data['debug'] = item['config']['DEBUG']
+            if ('GENERATED_METRICS' in item['config']): form_initial_data['generated_metrics'] = item['config']['GENERATED_METRICS']
+            if ('POLLING_FREQUENCY' in item['config']): form_initial_data['polling_frequency'] = item['config']['POLLING_FREQUENCY']
+            if ('WINDOW_DELAY' in item['config']): form_initial_data['window_delay'] = item['config']['WINDOW_DELAY']
+            if ('WINDOW_TIMELAPSE' in item['config']): form_initial_data['window_timelapse'] = item['config']['WINDOW_TIMELAPSE']
+            editable_data += 1
+            serviceForm = RefeederForm(initial = form_initial_data)
 
         item['form'] = serviceForm
         item['editable_data'] = editable_data
