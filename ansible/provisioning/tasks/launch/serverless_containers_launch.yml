@@ -122,8 +122,15 @@
   when: "'sanity_checker' not in tmux_output.stdout"
   args:
     chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash 
-    
+    executable: /bin/bash
+
+- name: Starting Services - rebalancer
+  shell: bash scripts/services/rebalancer/start_tmux.sh
+  when: "'rebalancer' not in tmux_output.stdout"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+
 ## Activate Services
 
 - name: Starting Services - Activate database snapshoter
@@ -139,13 +146,13 @@
     executable: /bin/bash
 
 - name: Starting Services - Activate guardian
-  shell: bash scripts/orchestrator/Guardian/activate_guardian.sh
+  shell: bash scripts/orchestrator/Guardian/activate.sh
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
 
 - name: Starting Services - Activate scaler
-  shell: bash scripts/orchestrator/Scaler/activate_scaler.sh
+  shell: bash scripts/orchestrator/Scaler/activate.sh
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
