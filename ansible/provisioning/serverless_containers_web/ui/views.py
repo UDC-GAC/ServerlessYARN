@@ -158,12 +158,37 @@ def apps(request):
     return render(request, 'apps.html', {'data': apps})
 
 ## Services
+def processServiceConfigPost(request, url, service_name, config_name):
+
+    full_url = url + service_name + "/" + config_name.upper()
+    headers = {'Content-Type': 'application/json'}
+
+    json_fields = ["documents_persisted","guardable_resources","resources_persisted","generated_metrics"]
+
+    new_value = request.POST[config_name]
+
+    if (config_name in json_fields):
+        ## JSON field request
+        new_values_list = new_value.strip("[").strip("]").split(",")
+        put_field_data = json.dumps({"value":[v.strip().strip('"') for v in new_values_list]})
+
+        r = requests.put(full_url, data=put_field_data, headers=headers)
+
+    else:
+        ## Other field request
+        put_field_data = {'value': new_value.lower()}
+
+        r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+
+    if (r.status_code == requests.codes.ok):
+        print(r.content)
+    else:
+        pass
+
 def services(request):
     url = base_url + "/service/"
 
     if (len(request.POST) > 0):
-
-        headers = {'Content-Type': 'application/json'}
 
         if ("name" in request.POST):
             service_name = request.POST['name']
@@ -171,299 +196,89 @@ def services(request):
             if (service_name == 'database_snapshoter'):
 
                 if ("debug" in request.POST):
-                    debug = request.POST['debug']
-                    put_field_data = {'value': debug.lower()}
-                
-                    r = requests.put(url + service_name + "/DEBUG", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "debug")
 
                 if ("documents_persisted" in request.POST):
-                    documents_persisted = request.POST['documents_persisted']
-
-                    documents_persisted_list = documents_persisted.strip("[").strip("]").split(",")
-                    put_field_data = json.dumps({"value":[v.strip().strip('"') for v in documents_persisted_list]})
-
-                    r = requests.put(url + service_name + "/DOCUMENTS_PERSISTED", data=put_field_data, headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "documents_persisted")
 
                 if ("polling_frequency" in request.POST):
-                    polling_frequency = request.POST['polling_frequency']
-                    put_field_data = {'value': polling_frequency}
-                
-                    r = requests.put(url + service_name + "/POLLING_FREQUENCY", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "polling_frequency")
 
             if (service_name == 'guardian'):
 
                 if ("cpu_shares_per_watt" in request.POST):
-                    cpu_shares_per_watt = request.POST['cpu_shares_per_watt']
-                    put_field_data = {'value': cpu_shares_per_watt}
-                
-                    r = requests.put(url + service_name + "/CPU_SHARES_PER_WATT", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "cpu_shares_per_watt")
 
                 if ("debug" in request.POST):
-                    debug = request.POST['debug']
-                    put_field_data = {'value': debug.lower()}
-                
-                    r = requests.put(url + service_name + "/DEBUG", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "debug")
 
                 if ("event_timeout" in request.POST):
-                    event_timeout = request.POST['event_timeout']
-                    put_field_data = {'value': event_timeout}
-                
-                    r = requests.put(url + service_name + "/EVENT_TIMEOUT", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "event_timeout")
 
                 if ("guardable_resources" in request.POST):
-                    guardable_resources = request.POST['guardable_resources']
-
-                    guardable_resources_list = guardable_resources.strip("[").strip("]").split(",")
-                    put_field_data = json.dumps({"value":[v.strip().strip('"') for v in guardable_resources_list]})
-
-                    r = requests.put(url + service_name + "/GUARDABLE_RESOURCES", data=put_field_data, headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "guardable_resources")
 
                 if ("structure_guarded" in request.POST):
-                    structure_guarded = request.POST['structure_guarded']
-                    put_field_data = {'value': structure_guarded}
-                
-                    r = requests.put(url + service_name + "/STRUCTURE_GUARDED", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "structure_guarded")
 
                 if ("window_delay" in request.POST):
-                    window_delay = request.POST['window_delay']
-                    put_field_data = {'value': window_delay}
-                
-                    r = requests.put(url + service_name + "/WINDOW_DELAY", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "window_delay")
 
                 if ("window_timelapse" in request.POST):
-                    window_timelapse = request.POST['window_timelapse']
-                    put_field_data = {'value': window_timelapse}
-                
-                    r = requests.put(url + service_name + "/WINDOW_TIMELAPSE", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "window_timelapse")
 
             if (service_name == 'scaler'):
 
                 if ("check_core_map" in request.POST):
-                    check_core_map = request.POST['check_core_map']
-                    put_field_data = {'value': check_core_map.lower()}
-                
-                    r = requests.put(url + service_name + "/CHECK_CORE_MAP", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "check_core_map")
 
                 if ("debug" in request.POST):
-                    debug = request.POST['debug']
-                    put_field_data = {'value': debug.lower()}
-                
-                    r = requests.put(url + service_name + "/DEBUG", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "debug")
 
                 if ("polling_frequency" in request.POST):
-                    polling_frequency = request.POST['polling_frequency']
-                    put_field_data = {'value': polling_frequency}
-                
-                    r = requests.put(url + service_name + "/POLLING_FREQUENCY", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "polling_frequency")
 
                 if ("request_timeout" in request.POST):
-                    request_timeout = request.POST['request_timeout']
-                    put_field_data = {'value': request_timeout}
-                
-                    r = requests.put(url + service_name + "/REQUEST_TIMEOUT", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "request_timeout")
 
             if (service_name == 'structures_snapshoter'):
 
                 if ("polling_frequency" in request.POST):
-                    polling_frequency = request.POST['polling_frequency']
-                    put_field_data = {'value': polling_frequency}
-                
-                    r = requests.put(url + service_name + "/POLLING_FREQUENCY", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "polling_frequency")
 
                 if ("debug" in request.POST):
-                    debug = request.POST['debug']
-                    put_field_data = {'value': debug.lower()}
-                
-                    r = requests.put(url + service_name + "/DEBUG", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "debug")
 
                 if ("persist_apps" in request.POST):
-                    persist_apps = request.POST['persist_apps']
-                    put_field_data = {'value': persist_apps.lower()}
-                
-                    r = requests.put(url + service_name + "/PERSIST_APPS", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "persist_apps")
 
                 if ("resources_persisted" in request.POST):
-                    resources_persisted = request.POST['resources_persisted']
-                
-                    resources_persisted_list = resources_persisted.strip("[").strip("]").split(",")
-                    put_field_data = json.dumps({"value":[v.strip().strip('"') for v in resources_persisted_list]})
-
-                    r = requests.put(url + service_name + "/RESOURCES_PERSISTED", data=put_field_data, headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        print(r.content)
-                        pass
+                    processServiceConfigPost(request, url, service_name, "resources_persisted")
 
             if (service_name == 'sanity_checker'):
 
                 if ("debug" in request.POST):
-                    debug = request.POST['debug']
-                    put_field_data = {'value': debug.lower()}
-                
-                    r = requests.put(url + service_name + "/DEBUG", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "debug")
 
                 if ("delay" in request.POST):
-                    delay = request.POST['delay']
-                    put_field_data = {'value': delay}
-                
-                    r = requests.put(url + service_name + "/DELAY", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "delay")
 
             if (service_name == 'refeeder'):
 
                 if ("debug" in request.POST):
-                    debug = request.POST['debug']
-                    put_field_data = {'value': debug.lower()}
-                
-                    r = requests.put(url + service_name + "/DEBUG", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "debug")
 
                 if ("generated_metrics" in request.POST):
-                    generated_metrics = request.POST['generated_metrics']
-                
-                    generated_metrics_list = generated_metrics.strip("[").strip("]").split(",")
-                    put_field_data = json.dumps({"value":[v.strip().strip('"') for v in generated_metrics_list]})
-
-                    r = requests.put(url + service_name + "/GENERATED_METRICS", data=put_field_data, headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        print(r.content)
-                        pass
+                    processServiceConfigPost(request, url, service_name, "generated_metrics")
 
                 if ("polling_frequency" in request.POST):
-                    polling_frequency = request.POST['polling_frequency']
-                    put_field_data = {'value': polling_frequency}
-                
-                    r = requests.put(url + service_name + "/POLLING_FREQUENCY", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "polling_frequency")
 
                 if ("window_delay" in request.POST):
-                    window_delay = request.POST['window_delay']
-                    put_field_data = {'value': window_delay}
-                
-                    r = requests.put(url + service_name + "/WINDOW_DELAY", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "window_delay")
 
                 if ("window_timelapse" in request.POST):
-                    window_timelapse = request.POST['window_timelapse']
-                    put_field_data = {'value': window_timelapse}
-                
-                    r = requests.put(url + service_name + "/WINDOW_TIMELAPSE", data=json.dumps(put_field_data), headers=headers)
-
-                    if (r.status_code == requests.codes.ok):
-                        print(r.content)
-                    else:
-                        pass
+                    processServiceConfigPost(request, url, service_name, "window_timelapse")
 
         return redirect('services')
 
