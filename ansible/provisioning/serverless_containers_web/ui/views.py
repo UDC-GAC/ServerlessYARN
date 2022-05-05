@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect
-from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm
+from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, LimitsForm
 from django.http import HttpResponse
 import urllib.request
 import json
@@ -12,20 +12,24 @@ def getHosts(data):
     hosts = []
 
     for item in data:
-         if (item['subtype'] == 'host'):
-             containers = []
-             for structure in data:
-                 if (structure['subtype'] == 'container' and structure['host'] == item['name']):
-                     structure['limits'] = getLimits(structure['name'])
-                     containers.append(structure)
-             item['containers'] = containers
+        if (item['subtype'] == 'host'):
+            containers = []
+            for structure in data:
+                if (structure['subtype'] == 'container' and structure['host'] == item['name']):
+                    structure['limits'] = getLimits(structure['name'])
+
+                    ## Container Limits Form
+                    setLimitsForm(structure,"hosts")
+
+                    containers.append(structure)
+            item['containers'] = containers
              
-             # Adjustment to don't let core_usage_mapping be too wide on html display
-             if ("cpu" in item['resources'] and "core_usage_mapping" in item['resources']['cpu']):
-                 item['resources']['cpu_cores'] = item['resources']['cpu']['core_usage_mapping']
-                 item['resources']['cpu'] = {k:v for k,v in item['resources']['cpu'].items() if k != 'core_usage_mapping'}             
+            # Adjustment to don't let core_usage_mapping be too wide on html display
+            if ("cpu" in item['resources'] and "core_usage_mapping" in item['resources']['cpu']):
+                item['resources']['cpu_cores'] = item['resources']['cpu']['core_usage_mapping']
+                item['resources']['cpu'] = {k:v for k,v in item['resources']['cpu'].items() if k != 'core_usage_mapping'}             
                               
-             hosts.append(item)
+            hosts.append(item)
                           
     return hosts
 
@@ -33,26 +37,64 @@ def getApps(data):
     apps = []
 
     for item in data:
-         if (item['subtype'] == 'application'):
-             containers = []
-             for structure in data:
-                 if (structure['subtype'] == 'container' and structure['name'] in item['containers']):
-                     structure['limits'] = getLimits(structure['name'])
-                     containers.append(structure)
-             item['containers_full'] = containers
-             item['limits'] = getLimits(item['name'])
-             apps.append(item)        
+        if (item['subtype'] == 'application'):
+            containers = []
+            for structure in data:
+                if (structure['subtype'] == 'container' and structure['name'] in item['containers']):
+                    structure['limits'] = getLimits(structure['name'])
+
+                    ## Container Limits Form
+                    setLimitsForm(structure,"apps")
+
+                    containers.append(structure)
+
+            item['containers_full'] = containers
+            item['limits'] = getLimits(item['name'])
+
+            ## App Limits Form
+            setLimitsForm(item,"apps")
+
+            apps.append(item)
     return apps
 
 def getContainers(data):
     containers = []
 
     for item in data:
-         if (item['subtype'] == 'container'):
-             item['limits'] = getLimits(item['name'])
-             containers.append(item)
+        if (item['subtype'] == 'container'):
+            item['limits'] = getLimits(item['name'])
+
+            ## Container Limits Form
+            setLimitsForm(item,"containers")
+
+            containers.append(item)
     return containers
 
+def setLimitsForm(structure, form_action):
+
+    editable_data = 0
+    form_initial_data = {'name' : structure['name']}
+
+    if ('cpu' in structure['limits'] and 'boundary' in structure['limits']['cpu']): 
+        form_initial_data['cpu_boundary'] = structure['limits']['cpu']['boundary']
+
+    if ('mem' in structure['limits'] and 'boundary' in structure['limits']['mem']): 
+        form_initial_data['mem_boundary'] = structure['limits']['mem']['boundary']
+
+    if ('disk' in structure['limits'] and 'boundary' in structure['limits']['disk']): 
+        form_initial_data['disk_boundary'] = structure['limits']['disk']['boundary']
+
+    if ('net' in structure['limits'] and 'boundary' in structure['limits']['net']): 
+        form_initial_data['net_boundary'] = structure['limits']['net']['boundary']
+
+    if ('energy' in structure['limits'] and 'boundary' in structure['limits']['energy']): 
+        form_initial_data['energy_boundary'] = structure['limits']['energy']['boundary']
+
+    editable_data += 1
+    structure['limits_form'] = LimitsForm(initial = form_initial_data)
+    structure['limits_form'].helper.form_action = form_action
+    structure['limits_editable_data'] = editable_data
+    
 def getLimits(structure_name):
     url = base_url + "/structure/" + structure_name + "/limits"
     
@@ -130,6 +172,10 @@ def structure_detail(request,structure_name):
 def containers(request):
     url = base_url + "/structure/"
 
+    if (len(request.POST) > 0):
+        processLimits(request, url)
+        return redirect('containers')
+
     response = urllib.request.urlopen(url)
     data_json = json.loads(response.read())
     
@@ -139,6 +185,10 @@ def containers(request):
     
 def hosts(request):
     url = base_url + "/structure/"
+
+    if (len(request.POST) > 0):
+        processLimits(request, url)
+        return redirect('hosts')
 
     response = urllib.request.urlopen(url)
     data_json = json.loads(response.read())
@@ -150,6 +200,10 @@ def hosts(request):
 def apps(request):
     url = base_url + "/structure/"
 
+    if (len(request.POST) > 0):
+        processLimits(request, url)
+        return redirect('apps')
+
     response = urllib.request.urlopen(url)
     data_json = json.loads(response.read())
     
@@ -157,25 +211,67 @@ def apps(request):
     
     return render(request, 'apps.html', {'data': apps})
 
+def processLimits(request, url):
+    if ("name" in request.POST):
+        structure_name = request.POST['name']
+
+        if ("cpu_boundary" in request.POST):
+            processLimitsBoundary(request, url, structure_name, "cpu", "cpu_boundary")
+
+        if ("mem_boundary" in request.POST):
+            processLimitsBoundary(request, url, structure_name, "mem", "mem_boundary")
+
+        if ("disk_boundary" in request.POST):
+            processLimitsBoundary(request, url, structure_name, "disk", "disk_boundary")
+
+        if ("net_boundary" in request.POST):
+            processLimitsBoundary(request, url, structure_name, "net", "net_boundary")
+
+        if ("energy_boundary" in request.POST):
+            processLimitsBoundary(request, url, structure_name, "energy", "energy_boundary")
+
+def processLimitsBoundary(request, url, structure_name, resource, boundary_name):
+
+    full_url = url + structure_name + "/limits/" + resource + "/boundary"
+    headers = {'Content-Type': 'application/json'}
+
+    new_value = request.POST[boundary_name]
+    put_field_data = {'value': new_value.lower()}
+
+    r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+
+    if (r.status_code == requests.codes.ok):
+        print(r.content)
+    else:
+        pass
+
 ## Services
 def processServiceConfigPost(request, url, service_name, config_name):
 
     full_url = url + service_name + "/" + config_name.upper()
     headers = {'Content-Type': 'application/json'}
 
-    json_fields = ["documents_persisted","guardable_resources","resources_persisted","generated_metrics"]
-
-    new_value = request.POST[config_name]
+    json_fields = ["documents_persisted"]
+    multiple_choice_fields = ["guardable_resources","resources_persisted","generated_metrics"]
 
     if (config_name in json_fields):
         ## JSON field request
+        new_value = request.POST[config_name]
         new_values_list = new_value.strip("[").strip("]").split(",")
+        put_field_data = json.dumps({"value":[v.strip().strip('"') for v in new_values_list]})
+
+        r = requests.put(full_url, data=put_field_data, headers=headers)
+
+    elif (config_name in multiple_choice_fields):
+        ## MultipleChoice field request
+        new_values_list = request.POST.getlist(config_name)
         put_field_data = json.dumps({"value":[v.strip().strip('"') for v in new_values_list]})
 
         r = requests.put(full_url, data=put_field_data, headers=headers)
 
     else:
         ## Other field request
+        new_value = request.POST[config_name]
         put_field_data = {'value': new_value.lower()}
 
         r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
@@ -189,7 +285,6 @@ def services(request):
     url = base_url + "/service/"
 
     if (len(request.POST) > 0):
-
         if ("name" in request.POST):
             service_name = request.POST['name']
 

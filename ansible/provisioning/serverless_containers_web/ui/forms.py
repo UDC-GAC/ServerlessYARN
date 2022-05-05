@@ -3,34 +3,48 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit, Layout, ButtonHolder, Field, Button
 from crispy_forms.bootstrap import FormActions
 
-class RuleForm(forms.Form):
+### Structures
+class LimitsForm(forms.Form):
     name = forms.CharField(label="Name",
             required=True
             ) 
-    amount = forms.IntegerField(label="Amount",
-            required=True
-            )            
+    cpu_boundary = forms.IntegerField(label="CPU Boundary",
+            required=False
+            )
+    mem_boundary = forms.IntegerField(label="Memory Boundary",
+            required=False
+            )
+    disk_boundary = forms.IntegerField(label="Disk Boundary",
+            required=False
+            )
+    net_boundary = forms.IntegerField(label="Network Boundary",
+            required=False
+            )
+    energy_boundary = forms.IntegerField(label="Energy Boundary",
+            required=False
+            )
 
     def __init__(self, *args, **kwargs):
-        super(RuleForm, self).__init__(*args, **kwargs)
+        super(LimitsForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()            
-        self.helper.form_id = 'id-ruleForm'
+        self.helper.form_id = 'id-limitsForm'
         self.helper.form_class = 'form-group'
         self.helper.form_method = 'post'
-        self.helper.form_action = 'rules'
-        #self.helper.add_input(Submit('submit', 'edit'))  
+        #self.helper.form_action = 'limits'
         self.helper.layout = Layout(
             Field('name', type="hidden", readonly=True),
-            Field('amount'),
-            #ButtonHolder(
-            #    Submit('login', 'Edit')
-            #)
+            Field('cpu_boundary'),
+            Field('mem_boundary'),
+            Field('disk_boundary'),
+            Field('net_boundary'),
+            Field('energy_boundary'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
                 #Button('cancel', 'Cancel')
             )    
         )
 
+### Services
 # CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 5, "DEBUG": True, "DOCUMENTS_PERSISTED": ["limits", "structures", "users", "configs"] ,"ACTIVE": True}
 class DBSnapshoterForm(forms.Form):
     name = forms.CharField(label="Name",
@@ -88,7 +102,15 @@ class GuardianForm(forms.Form):
     event_timeout = forms.IntegerField(label="Event Timeout",
             required=True
             )
-    guardable_resources = forms.JSONField(label="Guardable Resources",
+    guardable_resources = forms.MultipleChoiceField(label="Guardable Resources",
+            choices = (
+                ("cpu", "CPU"),
+                ("mem", "Memory"),
+                #("disk", "Disk"),
+                #("net", "Network"),
+                ("energy", "Energy"),
+                ),
+            widget=forms.CheckboxSelectMultiple,
             required=True
             )
     structure_guarded = forms.ChoiceField(label="Structure Guarded",
@@ -193,11 +215,18 @@ class StructuresSnapshoterForm(forms.Form):
                 ("False", "False"),
                 ),
             required=False
-            )
-    resources_persisted = forms.JSONField(label="Resources Persisted",
+            )  
+    resources_persisted = forms.MultipleChoiceField(label="Resources Persisted",
+            choices = (
+                ("cpu", "CPU"),
+                ("mem", "Memory"),
+                ("disk", "Disk"),
+                ("net", "Network"),
+                #("energy", "Energy"),
+                ),
+            widget=forms.CheckboxSelectMultiple,
             required=False
-            )    
-
+            )
     def __init__(self, *args, **kwargs):
         super(StructuresSnapshoterForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()            
@@ -262,9 +291,17 @@ class RefeederForm(forms.Form):
                 ),
             required=True
             )
-    generated_metrics = forms.JSONField(label="Generated Metrics",
+    generated_metrics = forms.MultipleChoiceField(label="Generated Metrics",
+            choices = (
+                ("cpu", "CPU"),
+                ("mem", "Memory"),
+                #("disk", "Disk"),
+                #("net", "Network"),
+                ("energy", "Energy"),
+                ),
+            widget=forms.CheckboxSelectMultiple,
             required=False
-            )  
+            ) 
     polling_frequency = forms.IntegerField(label="Polling Frequency",
             required=False
             )
@@ -289,6 +326,35 @@ class RefeederForm(forms.Form):
             Field('polling_frequency'),
             Field('window_delay'),
             Field('window_timelapse'),
+            FormActions(
+                Submit('save', 'Save changes', css_class='caja'),
+                #Button('cancel', 'Cancel')
+            )    
+        )
+
+### Rules
+class RuleForm(forms.Form):
+    name = forms.CharField(label="Name",
+            required=True
+            ) 
+    amount = forms.IntegerField(label="Amount",
+            required=True
+            )            
+
+    def __init__(self, *args, **kwargs):
+        super(RuleForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()            
+        self.helper.form_id = 'id-ruleForm'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'rules'
+        #self.helper.add_input(Submit('submit', 'edit'))  
+        self.helper.layout = Layout(
+            Field('name', type="hidden", readonly=True),
+            Field('amount'),
+            #ButtonHolder(
+            #    Submit('login', 'Edit')
+            #)
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
                 #Button('cancel', 'Cancel')

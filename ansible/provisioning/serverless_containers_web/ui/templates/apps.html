@@ -33,8 +33,22 @@
   		<button class="accordion">Limits</button>
   		<div class="panel">
   			{% for resource,values in item.limits.items %}
-  		  	<p>{{ resource }}:{{ values }}</p>  
+  		  		<p>{{ resource }}:{{ values }}</p>  
   			{% endfor %}
+			<!-- APP LIMIT EDIT MODAL	-->
+			{% if item.limits_editable_data > 0 %}
+				<a href="#openModal-{{ item.name }}-limits" title="Edit" class="caja">Edit limits</a>
+				<br><br>  
+				<div align="left" id="openModal-{{ item.name }}-limits" class="modalDialog">
+					<div>
+						<a href="#close" title="Close" class="close">X</a>
+						<h2>Edit limits of {{ item.name }}</h2>
+						<p>
+							{% load crispy_forms_tags %} {% crispy item.limits_form item.limits_form.helper %}
+						</p>
+					</div>
+				</div>
+			{% endif %}
   		</div>
   		<a class="button" href="{% url 'structure_detail' item.name %}">Full details</a>
 	</div>    	
@@ -49,14 +63,28 @@
    		<button class="accordion">Resources</button>
   		<div class="panel">
   			{% for resource,values in cont.resources.items %}
-  		  	<p>{{ resource }}:{{ values }}</p>  
+  		  		<p>{{ resource }}:{{ values }}</p>  
   			{% endfor %}
   		</div>
   		<button class="accordion">Limits</button>
   		<div class="panel">
   			{% for resource,values in cont.limits.items %}
-  		  	<p>{{ resource }}:{{ values }}</p>  
+  		  		<p>{{ resource }}:{{ values }}</p>  
   			{% endfor %}
+			<!-- CONT LIMIT EDIT MODAL -->	
+			{% if cont.limits_editable_data > 0 %}
+				<a href="#openModal-{{ cont.name }}-limits" title="Edit" class="caja">Edit limits</a>
+				<br><br>  
+				<div align="left" id="openModal-{{ cont.name }}-limits" class="modalDialog">
+					<div>
+						<a href="#close" title="Close" class="close">X</a>
+						<h2>Edit limits of {{ cont.name }}</h2>
+						<p>
+							{% load crispy_forms_tags %} {% crispy cont.limits_form cont.limits_form.helper %}
+						</p>
+					</div>
+				</div>
+			{% endif %}
   		</div>
 		<a class="button" href="{% url 'structure_detail' cont.name %}">Full details</a>
         <p></p>
