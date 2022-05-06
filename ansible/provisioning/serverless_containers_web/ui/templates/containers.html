@@ -23,14 +23,41 @@
     <li>
     <button class="accordion">{{ item.name }}</button>
 	<div class="panel">
-		<p>Guard: {{ item.guard }}</p>
+		<p>
+
+			<form action="{% url 'containers_guard_switch' item.name %}" method="POST"> 
+				{% csrf_token %}
+				<label>Guard: {{ item.guard }}</label>
+
+				{% if item.guard == True %} <button class="deactivate-btn" type="submit" name="guard_switch" value="guard_off">Deactivate</button>
+				{% else %}                   <button class="activate-btn" type="submit" name="guard_switch" value="guard_on">Activate</button>
+				{% endif %}
+			</form>
+		</p>
+
 		<p>Guard Policy: {{ item.guard_policy }}</p>
 		<p>Host: {{ item.host }}</p>
    		<button class="accordion">Resources</button>
   		<div class="panel">
   			{% for resource,values in item.resources.items %}
-  		  	<p>{{ resource }}:{{ values }}</p>  
+  		  		<p>{{ resource }}:{{ values }}</p>  
   			{% endfor %}
+
+			<!-- CONT RESOURCES EDIT MODAL -->	
+			{% if item.resources_editable_data > 0 %}
+				<a href="#openModal-{{ item.name }}-resources" title="Edit" class="caja">Edit resources</a>
+				<br><br>  
+				<div align="left" id="openModal-{{ item.name }}-resources" class="modalDialog">
+					<div>
+						<a href="#close" title="Close" class="close">X</a>
+						<h2>Edit resources of {{ item.name }}</h2>
+						<p>
+							{% load crispy_forms_tags %} {% crispy item.resources_form item.resources_form_helper %}
+						</p>
+					</div>
+				</div>
+			{% endif %}
+
   		</div>
   		<button class="accordion">Limits</button>
   		<div class="panel">

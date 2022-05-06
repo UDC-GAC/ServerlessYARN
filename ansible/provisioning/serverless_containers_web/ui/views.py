@@ -1,5 +1,6 @@
 from django.shortcuts import render,redirect
-from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, LimitsForm
+from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, LimitsForm, StructureForm, StructureResourcesForm, StructureResourcesFormSetHelper
+from django.forms import formset_factory
 from django.http import HttpResponse
 import urllib.request
 import json
@@ -17,6 +18,9 @@ def getHosts(data):
             for structure in data:
                 if (structure['subtype'] == 'container' and structure['host'] == item['name']):
                     structure['limits'] = getLimits(structure['name'])
+
+                    ## Container Resources Form
+                    setStructureResourcesForm(structure,"hosts")
 
                     ## Container Limits Form
                     setLimitsForm(structure,"hosts")
@@ -43,6 +47,9 @@ def getApps(data):
                 if (structure['subtype'] == 'container' and structure['name'] in item['containers']):
                     structure['limits'] = getLimits(structure['name'])
 
+                    ## Container Resources Form
+                    setStructureResourcesForm(structure,"apps")
+
                     ## Container Limits Form
                     setLimitsForm(structure,"apps")
 
@@ -50,6 +57,9 @@ def getApps(data):
 
             item['containers_full'] = containers
             item['limits'] = getLimits(item['name'])
+
+            ## App Resources Form
+            setStructureResourcesForm(item,"apps")
 
             ## App Limits Form
             setLimitsForm(item,"apps")
@@ -64,31 +74,84 @@ def getContainers(data):
         if (item['subtype'] == 'container'):
             item['limits'] = getLimits(item['name'])
 
+            ## Container Resources Form
+            setStructureResourcesForm(item,"containers")
+
             ## Container Limits Form
             setLimitsForm(item,"containers")
 
             containers.append(item)
     return containers
 
+### probably to be replaced
+def setStructureForm(structure, form_action):
+
+    editable_data = 0
+
+    structures_field_list = ["guard"]
+
+    form_initial_data = {'name' : structure['name']}
+
+    for field in structures_field_list:
+        if (field in structure and field): 
+            if (field == "guard"):
+                ## Just for "guard"
+                    # if guard is the only field use this
+                    # if not, change i will change it to the usual choice field
+                form_initial_data[field] = not structure[field]                
+            else:
+                form_initial_data[field] = structure[field]
+
+
+    # ruleForm.helper['amount'].update_attributes(type="hidden")
+
+    editable_data += 1
+    structure['form'] = StructureForm(initial = form_initial_data)
+    structure['form'].helper.form_action = form_action
+
+    ## Just for "guard"
+        # if guard is the only field use this
+        # if not, change i will change it to the usual choice field
+    structure['form'].helper["Change"].update_attributes(css_class="activate-btn")
+
+    structure['editable_data'] = editable_data
+
+def setStructureResourcesForm(structure, form_action):
+
+    editable_data = 0
+
+    resource_list = ["cpu","mem"]
+    resources_field_list = ["guard","max","min"]
+    form_initial_data_list = []
+
+    for resource in resource_list:
+        form_initial_data = {'name' : structure['name'], 'resource' : resource}
+
+        for field in resources_field_list:
+            if (resource in structure["resources"] and field in structure["resources"][resource]):
+                form_initial_data[field] = structure["resources"][resource][field]            
+
+        form_initial_data_list.append(form_initial_data)
+
+    StructureResourcesFormSet = formset_factory(StructureResourcesForm, extra = 0)
+
+    editable_data += 1
+
+    structure['resources_form'] = StructureResourcesFormSet(initial = form_initial_data_list)
+    structure['resources_form_helper'] = StructureResourcesFormSetHelper()
+    structure['resources_form_helper'].form_action = form_action
+    structure['resources_editable_data'] = editable_data
+
 def setLimitsForm(structure, form_action):
 
     editable_data = 0
     form_initial_data = {'name' : structure['name']}
 
-    if ('cpu' in structure['limits'] and 'boundary' in structure['limits']['cpu']): 
-        form_initial_data['cpu_boundary'] = structure['limits']['cpu']['boundary']
+    resource_list = ["cpu","mem","disk","net","energy"]
 
-    if ('mem' in structure['limits'] and 'boundary' in structure['limits']['mem']): 
-        form_initial_data['mem_boundary'] = structure['limits']['mem']['boundary']
-
-    if ('disk' in structure['limits'] and 'boundary' in structure['limits']['disk']): 
-        form_initial_data['disk_boundary'] = structure['limits']['disk']['boundary']
-
-    if ('net' in structure['limits'] and 'boundary' in structure['limits']['net']): 
-        form_initial_data['net_boundary'] = structure['limits']['net']['boundary']
-
-    if ('energy' in structure['limits'] and 'boundary' in structure['limits']['energy']): 
-        form_initial_data['energy_boundary'] = structure['limits']['energy']['boundary']
+    for resource in resource_list:
+        if (resource in structure['limits'] and 'boundary' in structure['limits'][resource]): 
+            form_initial_data[resource + '_boundary'] = structure['limits'][resource]['boundary']
 
     editable_data += 1
     structure['limits_form'] = LimitsForm(initial = form_initial_data)
@@ -173,6 +236,7 @@ def containers(request):
     url = base_url + "/structure/"
 
     if (len(request.POST) > 0):
+        processResources(request, url)
         processLimits(request, url)
         return redirect('containers')
 
@@ -187,6 +251,7 @@ def hosts(request):
     url = base_url + "/structure/"
 
     if (len(request.POST) > 0):
+        processResources(request, url)
         processLimits(request, url)
         return redirect('hosts')
 
@@ -201,6 +266,7 @@ def apps(request):
     url = base_url + "/structure/"
 
     if (len(request.POST) > 0):
+        processResources(request, url)
         processLimits(request, url)
         return redirect('apps')
 
@@ -211,24 +277,114 @@ def apps(request):
     
     return render(request, 'apps.html', {'data': apps})
 
+def containers_guard_switch(request, container_name):
+
+    guard_switch(request, container_name)
+    return redirect("containers")
+
+def hosts_guard_switch(request, container_name):
+
+    guard_switch(request, container_name)
+    return redirect("hosts")
+
+def apps_guard_switch(request, container_name):
+
+    guard_switch(request, container_name)
+    return redirect("apps")
+
+def guard_switch(request, container_name):
+
+    state = request.POST['guard_switch']
+
+    ## send put to stateDatabase
+    url = base_url + "/structure/" + container_name 
+
+    if (state == "guard_off"):
+        url += "/unguard"
+    else:
+        url += "/guard"
+
+    req = urllib.request.Request(url, method='PUT')
+    #DATA=b'' 
+
+    try:
+        response = urllib.request.urlopen(req)
+    except:
+        pass
+
+    return redirect('rules')
+
+########## probably to be replaced
+def processContainerSwitch(request, url):
+
+    if ("guard" in request.POST):
+        structure_name = request.POST["name"]
+        new_state = request.POST["guard"]
+
+        full_url = url + structure_name + "/"
+
+        print(new_state)
+
+        if (new_state == "True"): full_url += "guard"
+        else:                     full_url += "unguard"
+
+        r = requests.put(full_url)
+
+        if (r.status_code == requests.codes.ok):
+            print(r.content)
+        else:
+            pass
+
+def processResources(request, url):
+
+    resources_field_list = ["guard","max","min"]
+
+    if ("form-TOTAL_FORMS" in request.POST):
+        total_forms = int(request.POST['form-TOTAL_FORMS'])
+
+        if (total_forms > 0):
+            name = request.POST['form-0-name']
+
+            for i in range(0,total_forms,1):
+                resource = request.POST['form-' + str(i) + "-resource"]
+    
+                for field in resources_field_list:
+                    field_value = request.POST['form-' + str(i) + "-" + field]
+                    processResourcesFields(request, url, name, resource, field, field_value)
+
+def processResourcesFields(request, url, structure_name, resource, field, field_value):
+
+    full_url = url + structure_name + "/resources/" + resource + "/"
+
+    if (field == "guard"):
+        if (field_value == "True"): full_url += "guard"
+        else:                       full_url += "unguard"
+    
+        r = requests.put(full_url)
+
+    else:
+        full_url += field
+        headers = {'Content-Type': 'application/json'}
+
+        new_value = field_value
+        put_field_data = {'value': new_value.lower()}
+
+        r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+
+    if (r.status_code == requests.codes.ok):
+        print(r.content)
+    else:
+        pass
+
 def processLimits(request, url):
     if ("name" in request.POST):
         structure_name = request.POST['name']
 
-        if ("cpu_boundary" in request.POST):
-            processLimitsBoundary(request, url, structure_name, "cpu", "cpu_boundary")
+        resources = ["cpu","mem","disk","net","energy"]
 
-        if ("mem_boundary" in request.POST):
-            processLimitsBoundary(request, url, structure_name, "mem", "mem_boundary")
-
-        if ("disk_boundary" in request.POST):
-            processLimitsBoundary(request, url, structure_name, "disk", "disk_boundary")
-
-        if ("net_boundary" in request.POST):
-            processLimitsBoundary(request, url, structure_name, "net", "net_boundary")
-
-        if ("energy_boundary" in request.POST):
-            processLimitsBoundary(request, url, structure_name, "energy", "energy_boundary")
+        for resource in resources:
+            if (resource + "_boundary" in request.POST):
+                processLimitsBoundary(request, url, structure_name, resource, resource + "_boundary")
 
 def processLimitsBoundary(request, url, structure_name, resource, boundary_name):
 
@@ -284,96 +440,34 @@ def processServiceConfigPost(request, url, service_name, config_name):
 def services(request):
     url = base_url + "/service/"
 
+    database_snapshoter_options = ["debug","documents_persisted","polling_frequency"]
+    guardian_options = ["cpu_shares_per_watt", "debug", "event_timeout","guardable_resources","structure_guarded","window_delay","window_timelapse"]
+    scaler_options = ["check_core_map","debug","polling_frequency","request_timeout"]
+    structures_snapshoter_options = ["polling_frequency","debug","persist_apps","resources_persisted"]
+    sanity_checker_options = ["debug","delay"]
+    refeeder_options = ["debug","generated_metrics","polling_frequency","window_delay","window_timelapse"]
+
     if (len(request.POST) > 0):
         if ("name" in request.POST):
             service_name = request.POST['name']
 
-            if (service_name == 'database_snapshoter'):
+            options = []
 
-                if ("debug" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "debug")
+            if (service_name == 'database_snapshoter'):     options = database_snapshoter_options
 
-                if ("documents_persisted" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "documents_persisted")
+            elif (service_name == 'guardian'):              options = guardian_options
 
-                if ("polling_frequency" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "polling_frequency")
+            elif (service_name == 'scaler'):                options = scaler_options
 
-            if (service_name == 'guardian'):
+            elif (service_name == 'structures_snapshoter'): options = structures_snapshoter_options
 
-                if ("cpu_shares_per_watt" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "cpu_shares_per_watt")
+            elif (service_name == 'sanity_checker'):        options = sanity_checker_options
 
-                if ("debug" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "debug")
+            elif (service_name == 'refeeder'):              options = refeeder_options
 
-                if ("event_timeout" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "event_timeout")
-
-                if ("guardable_resources" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "guardable_resources")
-
-                if ("structure_guarded" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "structure_guarded")
-
-                if ("window_delay" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "window_delay")
-
-                if ("window_timelapse" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "window_timelapse")
-
-            if (service_name == 'scaler'):
-
-                if ("check_core_map" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "check_core_map")
-
-                if ("debug" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "debug")
-
-                if ("polling_frequency" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "polling_frequency")
-
-                if ("request_timeout" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "request_timeout")
-
-            if (service_name == 'structures_snapshoter'):
-
-                if ("polling_frequency" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "polling_frequency")
-
-                if ("debug" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "debug")
-
-                if ("persist_apps" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "persist_apps")
-
-                if ("resources_persisted" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "resources_persisted")
-
-            if (service_name == 'sanity_checker'):
-
-                if ("debug" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "debug")
-
-                if ("delay" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "delay")
-
-            if (service_name == 'refeeder'):
-
-                if ("debug" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "debug")
-
-                if ("generated_metrics" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "generated_metrics")
-
-                if ("polling_frequency" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "polling_frequency")
-
-                if ("window_delay" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "window_delay")
-
-                if ("window_timelapse" in request.POST):
-                    processServiceConfigPost(request, url, service_name, "window_timelapse")
+            for option in options:
+                if (option in request.POST):
+                    processServiceConfigPost(request, url, service_name, option)
 
         return redirect('services')
 
@@ -391,51 +485,44 @@ def services(request):
         serviceForm = {}
 
         if (item['name'] == 'database_snapshoter'):
-            if ('DEBUG' in item['config']): form_initial_data['debug'] = item['config']['DEBUG']
-            if ('DOCUMENTS_PERSISTED' in item['config']): form_initial_data['documents_persisted'] = item['config']['DOCUMENTS_PERSISTED']
-            if ('POLLING_FREQUENCY' in item['config']): form_initial_data['polling_frequency'] = item['config']['POLLING_FREQUENCY']
+            for option in database_snapshoter_options:
+                if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
+
             editable_data += 1
             serviceForm = DBSnapshoterForm(initial = form_initial_data)
 
         elif (item['name'] == 'guardian'):
-            if ('CPU_SHARES_PER_WATT' in item['config']): form_initial_data['cpu_shares_per_watt'] = item['config']['CPU_SHARES_PER_WATT']
-            if ('DEBUG' in item['config']): form_initial_data['debug'] = item['config']['DEBUG']
-            if ('EVENT_TIMEOUT' in item['config']): form_initial_data['event_timeout'] = item['config']['EVENT_TIMEOUT']
-            if ('GUARDABLE_RESOURCES' in item['config']): form_initial_data['guardable_resources'] = item['config']['GUARDABLE_RESOURCES']
-            if ('STRUCTURE_GUARDED' in item['config']): form_initial_data['structure_guarded'] = item['config']['STRUCTURE_GUARDED']
-            if ('WINDOW_DELAY' in item['config']): form_initial_data['window_delay'] = item['config']['WINDOW_DELAY']
-            if ('WINDOW_TIMELAPSE' in item['config']): form_initial_data['window_timelapse'] = item['config']['WINDOW_TIMELAPSE']
+            for option in guardian_options:
+                if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
+
             editable_data += 1
             serviceForm = GuardianForm(initial = form_initial_data)
 
         elif (item['name'] == 'scaler'):
-            if ('CHECK_CORE_MAP' in item['config']): form_initial_data['check_core_map'] = item['config']['CHECK_CORE_MAP']
-            if ('DEBUG' in item['config']): form_initial_data['debug'] = item['config']['DEBUG']
-            if ('POLLING_FREQUENCY' in item['config']): form_initial_data['polling_frequency'] = item['config']['POLLING_FREQUENCY']
-            if ('REQUEST_TIMEOUT' in item['config']): form_initial_data['request_timeout'] = item['config']['REQUEST_TIMEOUT']
+            for option in scaler_options:
+                if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
+
             editable_data += 1
             serviceForm = ScalerForm(initial = form_initial_data)
 
         if (item['name'] == 'structures_snapshoter'):
-            if ('POLLING_FREQUENCY' in item['config']): form_initial_data['polling_frequency'] = item['config']['POLLING_FREQUENCY']
-            if ('DEBUG' in item['config']): form_initial_data['debug'] = item['config']['DEBUG']
-            if ('PERSIST_APPS' in item['config']): form_initial_data['persist_apps'] = item['config']['PERSIST_APPS']
-            if ('RESOURCES_PERSISTED' in item['config']): form_initial_data['resources_persisted'] = item['config']['RESOURCES_PERSISTED']
+            for option in structures_snapshoter_options:
+                if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
+
             editable_data += 1
             serviceForm = StructuresSnapshoterForm(initial = form_initial_data)
 
         if (item['name'] == 'sanity_checker'):
-            if ('DEBUG' in item['config']): form_initial_data['debug'] = item['config']['DEBUG']
-            if ('DELAY' in item['config']): form_initial_data['delay'] = item['config']['DELAY']
+            for option in sanity_checker_options:
+                if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
+
             editable_data += 1
             serviceForm = SanityCheckerForm(initial = form_initial_data)
 
         if (item['name'] == 'refeeder'):
-            if ('DEBUG' in item['config']): form_initial_data['debug'] = item['config']['DEBUG']
-            if ('GENERATED_METRICS' in item['config']): form_initial_data['generated_metrics'] = item['config']['GENERATED_METRICS']
-            if ('POLLING_FREQUENCY' in item['config']): form_initial_data['polling_frequency'] = item['config']['POLLING_FREQUENCY']
-            if ('WINDOW_DELAY' in item['config']): form_initial_data['window_delay'] = item['config']['WINDOW_DELAY']
-            if ('WINDOW_TIMELAPSE' in item['config']): form_initial_data['window_timelapse'] = item['config']['WINDOW_TIMELAPSE']
+            for option in refeeder_options:
+                if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
+
             editable_data += 1
             serviceForm = RefeederForm(initial = form_initial_data)
 

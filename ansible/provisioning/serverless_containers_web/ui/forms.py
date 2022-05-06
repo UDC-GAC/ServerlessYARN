@@ -4,6 +4,93 @@ from crispy_forms.layout import Submit, Layout, ButtonHolder, Field, Button
 from crispy_forms.bootstrap import FormActions
 
 ### Structures
+## probable to be replaced
+class StructureForm(forms.Form):
+    name = forms.CharField(label="Name",
+            required=True
+            )
+    guard = forms.ChoiceField(label="Guard",
+            choices = (
+                ("True", "True"),
+                ("False", "False"),
+                ),
+            required=True
+            )
+
+    def __init__(self, *args, **kwargs):
+        super(StructureForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-structureForm'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.layout = Layout(
+            Field('name', type="hidden", readonly=True),
+            Field('guard', type="hidden"),
+            FormActions(
+               Submit('submit', 'Change', css_class='caja'),
+            )    
+        )
+
+class StructureResourcesFormSetHelper(FormHelper):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.form_method = 'post'
+        self.form_id = 'id-structureresourcesForm'
+        self.form_class = 'form-group'
+        self.form_method = 'post'
+        self.layout = Layout(
+            Field('name', type="hidden", readonly=True),
+            Field('resource', readonly=True),
+            Field('guard'),
+            Field('max'),
+            Field('min'),
+            FormActions(
+                Submit('save', 'Save changes', css_class='caja'),
+                #Button('cancel', 'Cancel')
+            )
+        )
+        self.render_required_fields = True
+
+
+class StructureResourcesForm(forms.Form):
+    name = forms.CharField(label="Name",
+            required=True
+            )
+    resource = forms.CharField(label="Resource",
+            required=True
+            )
+    guard = forms.ChoiceField(label="Guard",
+            choices = (
+                ("True", "True"),
+                ("False", "False"),
+                ),
+            required=True
+            )
+    max = forms.IntegerField(label="Maximum",
+            required=True
+            )
+    min = forms.IntegerField(label="Minimum",
+            required=True
+            )
+
+    #def __init__(self, *args, **kwargs):
+    #    super(StructureResourcesForm, self).__init__(*args, **kwargs)
+    #    self.helper = FormHelper()            
+    #    self.helper.form_id = 'id-structureresourcesForm'
+    #    self.helper.form_class = 'form-group'
+    #    self.helper.form_method = 'post'
+    #    self.helper.layout = Layout(
+    #        Field('name', type="hidden", readonly=True),
+    #        Field('resource', readonly=True),
+    #        Field('guard'),
+    #        Field('max'),
+    #        Field('min'),
+    #        FormActions(
+    #            Submit('save', 'Save changes', css_class='caja'),
+    #            #Button('cancel', 'Cancel')
+    #        )    
+    #    )
+
 class LimitsForm(forms.Form):
     name = forms.CharField(label="Name",
             required=True
