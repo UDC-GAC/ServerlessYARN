@@ -82,8 +82,8 @@
 				{% csrf_token %}
 				<label>Guard: {{ cont.guard }}</label>
 
-				{% if cont.guard == True %} <button class="deactivate-btn" type="submit" name="guard_switch" value="guard_off">Deactivate</button>
-				{% else %}                   <button class="activate-btn" type="submit" name="guard_switch" value="guard_on">Activate</button>
+				{% if cont.guard == True %} <button class="deactivate-btn" type="submit" name="guard_switch" value="guard_off">Unguard</button>
+				{% else %}                   <button class="activate-btn" type="submit" name="guard_switch" value="guard_on">Guard</button>
 				{% endif %}
 			</form>
 		</p>

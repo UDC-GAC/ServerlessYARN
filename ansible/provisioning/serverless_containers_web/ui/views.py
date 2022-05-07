@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect
-from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, LimitsForm, StructureForm, StructureResourcesForm, StructureResourcesFormSetHelper
+from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm, LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper
 from django.forms import formset_factory
 from django.http import HttpResponse
 import urllib.request
@@ -83,39 +83,6 @@ def getContainers(data):
             containers.append(item)
     return containers
 
-### probably to be replaced
-def setStructureForm(structure, form_action):
-
-    editable_data = 0
-
-    structures_field_list = ["guard"]
-
-    form_initial_data = {'name' : structure['name']}
-
-    for field in structures_field_list:
-        if (field in structure and field): 
-            if (field == "guard"):
-                ## Just for "guard"
-                    # if guard is the only field use this
-                    # if not, change i will change it to the usual choice field
-                form_initial_data[field] = not structure[field]                
-            else:
-                form_initial_data[field] = structure[field]
-
-
-    # ruleForm.helper['amount'].update_attributes(type="hidden")
-
-    editable_data += 1
-    structure['form'] = StructureForm(initial = form_initial_data)
-    structure['form'].helper.form_action = form_action
-
-    ## Just for "guard"
-        # if guard is the only field use this
-        # if not, change i will change it to the usual choice field
-    structure['form'].helper["Change"].update_attributes(css_class="activate-btn")
-
-    structure['editable_data'] = editable_data
-
 def setStructureResourcesForm(structure, form_action):
 
     editable_data = 0
@@ -161,8 +128,12 @@ def setLimitsForm(structure, form_action):
 def getLimits(structure_name):
     url = base_url + "/structure/" + structure_name + "/limits"
     
-    response = urllib.request.urlopen(url)
-    data_json = json.loads(response.read())
+    try:
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data_json = {}
+    
     
     return data_json
 
@@ -179,7 +150,7 @@ def jsonBooleanToHumanReadable(jsonBoolExpr):
 
     boolString = ""
 
-    boolOperators = ['and','or','==','>=','<=','<','>']
+    boolOperators = ['and','or','==','>=','<=','<','>','+','-','*','/']
 
     ## Check if dict or literal
     if type(jsonBoolExpr) is dict:
@@ -240,8 +211,11 @@ def containers(request):
         processLimits(request, url)
         return redirect('containers')
 
-    response = urllib.request.urlopen(url)
-    data_json = json.loads(response.read())
+    try:
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data_json = {}
     
     containers = getContainers(data_json)
     
@@ -255,8 +229,11 @@ def hosts(request):
         processLimits(request, url)
         return redirect('hosts')
 
-    response = urllib.request.urlopen(url)
-    data_json = json.loads(response.read())
+    try:
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data_json = {}
     
     hosts = getHosts(data_json)
     
@@ -270,8 +247,11 @@ def apps(request):
         processLimits(request, url)
         return redirect('apps')
 
-    response = urllib.request.urlopen(url)
-    data_json = json.loads(response.read())
+    try:
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data_json = {}
     
     apps = getApps(data_json)
     
@@ -313,27 +293,6 @@ def guard_switch(request, container_name):
         pass
 
     return redirect('rules')
-
-########## probably to be replaced
-def processContainerSwitch(request, url):
-
-    if ("guard" in request.POST):
-        structure_name = request.POST["name"]
-        new_state = request.POST["guard"]
-
-        full_url = url + structure_name + "/"
-
-        print(new_state)
-
-        if (new_state == "True"): full_url += "guard"
-        else:                     full_url += "unguard"
-
-        r = requests.put(full_url)
-
-        if (r.status_code == requests.codes.ok):
-            print(r.content)
-        else:
-            pass
 
 def processResources(request, url):
 
@@ -428,8 +387,8 @@ def processServiceConfigPost(request, url, service_name, config_name):
     else:
         ## Other field request
         new_value = request.POST[config_name]
+        
         put_field_data = {'value': new_value.lower()}
-
         r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
 
     if (r.status_code == requests.codes.ok):
@@ -446,6 +405,7 @@ def services(request):
     structures_snapshoter_options = ["polling_frequency","debug","persist_apps","resources_persisted"]
     sanity_checker_options = ["debug","delay"]
     refeeder_options = ["debug","generated_metrics","polling_frequency","window_delay","window_timelapse"]
+    rebalancer_options = ["debug","rebalance_users","energy_diff_percentage","energy_stolen_percentage","window_delay","window_timelapse"]
 
     if (len(request.POST) > 0):
         if ("name" in request.POST):
@@ -464,6 +424,8 @@ def services(request):
             elif (service_name == 'sanity_checker'):        options = sanity_checker_options
 
             elif (service_name == 'refeeder'):              options = refeeder_options
+
+            elif (service_name == 'rebalancer'):            options = rebalancer_options
 
             for option in options:
                 if (option in request.POST):
@@ -526,6 +488,13 @@ def services(request):
             editable_data += 1
             serviceForm = RefeederForm(initial = form_initial_data)
 
+        if (item['name'] == 'rebalancer'):
+            for option in rebalancer_options:
+                if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
+
+            editable_data += 1
+            serviceForm = ReBalancerForm(initial = form_initial_data)
+
         item['form'] = serviceForm
         item['editable_data'] = editable_data
 
@@ -561,29 +530,22 @@ def rules(request):
 
     if (len(request.POST) > 0):
 
-        headers = {'Content-Type': 'application/json'}
-
         rule_name = request.POST['name']
+        rules_fields = ["amount","rescale_policy","up_events_required","down_events_required"]
+        rules_fields_put_url = ["amount","policy","events_required","events_required"]
+        rules_fields_dict = dict(zip(rules_fields, rules_fields_put_url))
 
-        if ("amount" in request.POST):
-            amount = request.POST['amount']
-            put_field_data = {'value': amount}
-        
-            r = requests.put(url + rule_name + "/amount", data=json.dumps(put_field_data), headers=headers)
-
-            if (r.status_code == requests.codes.ok):
-                print(r.content)
-            else:
-                pass       
+        for field in rules_fields:
+            if (field in request.POST):
+                processRulesPost(request, url, rule_name, field, rules_fields_dict[field])
 
         return redirect('rules')
-
 
     response = urllib.request.urlopen(url)
     data_json = json.loads(response.read())
     
     rulesResources = getRulesResources(data_json)
-    ruleTypes = ['requests','events']
+    ruleTypes = ['requests','events','']
 
     for item in data_json:
         item['rule_readable'] = jsonBooleanToHumanReadable(item['rule'])
@@ -595,16 +557,66 @@ def rules(request):
             editable_data += 1
             form_initial_data['amount'] = item['amount']
 
+        if ('rescale_policy' in item and 'rescale_type' in item and item['rescale_type'] == "up"):
+            editable_data += 1
+            form_initial_data['rescale_policy'] = item['rescale_policy']
+
+        rule_words = item['rule_readable'].split(" ")
+        if ('events.scale.down' in rule_words):
+            index = rule_words.index("events.scale.down")
+            value = rule_words[index + 2]
+            editable_data += 1
+            form_initial_data['up_events_required'] = value
+
+        if ('events.scale.up' in rule_words):
+            index = rule_words.index("events.scale.up")
+            value = rule_words[index + 2]
+            editable_data += 1
+            form_initial_data['down_events_required'] = value
+
         ruleForm=RuleForm(initial = form_initial_data)
 
-        if ('amount' not in item):
-            ruleForm.helper['amount'].update_attributes(type="hidden")
+        editable_data += 1
+        #if ('amount' not in item):
+        #    ruleForm.helper['amount'].update_attributes(type="hidden")
+
+        if (not ('rescale_policy' in item and 'rescale_type' in item and item['rescale_type'] == "up")):
+            ruleForm.helper['rescale_policy'].update_attributes(type="hidden")
+
+        if ('events.scale.down' not in rule_words):
+            ruleForm.helper['down_events_required'].update_attributes(type="hidden")
+
+        if ('events.scale.up' not in rule_words):    
+            ruleForm.helper['up_events_required'].update_attributes(type="hidden")
 
         item['form'] = ruleForm
         item['editable_data'] = editable_data
 
     return render(request, 'rules.html', {'data': data_json, 'resources':rulesResources, 'types':ruleTypes})
-    
+
+def processRulesPost(request, url, rule_name, field, field_put_url):
+
+    full_url = url + rule_name + "/" + field_put_url
+    headers = {'Content-Type': 'application/json'}
+
+    new_value = request.POST[field]
+    put_field_data = {'value': new_value}
+
+    if (field_put_url == "events_required"):
+        if (field == "up_events_required"):
+            event_type = "up"
+        else:
+            event_type = "down"
+
+        put_field_data['event_type'] = event_type
+             
+    r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+
+    if (r.status_code == requests.codes.ok):
+        print(r.content)
+    else:
+        pass 
+
 def rule_switch(request,rule_name):
 
     state = request.POST['rule_switch']
@@ -626,4 +638,3 @@ def rule_switch(request,rule_name):
         pass
 
     return redirect('rules')
-

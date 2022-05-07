@@ -4,33 +4,6 @@ from crispy_forms.layout import Submit, Layout, ButtonHolder, Field, Button
 from crispy_forms.bootstrap import FormActions
 
 ### Structures
-## probable to be replaced
-class StructureForm(forms.Form):
-    name = forms.CharField(label="Name",
-            required=True
-            )
-    guard = forms.ChoiceField(label="Guard",
-            choices = (
-                ("True", "True"),
-                ("False", "False"),
-                ),
-            required=True
-            )
-
-    def __init__(self, *args, **kwargs):
-        super(StructureForm, self).__init__(*args, **kwargs)
-        self.helper = FormHelper()
-        self.helper.form_id = 'id-structureForm'
-        self.helper.form_class = 'form-group'
-        self.helper.form_method = 'post'
-        self.helper.layout = Layout(
-            Field('name', type="hidden", readonly=True),
-            Field('guard', type="hidden"),
-            FormActions(
-               Submit('submit', 'Change', css_class='caja'),
-            )    
-        )
-
 class StructureResourcesFormSetHelper(FormHelper):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -419,14 +392,93 @@ class RefeederForm(forms.Form):
             )    
         )
 
+# CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 30,
+                        # "WINDOW_DELAY": 10,
+                        # "REBALANCE_USERS": False,
+                        # "DEBUG": True,
+                        # "ENERGY_DIFF_PERCENTAGE": 0.40,
+                        # "ENERGY_STOLEN_PERCENTAGE": 0.40
+                        # }
+class ReBalancerForm(forms.Form):
+    name = forms.CharField(label="Name",
+            required=True
+            ) 
+    debug = forms.ChoiceField(label="Debug",
+            choices = (
+                ("True", "True"),
+                ("False", "False"),
+                ),
+            required=True
+            )
+    energy_diff_percentage = forms.DecimalField(label="Energy Diff Percentage",
+            min_value=0,
+            max_value=1,
+            required=False
+            )
+    energy_stolen_percentage = forms.DecimalField(label="Energy Stolen Percentage",
+            min_value=0,
+            max_value=1,
+            required=False
+            )
+    rebalance_users = forms.ChoiceField(label="Rebalance Users",
+            choices = (
+                ("True", "True"),
+                ("False", "False"),
+                ),
+            required=False
+            )
+    window_delay = forms.IntegerField(label="Window Delay",
+            required=True
+            )
+    window_timelapse = forms.IntegerField(label="Window Timelapse",
+            required=True
+            ) 
+
+    def __init__(self, *args, **kwargs):
+        super(ReBalancerForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()            
+        self.helper.form_id = 'id-rebalancerForm'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'services'
+        self.helper.layout = Layout(
+            Field('name', type="hidden", readonly=True),
+            Field('debug'),
+            Field('energy_diff_percentage'),
+            Field('energy_stolen_percentage'),
+            Field('rebalance_users'),
+            Field('window_delay'),
+            Field('window_timelapse'),
+            FormActions(
+                Submit('save', 'Save changes', css_class='caja'),
+                #Button('cancel', 'Cancel')
+            )    
+        )
+
+
 ### Rules
 class RuleForm(forms.Form):
     name = forms.CharField(label="Name",
             required=True
             ) 
     amount = forms.IntegerField(label="Amount",
+            required=False
+            )          
+    up_events_required = forms.IntegerField(label="Up Events Required",
+            min_value=0,
+            required=False
+            )   
+    down_events_required = forms.IntegerField(label="Down Events Required",
+            min_value=0,
+            required=False
+            ) 
+    rescale_policy = forms.ChoiceField(label="Rescale Policy",
+            choices = (
+                ("proportional", "Proportional"),
+                ("amount", "Amount"),
+                ),
             required=True
-            )            
+            )  
 
     def __init__(self, *args, **kwargs):
         super(RuleForm, self).__init__(*args, **kwargs)
@@ -439,6 +491,9 @@ class RuleForm(forms.Form):
         self.helper.layout = Layout(
             Field('name', type="hidden", readonly=True),
             Field('amount'),
+            Field('up_events_required'),
+            Field('down_events_required'),
+            Field('rescale_policy'),
             #ButtonHolder(
             #    Submit('login', 'Edit')
             #)

@@ -22,29 +22,31 @@
     line: "export PYTHONPATH=:{{ serverless_containers_path }}"
 
 # Initializing State Database
+
 - name: Initializing State Database - services
-  shell: python3 quickstart/StateDatabase/services.py
+  shell: python3 conf/StateDatabase/services.py
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-    
-- name: Initializing State Database - events and requests
-  shell: python3 quickstart/StateDatabase/events_and_requests.py
+
+- name: Initializing State Database - create other tables
+  shell: python3 conf/StateDatabase/other_tables.py
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
 - name: Initializing State Database - rules
-  shell: python3 quickstart/StateDatabase/rules.py
+  shell: python3 conf/StateDatabase/rules.py
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-    
-- name: Initializing State Database - limits
-  shell: python3 quickstart/StateDatabase/limits.py
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
+
+## Use my script   
+#- name: Initializing State Database - limits
+#  shell: python3 quickstart/StateDatabase/limits.py
+#  args:
+#    chdir: "{{ serverless_containers_path }}"
+#    executable: /bin/bash
  
 ## Structures Using quickstart script    
 #- name: Initializing State Database - structures

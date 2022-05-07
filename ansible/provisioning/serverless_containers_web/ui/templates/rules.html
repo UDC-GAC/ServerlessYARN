@@ -25,7 +25,13 @@
 	<div class="panel">
 		<p></p>
 		{% for type in types %}
-		<button class="accordion">{{ type }}</button>
+		<button class="accordion">
+			{% if type == "" %}
+				other
+			{% else %}
+				{{ type }}
+			{% endif %}
+		</button>
 		<div class="panel">
 			<p></p>
 			{% for item in data %}
@@ -40,7 +46,13 @@
 						<label>Active: {{ item.active }} </label>
 
 						{% if item.active == True %} <button class="deactivate-btn" type="submit" name="rule_switch" value="rule_off">Deactivate</button>
-						{% else %}                   <button class="activate-btn" type="submit" name="rule_switch" value="rule_on">Activate</button>
+						{% else %}                  
+							{% if type == "" %} 
+								<!-- Rules used by the ReBalancer, NOT the Guardian, should leave it deactivated -->
+								<button disabled class="activate-btn" type="submit" name="rule_switch" value="rule_on">Activate</button>
+							{% else %}
+								<button class="activate-btn" type="submit" name="rule_switch" value="rule_on">Activate</button>
+							{% endif %}
 						{% endif %}
 					</form>
 				</p>
@@ -48,7 +60,8 @@
 				{% if item.amount %} <p> Amount: {{ item.amount }} </p> {% endif %}
 				{% if item.events_to_remove %} <p> Events to remove: {{ item.events_to_remove }} </p> {% endif %}
 				{% if item.percentage_reduction %} <p> Percentage reduction: {{ item.percentage_reduction }} </p> {% endif %}
-				{% if item.rescale_by %} <p> Rescale by: {{ item.rescale_by }} </p> {% endif %}
+				{% if item.rescale_policy %} <p> Rescale policy: {{ item.rescale_policy }} </p> {% endif %}
+				{% if item.rescale_type %} <p> Rescale type: {{ item.rescale_type }} </p> {% endif %}
 				<p>Rule: {{ item.rule_readable }} </p>
 
 				<!-- EDIT MODAL-->	

@@ -210,3 +210,7 @@ a {
 .activate-btn:hover{
   background: rgb(115, 156, 68);
 }
+
+.activate-btn:disabled{
+  background: rgb(183, 187, 176);
+}
