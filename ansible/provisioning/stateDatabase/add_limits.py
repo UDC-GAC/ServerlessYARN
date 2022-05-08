@@ -3,9 +3,7 @@ import src.StateDatabase.couchdb as couchDB
 import src.StateDatabase.utils as couchdb_utils
 import sys
 
-applications = ["app1"]
-
-base_limits = dict(
+cont_base_limits = dict(
         type='limit',
         name="base_container",
         resources=dict(
@@ -14,7 +12,15 @@ base_limits = dict(
         )
     )
 
-# example usage: add_limits.py cont0 cont1 cont2 cont3
+app_base_limits = dict(
+        type='limit',
+        name="base_app",
+        resources=dict(
+            cpu=dict(upper=200, lower=100, boundary=50)
+        )
+    )
+
+# example usage: add_limits.py cont0 cont1 cont2 app1
 
 if __name__ == "__main__":
 
@@ -22,12 +28,12 @@ if __name__ == "__main__":
     handler = couchDB.CouchDBServer()
     database = "limits"    
     
-    containers = []
+    structures = []
     
     n = len(sys.argv)
     for i in range(1, n):
         c = sys.argv[i]
-        containers.append(c)
+        structures.append(c)
     
     # Create database if doesnt exist
     if not handler.database_exists(database):
@@ -36,30 +42,32 @@ if __name__ == "__main__":
         
     if handler.database_exists(database):    
     
-        for c in containers:
+        for s in structures:
+
             try:
-                cont = handler.get_structure(c)
-                old_limits = handler.get_limits(cont)
-                old_limits['resources'] = dict(
-                      cpu=dict(upper=100, lower=50, boundary=25),
-                      mem=dict(upper=2048, lower=512, boundary=256)
-                )
-                handler.update_limit(old_limits)
+                struct = handler.get_structure(s)
+
+                try:
+                    old_limits = handler.get_limits(struct)
+                    #old_limits['resources'] = dict(
+                    #      cpu=dict(upper=100, lower=50, boundary=25),
+                    #      mem=dict(upper=2048, lower=512, boundary=256)
+                    #)
+                    #handler.update_limit(old_limits)
+                except ValueError:
+
+                    if (struct['subtype'] in ["container","application"]):
+                
+                        limits = {}
+
+                        if (struct['subtype'] == "container"):
+                            limits = dict(cont_base_limits)
+
+                        elif (struct['subtype'] == "application"):
+                            limits = dict(app_base_limits)
+                        
+                        limits["name"] = s
+                        handler.add_limit(limits)
+
             except ValueError:
-                limits = dict(base_limits)
-                limits["name"] = c
-                handler.add_limit(limits)
-        try:
-            app = handler.get_structure("app1")
-            old_limits = handler.get_limits(app)
-            handler.update_limit(old_limits)
-        except ValueError:
-            limits = dict(
-                type='limit',
-                name='app1',
-                resources=dict(
-                    cpu=dict(upper=200, lower=100, boundary=50)
-                )
-            )
-            handler.add_limit(limits)
-        
+                print("Error: structure " + s + " does not exist")

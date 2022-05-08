@@ -41,13 +41,6 @@
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
 
-## Use my script   
-#- name: Initializing State Database - limits
-#  shell: python3 quickstart/StateDatabase/limits.py
-#  args:
-#    chdir: "{{ serverless_containers_path }}"
-#    executable: /bin/bash
- 
 ## Structures Using quickstart script    
 #- name: Initializing State Database - structures
 #  shell: python3 quickstart/StateDatabase/structures.py
@@ -68,6 +61,26 @@
     executable: /bin/bash
   with_items: "{{ groups['nodes'] }}"
  
+## Limits Using quickstart script 
+#- name: Initializing State Database - limits
+#  shell: python3 quickstart/StateDatabase/limits.py
+#  args:
+#    chdir: "{{ serverless_containers_path }}"
+#    executable: /bin/bash
+ 
+## Limits Using new script 
+- name: Copy add_limits script
+  copy:
+    src: stateDatabase/add_limits.py
+    dest: "{{ serverless_containers_path }}/quickstart/StateDatabase/add_limits.py"
+
+- name: Initializing State Database - limits
+  shell: "python3 quickstart/StateDatabase/add_limits.py app1 {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') | replace(',',' ') }}"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+  with_items: "{{ groups['nodes'] }}"
+
 
 # Starting Services
 
