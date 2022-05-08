@@ -109,6 +109,10 @@ def setStructureResourcesForm(structure, form_action):
     structure['resources_form_helper'].form_action = form_action
     structure['resources_editable_data'] = editable_data
 
+    ## Need to do this to hide extra 'Save changes' buttons on JS
+    structure['resources_form_helper'].layout[5][0].name += structure['name']
+    
+
 def setLimitsForm(structure, form_action):
 
     editable_data = 0

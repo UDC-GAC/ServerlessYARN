@@ -18,12 +18,12 @@ class StructureResourcesFormSetHelper(FormHelper):
             Field('max'),
             Field('min'),
             FormActions(
-                Submit('save', 'Save changes', css_class='caja'),
+                Submit('save-resources-', 'Save changes', css_class='caja'),
                 #Button('cancel', 'Cancel')
             )
         )
         self.render_required_fields = True
-
+        #self.template = 'bootstrap/table_inline_formset.html'
 
 class StructureResourcesForm(forms.Form):
     name = forms.CharField(label="Name",
