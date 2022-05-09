@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect
-from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm, LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper
+from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm, LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper, HostResourcesForm, HostResourcesFormSetHelper
 from django.forms import formset_factory
 from django.http import HttpResponse
 import urllib.request
@@ -32,7 +32,10 @@ def getHosts(data):
             if ("cpu" in item['resources'] and "core_usage_mapping" in item['resources']['cpu']):
                 item['resources']['cpu_cores'] = item['resources']['cpu']['core_usage_mapping']
                 item['resources']['cpu'] = {k:v for k,v in item['resources']['cpu'].items() if k != 'core_usage_mapping'}             
-                              
+
+            ## Host Resources Form
+            setStructureResourcesForm(item,"hosts")
+
             hosts.append(item)
                           
     return hosts
@@ -88,11 +91,17 @@ def setStructureResourcesForm(structure, form_action):
     editable_data = 0
 
     resource_list = ["cpu","mem"]
-    resources_field_list = ["guard","max","min"]
+    structures_resources_field_list = ["guard","max","min"]
+    host_resources_field_list = ["max"]
     form_initial_data_list = []
 
+    if (structure['subtype'] == "host"):
+        resources_field_list = host_resources_field_list
+    else:
+        resources_field_list = structures_resources_field_list
+
     for resource in resource_list:
-        form_initial_data = {'name' : structure['name'], 'resource' : resource}
+        form_initial_data = {'name' : structure['name'], 'structure_type' : structure['subtype'], 'resource' : resource}
 
         for field in resources_field_list:
             if (resource in structure["resources"] and field in structure["resources"][resource]):
@@ -100,17 +109,24 @@ def setStructureResourcesForm(structure, form_action):
 
         form_initial_data_list.append(form_initial_data)
 
-    StructureResourcesFormSet = formset_factory(StructureResourcesForm, extra = 0)
-
     editable_data += 1
 
-    structure['resources_form'] = StructureResourcesFormSet(initial = form_initial_data_list)
-    structure['resources_form_helper'] = StructureResourcesFormSetHelper()
+    if (structure['subtype'] == "host"):
+        HostResourcesFormSet = formset_factory(HostResourcesForm, extra = 0)
+        structure['resources_form'] = HostResourcesFormSet(initial = form_initial_data_list)
+        structure['resources_form_helper'] = HostResourcesFormSetHelper()
+        submit_button_disp = 4
+    else:
+        StructureResourcesFormSet = formset_factory(StructureResourcesForm, extra = 0)
+        structure['resources_form'] = StructureResourcesFormSet(initial = form_initial_data_list)
+        structure['resources_form_helper'] = StructureResourcesFormSetHelper()
+        submit_button_disp = 6
+
     structure['resources_form_helper'].form_action = form_action
     structure['resources_editable_data'] = editable_data
 
     ## Need to do this to hide extra 'Save changes' buttons on JS
-    structure['resources_form_helper'].layout[5][0].name += structure['name']
+    structure['resources_form_helper'].layout[submit_button_disp][0].name += structure['name']
     
 
 def setLimitsForm(structure, form_action):
@@ -300,13 +316,21 @@ def guard_switch(request, container_name):
 
 def processResources(request, url):
 
-    resources_field_list = ["guard","max","min"]
+    structures_resources_field_list = ["guard","max","min"]
+    hosts_resources_field_list = ["max"]
+
+    print(request.POST)
 
     if ("form-TOTAL_FORMS" in request.POST):
         total_forms = int(request.POST['form-TOTAL_FORMS'])
 
         if (total_forms > 0):
             name = request.POST['form-0-name']
+
+            if (request.POST['form-0-structure_type'] == "host"):
+                resources_field_list = hosts_resources_field_list
+            else:
+                resources_field_list = structures_resources_field_list     
 
             for i in range(0,total_forms,1):
                 resource = request.POST['form-' + str(i) + "-resource"]

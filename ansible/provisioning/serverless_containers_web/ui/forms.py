@@ -4,6 +4,45 @@ from crispy_forms.layout import Submit, Layout, ButtonHolder, Field, Button
 from crispy_forms.bootstrap import FormActions
 
 ### Structures
+class HostResourcesFormSetHelper(FormHelper):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.form_method = 'post'
+        self.form_id = 'id-hostresourcesForm'
+        self.form_class = 'form-group'
+        self.form_method = 'post'
+        self.layout = Layout(
+            Field('name', type="hidden", readonly=True),
+            Field('structure_type', type="hidden", readonly=True),
+            Field('resource', readonly=True),
+            Field('max'),
+            FormActions(
+                Submit('save-resources-', 'Save changes', css_class='caja'),
+                #Button('cancel', 'Cancel')
+            )
+        )
+        self.render_required_fields = True
+        
+class HostResourcesForm(forms.Form):
+    name = forms.CharField(label="Name",
+            required=True
+            )
+    structure_type = forms.ChoiceField(label="Type",
+            choices = (
+                ("application", "Application"),
+                ("container", "Container"),
+                ("host", "Host"),
+                ),
+            initial="host",
+            required=True
+            )
+    resource = forms.CharField(label="Resource",
+            required=True
+            )
+    max = forms.IntegerField(label="Maximum",
+            required=True
+            )
+
 class StructureResourcesFormSetHelper(FormHelper):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -13,6 +52,7 @@ class StructureResourcesFormSetHelper(FormHelper):
         self.form_method = 'post'
         self.layout = Layout(
             Field('name', type="hidden", readonly=True),
+            Field('structure_type', type="hidden", readonly=True),
             Field('resource', readonly=True),
             Field('guard'),
             Field('max'),
@@ -23,13 +63,20 @@ class StructureResourcesFormSetHelper(FormHelper):
             )
         )
         self.render_required_fields = True
-        #self.template = 'bootstrap/table_inline_formset.html'
 
 class StructureResourcesForm(forms.Form):
     name = forms.CharField(label="Name",
             required=True
             )
     resource = forms.CharField(label="Resource",
+            required=True
+            )
+    structure_type = forms.ChoiceField(label="Type",
+            choices = (
+                ("application", "Application"),
+                ("container", "Container"),
+                ("host", "Host"),
+                ),
             required=True
             )
     guard = forms.ChoiceField(label="Guard",
@@ -45,24 +92,6 @@ class StructureResourcesForm(forms.Form):
     min = forms.IntegerField(label="Minimum",
             required=True
             )
-
-    #def __init__(self, *args, **kwargs):
-    #    super(StructureResourcesForm, self).__init__(*args, **kwargs)
-    #    self.helper = FormHelper()            
-    #    self.helper.form_id = 'id-structureresourcesForm'
-    #    self.helper.form_class = 'form-group'
-    #    self.helper.form_method = 'post'
-    #    self.helper.layout = Layout(
-    #        Field('name', type="hidden", readonly=True),
-    #        Field('resource', readonly=True),
-    #        Field('guard'),
-    #        Field('max'),
-    #        Field('min'),
-    #        FormActions(
-    #            Submit('save', 'Save changes', css_class='caja'),
-    #            #Button('cancel', 'Cancel')
-    #        )    
-    #    )
 
 class LimitsForm(forms.Form):
     name = forms.CharField(label="Name",

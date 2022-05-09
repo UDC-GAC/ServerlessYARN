@@ -37,6 +37,22 @@
   		  		<p>{{ resource }}:{{ values }}</p>
 			{% endif %}
   			{% endfor %}
+
+			<!-- HOST RESOURCES EDIT MODAL -->	
+			{% if item.resources_editable_data > 0 %}
+				<a href="#openModal-{{ item.name }}-resources" title="Edit" class="caja" onclick="hide_buttons('{{ item.name }}');">Edit resources</a>
+				<br><br>  
+				<div align="left" id="openModal-{{ item.name }}-resources" class="modalDialog">
+					<div>
+						<a href="#close" title="Close" class="close">X</a>
+						<h2>Edit resources of {{ item.name }}</h2>
+						<p>
+							{% load crispy_forms_tags %} {% crispy item.resources_form item.resources_form_helper %}
+						</p>
+					</div>
+				</div>
+			{% endif %}
+
   		</div>
   		<a class="button" href="{% url 'structure_detail' item.name %}">Full details</a>
 	</div>    	
