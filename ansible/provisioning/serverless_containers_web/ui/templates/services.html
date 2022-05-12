@@ -7,7 +7,6 @@
 <!-- MENU -->
  <div class="vertical-menu">
   <a href="{% url 'index' %}">Home</a>
-  <a href="{% url 'structures' %}">Structures</a>
   <a href="{% url 'containers' %}">Containers</a>
   <a href="{% url 'hosts' %}">Hosts</a>
   <a href="{% url 'apps' %}">Apps</a>
@@ -23,6 +22,11 @@
     <li>
     <button class="accordion">{{ item.name }}</button>
   	Heartbeat: {{ item.heartbeat_human }}
+    {% if item.alive %}
+      Service OK!
+    {% else %}
+      Service seems dead D:
+    {% endif %}
 	<div class="panel">
 		<HR>
   		<p>Config: </p>

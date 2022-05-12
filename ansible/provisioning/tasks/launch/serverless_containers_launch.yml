@@ -158,16 +158,3 @@
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-
-## Initialize container limits on Node Recaler
-- name: Initializing State Database - container cpu limit on Node Rescaler
-  shell: "python3 stateDatabase/init_host_node_rescaler.py {{ item }} cpu {{ cpus_per_client_node }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }}"
-  args:
-    executable: /bin/bash
-  with_items: "{{ groups['nodes'] }}"
-
-- name: Initializing State Database - container mem limit on Node Rescaler
-  shell: "python3 stateDatabase/init_host_node_rescaler.py {{ item }} mem {{ memory_per_client_node }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }}"
-  args:
-    executable: /bin/bash
-  with_items: "{{ groups['nodes'] }}"

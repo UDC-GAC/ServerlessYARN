@@ -5,6 +5,7 @@ from django.http import HttpResponse
 import urllib.request
 import json
 import requests
+import time
 
 base_url = "http://192.168.56.100:5000"
 
@@ -90,10 +91,15 @@ def setStructureResourcesForm(structure, form_action):
 
     editable_data = 0
 
-    resource_list = ["cpu","mem"]
+    full_resource_list = ["cpu","mem","disk","net","energy"]
     structures_resources_field_list = ["guard","max","min"]
     host_resources_field_list = ["max"]
     form_initial_data_list = []
+
+    resource_list = []
+    for resource in full_resource_list:
+        if (resource in structure['resources']):
+            resource_list.append(resource)
 
     if (structure['subtype'] == "host"):
         resources_field_list = host_resources_field_list
@@ -104,12 +110,11 @@ def setStructureResourcesForm(structure, form_action):
         form_initial_data = {'name' : structure['name'], 'structure_type' : structure['subtype'], 'resource' : resource}
 
         for field in resources_field_list:
-            if (resource in structure["resources"] and field in structure["resources"][resource]):
+            if (field in structure["resources"][resource]):
+                editable_data += 1
                 form_initial_data[field] = structure["resources"][resource][field]            
 
         form_initial_data_list.append(form_initial_data)
-
-    editable_data += 1
 
     if (structure['subtype'] == "host"):
         HostResourcesFormSet = formset_factory(HostResourcesForm, extra = 0)
@@ -128,7 +133,6 @@ def setStructureResourcesForm(structure, form_action):
     ## Need to do this to hide extra 'Save changes' buttons on JS
     structure['resources_form_helper'].layout[submit_button_disp][0].name += structure['name']
     
-
 def setLimitsForm(structure, form_action):
 
     editable_data = 0
@@ -138,13 +142,17 @@ def setLimitsForm(structure, form_action):
 
     for resource in resource_list:
         if (resource in structure['limits'] and 'boundary' in structure['limits'][resource]): 
+            editable_data += 1
             form_initial_data[resource + '_boundary'] = structure['limits'][resource]['boundary']
-
-    editable_data += 1
+    
     structure['limits_form'] = LimitsForm(initial = form_initial_data)
     structure['limits_form'].helper.form_action = form_action
     structure['limits_editable_data'] = editable_data
     
+    for resource in resource_list:
+        if ( not (resource in structure['limits'] and 'boundary' in structure['limits'][resource])):    
+            structure['limits_form'].helper[resource + '_boundary'].update_attributes(type="hidden")
+
 def getLimits(structure_name):
     url = base_url + "/structure/" + structure_name + "/limits"
     
@@ -207,14 +215,7 @@ def index(request):
     
     return render(request, 'index.html', {'data': data_json})
     
-## Structures
-def structures(request):
-    url = base_url + "/structure/"
-
-    response = urllib.request.urlopen(url)
-    data_json = json.loads(response.read())
-    return render(request, 'structures.html', {'data': data_json})
-    
+## Structures    
 def structure_detail(request,structure_name):
     print(structure_name)
     url = base_url + "/structure/" + structure_name
@@ -394,9 +395,9 @@ def processServiceConfigPost(request, url, service_name, config_name):
     full_url = url + service_name + "/" + config_name.upper()
     headers = {'Content-Type': 'application/json'}
 
-    json_fields = ["documents_persisted"]
-    multiple_choice_fields = ["guardable_resources","resources_persisted","generated_metrics"]
-
+    json_fields = []
+    multiple_choice_fields = ["guardable_resources","resources_persisted","generated_metrics","documents_persisted"]
+    
     if (config_name in json_fields):
         ## JSON field request
         new_value = request.POST[config_name]
@@ -437,6 +438,7 @@ def services(request):
 
     if (len(request.POST) > 0):
         if ("name" in request.POST):
+
             service_name = request.POST['name']
 
             options = []
@@ -456,8 +458,8 @@ def services(request):
             elif (service_name == 'rebalancer'):            options = rebalancer_options
 
             for option in options:
-                if (option in request.POST):
-                    processServiceConfigPost(request, url, service_name, option)
+                #if (option in request.POST):
+                processServiceConfigPost(request, url, service_name, option)
 
         return redirect('services')
 
@@ -466,6 +468,7 @@ def services(request):
     
     #hosts = getHosts(data_json)
     
+    now = time.time()
 
     for item in data_json:
 
@@ -526,6 +529,9 @@ def services(request):
         item['form'] = serviceForm
         item['editable_data'] = editable_data
 
+        last_heartbeat = item['heartbeat']
+        item['alive'] = (now - last_heartbeat) < 60
+
     return render(request, 'services.html', {'data': data_json})
     
 def service_switch(request,service_name):
@@ -572,9 +578,6 @@ def rules(request):
     response = urllib.request.urlopen(url)
     data_json = json.loads(response.read())
     
-    rulesResources = getRulesResources(data_json)
-    ruleTypes = ['requests','events','']
-
     for item in data_json:
         item['rule_readable'] = jsonBooleanToHumanReadable(item['rule'])
 
@@ -594,19 +597,18 @@ def rules(request):
             index = rule_words.index("events.scale.down")
             value = rule_words[index + 2]
             editable_data += 1
-            form_initial_data['up_events_required'] = value
+            form_initial_data['down_events_required'] = value
 
         if ('events.scale.up' in rule_words):
             index = rule_words.index("events.scale.up")
             value = rule_words[index + 2]
             editable_data += 1
-            form_initial_data['down_events_required'] = value
+            form_initial_data['up_events_required'] = value
 
         ruleForm=RuleForm(initial = form_initial_data)
 
-        editable_data += 1
-        #if ('amount' not in item):
-        #    ruleForm.helper['amount'].update_attributes(type="hidden")
+        if ('amount' not in item):
+            ruleForm.helper['amount'].update_attributes(type="hidden")
 
         if (not ('rescale_policy' in item and 'rescale_type' in item and item['rescale_type'] == "up")):
             ruleForm.helper['rescale_policy'].update_attributes(type="hidden")
@@ -619,6 +621,12 @@ def rules(request):
 
         item['form'] = ruleForm
         item['editable_data'] = editable_data
+
+    rulesResources = getRulesResources(data_json)
+    ruleTypes = ['requests','events','']
+
+    print(ruleTypes)
+
 
     return render(request, 'rules.html', {'data': data_json, 'resources':rulesResources, 'types':ruleTypes})
 

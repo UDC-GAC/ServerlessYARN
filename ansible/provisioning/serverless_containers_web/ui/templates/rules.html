@@ -7,7 +7,6 @@
 <!-- MENU -->
  <div class="vertical-menu">
   <a href="{% url 'index' %}">Home</a>
-  <a href="{% url 'structures' %}">Structures</a>
   <a href="{% url 'containers' %}">Containers</a>
   <a href="{% url 'hosts' %}">Hosts</a>
   <a href="{% url 'apps' %}">Apps</a>
@@ -27,9 +26,9 @@
 		{% for type in types %}
 		<button class="accordion">
 			{% if type == "" %}
-				other
+				Other
 			{% else %}
-				{{ type }}
+				Generates {{ type }}
 			{% endif %}
 		</button>
 		<div class="panel">

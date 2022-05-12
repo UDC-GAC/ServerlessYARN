@@ -146,7 +146,18 @@ class DBSnapshoterForm(forms.Form):
                 ),
             required=True
             )
-    documents_persisted = forms.JSONField(label="Documents Persisted",
+    documents_persisted = forms.MultipleChoiceField(label="Documents Persisted",
+            choices = (
+                ("structures", "Structures"),
+                ("limits", "Limits"),
+                ("services", "Services"),
+                ("rules", "Rules"),
+                ("requests", "Requests"),
+                ("events", "Events"),
+                ("users", "Users"),
+                ("configs", "Configs"),
+                ),
+            widget=forms.CheckboxSelectMultiple,
             required=False
             )
     polling_frequency = forms.IntegerField(label="Polling Frequency",

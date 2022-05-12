@@ -33,7 +33,7 @@ Vagrant.configure("2") do |config|
   	server.vm.network "private_network", ip: "192.168.56.100"	
   	server.vm.network "forwarded_port", guest: 9000, host: 9000, host_ip: "127.0.0.1"
   	server.vm.provider "virtualbox" do |vb|
-  	  	vb.name = "TESTING-Server - ServerlessContainers"
+  	  	vb.name = "Server - ServerlessContainers"
   		vb.cpus = CPU_SERVER_NODE
   		vb.memory = MEMORY_SERVER_NODE
   	end
@@ -47,7 +47,7 @@ Vagrant.configure("2") do |config|
 	node.vm.provision "shell", path: "provision/nodes.sh"
 	node.vm.network :private_network, ip: "192.168.56.#{101+i}"
 	node.vm.provider "virtualbox" do |vb|
-  	  	vb.name = "TESTING-Node#{i} - ServerlessContainers"
+  	  	vb.name = "Node#{i} - ServerlessContainers"
   		vb.cpus = CPUS_PER_NODE
   		vb.memory = MEMORY_PER_NODE
   	end

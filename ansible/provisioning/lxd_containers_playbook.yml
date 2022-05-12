@@ -11,3 +11,17 @@
     - import_tasks: handlers/main.yml
   tasks:
     - import_tasks: tasks/lxd_setup/lxd_containers_setup.yml
+
+# Setup server (now that nodes have been initialized)
+- hosts: localhost
+  become: yes
+  gather_facts: no
+
+  vars_files:
+    - vars/main.yml
+    - config/config.yml
+
+  handlers:
+    - import_tasks: handlers/main.yml
+  tasks:
+    - import_tasks: tasks/lxd_setup/node_rescaler_containers_init.yml
