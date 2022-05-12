@@ -1,6 +1,20 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+## Load variables from config file
+require 'yaml'
+current_dir    = File.dirname(File.expand_path(__FILE__))
+configs        = YAML.load_file("#{current_dir}/ansible/provisioning/config/config.yml")
+
+## Server
+CPU_SERVER_NODE = configs['cpus_server_node']
+MEMORY_SERVER_NODE = configs['memory_server_node']
+
+## Client Nodes
+N = configs['number_of_client_nodes']
+CPUS_PER_NODE = configs['cpus_per_client_node']
+MEMORY_PER_NODE = configs['memory_per_client_node']
+
 Vagrant.configure("2") do |config|
 
   #config.vm.box = "hashicorp/bionic64"
@@ -19,25 +33,21 @@ Vagrant.configure("2") do |config|
   	server.vm.network "private_network", ip: "192.168.56.100"	
   	server.vm.network "forwarded_port", guest: 9000, host: 9000, host_ip: "127.0.0.1"
   	server.vm.provider "virtualbox" do |vb|
-  	  	vb.name = "Server - ServerlessContainers"
-  		vb.cpus = 2
-  		vb.memory = "4096"
+  	  	vb.name = "TESTING-Server - ServerlessContainers"
+  		vb.cpus = CPU_SERVER_NODE
+  		vb.memory = MEMORY_SERVER_NODE
   	end
   end	
 
 
   ## N Client Nodes
-  N = 1
-  CPUS_PER_NODE = 4
-  MEMORY_PER_NODE = 4096
-
   (0..N-1).each do |i|
     config.vm.define "node#{i}" do |node|
 	node.vm.hostname = "host#{i}"
 	node.vm.provision "shell", path: "provision/nodes.sh"
 	node.vm.network :private_network, ip: "192.168.56.#{101+i}"
 	node.vm.provider "virtualbox" do |vb|
-  	  	vb.name = "Node#{i} - ServerlessContainers"
+  	  	vb.name = "TESTING-Node#{i} - ServerlessContainers"
   		vb.cpus = CPUS_PER_NODE
   		vb.memory = MEMORY_PER_NODE
   	end

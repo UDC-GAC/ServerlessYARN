@@ -1,0 +1,22 @@
+## Server Node
+cpus_server_node: 2
+memory_server_node: 4096
+
+## Client Nodes
+number_of_client_nodes: 1
+cpus_per_client_node: 4
+memory_per_client_node: 4096
+
+## Containers initial values
+number_of_containers_per_node: 2
+max_cpu_percentage_per_container: 400
+min_cpu_percentage_per_container: 50
+max_memory_per_container: 8192
+min_memory_per_container: 1024
+
+## Application initial values
+#number_of_apps: 1 -> at the moment, i support only 1 app
+max_cpu_percentage_per_app: 400
+min_cpu_percentage_per_app: 100
+max_memory_per_app: 8192
+min_memory_per_app: 2048

@@ -2,34 +2,44 @@
 import src.StateDatabase.couchdb as couchDB
 import src.StateDatabase.utils as couchdb_utils
 import sys
+import yaml
 
 base_container = dict(
     type='structure',
     subtype='container',
     guard_policy="serverless",
-    host='host0',
-    host_rescaler_ip='host0',
     host_rescaler_port='8000',
     name="base_container",
-    guard=False,
-    resources=dict(
-        cpu=dict(max=400, min=50, guard=True),
-        mem=dict(max=8192, min=1024, guard=True)
-    )
+    guard=False
 )
 
-# usage example: add_containers.py app1 host0 cont0,cont1
+base_host = dict(
+    type='structure',
+    subtype='host'
+)
+
+base_app = dict(
+    type='structure',
+    subtype='application',
+    guard=True,
+    guard_policy="serverless",
+    containers = []    
+)
+
+# usage example: add_containers.py app1 host0 cont0,cont1 config/config.yml
 
 if __name__ == "__main__":
 
     initializer_utils = couchdb_utils.CouchDBUtils()
     handler = couchDB.CouchDBServer()
-    database = "structures"    
+    database = "structures"
     
     new_app = sys.argv[1]
     new_host = sys.argv[2]
     new_containers = sys.argv[3].split(',')
-    
+    with open(sys.argv[4], "r") as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+
     # Create database if doesnt exist
     if not handler.database_exists(database):
         print("Adding 'structures' documents")
@@ -46,10 +56,15 @@ if __name__ == "__main__":
                 handler.update_structure(old_container)
             except ValueError:
                 # new container           
-                container = dict(base_container)
+                #container = dict(base_container)
+                container = base_container
                 container["name"] = c
                 container["host"] = new_host
                 container["host_rescaler_ip"] = new_host
+                container["resources"] = dict(
+                    cpu=dict(max=config['max_cpu_percentage_per_container'], min=config['min_cpu_percentage_per_container'], guard=True),
+                    mem=dict(max=config['max_memory_per_container'], min=config['min_memory_per_container'], guard=True)
+                )
                 handler.add_structure(container)
 
         ## Host
@@ -58,20 +73,11 @@ if __name__ == "__main__":
             #handler.update_structure(old_host)
         except ValueError:
             # new host
-            host = dict(type='structure',
-                subtype='host',
-                name=new_host,
-                host=new_host,
-                resources=dict(
-                    #cpu=dict(max=400, free=0,
-                    #         core_usage_mapping={
-                    #             "0": {"cont0": 100, "free": 0},
-                    #             "1": {"cont0": 100, "free": 0},
-                    #             "2": {"cont1": 100, "free": 0},
-                    #             "3": {"cont1": 100, "free": 0}
-                    #         }),
-                    mem=dict(max=16384, free=0)
-                )
+            host = base_host
+            host["name"] = new_host
+            host["host"] = new_host
+            host["resources"] = dict(
+                mem=dict(max=config['memory_per_client_node'], free=0)
             )
             handler.add_structure(host)
 
@@ -84,17 +90,12 @@ if __name__ == "__main__":
             handler.update_structure(old_app)
         except ValueError:
             # new app
-            app = dict(
-                type='structure',
-                subtype='application',
-                name=new_app,
-                guard=True,
-                guard_policy="serverless",
-                resources=dict(
-                    cpu=dict(max=400, min=100, guard=False),
-                   mem=dict(max=8196, min=2048, guard=False)
-                ),
-                containers = new_containers
+            app = base_app
+            app["name"] = new_app
+            app["containers"] = new_containers
+            app["resources"] = dict(
+                cpu=dict(max=config['max_cpu_percentage_per_app'], min=config['min_cpu_percentage_per_app'], guard=False),
+                mem=dict(max=config['max_memory_per_app'], min=config['min_memory_per_app'], guard=False)
             )
             handler.add_structure(app)
 

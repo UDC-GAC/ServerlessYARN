@@ -22,68 +22,55 @@
     line: "export PYTHONPATH=:{{ serverless_containers_path }}"
 
 # Initializing State Database
+- name: Check existing tables in CouchDB
+  shell: curl -u admin:admin -X GET http://127.0.0.1:5984/_all_dbs
+  register: couchdb_tables
+  args:
+    executable: /bin/bash
 
 - name: Initializing State Database - services
   shell: python3 conf/StateDatabase/services.py
+  when: "'services' not in couchdb_tables.stdout"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
 
 - name: Initializing State Database - create other tables
   shell: python3 conf/StateDatabase/other_tables.py
+  when: "'events' not in couchdb_tables.stdout and 'requests' not in couchdb_tables.stdout and 'limits' not in couchdb_tables.stdout and 'structures' not in couchdb_tables.stdout"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-    
+
 - name: Initializing State Database - rules
   shell: python3 conf/StateDatabase/rules.py
+  when: "'rules' not in couchdb_tables.stdout"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-
-## Structures Using quickstart script    
-#- name: Initializing State Database - structures
-#  shell: python3 quickstart/StateDatabase/structures.py
-#  args:
-#    chdir: "{{ serverless_containers_path }}"
-#    executable: /bin/bash
     
 ## Structures Using new script 
-- name: Copy add_containers script
-  copy:
-    src: stateDatabase/add_containers.py
-    dest: "{{ serverless_containers_path }}/quickstart/StateDatabase/add_containers.py"
-
 - name: Initializing State Database - structures
-  shell: "python3 quickstart/StateDatabase/add_containers.py app1 {{ item }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }}"
+  shell: "python3 stateDatabase/add_containers.py app1 {{ item }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }} config/config.yml"
   args:
-    chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
   with_items: "{{ groups['nodes'] }}"
- 
-## Limits Using quickstart script 
-#- name: Initializing State Database - limits
-#  shell: python3 quickstart/StateDatabase/limits.py
-#  args:
-#    chdir: "{{ serverless_containers_path }}"
-#    executable: /bin/bash
- 
+  
 ## Limits Using new script 
-- name: Copy add_limits script
-  copy:
-    src: stateDatabase/add_limits.py
-    dest: "{{ serverless_containers_path }}/quickstart/StateDatabase/add_limits.py"
-
 - name: Initializing State Database - limits
-  shell: "python3 quickstart/StateDatabase/add_limits.py app1 {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') | replace(',',' ') }}"
+  shell: "python3 stateDatabase/add_limits.py app1 {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') | replace(',',' ') }}"
   args:
-    chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
   with_items: "{{ groups['nodes'] }}"
 
+## Initialize cpu resource info of hosts
+- name: Initializing State Database - hosts CPU info
+  shell: "python3 stateDatabase/update_host_cpu.py {{ item }} {{ cpus_per_client_node }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }} false"
+  args:
+    executable: /bin/bash
+  with_items: "{{ groups['nodes'] }}"
 
 # Starting Services
-
 - name: Tmux session check
   shell: tmux ls
   register: tmux_output
@@ -171,3 +158,16 @@
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
+
+## Initialize container limits on Node Recaler
+- name: Initializing State Database - container cpu limit on Node Rescaler
+  shell: "python3 stateDatabase/init_host_node_rescaler.py {{ item }} cpu {{ cpus_per_client_node }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }}"
+  args:
+    executable: /bin/bash
+  with_items: "{{ groups['nodes'] }}"
+
+- name: Initializing State Database - container mem limit on Node Rescaler
+  shell: "python3 stateDatabase/init_host_node_rescaler.py {{ item }} mem {{ memory_per_client_node }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }}"
+  args:
+    executable: /bin/bash
+  with_items: "{{ groups['nodes'] }}"
