@@ -278,3 +278,20 @@ a {
 .closebtn:hover {
   color: black;
 } 
+
+/* For the image in Home page */
+/* Based on https://www.w3docs.com/snippets/css/how-to-vertically-align-text-next-to-an-image.html */
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: center
+}
+
+img {
+  max-width: 60%;
+}
+
+.image {
+  flex-basis: 80%;
+  padding-left: 15%;
+}
