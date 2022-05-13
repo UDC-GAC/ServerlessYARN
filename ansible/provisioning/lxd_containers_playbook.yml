@@ -6,11 +6,19 @@
   vars_files:
     - vars/main.yml
     - config/config.yml
-        
+
+  #environment:
+    #LXD_KEY_PATH: "{{ lxd_key_path }}"
+    #LXD_KEY_NAME: "{{ lxd_key_name }}"
+    #BDWATCHDOG_PATH: /root/BDWatchdog/
+    #RESCALING_PATH: /root/ServerlessContainers/scripts/
+    #PYTHONPATH: /root/BDWatchdog/:/root/ServerlessContainers/scripts/
+
   handlers:
     - import_tasks: handlers/main.yml
   tasks:
     - import_tasks: tasks/lxd_setup/lxd_containers_setup.yml
+    - import_tasks: tasks/lxd_setup/node_rescaler_launch.yml
 
 # Setup server (now that nodes have been initialized)
 - hosts: localhost

@@ -19,7 +19,7 @@ if __name__ == "__main__":
     if (resource == "cpu"):
         # cpu_allowance_limit
         max_cores = resource_max_value
-        cpu_allowance_limit = max_cores * 100 / len(containers)
+        cpu_allowance_limit = int(max_cores * 100 / len(containers))
         total_allowance_allocated = 0
 
     elif (resource == "mem"):

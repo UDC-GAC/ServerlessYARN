@@ -23,7 +23,7 @@ if __name__ == "__main__":
     for i in range(0,number_of_cores,1): 
         core_mapping[str(i)] = {"free": 0}
 
-    cpu_allowance_limit = number_of_cores * 100 / len(new_containers)
+    cpu_allowance_limit = int(number_of_cores * 100 / len(new_containers))
     current_core = 0
     current_free = 100
 
