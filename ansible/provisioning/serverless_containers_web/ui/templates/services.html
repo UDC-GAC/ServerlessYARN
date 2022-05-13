@@ -17,15 +17,30 @@
 <div class="content">
     
 <H4>Services</H4>
+
+  {% for error in config_errors %}
+
+  <div class="alert warning">
+      <span class="closebtn">&times;</span>
+      <strong>Warning!</strong> {{ error }}
+  </div> 
+
+  {% endfor %}
+
   <ul id="tabs">
+
     {% for item in data %}
     <li>
     <button class="accordion">{{ item.name }}</button>
   	Heartbeat: {{ item.heartbeat_human }}
     {% if item.alive %}
-      Service OK!
+      <div class="alert success little">
+        Service OK
+      </div> 
     {% else %}
-      Service seems dead D:
+      <div class="alert little">
+        Service seems down
+      </div> 
     {% endif %}
 	<div class="panel">
 		<HR>

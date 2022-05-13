@@ -17,7 +17,18 @@
 <div class="content">
     
 <H4>Rules</H4>
+
+  {% for error in config_errors %}
+
+	<div class="alert warning">
+		<span class="closebtn">&times;</span>
+		<strong>Warning!</strong> {{ error }}
+	</div> 
+
+  {% endfor %}
+
   <ul id="tabs">
+	
     {% for resource in resources %}
     <li>
     <button class="accordion">{{ resource }}</button>

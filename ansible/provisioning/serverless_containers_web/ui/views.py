@@ -6,6 +6,7 @@ import urllib.request
 import json
 import requests
 import time
+import yaml
 
 base_url = "http://192.168.56.100:5000"
 
@@ -532,7 +533,9 @@ def services(request):
         last_heartbeat = item['heartbeat']
         item['alive'] = (now - last_heartbeat) < 60
 
-    return render(request, 'services.html', {'data': data_json})
+    config_errors = checkInvalidConfig()
+
+    return render(request, 'services.html', {'data': data_json, 'config_errors': config_errors})
     
 def service_switch(request,service_name):
 
@@ -625,10 +628,9 @@ def rules(request):
     rulesResources = getRulesResources(data_json)
     ruleTypes = ['requests','events','']
 
-    print(ruleTypes)
+    config_errors = checkInvalidConfig()
 
-
-    return render(request, 'rules.html', {'data': data_json, 'resources':rulesResources, 'types':ruleTypes})
+    return render(request, 'rules.html', {'data': data_json, 'resources':rulesResources, 'types':ruleTypes, 'config_errors': config_errors})
 
 def processRulesPost(request, url, rule_name, field, field_put_url):
 
@@ -674,3 +676,34 @@ def rule_switch(request,rule_name):
         pass
 
     return redirect('rules')
+
+## Check Invalid Config
+def checkInvalidConfig():
+    error_lines = []
+
+    config_path = "../vars/main.yml"
+    with open(config_path, "r") as config_file:
+        config = yaml.load(config_file, Loader=yaml.FullLoader)
+
+    serverless_containers_path = config['installation_path'] + "/ServerlessContainers"
+
+    full_path = serverless_containers_path + "/sanity_checker.log"
+
+    with open(full_path, 'r') as file:
+        lines = file.readlines()
+        lines.reverse()
+
+    ## find last "Sanity checked" message
+    i = 0
+    while (i < len(lines) and "Sanity checked" not in lines[i]):
+        i+= 1
+
+    ## find last "Checking for invalid configuration" message
+    i += 1
+    while (i < len(lines) and "Checking for invalid configuration" not in lines[i]):
+        error_lines.append(lines[i])
+        i += 1
+
+    error_lines.reverse()
+
+    return error_lines

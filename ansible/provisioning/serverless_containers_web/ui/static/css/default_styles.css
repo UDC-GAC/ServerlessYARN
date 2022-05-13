@@ -237,3 +237,44 @@ a {
 .activate-btn:disabled{
   background: rgb(183, 187, 176);
 }
+
+/* Alert box */
+/* Based on https://www.w3schools.com/howto/howto_js_alert.asp */
+ /* The alert message box */
+ .alert {
+  width: 95%;
+  padding: 20px;
+  background-color: #f44336; /* Red */
+  color: white;
+  margin-bottom: 15px;
+  opacity: 1;
+  transition: opacity 0.6s; /* 600ms to fade out */
+}
+
+.alert.success {background-color: #04AA6D;}
+.alert.info {background-color: #2196F3;}
+.alert.warning {background-color: #ff9800;}
+
+.alert.little {
+  padding: 5px;
+  width: 70%;
+  left: 15%;
+  right: 15%
+}
+
+/* The close button */
+.closebtn {
+  margin-left: 15px;
+  color: white;
+  font-weight: bold;
+  float: right;
+  font-size: 22px;
+  line-height: 20px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+/* When moving the mouse over the close button */
+.closebtn:hover {
+  color: black;
+} 

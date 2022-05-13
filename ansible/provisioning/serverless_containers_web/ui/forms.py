@@ -97,19 +97,19 @@ class LimitsForm(forms.Form):
     name = forms.CharField(label="Name",
             required=True
             ) 
-    cpu_boundary = forms.IntegerField(label="CPU Boundary",
+    cpu_boundary = forms.IntegerField(label="CPU Boundary (CPU percentage)",
             required=False
             )
-    mem_boundary = forms.IntegerField(label="Memory Boundary",
+    mem_boundary = forms.IntegerField(label="Memory Boundary (MB)",
             required=False
             )
-    disk_boundary = forms.IntegerField(label="Disk Boundary",
+    disk_boundary = forms.IntegerField(label="Disk Boundary (MB/s)",
             required=False
             )
-    net_boundary = forms.IntegerField(label="Network Boundary",
+    net_boundary = forms.IntegerField(label="Network Boundary (MB/s)",
             required=False
             )
-    energy_boundary = forms.IntegerField(label="Energy Boundary",
+    energy_boundary = forms.IntegerField(label="Energy Boundary (Watts)",
             required=False
             )
 
@@ -160,7 +160,7 @@ class DBSnapshoterForm(forms.Form):
             widget=forms.CheckboxSelectMultiple,
             required=False
             )
-    polling_frequency = forms.IntegerField(label="Polling Frequency",
+    polling_frequency = forms.IntegerField(label="Polling Frequency (seconds)",
             required=True
             )           
 
@@ -199,15 +199,15 @@ class GuardianForm(forms.Form):
                 ),
             required=True
             )
-    event_timeout = forms.IntegerField(label="Event Timeout",
+    event_timeout = forms.IntegerField(label="Event Timeout (seconds)",
             required=True
             )
     guardable_resources = forms.MultipleChoiceField(label="Guardable Resources",
             choices = (
                 ("cpu", "CPU"),
                 ("mem", "Memory"),
-                #("disk", "Disk"),
-                #("net", "Network"),
+                ("disk", "Disk"),
+                ("net", "Network"),
                 ("energy", "Energy"),
                 ),
             widget=forms.CheckboxSelectMultiple,
@@ -220,10 +220,10 @@ class GuardianForm(forms.Form):
                 ),
             required=True
             )
-    window_delay = forms.IntegerField(label="Window Delay",
+    window_delay = forms.IntegerField(label="Window Delay (seconds)",
             required=True
             )
-    window_timelapse = forms.IntegerField(label="Window Timelapse",
+    window_timelapse = forms.IntegerField(label="Window Timelapse (seconds)",
             required=True
             ) 
 
@@ -268,10 +268,10 @@ class ScalerForm(forms.Form):
                 ),
             required=True
             )
-    polling_frequency = forms.IntegerField(label="Polling Frequency",
+    polling_frequency = forms.IntegerField(label="Polling Frequency (seconds)",
             required=True
             )             
-    request_timeout = forms.IntegerField(label="Request Timeout",
+    request_timeout = forms.IntegerField(label="Request Timeout (seconds)",
             required=True
             )
 
@@ -298,10 +298,7 @@ class ScalerForm(forms.Form):
 class StructuresSnapshoterForm(forms.Form):
     name = forms.CharField(label="Name",
             required=True
-            )
-    polling_frequency = forms.IntegerField(label="Polling Frequency",
-            required=True
-            )             
+            )   
     debug = forms.ChoiceField(label="Debug",
             choices = (
                 ("True", "True"),
@@ -315,7 +312,10 @@ class StructuresSnapshoterForm(forms.Form):
                 ("False", "False"),
                 ),
             required=False
-            )  
+            )
+    polling_frequency = forms.IntegerField(label="Polling Frequency (seconds)",
+            required=True
+            )   
     resources_persisted = forms.MultipleChoiceField(label="Resources Persisted",
             choices = (
                 ("cpu", "CPU"),
@@ -358,7 +358,7 @@ class SanityCheckerForm(forms.Form):
                 ),
             required=True
             )
-    delay = forms.IntegerField(label="Delay",
+    delay = forms.IntegerField(label="Delay (seconds)",
             required=True
             )           
 
@@ -402,13 +402,13 @@ class RefeederForm(forms.Form):
             widget=forms.CheckboxSelectMultiple,
             required=False
             ) 
-    polling_frequency = forms.IntegerField(label="Polling Frequency",
+    polling_frequency = forms.IntegerField(label="Polling Frequency (seconds)",
             required=False
             )
-    window_delay = forms.IntegerField(label="Window Delay",
+    window_delay = forms.IntegerField(label="Window Delay (seconds)",
             required=True
             )
-    window_timelapse = forms.IntegerField(label="Window Timelapse",
+    window_timelapse = forms.IntegerField(label="Window Timelapse (seconds)",
             required=True
             ) 
 
@@ -467,10 +467,10 @@ class ReBalancerForm(forms.Form):
                 ),
             required=False
             )
-    window_delay = forms.IntegerField(label="Window Delay",
+    window_delay = forms.IntegerField(label="Window Delay (seconds)",
             required=True
             )
-    window_timelapse = forms.IntegerField(label="Window Timelapse",
+    window_timelapse = forms.IntegerField(label="Window Timelapse (seconds)",
             required=True
             ) 
 
