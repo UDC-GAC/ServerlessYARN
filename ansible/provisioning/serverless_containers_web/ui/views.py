@@ -10,7 +10,81 @@ import yaml
 
 base_url = "http://192.168.56.100:5000"
 
-## Auxiliary Methods
+## Home
+def index(request):
+    url = base_url + "/heartbeat"
+    
+    response = urllib.request.urlopen(url)
+    data_json = json.loads(response.read())
+    
+    return render(request, 'index.html', {'data': data_json})
+    
+
+#### Structures
+# Views
+def structure_detail(request,structure_name):
+    print(structure_name)
+    url = base_url + "/structure/" + structure_name
+
+    response = urllib.request.urlopen(url)
+    data_json = json.loads(response.read())
+    return HttpResponse(json.dumps(data_json), content_type="application/json")
+
+def containers(request):
+    url = base_url + "/structure/"
+
+    if (len(request.POST) > 0):
+        processResources(request, url)
+        processLimits(request, url)
+        return redirect('containers')
+
+    try:
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data_json = {}
+    
+    containers = getContainers(data_json)
+    
+    return render(request, 'containers.html', {'data': containers})
+    
+def hosts(request):
+    url = base_url + "/structure/"
+
+    if (len(request.POST) > 0):
+        processResources(request, url)
+        processLimits(request, url)
+        return redirect('hosts')
+
+    try:
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data_json = {}
+    
+    hosts = getHosts(data_json)
+    
+    return render(request, 'hosts.html', {'data': hosts})
+
+def apps(request):
+    url = base_url + "/structure/"
+
+    if (len(request.POST) > 0):
+        processResources(request, url)
+        processLimits(request, url)
+        return redirect('apps')
+
+    try:
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data_json = {}
+    
+    apps = getApps(data_json)
+    
+    return render(request, 'apps.html', {'data': apps})
+
+# Prepare data to HTML
 def getHosts(data):
     hosts = []
 
@@ -133,7 +207,19 @@ def setStructureResourcesForm(structure, form_action):
 
     ## Need to do this to hide extra 'Save changes' buttons on JS
     structure['resources_form_helper'].layout[submit_button_disp][0].name += structure['name']
+
+def getLimits(structure_name):
+    url = base_url + "/structure/" + structure_name + "/limits"
     
+    try:
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data_json = {}
+    
+    
+    return data_json
+  
 def setLimitsForm(structure, form_action):
 
     editable_data = 0
@@ -154,131 +240,7 @@ def setLimitsForm(structure, form_action):
         if ( not (resource in structure['limits'] and 'boundary' in structure['limits'][resource])):    
             structure['limits_form'].helper[resource + '_boundary'].update_attributes(type="hidden")
 
-def getLimits(structure_name):
-    url = base_url + "/structure/" + structure_name + "/limits"
-    
-    try:
-        response = urllib.request.urlopen(url)
-        data_json = json.loads(response.read())
-    except urllib.error.HTTPError:
-        data_json = {}
-    
-    
-    return data_json
-
-def getRulesResources(data):
-    resources = []
-    
-    for item in data:
-        if (item['resource'] not in resources):
-            resources.append(item['resource'])
-    
-    return resources
-
-def jsonBooleanToHumanReadable(jsonBoolExpr):
-
-    boolString = ""
-
-    boolOperators = ['and','or','==','>=','<=','<','>','+','-','*','/']
-
-    ## Check if dict or literal
-    if type(jsonBoolExpr) is dict:
-        firstElement = list(jsonBoolExpr.keys())[0]
-    else:
-        firstElement = jsonBoolExpr
-
-
-    if (firstElement in boolOperators):
-        ## Got bool expression
-        jsonBoolValues = jsonBoolExpr[firstElement]
-        for i in range(0, len(jsonBoolValues)):
-            boolString += jsonBooleanToHumanReadable(jsonBoolValues[i])
-            if (i < len(jsonBoolValues) - 1):
-                boolString += " " + firstElement.upper() + " "
-
-    elif (firstElement == 'var'):
-        ## Got variable
-        boolString = jsonBoolExpr[firstElement]
-
-    else:
-        ## Got literal
-        boolString = str(firstElement)      
-
-    return boolString
-
-
-## Home
-def index(request):
-    url = base_url + "/heartbeat"
-    
-    response = urllib.request.urlopen(url)
-    data_json = json.loads(response.read())
-    
-    return render(request, 'index.html', {'data': data_json})
-    
-## Structures    
-def structure_detail(request,structure_name):
-    print(structure_name)
-    url = base_url + "/structure/" + structure_name
-
-    response = urllib.request.urlopen(url)
-    data_json = json.loads(response.read())
-    return HttpResponse(json.dumps(data_json), content_type="application/json")
-
-def containers(request):
-    url = base_url + "/structure/"
-
-    if (len(request.POST) > 0):
-        processResources(request, url)
-        processLimits(request, url)
-        return redirect('containers')
-
-    try:
-        response = urllib.request.urlopen(url)
-        data_json = json.loads(response.read())
-    except urllib.error.HTTPError:
-        data_json = {}
-    
-    containers = getContainers(data_json)
-    
-    return render(request, 'containers.html', {'data': containers})
-    
-def hosts(request):
-    url = base_url + "/structure/"
-
-    if (len(request.POST) > 0):
-        processResources(request, url)
-        processLimits(request, url)
-        return redirect('hosts')
-
-    try:
-        response = urllib.request.urlopen(url)
-        data_json = json.loads(response.read())
-    except urllib.error.HTTPError:
-        data_json = {}
-    
-    hosts = getHosts(data_json)
-    
-    return render(request, 'hosts.html', {'data': hosts})
-
-def apps(request):
-    url = base_url + "/structure/"
-
-    if (len(request.POST) > 0):
-        processResources(request, url)
-        processLimits(request, url)
-        return redirect('apps')
-
-    try:
-        response = urllib.request.urlopen(url)
-        data_json = json.loads(response.read())
-    except urllib.error.HTTPError:
-        data_json = {}
-    
-    apps = getApps(data_json)
-    
-    return render(request, 'apps.html', {'data': apps})
-
+# Process POST requests
 def containers_guard_switch(request, container_name):
 
     guard_switch(request, container_name)
@@ -307,7 +269,6 @@ def guard_switch(request, container_name):
         url += "/guard"
 
     req = urllib.request.Request(url, method='PUT')
-    #DATA=b'' 
 
     try:
         response = urllib.request.urlopen(req)
@@ -390,42 +351,8 @@ def processLimitsBoundary(request, url, structure_name, resource, boundary_name)
     else:
         pass
 
+   
 ## Services
-def processServiceConfigPost(request, url, service_name, config_name):
-
-    full_url = url + service_name + "/" + config_name.upper()
-    headers = {'Content-Type': 'application/json'}
-
-    json_fields = []
-    multiple_choice_fields = ["guardable_resources","resources_persisted","generated_metrics","documents_persisted"]
-    
-    if (config_name in json_fields):
-        ## JSON field request
-        new_value = request.POST[config_name]
-        new_values_list = new_value.strip("[").strip("]").split(",")
-        put_field_data = json.dumps({"value":[v.strip().strip('"') for v in new_values_list]})
-
-        r = requests.put(full_url, data=put_field_data, headers=headers)
-
-    elif (config_name in multiple_choice_fields):
-        ## MultipleChoice field request
-        new_values_list = request.POST.getlist(config_name)
-        put_field_data = json.dumps({"value":[v.strip().strip('"') for v in new_values_list]})
-
-        r = requests.put(full_url, data=put_field_data, headers=headers)
-
-    else:
-        ## Other field request
-        new_value = request.POST[config_name]
-        
-        put_field_data = {'value': new_value.lower()}
-        r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
-
-    if (r.status_code == requests.codes.ok):
-        print(r.content)
-    else:
-        pass
-
 def services(request):
     url = base_url + "/service/"
 
@@ -466,9 +393,8 @@ def services(request):
 
     response = urllib.request.urlopen(url)
     data_json = json.loads(response.read())
-    
-    #hosts = getHosts(data_json)
-    
+        
+    ## get datetime in epoch to compare later with each service's heartbeat
     now = time.time()
 
     for item in data_json:
@@ -536,7 +462,7 @@ def services(request):
     config_errors = checkInvalidConfig()
 
     return render(request, 'services.html', {'data': data_json, 'config_errors': config_errors})
-    
+  
 def service_switch(request,service_name):
 
     state = request.POST['service_switch']
@@ -560,6 +486,42 @@ def service_switch(request,service_name):
         pass
 
     return redirect('services')
+
+def processServiceConfigPost(request, url, service_name, config_name):
+
+    full_url = url + service_name + "/" + config_name.upper()
+    headers = {'Content-Type': 'application/json'}
+
+    json_fields = []
+    multiple_choice_fields = ["guardable_resources","resources_persisted","generated_metrics","documents_persisted"]
+    
+    if (config_name in json_fields):
+        ## JSON field request (not used at the moment)
+        new_value = request.POST[config_name]
+        new_values_list = new_value.strip("[").strip("]").split(",")
+        put_field_data = json.dumps({"value":[v.strip().strip('"') for v in new_values_list]})
+
+        r = requests.put(full_url, data=put_field_data, headers=headers)
+
+    elif (config_name in multiple_choice_fields):
+        ## MultipleChoice field request
+        new_values_list = request.POST.getlist(config_name)
+        put_field_data = json.dumps({"value":[v.strip().strip('"') for v in new_values_list]})
+
+        r = requests.put(full_url, data=put_field_data, headers=headers)
+
+    else:
+        ## Other field request
+        new_value = request.POST[config_name]
+        
+        put_field_data = {'value': new_value.lower()}
+        r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+
+    if (r.status_code == requests.codes.ok):
+        print(r.content)
+    else:
+        pass
+
 
 ## Rules
 def rules(request):
@@ -632,6 +594,67 @@ def rules(request):
 
     return render(request, 'rules.html', {'data': data_json, 'resources':rulesResources, 'types':ruleTypes, 'config_errors': config_errors})
 
+def getRulesResources(data):
+    resources = []
+    
+    for item in data:
+        if (item['resource'] not in resources):
+            resources.append(item['resource'])
+    
+    return resources
+
+def jsonBooleanToHumanReadable(jsonBoolExpr):
+
+    boolString = ""
+
+    boolOperators = ['and','or','==','>=','<=','<','>','+','-','*','/']
+
+    ## Check if dict or literal
+    if type(jsonBoolExpr) is dict:
+        firstElement = list(jsonBoolExpr.keys())[0]
+    else:
+        firstElement = jsonBoolExpr
+
+
+    if (firstElement in boolOperators):
+        ## Got bool expression
+        jsonBoolValues = jsonBoolExpr[firstElement]
+        for i in range(0, len(jsonBoolValues)):
+            boolString += jsonBooleanToHumanReadable(jsonBoolValues[i])
+            if (i < len(jsonBoolValues) - 1):
+                boolString += " " + firstElement.upper() + " "
+
+    elif (firstElement == 'var'):
+        ## Got variable
+        boolString = jsonBoolExpr[firstElement]
+
+    else:
+        ## Got literal
+        boolString = str(firstElement)      
+
+    return boolString
+
+def rule_switch(request,rule_name):
+
+    state = request.POST['rule_switch']
+
+    ## send put to stateDatabase
+    url = base_url + "/rule/" + rule_name 
+
+    if (state == "rule_off"):
+        url += "/deactivate"
+    else:
+        url += "/activate"
+
+    req = urllib.request.Request(url, method='PUT')
+
+    try:
+        response = urllib.request.urlopen(req)
+    except:
+        pass
+
+    return redirect('rules')
+
 def processRulesPost(request, url, rule_name, field, field_put_url):
 
     full_url = url + rule_name + "/" + field_put_url
@@ -655,27 +678,7 @@ def processRulesPost(request, url, rule_name, field, field_put_url):
     else:
         pass 
 
-def rule_switch(request,rule_name):
 
-    state = request.POST['rule_switch']
-
-    ## send put to stateDatabase
-    url = base_url + "/rule/" + rule_name 
-
-    if (state == "rule_off"):
-        url += "/deactivate"
-    else:
-        url += "/activate"
-
-    req = urllib.request.Request(url, method='PUT')
-    #DATA=b'' 
-
-    try:
-        response = urllib.request.urlopen(req)
-    except:
-        pass
-
-    return redirect('rules')
 
 ## Check Invalid Config
 def checkInvalidConfig():

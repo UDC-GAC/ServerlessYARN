@@ -1,4 +1,4 @@
-
+# Prepare environment for scripts
 - name: Prepare Environment for scripts - BDWATCHDOG_PATH
   lineinfile:
     path: /etc/environment
@@ -15,12 +15,10 @@
     line: "export PYTHONPATH=:{{ serverless_containers_path }}/scripts/"
 
 # Starting Node Rescaler
-
 - name: Tmux session check
   shell: tmux ls
   register: tmux_output
   ignore_errors: yes
-  #no_log: True
 
 - name: Starting Services - node scaler
   shell: bash scripts/services/node_scaler/start_tmux.sh

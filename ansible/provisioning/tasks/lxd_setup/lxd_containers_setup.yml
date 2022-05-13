@@ -18,7 +18,6 @@
     state: stopped 
 
 ## Start containers
-
 - name: Check containers status
   shell: lxc list -f csv 
   register: lxc_list_output
@@ -77,7 +76,6 @@
   register: tmux_output
   loop: "{{ hostvars[inventory_hostname].containers }}"
   ignore_errors: yes
-  #no_log: True
   
 - name: Start sending metrics to opentsdb
   shell: lxc exec {{ item.item }} -- sudo bash -c "cd {{ bdwatchdog_path }}/MetricsFeeder && bash scripts/run_atop_stream.sh"

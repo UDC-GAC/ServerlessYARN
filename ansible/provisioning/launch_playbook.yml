@@ -7,8 +7,10 @@
     - vars/main.yml
     - config/config.yml
 
-  handlers:
-    - import_tasks: handlers/main.yml
+  vars:
+    # change admin password both here and in config/debian_couchdb_conf.dat to effectively change it
+    - couchdb_admin_pass: admin
+
   tasks:
     - import_tasks: tasks/launch/couchdb_launch.yml
     - import_tasks: tasks/launch/opentsdb_setup.yml

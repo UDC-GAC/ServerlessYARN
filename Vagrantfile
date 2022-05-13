@@ -17,7 +17,6 @@ MEMORY_PER_NODE = configs['memory_per_client_node']
 
 Vagrant.configure("2") do |config|
 
-  #config.vm.box = "hashicorp/bionic64"
   config.vm.box = "bento/ubuntu-20.04" 
 
   # hostmanager plugin

@@ -4,30 +4,8 @@
     name: lxd
     state: latest
 
-#- name: Create key path directory
-#  file:
-#    path: "{{ lxd_key_path }}"
-#    state: directory
-
-### ansible-galaxy collection install community.crypto
-
-### Install OpenSSL key manually
-#- name: Generate an OpenSSL private key with the default values (4096 bits, RSA)
-#  community.crypto.openssl_privatekey:
-#    path: "{{ lxd_key_path }}/{{ lxd_key_name }}.key"
-
-#- name: Generate an OpenSSL certificate
-#  community.crypto.x509_certificate:
-#    state: present
-#    path: "{{ lxd_key_path }}/{{ lxd_key_name }}.crt"
-#    privatekey_path: "{{ lxd_key_path }}/{{ lxd_key_name }}.key"
-#    provider: selfsigned
-
 ## Install OpenSSL key with provided script
-
 - name: Create OpenSSL key and certificate
-  #vars:
-  #  lxd_key_name: "lxd-{{ ansible_hostname }}"
   shell: bash scripts/lxd/create_lxd_key.sh
   args:
     chdir: "{{ serverless_containers_path }}"
@@ -41,8 +19,6 @@
   register: lxc_trust_output
         
 - name: Setup lxd (1)
-  #vars:
-  #  lxd_key_name: "lxd-{{ ansible_hostname }}"
   shell: "lxc config trust add {{ lxd_key_path }}/{{ lxd_key_name }}.crt"
   when: lxc_trust_output.stdout | int == 0
   args:
@@ -58,7 +34,6 @@
   args:
     executable: /bin/bash
 
-# checkear antes de init lxd si se hizo? (lxc network list -> lxdbr0 not in output)
 - name: Init lxd
   shell: lxd init --auto
   

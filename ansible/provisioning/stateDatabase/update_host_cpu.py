@@ -52,21 +52,6 @@ if __name__ == "__main__":
 
     print(core_mapping)
 
-    ## Another algorithm
-    #cores_per_cont = number_of_cores // len(new_containers)
-    
-    #if (cores_per_cont > 0):
-    #    core = 0
-    #    for cont in new_containers:
-    #        for i in range(0,cores_per_cont,1):
-    #            core_mapping[str(core)] = {cont: 100, "free": 0}
-    #            core += 1
-    #        for i in range(core,number_of_cores,1):
-    #            core_mapping[str(i)] = {new_containers[core % len(new_containers)]: 100, "free": 0}
-    #else:
-    #    for i in range(0,number_of_cores,1):
-    #        core_mapping[str(i)] = {new_containers[i]: 100, "free": 0}
-
     # Create database if doesnt exist
     if not handler.database_exists(database):
         print("Adding 'structures' documents")

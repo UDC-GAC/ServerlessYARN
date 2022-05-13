@@ -18,7 +18,6 @@ class HostResourcesFormSetHelper(FormHelper):
             Field('max'),
             FormActions(
                 Submit('save-resources-', 'Save changes', css_class='caja'),
-                #Button('cancel', 'Cancel')
             )
         )
         self.render_required_fields = True
@@ -59,7 +58,6 @@ class StructureResourcesFormSetHelper(FormHelper):
             Field('min'),
             FormActions(
                 Submit('save-resources-', 'Save changes', css_class='caja'),
-                #Button('cancel', 'Cancel')
             )
         )
         self.render_required_fields = True
@@ -119,7 +117,6 @@ class LimitsForm(forms.Form):
         self.helper.form_id = 'id-limitsForm'
         self.helper.form_class = 'form-group'
         self.helper.form_method = 'post'
-        #self.helper.form_action = 'limits'
         self.helper.layout = Layout(
             Field('name', type="hidden", readonly=True),
             Field('cpu_boundary'),
@@ -129,9 +126,9 @@ class LimitsForm(forms.Form):
             Field('energy_boundary'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
-                #Button('cancel', 'Cancel')
             )    
         )
+
 
 ### Services
 # CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 5, "DEBUG": True, "DOCUMENTS_PERSISTED": ["limits", "structures", "users", "configs"] ,"ACTIVE": True}
@@ -178,13 +175,10 @@ class DBSnapshoterForm(forms.Form):
             Field('polling_frequency'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
-                #Button('cancel', 'Cancel')
             )    
         )
 
-# CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 10, "WINDOW_DELAY": 10, "EVENT_TIMEOUT": 40, "DEBUG": True,
-#                         "STRUCTURE_GUARDED": "container", "GUARDABLE_RESOURCES": ["cpu"],
-#                         "CPU_SHARES_PER_WATT": 5, "ACTIVE": True}
+# CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 10, "WINDOW_DELAY": 10, "EVENT_TIMEOUT": 40, "DEBUG": True, "STRUCTURE_GUARDED": "container", "GUARDABLE_RESOURCES": ["cpu"], "CPU_SHARES_PER_WATT": 5, "ACTIVE": True}
 class GuardianForm(forms.Form):
     name = forms.CharField(label="Name",
             required=True
@@ -245,7 +239,6 @@ class GuardianForm(forms.Form):
             Field('window_timelapse'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
-                #Button('cancel', 'Cancel')
             )    
         )
 
@@ -290,7 +283,6 @@ class ScalerForm(forms.Form):
             Field('request_timeout'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
-                #Button('cancel', 'Cancel')
             )    
         )
 
@@ -342,7 +334,6 @@ class StructuresSnapshoterForm(forms.Form):
             Field('resources_persisted'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
-                #Button('cancel', 'Cancel')
             )    
         )
 
@@ -375,7 +366,6 @@ class SanityCheckerForm(forms.Form):
             Field('delay'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
-                #Button('cancel', 'Cancel')
             )    
         )
 
@@ -428,17 +418,10 @@ class RefeederForm(forms.Form):
             Field('window_timelapse'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
-                #Button('cancel', 'Cancel')
             )    
         )
 
-# CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 30,
-                        # "WINDOW_DELAY": 10,
-                        # "REBALANCE_USERS": False,
-                        # "DEBUG": True,
-                        # "ENERGY_DIFF_PERCENTAGE": 0.40,
-                        # "ENERGY_STOLEN_PERCENTAGE": 0.40
-                        # }
+# CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 30, "WINDOW_DELAY": 10, "REBALANCE_USERS": False, "DEBUG": True, "ENERGY_DIFF_PERCENTAGE": 0.40, "ENERGY_STOLEN_PERCENTAGE": 0.40}
 class ReBalancerForm(forms.Form):
     name = forms.CharField(label="Name",
             required=True
@@ -491,7 +474,6 @@ class ReBalancerForm(forms.Form):
             Field('window_timelapse'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
-                #Button('cancel', 'Cancel')
             )    
         )
 
@@ -526,19 +508,14 @@ class RuleForm(forms.Form):
         self.helper.form_id = 'id-ruleForm'
         self.helper.form_class = 'form-group'
         self.helper.form_method = 'post'
-        self.helper.form_action = 'rules'
-        #self.helper.add_input(Submit('submit', 'edit'))  
+        self.helper.form_action = 'rules' 
         self.helper.layout = Layout(
             Field('name', type="hidden", readonly=True),
             Field('amount'),
             Field('up_events_required'),
             Field('down_events_required'),
             Field('rescale_policy'),
-            #ButtonHolder(
-            #    Submit('login', 'Edit')
-            #)
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
-                #Button('cancel', 'Cancel')
             )    
         )

@@ -23,7 +23,6 @@
     <button class="accordion">{{ item.name }}</button>
 	<div class="panel">
 		<p>
-
 			<form action="{% url 'containers_guard_switch' item.name %}" method="POST"> 
 				{% csrf_token %}
 				<label>Guard: {{ item.guard }}</label>

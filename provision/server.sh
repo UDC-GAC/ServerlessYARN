@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Install ansible and other stuff
+# Install basic stuff
 apt-get -y update
 apt-get -y install python-setuptools wget curl sshpass vim nano
 
@@ -10,7 +10,7 @@ apt-get -y install python-setuptools wget curl sshpass vim nano
 #apt-get -y update
 #apt-get install -y ansible
 
-## Pip install
+## Pip install ansible
 apt-get install -y python3-pip
 python3 -m pip install ansible
 

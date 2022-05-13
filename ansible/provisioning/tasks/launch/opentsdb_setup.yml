@@ -3,7 +3,6 @@
   shell: tmux ls
   register: tmux_output
   ignore_errors: yes
-  #no_log: True
 
 - name: Starting Services - TIMESTAMPING Service
   shell: bash start.sh 

@@ -55,8 +55,7 @@ if __name__ == "__main__":
                 old_container["host_rescaler_ip"] = new_host
                 handler.update_structure(old_container)
             except ValueError:
-                # new container           
-                #container = dict(base_container)
+                # new container
                 container = base_container
                 container["name"] = c
                 container["host"] = new_host
@@ -70,7 +69,6 @@ if __name__ == "__main__":
         ## Host
         try:
             old_host = handler.get_structure(new_host)
-            #handler.update_structure(old_host)
         except ValueError:
             # new host
             host = base_host
@@ -98,5 +96,3 @@ if __name__ == "__main__":
                 mem=dict(max=config['max_memory_per_app'], min=config['min_memory_per_app'], guard=False)
             )
             handler.add_structure(app)
-
-    

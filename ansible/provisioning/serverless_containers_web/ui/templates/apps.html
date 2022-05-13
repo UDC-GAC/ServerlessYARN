@@ -76,7 +76,6 @@
     <button class="accordion">{{ cont.name }}</button>
 	<div class="panel">
 		<p>
-
 			<form action="{% url 'apps_guard_switch' cont.name %}" method="POST"> 
 				{% csrf_token %}
 				<label>Guard: {{ cont.guard }}</label>

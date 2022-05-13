@@ -87,14 +87,15 @@ ul#tabs li {
   margin: 0;
   display: inline-block;
 }
-ul#tabs li:hover {
-  /*background: #eee;*/
-  /*color: #00f;*/
-}
+
+/* ul#tabs li:hover {
+  background: #eee;
+  color: #00f;
+} */
 
 /* Accordion list */
 /* Based on https://www.w3schools.com/howto/howto_js_accordion.asp */
- /* Style the buttons that are used to open and close the accordion panel */
+/* Style the buttons that are used to open and close the accordion panel */
 .accordion {
   background-color: #eee;
   color: #444;
@@ -240,7 +241,7 @@ a {
 
 /* Alert box */
 /* Based on https://www.w3schools.com/howto/howto_js_alert.asp */
- /* The alert message box */
+/* The alert message box */
  .alert {
   width: 95%;
   padding: 20px;

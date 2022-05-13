@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
+echo "Preparing ansible inventory"
 sudo python3 load_inventory_from_conf.py /etc/ansible/hosts config/config.yml
 
+printf "\n"
 echo "Installing necessary services and programs..."
 ansible-playbook install_playbook.yml
 echo "Install Done!"

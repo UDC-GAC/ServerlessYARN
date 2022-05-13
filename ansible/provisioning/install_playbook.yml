@@ -7,8 +7,6 @@
     - vars/main.yml
     - config/config.yml
     
-  handlers:
-    - import_tasks: handlers/main.yml
   tasks:
     - import_tasks: tasks/install/couchdb_setup.yml
     - import_tasks: tasks/install/bdwatchdog_setup.yml
@@ -28,8 +26,6 @@
   vars:
     - lxd_key_name: "lxd-{{ ansible_hostname }}"
 
-  handlers:
-    - import_tasks: handlers/main.yml
   tasks:
     - import_tasks: tasks/install/serverless_containers_setup.yml
     - import_tasks: tasks/install/lxd_setup.yml

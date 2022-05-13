@@ -19,12 +19,10 @@
 <H4>Services</H4>
 
   {% for error in config_errors %}
-
   <div class="alert warning">
       <span class="closebtn">&times;</span>
       <strong>Warning!</strong> {{ error }}
   </div> 
-
   {% endfor %}
 
   <ul id="tabs">
@@ -49,7 +47,6 @@
 
         {% if config == "ACTIVE" %}
           <p>
-
             <form action="{% url 'service_switch' item.name %}" method="POST"> 
               {% csrf_token %}
               <label>ACTIVE: {{ values }} </label>
@@ -60,11 +57,8 @@
             </form>
           </p>
         {% else %}
-
           <p> {{ config }}:{{ values }} </p>  
-
         {% endif %}
-
   		{% endfor %}
 
 			<!-- EDIT MODAL-->	

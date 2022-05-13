@@ -48,9 +48,6 @@ for host in structures:
 
     container_list = structures[host]
 
-    ## format container list from cont0,cont1 to \'["cont0","cont1"]\'
-    #container_list = containers.split(',')
-
     i = 0
     containers_formatted = "\'["
 
@@ -59,8 +56,6 @@ for host in structures:
         i += 1
         
     containers_formatted += "\"" + container_list[i] + "\"]\'"
-
-    print(containers_formatted)
 
     # read lines
     with open(inventory_file, 'r') as file:

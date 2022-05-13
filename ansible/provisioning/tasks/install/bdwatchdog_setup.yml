@@ -14,7 +14,6 @@
   file:
     path: "{{ installation_path }}/BDWatchdog_data"
     state: directory
-    #mode: '0755'
 
 - name: Install BDWatchdog
   shell: bash install.sh
@@ -23,19 +22,3 @@
     executable: /bin/bash
     creates: "{{ bdwatchdog_path }}/deployment/metrics/opentsdb/build/tsdb"
     
-    
-## puede estar bien para asegurarse de que esten instalados?
-#- name: Update apt packages
-#  become: true
-#  apt:
-#    update_cache: yes
-    
-#- name: Install java
-#  package:
-#    name: openjdk-8-jdk
-#    state: latest
- 
-#- name: Install pip
-#  package:
-#    name: python3-pip
-#    state: latest
