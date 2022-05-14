@@ -59,32 +59,34 @@
 	<div class="panel">
 		<HR>
   		<p>Config: </p>
-  		{% for config,values in item.config.items %}
+      <table class="data_table">
+        {% for config,values in item.config.items %}
+          {% if config == "ACTIVE" %}
+            <tr>
+              <form action="{% url 'service_switch' item.name %}" method="POST"> 
+                {% csrf_token %}
+                <td>ACTIVE</td><td>{{ values }}</td> </label>
 
-        {% if config == "ACTIVE" %}
-          <p>
-            <form action="{% url 'service_switch' item.name %}" method="POST"> 
-              {% csrf_token %}
-              <label>ACTIVE: {{ values }} </label>
-
-              {% if values == True %} <button class="deactivate-btn" type="submit" name="service_switch" value="service_off">Deactivate</button>
-              {% else %}              <button class="activate-btn" type="submit" name="service_switch" value="service_on">Activate</button>
-              {% endif %}
-            </form>
-          </p>
-        {% else %}
-          <p> {{ config }}:{{ values }} </p>  
-        {% endif %}
-  		{% endfor %}
+                {% if values == True %} <td><button class="deactivate-btn" type="submit" name="service_switch" value="service_off">Deactivate</button></td>
+                {% else %}              <td><button class="activate-btn" type="submit" name="service_switch" value="service_on">Activate</button></td>
+                {% endif %}
+              </form>
+            </tr>
+          {% else %}
+            <tr> <td>{{ config }}</td><td>{{ values }}</td> </tr>  
+          {% endif %}
+        {% endfor %}
+      </table>
+      <p></p>
 
 			<!-- EDIT MODAL-->	
 			{% if item.editable_data > 0 %}
-				<a href="#openModal-{{ item.name }}" title="Edit" class="caja">Edit information</a>
+				<a href="#openModal-{{ item.name }}" title="Edit" class="caja">Edit configuration</a>
 				<br><br>  
 				<div align="left" id="openModal-{{ item.name }}" class="modalDialog">
 					<div>
 						<a href="#close" title="Close" class="close">X</a>
-						<h2>Edit information of {{ item.name }}</h2>
+						<h2>Edit configuration of {{ item.name }}</h2>
 						<p>
 							{% load crispy_forms_tags %} {% crispy item.form item.form.helper %}
 						</p>
@@ -98,5 +100,8 @@
   </ul>
 </div>
 <HR> 
+
+{% load static %}
+<script src="{% static "js/trim_underscores.js" %}"></script>
 
 {% endblock %}

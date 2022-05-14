@@ -20,12 +20,14 @@
   text-decoration: none;
 }
 
-/* Vertical Menu */
-/* Based on https://www.w3schools.com/howto/howto_css_vertical_menu.asp */
-.vertical-menu {
-  width: 200px; /* Set a width if you like */
+.link_button.disabled {
+  pointer-events: none;
+  background-color: rgb(192, 189, 189);
+  border: 2px solid rgb(192, 189, 189);
 }
 
+/* Vertical Menu */
+/* Based on https://www.w3schools.com/howto/howto_css_vertical_menu.asp */
 .vertical-menu a {
   background-color: #eee; /* Grey background color */
   color: black; /* Black text color */
@@ -52,6 +54,7 @@
   height: 100%; /* Full height */
   position: fixed; /* Make it stick, even on scroll */
   overflow: auto; /* Enable scrolling if the sidenav has too much content */
+  font-size: 0.95vw;
 }
 
 .content {
@@ -59,20 +62,20 @@
   left: 150px;
 }
 
-/* Boxes with hosts */
+/* Boxes with data */
 /* Based on https://stackoverflow.com/questions/31228601/overflowing-horizontal-list-with-scrollbar*/
 body {
   margin: 0;
   padding: 0;
 }
 ul#tabs {
-  border-bottom: 1px solid black;
+  border-bottom: 0px solid black;
   list-style-type: none;
   margin: 0;
   padding: 0;
   overflow-x: scroll;
   overflow-y: hidden;
-  width: 100%;
+  width: 95%;
   /*white-space: nowrap;*/
 }
 ul#tabs::-webkit-scrollbar {
@@ -82,7 +85,7 @@ ul#tabs li {
   /*width: 100% !important;*/
   height: 100% !important;
   padding-top: 5px;
-  border: 1px solid red;
+  border: 1px solid black;
   text-align: center;
   margin: 0;
   display: inline-block;
@@ -216,7 +219,8 @@ a {
 .deactivate-btn{
   background: rgb(194, 66, 66);
   color: white; 
-	font-size: 14px; 
+  /*font-size: 14px;*/ 
+	font-size: medium; 
 	font-weight: 800; 
 }
 
@@ -227,7 +231,8 @@ a {
 .activate-btn{
   background: rgb(134, 194, 66);
   color: black; 
-	font-size: 14px; 
+	/*font-size: 14px;*/ 
+  font-size: medium; 
 	font-weight: 800; 
 }
 
@@ -295,4 +300,35 @@ img {
 .image {
   flex-basis: 80%;
   padding-left: 15%;
+}
+
+/* Tables for data */
+/* Based on https://www.w3schools.com/css/css_table.asp */
+.data_table {
+  font-family: Arial, Helvetica, sans-serif;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.data_table td, .data_table th {
+  border: 1px solid #ddd;
+  padding: 8px;
+  font-size: medium;
+  text-transform: lowercase; 
+}
+
+.data_table td::first-letter {
+  text-transform: uppercase;
+ }
+
+.data_table tr:nth-child(even){background-color: #f2f2f2;}
+
+/*.data_table tr:hover {background-color: #ddd;}*/
+
+.data_table th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  text-align: left;
+  background-color: #04AA6D;
+  color: white;
 }

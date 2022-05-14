@@ -11,9 +11,11 @@
 	<H1>Serverless Containers Web Interface</H1>
   Visit main page: <a href=http://bdwatchdog.dec.udc.es/serverless/index.html>http://bdwatchdog.dec.udc.es/serverless/index.html</a>
 	<HR>
-	<H2>Heartbeat Status: </H2>
-	{% if data.status == 'alive' %} ALIVE
-	{% else %} DOWN
+	<H2>Orchestrator Status: </H2>
+	{% if data.status == 'alive' %} 
+    <h4 style="color:green">UP</h4>
+	{% else %}
+    <h4 style="color:red">DOWN</h4>
 	{% endif %}
 
   <BR><BR>
@@ -21,13 +23,23 @@
   <div class=container>
     <div>
       <h3>Browse:</h3>
+      {% if data.status == 'alive' %}
+        <table>
+          <tr><td> <a class=link_button href="{% url 'containers' %}">Containers</a> </td></tr>
+          <tr><td> <a class=link_button href="{% url 'hosts' %}">Hosts</a> </td></tr>
+          <tr><td> <a class=link_button href="{% url 'apps' %}">Apps</a> </td></tr>
+          <tr><td> <a class=link_button href="{% url 'services' %}">Services</a> </td></tr>
+          <tr><td> <a class=link_button href="{% url 'rules' %}">Rules</a> </td></tr>
+        </table>
+      {% else %}
       <table>
-        <tr><td> <a class=link_button href="{% url 'containers' %}">Containers</a> </td></tr>
-        <tr><td> <a class=link_button href="{% url 'hosts' %}">Hosts</a> </td></tr>
-        <tr><td> <a class=link_button href="{% url 'apps' %}">Apps</a> </td></tr>
-        <tr><td> <a class=link_button href="{% url 'services' %}">Services</a> </td></tr>
-        <tr><td> <a class=link_button href="{% url 'rules' %}">Rules</a> </td></tr>
+        <tr><td> <a class="link_button disabled" href="{% url 'containers' %}">Containers</a> </td></tr>
+        <tr><td> <a class="link_button disabled" href="{% url 'hosts' %}">Hosts</a> </td></tr>
+        <tr><td> <a class="link_button disabled" href="{% url 'apps' %}">Apps</a> </td></tr>
+        <tr><td> <a class="link_button disabled" href="{% url 'services' %}">Services</a> </td></tr>
+        <tr><td> <a class="link_button disabled" href="{% url 'rules' %}">Rules</a> </td></tr>
       </table>
+      {% endif %}
     </div>
     <div class="image">
       <img src="{% static "img/logo.png" %}" alt="ServerlessContainers logo">

@@ -62,30 +62,34 @@
     		{% if item.resource == resource and item.generates == type %}				
     		<button class="accordion">{{ item.name }}</button>
 			<div class="panel">
-				<p>
+			<table class="data_table">
+				<p></p>
+				<tr>
 					<form action="{% url 'rule_switch' item.name %}" method="POST"> 
 						{% csrf_token %}
-						<label>Active: {{ item.active }} </label>
+						<td>Active</td><td>{{ item.active }}</td>
 
-						{% if item.active == True %} <button class="deactivate-btn" type="submit" name="rule_switch" value="rule_off">Deactivate</button>
+						{% if item.active == True %} <td><button class="deactivate-btn" type="submit" name="rule_switch" value="rule_off">Deactivate</button></td>
 						{% else %}                  
 							{% if type == "" %} 
 								<!-- Rules used by the ReBalancer, NOT the Guardian, should leave it deactivated -->
-								<button disabled class="activate-btn" type="submit" name="rule_switch" value="rule_on">Activate</button>
+								<td><button disabled class="activate-btn" type="submit" name="rule_switch" value="rule_on">Activate</button></td>
 							{% else %}
-								<button class="activate-btn" type="submit" name="rule_switch" value="rule_on">Activate</button>
+								<td><button class="activate-btn" type="submit" name="rule_switch" value="rule_on">Activate</button></td>
 							{% endif %}
 						{% endif %}
 					</form>
-				</p>
-				{% if item.action.events %} <p> Events: {{ item.action.events }} </p> {% endif %}
-				{% if item.amount %} <p> Amount: {{ item.amount }} </p> {% endif %}
-				{% if item.events_to_remove %} <p> Events to remove: {{ item.events_to_remove }} </p> {% endif %}
-				{% if item.percentage_reduction %} <p> Percentage reduction: {{ item.percentage_reduction }} </p> {% endif %}
-				{% if item.rescale_policy %} <p> Rescale policy: {{ item.rescale_policy }} </p> {% endif %}
-				{% if item.rescale_type %} <p> Rescale type: {{ item.rescale_type }} </p> {% endif %}
-				<p>Rule: {{ item.rule_readable }} </p>
-
+				</tr>
+				{% if item.action.events %} <tr> <td>Events</td> <td>{{ item.action.events }}</td> </tr> {% endif %}
+				{% if item.amount %} <tr> <td>Amount</td> <td>{{ item.amount }}</td> </tr> {% endif %}
+				{% if item.events_to_remove %} <tr> <td>Events to remove</td> <td>{{ item.events_to_remove }}</td> </tr> {% endif %}
+				{% if item.percentage_reduction %} <tr> <td>Percentage reduction</td> <td>{ item.percentage_reduction }}</td>{ </tr>tr> {% endif %}
+				{% if item.rescale_policy %} <tr> <td>Rescale policy</td> <td>{{ item.rescale_policy }}</td> </tr> {% endif %}
+				{% if item.rescale_type %} <tr> <td>Rescale type</td> <td>{{ item.rescale_type }}</td> </tr> {% endif %}
+				<tr><td>Rule</td> <td>{{ item.rule_readable }}</td> </tr>
+			</table>
+			<p></p>
+			
 				<!-- EDIT MODAL-->	
 				{% if item.editable_data > 0 %}
 					<a href="#openModal-{{ item.name }}" title="Edit" class="caja">Edit information</a>
@@ -101,12 +105,12 @@
 					</div>
 				{% endif %}
   			</div>
-
   			{% endif %}
     		{% endfor %}
 			<p></p>
 		</div>
 		{% endfor %}
+		<p></p>
 	</div>    	
     </li>    
     {% endfor %}

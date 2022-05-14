@@ -38,24 +38,50 @@
     <li>
     <button class="accordion">{{ item.name }}</button>
 	<div class="panel">
-		<p>
+	<p></p>		
+	<table class="data_table">	
+		<tr>
 			<form action="{% url 'containers_guard_switch' item.name %}" method="POST"> 
 				{% csrf_token %}
-				<label>Guard: {{ item.guard }}</label>
+				<td>Guard</td> <td>{{ item.guard }}</td>
 
-				{% if item.guard == True %} <button class="deactivate-btn" type="submit" name="guard_switch" value="guard_off">Unguard</button>
-				{% else %}                   <button class="activate-btn" type="submit" name="guard_switch" value="guard_on">Guard</button>
+				{% if item.guard == True %} <td><button class="deactivate-btn" type="submit" name="guard_switch" value="guard_off">Unguard</button></td>
+				{% else %}                  <td><button class="activate-btn" type="submit" name="guard_switch" value="guard_on">Guard</button></td>
 				{% endif %}
 			</form>
-		</p>
+		</tr>
 
-		<p>Guard Policy: {{ item.guard_policy }}</p>
-		<p>Host: {{ item.host }}</p>
+		<tr><td>Policy</td> <td>{{ item.guard_policy }}</td></tr>
+		<tr><td>Host</td> <td>{{ item.host }}</td></tr>
+	</table>
+	<p></p>
+
    		<button class="accordion">Resources</button>
   		<div class="panel">
-  			{% for resource,values in item.resources.items %}
-  		  		<p>{{ resource }}:{{ values }}</p>  
-  			{% endfor %}
+			<p></p>
+			<table class="data_table">
+				{% for resource,values in item.resources.items %}
+					
+					<tr>
+						<th>{{ resource }}</th>
+						<td>{{ values }}</td>
+					</tr>
+					<!--
+					<tr>
+						{ for label in values }
+							<th> {{ label }} </th> 
+						{ endfor }
+					</tr>
+					<tr>
+						<td>{{ item.resources.items }}</td>
+						{ for label,value in values }
+							<td> {{ value }} </td> 
+						{ endfor }						
+					</tr>
+					--> 
+				{% endfor %}
+			</table>
+			<p></p>
 
 			<!-- CONT RESOURCES EDIT MODAL -->	
 			{% if item.resources_editable_data > 0 %}

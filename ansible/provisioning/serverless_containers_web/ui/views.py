@@ -34,9 +34,12 @@ def redirect_with_errors(redirect_url, errors):
 def index(request):
     url = base_url + "/heartbeat"
     
-    response = urllib.request.urlopen(url)
-    data_json = json.loads(response.read())
-    
+    try:
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+    except urllib.error.URLError:
+        data_json = {"status": "down"}
+
     return render(request, 'index.html', {'data': data_json})
     
 

@@ -38,7 +38,12 @@
     <li>
     <button class="accordion">{{ item.name }}</button>
 	<div class="panel">
-		<p>Guard Policy: {{ item.guard_policy }}</p>
+		<p></p>
+		<table class="data_table">
+			<tr><td>Guard Policy</td> <td>{{ item.guard_policy }}</td></tr>
+		</table>
+		<p></p>
+		
     	<button class="accordion">Resources</button>
   		<div class="panel">
   			{% for resource,values in item.resources.items %}
@@ -91,17 +96,22 @@
     {% for cont in item.containers_full %}
     <button class="accordion">{{ cont.name }}</button>
 	<div class="panel">
-		<p>
-			<form action="{% url 'apps_guard_switch' cont.name %}" method="POST"> 
-				{% csrf_token %}
-				<label>Guard: {{ cont.guard }}</label>
+		<p></p>
+		<table class="data_table">	
+			<tr>
+				<form action="{% url 'apps_guard_switch' cont.name %}" method="POST"> 
+					{% csrf_token %}
+					<td>Guard</td> <td>{{ cont.guard }}</td>
 
-				{% if cont.guard == True %} <button class="deactivate-btn" type="submit" name="guard_switch" value="guard_off">Unguard</button>
-				{% else %}                  <button class="activate-btn" type="submit" name="guard_switch" value="guard_on">Guard</button>
-				{% endif %}
-			</form>
-		</p>
-  		<p>Guard Policy: {{ cont.guard_policy }}</p>
+					{% if cont.guard == True %} <td><button class="deactivate-btn" type="submit" name="guard_switch" value="guard_off">Unguard</button></td>
+					{% else %}                  <td><button class="activate-btn" type="submit" name="guard_switch" value="guard_on">Guard</button></td>
+					{% endif %}
+				</form>
+			</tr>
+			<tr><td>Guard Policy</td> <td>{{ cont.guard_policy }}</td></tr>
+		</table>
+		<p></p>
+
    		<button class="accordion">Resources</button>
   		<div class="panel">
   			{% for resource,values in cont.resources.items %}
