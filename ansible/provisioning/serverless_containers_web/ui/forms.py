@@ -96,19 +96,19 @@ class LimitsForm(forms.Form):
             required=True
             ) 
     cpu_boundary = forms.IntegerField(label="CPU Boundary (CPU percentage)",
-            required=False
+            required=True
             )
     mem_boundary = forms.IntegerField(label="Memory Boundary (MB)",
-            required=False
+            required=True
             )
     disk_boundary = forms.IntegerField(label="Disk Boundary (MB/s)",
-            required=False
+            required=True
             )
     net_boundary = forms.IntegerField(label="Network Boundary (MB/s)",
-            required=False
+            required=True
             )
     energy_boundary = forms.IntegerField(label="Energy Boundary (Watts)",
-            required=False
+            required=True
             )
 
     def __init__(self, *args, **kwargs):
@@ -488,11 +488,11 @@ class RuleForm(forms.Form):
             )          
     up_events_required = forms.IntegerField(label="Up Events Required",
             min_value=0,
-            required=False
+            required=True
             )   
     down_events_required = forms.IntegerField(label="Down Events Required",
             min_value=0,
-            required=False
+            required=True
             ) 
     rescale_policy = forms.ChoiceField(label="Rescale Policy",
             choices = (

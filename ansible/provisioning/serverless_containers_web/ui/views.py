@@ -3,12 +3,32 @@ from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, Struc
 from django.forms import formset_factory
 from django.http import HttpResponse
 import urllib.request
+import urllib.parse
 import json
 import requests
 import time
 import yaml
+from bs4 import BeautifulSoup
+
 
 base_url = "http://192.168.56.100:5000"
+
+## General auxiliar
+def redirect_with_errors(redirect_url, errors):
+
+    red = redirect(redirect_url)
+    if (len(errors) > 0):
+        red['Location'] += '?errors=' + urllib.parse.quote(errors[0])
+
+        i = 1
+        while(i < len(errors)):
+            red['Location'] += '&errors=' + urllib.parse.quote(errors[i])
+            i += 1
+
+    else:
+        red['Location'] += '?success=yes'
+
+    return red
 
 ## Home
 def index(request):
@@ -23,7 +43,6 @@ def index(request):
 #### Structures
 # Views
 def structure_detail(request,structure_name):
-    print(structure_name)
     url = base_url + "/structure/" + structure_name
 
     response = urllib.request.urlopen(url)
@@ -34,9 +53,18 @@ def containers(request):
     url = base_url + "/structure/"
 
     if (len(request.POST) > 0):
-        processResources(request, url)
-        processLimits(request, url)
-        return redirect('containers')
+        errors = []
+
+        resources_errors = processResources(request, url)
+        limits_errors = processLimits(request, url)
+
+        if (resources_errors): errors += resources_errors
+        if (limits_errors): errors += limits_errors
+
+        return redirect_with_errors('containers',errors)
+
+    requests_errors = request.GET.getlist("errors", None)
+    requests_success = request.GET.getlist("success", None)
 
     try:
         response = urllib.request.urlopen(url)
@@ -46,15 +74,24 @@ def containers(request):
     
     containers = getContainers(data_json)
     
-    return render(request, 'containers.html', {'data': containers})
+    return render(request, 'containers.html', {'data': containers, 'requests_errors': requests_errors, 'requests_success': requests_success})
     
 def hosts(request):
     url = base_url + "/structure/"
 
     if (len(request.POST) > 0):
-        processResources(request, url)
-        processLimits(request, url)
-        return redirect('hosts')
+        errors = []
+
+        resources_errors = processResources(request, url)
+        limits_errors = processLimits(request, url)
+
+        if (resources_errors): errors += resources_errors
+        if (limits_errors): errors += limits_errors
+
+        return redirect_with_errors('hosts',errors)
+
+    requests_errors = request.GET.getlist("errors", None)
+    requests_success = request.GET.getlist("success", None)
 
     try:
         response = urllib.request.urlopen(url)
@@ -64,15 +101,24 @@ def hosts(request):
     
     hosts = getHosts(data_json)
     
-    return render(request, 'hosts.html', {'data': hosts})
+    return render(request, 'hosts.html', {'data': hosts, 'requests_errors': requests_errors, 'requests_success': requests_success})
 
 def apps(request):
     url = base_url + "/structure/"
 
     if (len(request.POST) > 0):
-        processResources(request, url)
-        processLimits(request, url)
-        return redirect('apps')
+        errors = []
+
+        resources_errors = processResources(request, url)
+        limits_errors = processLimits(request, url)
+
+        if (resources_errors): errors += resources_errors
+        if (limits_errors): errors += limits_errors
+
+        return redirect_with_errors('apps',errors)
+
+    requests_errors = request.GET.getlist("errors", None)
+    requests_success = request.GET.getlist("success", None)
 
     try:
         response = urllib.request.urlopen(url)
@@ -82,7 +128,7 @@ def apps(request):
     
     apps = getApps(data_json)
     
-    return render(request, 'apps.html', {'data': apps})
+    return render(request, 'apps.html', {'data': apps, 'requests_errors': requests_errors, 'requests_success': requests_success})
 
 # Prepare data to HTML
 def getHosts(data):
@@ -282,12 +328,13 @@ def processResources(request, url):
     structures_resources_field_list = ["guard","max","min"]
     hosts_resources_field_list = ["max"]
 
-    print(request.POST)
+    errors = []
 
     if ("form-TOTAL_FORMS" in request.POST):
         total_forms = int(request.POST['form-TOTAL_FORMS'])
 
         if (total_forms > 0):
+            
             name = request.POST['form-0-name']
 
             if (request.POST['form-0-structure_type'] == "host"):
@@ -300,7 +347,10 @@ def processResources(request, url):
     
                 for field in resources_field_list:
                     field_value = request.POST['form-' + str(i) + "-" + field]
-                    processResourcesFields(request, url, name, resource, field, field_value)
+                    error = processResourcesFields(request, url, name, resource, field, field_value)
+                    if (len(error) > 0): errors.append(error)
+
+    return errors
 
 def processResourcesFields(request, url, structure_name, resource, field, field_value):
 
@@ -321,20 +371,29 @@ def processResourcesFields(request, url, structure_name, resource, field, field_
 
         r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
 
-    if (r.status_code == requests.codes.ok):
-        print(r.content)
-    else:
-        pass
+    error = ""
+    if (r.status_code != requests.codes.ok):
+        soup = BeautifulSoup(r.text, features="html.parser")
+        error = "Error submiting " + field + " for structure " + structure_name + ": " + soup.get_text().strip()
+
+    return error
 
 def processLimits(request, url):
+
+    errors = []
+
     if ("name" in request.POST):
+        
         structure_name = request.POST['name']
 
         resources = ["cpu","mem","disk","net","energy"]
 
         for resource in resources:
             if (resource + "_boundary" in request.POST):
-                processLimitsBoundary(request, url, structure_name, resource, resource + "_boundary")
+                error = processLimitsBoundary(request, url, structure_name, resource, resource + "_boundary")
+                if (len(error) > 0): errors.append(error)
+
+    return errors
 
 def processLimitsBoundary(request, url, structure_name, resource, boundary_name):
 
@@ -342,14 +401,19 @@ def processLimitsBoundary(request, url, structure_name, resource, boundary_name)
     headers = {'Content-Type': 'application/json'}
 
     new_value = request.POST[boundary_name]
-    put_field_data = {'value': new_value.lower()}
 
-    r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+    r = ""
+    if (new_value != ''):
+        put_field_data = {'value': new_value.lower()}
 
-    if (r.status_code == requests.codes.ok):
-        print(r.content)
-    else:
-        pass
+        r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+
+    error = ""
+    if (r != "" and r.status_code != requests.codes.ok):
+        soup = BeautifulSoup(r.text, features="html.parser")
+        error = "Error submiting " + boundary_name + " for structure " + structure_name + ": " + soup.get_text().strip()
+
+    return error
 
    
 ## Services
@@ -366,6 +430,7 @@ def services(request):
 
     if (len(request.POST) > 0):
         if ("name" in request.POST):
+            errors = []
 
             service_name = request.POST['name']
 
@@ -386,14 +451,17 @@ def services(request):
             elif (service_name == 'rebalancer'):            options = rebalancer_options
 
             for option in options:
-                #if (option in request.POST):
-                processServiceConfigPost(request, url, service_name, option)
+                error = processServiceConfigPost(request, url, service_name, option)
+                if (len(error) > 0): errors.append(error)
 
-        return redirect('services')
+        return redirect_with_errors('services',errors)
 
     response = urllib.request.urlopen(url)
     data_json = json.loads(response.read())
         
+    requests_errors = request.GET.getlist("errors", None)
+    requests_success = request.GET.getlist("success", None)
+
     ## get datetime in epoch to compare later with each service's heartbeat
     now = time.time()
 
@@ -461,7 +529,7 @@ def services(request):
 
     config_errors = checkInvalidConfig()
 
-    return render(request, 'services.html', {'data': data_json, 'config_errors': config_errors})
+    return render(request, 'services.html', {'data': data_json, 'config_errors': config_errors, 'requests_errors': requests_errors, 'requests_success': requests_success})
   
 def service_switch(request,service_name):
 
@@ -480,10 +548,9 @@ def service_switch(request,service_name):
     put_field_data = {'value': activate}
     r = requests.put(url, data=json.dumps(put_field_data), headers=headers)
 
-    if (r.status_code == requests.codes.ok):
+    if (r.status_code != requests.codes.ok):
+        ## shouldn't happen
         print(r.content)
-    else:
-        pass
 
     return redirect('services')
 
@@ -494,7 +561,9 @@ def processServiceConfigPost(request, url, service_name, config_name):
 
     json_fields = []
     multiple_choice_fields = ["guardable_resources","resources_persisted","generated_metrics","documents_persisted"]
-    
+
+    r = ""
+
     if (config_name in json_fields):
         ## JSON field request (not used at the moment)
         new_value = request.POST[config_name]
@@ -514,13 +583,16 @@ def processServiceConfigPost(request, url, service_name, config_name):
         ## Other field request
         new_value = request.POST[config_name]
         
-        put_field_data = {'value': new_value.lower()}
-        r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+        if (new_value != ''):
+            put_field_data = {'value': new_value.lower()}
+            r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
 
-    if (r.status_code == requests.codes.ok):
-        print(r.content)
-    else:
-        pass
+    error = ""
+    if (r != "" and r.status_code != requests.codes.ok):
+        soup = BeautifulSoup(r.text, features="html.parser")
+        error = "Error submiting " + config_name + " for service " + service_name + ": " + soup.get_text().strip()
+
+    return error
 
 
 ## Rules
@@ -528,6 +600,7 @@ def rules(request):
     url = base_url + "/rule/"
 
     if (len(request.POST) > 0):
+        errors = []
 
         rule_name = request.POST['name']
         rules_fields = ["amount","rescale_policy","up_events_required","down_events_required"]
@@ -536,13 +609,17 @@ def rules(request):
 
         for field in rules_fields:
             if (field in request.POST):
-                processRulesPost(request, url, rule_name, field, rules_fields_dict[field])
+                error = processRulesPost(request, url, rule_name, field, rules_fields_dict[field])
+                if (len(error) > 0): errors.append(error)
 
-        return redirect('rules')
+        return redirect_with_errors('rules',errors)
 
     response = urllib.request.urlopen(url)
     data_json = json.loads(response.read())
     
+    requests_errors = request.GET.getlist("errors", None)
+    requests_success = request.GET.getlist("success", None)
+
     for item in data_json:
         item['rule_readable'] = jsonBooleanToHumanReadable(item['rule'])
 
@@ -592,7 +669,7 @@ def rules(request):
 
     config_errors = checkInvalidConfig()
 
-    return render(request, 'rules.html', {'data': data_json, 'resources':rulesResources, 'types':ruleTypes, 'config_errors': config_errors})
+    return render(request, 'rules.html', {'data': data_json, 'resources':rulesResources, 'types':ruleTypes, 'config_errors': config_errors, 'requests_errors': requests_errors, 'requests_success': requests_success})
 
 def getRulesResources(data):
     resources = []
@@ -661,24 +738,27 @@ def processRulesPost(request, url, rule_name, field, field_put_url):
     headers = {'Content-Type': 'application/json'}
 
     new_value = request.POST[field]
-    put_field_data = {'value': new_value}
 
-    if (field_put_url == "events_required"):
-        if (field == "up_events_required"):
-            event_type = "up"
-        else:
-            event_type = "down"
+    r = ""
+    if (new_value != ''):
+        put_field_data = {'value': new_value}
 
-        put_field_data['event_type'] = event_type
-             
-    r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+        if (field_put_url == "events_required"):
+            if (field == "up_events_required"):
+                event_type = "up"
+            else:
+                event_type = "down"
 
-    if (r.status_code == requests.codes.ok):
-        print(r.content)
-    else:
-        pass 
+            put_field_data['event_type'] = event_type
+                
+        r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
 
+    error = ""
+    if (r != "" and r.status_code != requests.codes.ok):
+        soup = BeautifulSoup(r.text, features="html.parser")
+        error = "Error submiting " + field + " for rule " + rule_name + ": " + soup.get_text().strip()
 
+    return error
 
 ## Check Invalid Config
 def checkInvalidConfig():

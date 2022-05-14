@@ -18,6 +18,22 @@
     
 <H4>Services</H4>
 
+  <!-- Requests errors -->
+  {% if requests_errors %}
+    {% for error in requests_errors %}
+      <div class="alert">
+          <span class="closebtn">&times;</span>
+          <strong>Error!</strong> {{ error }}
+      </div> 
+    {% endfor %}
+  {% elif requests_success %}
+    <div class="alert success">
+      <span class="closebtn">&times;</span>
+      <strong>Success!</strong> All requests were successfull!
+    </div>
+  {% endif %}
+  
+  <!-- Unstable configuration alerts -->
   {% for error in config_errors %}
   <div class="alert warning">
       <span class="closebtn">&times;</span>

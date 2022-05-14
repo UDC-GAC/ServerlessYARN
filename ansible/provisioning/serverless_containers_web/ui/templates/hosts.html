@@ -17,6 +17,22 @@
 <div class="content">
     
 <H4>Hosts</H4>
+
+  <!-- Requests errors -->
+  {% if requests_errors %}
+    {% for error in requests_errors %}
+      <div class="alert">
+          <span class="closebtn">&times;</span>
+          <strong>Error!</strong> {{ error }}
+      </div> 
+    {% endfor %}
+  {% elif requests_success %}
+    <div class="alert success">
+      <span class="closebtn">&times;</span>
+      <strong>Success!</strong> All requests were successfull!
+    </div>
+  {% endif %}
+
   <ul id="tabs">
     {% for item in data %}
     <li>

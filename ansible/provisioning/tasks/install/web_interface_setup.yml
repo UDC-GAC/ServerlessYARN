@@ -12,3 +12,8 @@
   pip:
     name: django-crispy-forms
     state: latest
+
+- name: Install Beautiful Soup library
+  pip:
+    name: beautifulsoup4
+    state: latest
