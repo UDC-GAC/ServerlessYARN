@@ -41,15 +41,56 @@
 	<p></p>
    		<button class="accordion">Resources</button>
   		<div class="panel">
+
+			<p></p>
+			<table class="data_table">
+				<!-- header -->
+				<tr>
+					<th class=empty_header></th>
+					{% for value_label in item.resources_values_labels %}
+						<th>{{ value_label }}</th>
+					{% endfor %}
+				</tr>
+				<!-- rows -->
+				{% for resource,values in item.resources.items %}
+					{% if resource != "cpu_cores" %}
+					<tr>
+						<th>{{ resource }}</th>
+						{% for key, value in values.items %}
+							<td>{{ value }}</td>
+						{% endfor %}
+					</tr>	
+					{% endif %}	 
+				{% endfor %}
+			</table>
+			<p></p>
+
+			<!-- Another table for cpu_cores -->
   			{% for resource,values in item.resources.items %}
   			{% if resource == "cpu_cores" %}
-  		  		<p>Core Mapping</p>
-  		  		{% for core,mapping in values.items %}
-  		  			<p>{{ core }}:{{ mapping }}</p>
-  		  		{% endfor %}
+  		  		<p>Core Usage Mapping</p>
+				<p></p>
+				<table class="data_table">
+					<!-- header -->
+					<tr>
+						<th>Core</th>
+						<th>Free</th>
+						{% for cont in item.containers %}
+							<th>{{ cont.name }}</th>
+						{% endfor %}
+					</tr>
+					<!-- rows -->
+					{% for core,mapping in values.items %}
+						<tr>
+							<th>{{ core }}</th>
+							{% for key, value in mapping.items %}
+								<td>{{ value }}</td>
+							{% endfor %}
+						</tr>	
+					{% endfor %}
+				</table>
+				<p></p>
   		  		<HR>
-  		  	{% else %}
-  		  		<p>{{ resource }}:{{ values }}</p>
 			{% endif %}
   			{% endfor %}
 
@@ -95,9 +136,27 @@
 
    		<button class="accordion">Resources</button>
   		<div class="panel">
-  			{% for resource,values in cont.resources.items %}
-  		  		<p>{{ resource }}:{{ values }}</p>  
-  			{% endfor %}
+
+			<p></p>
+			<table class="data_table">
+				<!-- header -->
+				<tr>
+					<th class=empty_header></th>
+					{% for value_label in cont.resources_values_labels %}
+						<th>{{ value_label }}</th>
+					{% endfor %}
+				</tr>
+				<!-- rows -->
+				{% for resource,values in cont.resources.items %}
+					<tr>
+						<th>{{ resource }}</th>
+						{% for key, value in values.items %}
+							<td>{{ value }}</td>
+						{% endfor %}
+					</tr>		 
+				{% endfor %}
+			</table>
+			<p></p>
 
 			<!-- CONT RESOURCES EDIT MODAL -->	
 			{% if cont.resources_editable_data > 0 %}
@@ -117,9 +176,27 @@
   		</div>
   		<button class="accordion">Limits</button>
   		<div class="panel">
-  			{% for resource,values in cont.limits.items %}
-  		  		<p>{{ resource }}:{{ values }}</p>  
-  			{% endfor %}
+
+			<p></p>
+			<table class="data_table">
+				<!-- header -->
+				<tr>
+					<th class=empty_header></th>
+					{% for value_label in cont.limits_values_labels %}
+						<th>{{ value_label }}</th>
+					{% endfor %}
+				</tr>
+				<!-- rows -->
+				{% for resource,values in cont.limits.items %}
+					<tr>
+						<th>{{ resource }}</th>
+						{% for key, value in values.items %}
+							<td>{{ value }}</td>
+						{% endfor %}
+					</tr>		 
+				{% endfor %}
+			</table>
+			<p></p>
 
 			<!-- CONT LIMIT EDIT MODAL -->	
 			{% if cont.limits_editable_data > 0 %}

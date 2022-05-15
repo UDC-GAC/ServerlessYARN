@@ -46,9 +46,27 @@
 		
     	<button class="accordion">Resources</button>
   		<div class="panel">
-  			{% for resource,values in item.resources.items %}
-  		  		<p>{{ resource }}:{{ values }}</p>  
-  			{% endfor %}
+
+			<p></p>
+			<table class="data_table">
+				<!-- header -->
+				<tr>
+					<th class=empty_header></th>
+					{% for value_label in item.resources_values_labels %}
+						<th>{{ value_label }}</th>
+					{% endfor %}
+				</tr>
+				<!-- rows -->
+				{% for resource,values in item.resources.items %}
+					<tr>
+						<th>{{ resource }}</th>
+						{% for key, value in values.items %}
+							<td>{{ value }}</td>
+						{% endfor %}
+					</tr>
+				{% endfor %}
+			</table>
+			<p></p>
 
 			<!-- APP RESOURCES EDIT MODAL -->	
 			{% if item.resources_editable_data > 0 %}
@@ -68,9 +86,27 @@
   		</div>
   		<button class="accordion">Limits</button>
   		<div class="panel">
-  			{% for resource,values in item.limits.items %}
-  		  		<p>{{ resource }}:{{ values }}</p>  
-  			{% endfor %}
+
+			<p></p>
+			<table class="data_table">
+				<!-- header -->
+				<tr>
+					<th class=empty_header></th>
+					{% for value_label in item.limits_values_labels %}
+						<th>{{ value_label }}</th>
+					{% endfor %}
+				</tr>
+				<!-- rows -->
+				{% for resource,values in item.limits.items %}
+					<tr>
+						<th>{{ resource }}</th>
+						{% for key, value in values.items %}
+							<td>{{ value }}</td>
+						{% endfor %}
+					</tr>
+				{% endfor %}
+			</table>
+			<p></p>
 
 			<!-- APP LIMIT EDIT MODAL	-->
 			{% if item.limits_editable_data > 0 %}
@@ -114,9 +150,27 @@
 
    		<button class="accordion">Resources</button>
   		<div class="panel">
-  			{% for resource,values in cont.resources.items %}
-  		  		<p>{{ resource }}:{{ values }}</p>  
-  			{% endfor %}
+
+			<p></p>
+			<table class="data_table">
+				<!-- header -->
+				<tr>
+					<th class=empty_header></th>
+					{% for value_label in cont.resources_values_labels %}
+						<th>{{ value_label }}</th>
+					{% endfor %}
+				</tr>
+				<!-- rows -->
+				{% for resource,values in cont.resources.items %}
+					<tr>
+						<th>{{ resource }}</th>
+						{% for key, value in values.items %}
+							<td>{{ value }}</td>
+						{% endfor %}
+					</tr>
+				{% endfor %}
+			</table>
+			<p></p>
 
 			<!-- CONT RESOURCES EDIT MODAL -->	
 			{% if cont.resources_editable_data > 0 %}
@@ -136,9 +190,27 @@
   		</div>
   		<button class="accordion">Limits</button>
   		<div class="panel">
-  			{% for resource,values in cont.limits.items %}
-  		  		<p>{{ resource }}:{{ values }}</p>  
-  			{% endfor %}
+
+			<p></p>
+			<table class="data_table">
+				<!-- header -->
+				<tr>
+					<th class=empty_header></th>
+					{% for value_label in cont.limits_values_labels %}
+						<th>{{ value_label }}</th>
+					{% endfor %}
+				</tr>
+				<!-- rows -->
+				{% for resource,values in cont.limits.items %}
+					<tr>
+						<th>{{ resource }}</th>
+						{% for key, value in values.items %}
+							<td>{{ value }}</td>
+						{% endfor %}
+					</tr>
+				{% endfor %}
+			</table>
+			<p></p>
 
 			<!-- CONT LIMIT EDIT MODAL -->	
 			{% if cont.limits_editable_data > 0 %}
@@ -164,7 +236,6 @@
     </li>    
     {% endfor %}
   </ul>
-   
 </div>
 <HR> 
 

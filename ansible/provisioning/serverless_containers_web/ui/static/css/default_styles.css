@@ -75,7 +75,7 @@ ul#tabs {
   padding: 0;
   overflow-x: scroll;
   overflow-y: hidden;
-  width: 95%;
+  width: 100%;
   /*white-space: nowrap;*/
 }
 ul#tabs::-webkit-scrollbar {
@@ -317,7 +317,7 @@ img {
   text-transform: lowercase; 
 }
 
-.data_table td::first-letter {
+.data_table td::first-letter, .data_table th::first-letter {
   text-transform: uppercase;
  }
 
@@ -328,7 +328,12 @@ img {
 .data_table th {
   padding-top: 12px;
   padding-bottom: 12px;
-  text-align: left;
+  text-align: center;
   background-color: #04AA6D;
   color: white;
+}
+
+.data_table th.empty_header {
+  background-color: white;
+  border: none;
 }

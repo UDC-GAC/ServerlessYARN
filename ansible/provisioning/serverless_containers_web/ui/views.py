@@ -52,7 +52,7 @@ def structure_detail(request,structure_name):
     data_json = json.loads(response.read())
     return HttpResponse(json.dumps(data_json), content_type="application/json")
 
-def containers(request):
+def structures(request, structure_type, html_render):
     url = base_url + "/structure/"
 
     if (len(request.POST) > 0):
@@ -64,7 +64,7 @@ def containers(request):
         if (resources_errors): errors += resources_errors
         if (limits_errors): errors += limits_errors
 
-        return redirect_with_errors('containers',errors)
+        return redirect_with_errors(structure_type,errors)
 
     requests_errors = request.GET.getlist("errors", None)
     requests_success = request.GET.getlist("success", None)
@@ -75,63 +75,27 @@ def containers(request):
     except urllib.error.HTTPError:
         data_json = {}
     
-    containers = getContainers(data_json)
-    
-    return render(request, 'containers.html', {'data': containers, 'requests_errors': requests_errors, 'requests_success': requests_success})
+    structures = []
+    if (structure_type == "containers"):
+        structures = getContainers(data_json)
+
+    elif(structure_type == "hosts"):
+        structures = getHosts(data_json)
+
+    elif(structure_type == "apps"):
+        structures = getApps(data_json)
+
+    return render(request, html_render, {'data': structures, 'requests_errors': requests_errors, 'requests_success': requests_success})
+
+
+def containers(request):
+    return structures(request, "containers","containers.html")
     
 def hosts(request):
-    url = base_url + "/structure/"
-
-    if (len(request.POST) > 0):
-        errors = []
-
-        resources_errors = processResources(request, url)
-        limits_errors = processLimits(request, url)
-
-        if (resources_errors): errors += resources_errors
-        if (limits_errors): errors += limits_errors
-
-        return redirect_with_errors('hosts',errors)
-
-    requests_errors = request.GET.getlist("errors", None)
-    requests_success = request.GET.getlist("success", None)
-
-    try:
-        response = urllib.request.urlopen(url)
-        data_json = json.loads(response.read())
-    except urllib.error.HTTPError:
-        data_json = {}
-    
-    hosts = getHosts(data_json)
-    
-    return render(request, 'hosts.html', {'data': hosts, 'requests_errors': requests_errors, 'requests_success': requests_success})
+    return structures(request, "hosts","hosts.html")
 
 def apps(request):
-    url = base_url + "/structure/"
-
-    if (len(request.POST) > 0):
-        errors = []
-
-        resources_errors = processResources(request, url)
-        limits_errors = processLimits(request, url)
-
-        if (resources_errors): errors += resources_errors
-        if (limits_errors): errors += limits_errors
-
-        return redirect_with_errors('apps',errors)
-
-    requests_errors = request.GET.getlist("errors", None)
-    requests_success = request.GET.getlist("success", None)
-
-    try:
-        response = urllib.request.urlopen(url)
-        data_json = json.loads(response.read())
-    except urllib.error.HTTPError:
-        data_json = {}
-    
-    apps = getApps(data_json)
-    
-    return render(request, 'apps.html', {'data': apps, 'requests_errors': requests_errors, 'requests_success': requests_success})
+    return structures(request, "apps","apps.html")
 
 # Prepare data to HTML
 def getHosts(data):
@@ -150,16 +114,39 @@ def getHosts(data):
                     ## Container Limits Form
                     setLimitsForm(structure,"hosts")
 
+                    ## Set labels for container values
+                    structure['resources_values_labels'] = getStructuresValuesLabels(structure, 'resources')
+                    structure['limits_values_labels'] = getStructuresValuesLabels(structure, 'limits') 
+
                     containers.append(structure)
-            item['containers'] = containers
-             
+
+            ## we order this list using name container to keep the order consistent with the 'cpu_cores' dict below
+            item['containers'] = sorted(containers, key=lambda d: d['name']) 
+                      
+
             # Adjustment to don't let core_usage_mapping be too wide on html display
             if ("cpu" in item['resources'] and "core_usage_mapping" in item['resources']['cpu']):
-                item['resources']['cpu_cores'] = item['resources']['cpu']['core_usage_mapping']
+                core_mapping = item['resources']['cpu']['core_usage_mapping']
+
+                ## fill usage with 0 when a container doesn't show in a core
+                for core,mapping in list(core_mapping.items()):
+                    for cont in item['containers']:
+                        if (cont['name'] not in mapping):
+                            mapping[cont['name']] = 0
+
+                    mapping = sorted(mapping.items())
+                    core_mapping[core] = dict(mapping)
+
+                item['resources']['cpu_cores'] = core_mapping
+
+                # remove core_usage_mapping from the cpu resources since now that info is in 'cpu_cores'
                 item['resources']['cpu'] = {k:v for k,v in item['resources']['cpu'].items() if k != 'core_usage_mapping'}             
 
             ## Host Resources Form
             setStructureResourcesForm(item,"hosts")
+
+            ## Set labels for host values
+            item['resources_values_labels'] = getStructuresValuesLabels(item, 'resources')
 
             hosts.append(item)
                           
@@ -181,6 +168,10 @@ def getApps(data):
                     ## Container Limits Form
                     setLimitsForm(structure,"apps")
 
+                    ## Set labels for container values
+                    structure['resources_values_labels'] = getStructuresValuesLabels(structure, 'resources')
+                    structure['limits_values_labels'] = getStructuresValuesLabels(structure, 'limits')
+
                     containers.append(structure)
 
             item['containers_full'] = containers
@@ -191,6 +182,10 @@ def getApps(data):
 
             ## App Limits Form
             setLimitsForm(item,"apps")
+
+            ## Set labels for apps values
+            item['resources_values_labels'] = getStructuresValuesLabels(item, 'resources')
+            item['limits_values_labels'] = getStructuresValuesLabels(item, 'limits')
 
             apps.append(item)
     return apps
@@ -208,8 +203,28 @@ def getContainers(data):
             ## Container Limits Form
             setLimitsForm(item,"containers")
 
+            ## Set labels for container values
+            item['resources_values_labels'] = getStructuresValuesLabels(item, 'resources')
+            item['limits_values_labels'] = getStructuresValuesLabels(item, 'limits')
+
             containers.append(item)
     return containers
+
+def getStructuresValuesLabels(item, field):
+
+    values_labels = []
+
+    if (field in item and len(list(item[field].keys())) > 0):
+        first_key = list(item[field].keys())[0]
+
+        if (first_key != 'cpu_cores'):
+            values_labels = item[field][first_key]
+        else:
+            ## just in case we get 'cpu_cores' field from a host as first key
+            values_labels = item[field]['cpu']
+
+    return values_labels
+
 
 def setStructureResourcesForm(structure, form_action):
 
