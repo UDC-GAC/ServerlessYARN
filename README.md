@@ -52,11 +52,11 @@ This platform provides an automatic way of deploying ServerlessContainers throug
 Once done with the installation and launch, you can visit the web interface in your browser in (http://127.0.0.1:9000/ui/)
 
 You will see a Home page with 5 subpages:
-- Containers: here you can see and manage all the deployed containers
-- Hosts: here you can see and manage all hosts as well as their containers
-- Apps: here you can see and manage all apps as well as their associated containers
-- Services: here you can see and manage all services of ServerlessContainers
-- Rules: here you can see and manage all rules that are followed by the services
+- **Containers**: here you can see and manage all the deployed containers
+- **Hosts**: here you can see and manage all hosts as well as their containers
+- **Apps**: here you can see and manage all apps as well as their associated containers
+- **Services**: here you can see and manage all services of ServerlessContainers
+- **Rules**: here you can see and manage all rules that are followed by the services
 
 ## Used tools
 - [Vagrant](https://www.vagrantup.com/) - IaC tool for deploying the virtual cluster
