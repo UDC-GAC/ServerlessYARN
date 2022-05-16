@@ -83,7 +83,7 @@
 				{% if item.action.events %} <tr> <td>Events</td> <td>{{ item.action.events }}</td> </tr> {% endif %}
 				{% if item.amount %} <tr> <td>Amount</td> <td>{{ item.amount }}</td> </tr> {% endif %}
 				{% if item.events_to_remove %} <tr> <td>Events to remove</td> <td>{{ item.events_to_remove }}</td> </tr> {% endif %}
-				{% if item.percentage_reduction %} <tr> <td>Percentage reduction</td> <td>{ item.percentage_reduction }}</td>{ </tr>tr> {% endif %}
+				{% if item.percentage_reduction %} <tr> <td>Percentage reduction</td> <td>{{ item.percentage_reduction }}</td> </tr> {% endif %}
 				{% if item.rescale_policy %} <tr> <td>Rescale policy</td> <td>{{ item.rescale_policy }}</td> </tr> {% endif %}
 				{% if item.rescale_type %} <tr> <td>Rescale type</td> <td>{{ item.rescale_type }}</td> </tr> {% endif %}
 				<tr><td>Rule</td> <td>{{ item.rule_readable }}</td> </tr>
