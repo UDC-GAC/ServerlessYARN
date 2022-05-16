@@ -69,83 +69,32 @@
   register: tmux_output
   ignore_errors: yes
 
-- name: Starting Services - orchestrator
-  shell: bash scripts/services/orchestrator/start_tmux.sh
-  when: "'orchestrator' not in tmux_output.stdout"
+- name: Starting Services
+  shell: "bash scripts/services/{{ item }}/start_tmux.sh"
+  when: "item not in tmux_output.stdout"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-    
-- name: Starting Services - database snapshoter
-  shell: bash scripts/services/database_snapshoter/start_tmux.sh
-  when: "'database_snapshoter' not in tmux_output.stdout"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-    
-- name: Starting Services - structure snapshoter
-  shell: bash scripts/services/structure_snapshoter/start_tmux.sh
-  when: "'structure_snapshoter' not in tmux_output.stdout"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-    
-- name: Starting Services - guardian
-  shell: bash scripts/services/guardian/start_tmux.sh
-  when: "'guardian' not in tmux_output.stdout"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-       
-- name: Starting Services - scaler
-  shell: bash scripts/services/scaler/start_tmux.sh
-  when: "'scaler' not in tmux_output.stdout"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
- 
-- name: Starting Services - refeeder
-  shell: bash scripts/services/refeeder/start_tmux.sh
-  when: "'refeeder' not in tmux_output.stdout"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-    
-- name: Starting Services - sanity checker
-  shell: bash scripts/services/sanity_checker/start_tmux.sh
-  when: "'sanity_checker' not in tmux_output.stdout"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-
-- name: Starting Services - rebalancer
-  shell: bash scripts/services/rebalancer/start_tmux.sh
-  when: "'rebalancer' not in tmux_output.stdout"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
+  with_items:
+    - orchestrator
+    - database_snapshoter
+    - structure_snapshoter
+    - guardian
+    - scaler
+    - refeeder
+    - sanity_checker
+    - rebalancer
 
 ## Activate Services
-- name: Starting Services - Activate database snapshoter
-  shell: bash scripts/orchestrator/DatabaseSnapshoter/activate.sh
+- name: Activating Services
+  shell: "bash scripts/orchestrator/{{ item }}/activate.sh"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-
-- name: Starting Services - Activate structures snapshoter
-  shell: bash scripts/orchestrator/StructuresSnapshoter/activate.sh
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-
-- name: Starting Services - Activate guardian
-  shell: bash scripts/orchestrator/Guardian/activate.sh
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-
-- name: Starting Services - Activate scaler
-  shell: bash scripts/orchestrator/Scaler/activate.sh
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
+  with_items:
+    - DatabaseSnapshoter
+    - StructuresSnapshoter
+    - Guardian
+    - Scaler
+    - Refeeder
+    - Rebalancer
