@@ -121,7 +121,7 @@
 		<p></p>
 		<table class="data_table">	
 			<tr>
-				<form action="{% url 'apps_guard_switch' cont.name %}" method="POST"> 
+				<form action="{% url 'hosts_guard_switch' cont.name %}" method="POST"> 
 					{% csrf_token %}
 					<td>Guard</td> <td>{{ cont.guard }}</td>
 		

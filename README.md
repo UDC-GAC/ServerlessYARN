@@ -47,6 +47,16 @@ This platform provides an automatic way of deploying ServerlessContainers throug
     bash start_all.sh
     ```
 
+- Once you are done, you can shutdown the cluster exiting the server node and executing:
+    ```
+    vagrant halt
+    ```
+
+- Or you may destroy the cluster with:
+    ```
+    vagrant destroy --force
+    ```
+
 ### Web Interface
 
 Once done with the installation and launch, you can visit the web interface in your browser in (http://127.0.0.1:9000/ui/)

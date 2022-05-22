@@ -315,17 +315,19 @@ def hosts_guard_switch(request, container_name):
     guard_switch(request, container_name)
     return redirect("hosts")
 
-def apps_guard_switch(request, container_name):
+def apps_guard_switch(request, structure_name):
 
-    guard_switch(request, container_name)
+    # we may be switching a container or an app
+
+    guard_switch(request, structure_name)
     return redirect("apps")
 
-def guard_switch(request, container_name):
+def guard_switch(request, structure_name):
 
     state = request.POST['guard_switch']
 
     ## send put to stateDatabase
-    url = base_url + "/structure/" + container_name 
+    url = base_url + "/structure/" + structure_name 
 
     if (state == "guard_off"):
         url += "/unguard"
@@ -338,8 +340,6 @@ def guard_switch(request, container_name):
         response = urllib.request.urlopen(req)
     except:
         pass
-
-    return redirect('rules')
 
 def processResources(request, url):
 
