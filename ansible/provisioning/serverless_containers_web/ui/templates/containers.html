@@ -122,12 +122,12 @@
 
 			<!-- CONT LIMIT EDIT MODAL -->	
 			{% if item.limits_editable_data > 0 %}
-				<a href="#openModal-{{ item.name }}-limits" title="Edit" class="caja">Edit limits</a>
+				<a href="#openModal-{{ item.name }}-limits" title="Edit" class="caja">Edit boundaries</a>
 				<br><br>  
 				<div align="left" id="openModal-{{ item.name }}-limits" class="modalDialog">
 					<div>
 						<a href="#close" title="Close" class="close">X</a>
-						<h2>Edit limits of {{ item.name }}</h2>
+						<h2>Edit boundaries of {{ item.name }}</h2>
 						<p>
 							{% load crispy_forms_tags %} {% crispy item.limits_form item.limits_form.helper %}
 						</p>

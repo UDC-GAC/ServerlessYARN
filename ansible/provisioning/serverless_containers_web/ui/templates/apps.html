@@ -121,12 +121,12 @@
 
 			<!-- APP LIMIT EDIT MODAL	-->
 			{% if item.limits_editable_data > 0 %}
-				<a href="#openModal-{{ item.name }}-limits" title="Edit" class="caja">Edit limits</a>
+				<a href="#openModal-{{ item.name }}-limits" title="Edit" class="caja">Edit boundaries</a>
 				<br><br>  
 				<div align="left" id="openModal-{{ item.name }}-limits" class="modalDialog">
 					<div>
 						<a href="#close" title="Close" class="close">X</a>
-						<h2>Edit limits of {{ item.name }}</h2>
+						<h2>Edit boundaries of {{ item.name }}</h2>
 						<p>
 							{% load crispy_forms_tags %} {% crispy item.limits_form item.limits_form.helper %}
 						</p>
@@ -225,12 +225,12 @@
 
 			<!-- CONT LIMIT EDIT MODAL -->	
 			{% if cont.limits_editable_data > 0 %}
-				<a href="#openModal-{{ cont.name }}-limits" title="Edit" class="caja">Edit limits</a>
+				<a href="#openModal-{{ cont.name }}-limits" title="Edit" class="caja">Edit boundaries</a>
 				<br><br>  
 				<div align="left" id="openModal-{{ cont.name }}-limits" class="modalDialog">
 					<div>
 						<a href="#close" title="Close" class="close">X</a>
-						<h2>Edit limits of {{ cont.name }}</h2>
+						<h2>Edit boundaries of {{ cont.name }}</h2>
 						<p>
 							{% load crispy_forms_tags %} {% crispy cont.limits_form cont.limits_form.helper %}
 						</p>
