@@ -1,6 +1,7 @@
 ## Server Node
 cpus_server_node: 2
 memory_server_node: 4096
+web_interface_port: 9000
 
 ## Client Nodes
 number_of_client_nodes: 1

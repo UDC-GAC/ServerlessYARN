@@ -4,4 +4,3 @@ serverless_containers_path: "{{ installation_path }}/ServerlessContainers"
 lxd_key_path: "{{ serverless_containers_path }}"
 couchdb_port: 5984
 web_interface_path: serverless_containers_web
-web_interface_port: 9000

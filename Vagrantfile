@@ -9,6 +9,7 @@ configs        = YAML.load_file("#{current_dir}/ansible/provisioning/config/conf
 ## Server
 CPU_SERVER_NODE = configs['cpus_server_node']
 MEMORY_SERVER_NODE = configs['memory_server_node']
+WEB_INTERFACE_PORT = configs['web_interface_port']
 
 ## Client Nodes
 N = configs['number_of_client_nodes']
@@ -30,7 +31,7 @@ Vagrant.configure("2") do |config|
   	server.vm.host_name = "sc-server"
   	server.vm.provision "shell", path: "provision/server.sh"
   	server.vm.network "private_network", ip: "192.168.56.100"	
-  	server.vm.network "forwarded_port", guest: 9000, host: 9000, host_ip: "127.0.0.1"
+  	server.vm.network "forwarded_port", guest: WEB_INTERFACE_PORT, host: WEB_INTERFACE_PORT, host_ip: "127.0.0.1"
   	server.vm.provider "virtualbox" do |vb|
   	  	vb.name = "Server - ServerlessContainers"
   		vb.cpus = CPU_SERVER_NODE
