@@ -59,7 +59,7 @@ This platform provides an automatic way of deploying ServerlessContainers throug
 
 ### Web Interface
 
-Once done with the installation and launch, you can visit the web interface in your browser in (http://127.0.0.1:9000/ui/)
+Once done with the installation and launch, you can visit the web interface in your browser in (http://127.0.0.1:9000/ui/) (or the port specified in the config file instead of 9000 if modified).
 
 You will see a Home page with 5 subpages:
 - **Containers**: here you can see and manage all the deployed containers
