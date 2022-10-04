@@ -1,6 +1,6 @@
 # Setup server
 - hosts: localhost
-  become: yes
+  become: no
   gather_facts: no
 
   vars_files:
@@ -12,8 +12,7 @@
     - couchdb_admin_pass: admin
 
   tasks:
-    - import_tasks: tasks/launch/couchdb_launch.yml
-    - import_tasks: tasks/launch/opentsdb_setup.yml
+    #- import_tasks: tasks/launch/couchdb_launch.yml -> couchdb service is already set to start on boot on installation
+    - import_tasks: tasks/launch/opentsdb_launch.yml
     - import_tasks: tasks/launch/serverless_containers_launch.yml
     - import_tasks: tasks/launch/web_interface_launch.yml
-    

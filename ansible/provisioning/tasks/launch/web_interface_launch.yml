@@ -1,12 +1,8 @@
+
 - name: Tmux session check
   shell: tmux ls
   register: tmux_output
   ignore_errors: yes
-
-- name: Copy Django secret key file
-  copy:
-    src: config/secret_key.txt
-    dest: /etc/secret_key.txt
 
 - name: Starting Services - web_interface
   shell: "bash start_tmux.sh {{ web_interface_port }}"

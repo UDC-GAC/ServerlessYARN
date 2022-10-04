@@ -1,21 +1,36 @@
-# Install atop on host in order to get binary
-- name: Install atop on host
-  package: 
-    name: atop
-    state: latest
 
-## A lo mejor no interesa pararlos por si estaban corriendo de normal
-- name: Stop atop on host
-  become: true
-  service: 
-    name: atop 
-    state: stopped 
+## Install OpenSSL key with provided script
+- name: Create OpenSSL key and certificate
+  shell: bash scripts/lxd/create_lxd_key.sh
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+    creates: "{{ lxd_key_path }}/{{ lxd_key_name }}.crt"
 
-- name: Stop atopacct on host
-  become: true
-  service: 
-    name: atopacct 
-    state: stopped 
+## Add certificate to trust store
+- name: Check if certificate already added to trust store
+  shell: lxc config trust list -f csv | wc -l  
+  register: lxc_trust_output
+        
+- name: Setup lxd (1)
+  shell: "lxc config trust add {{ lxd_key_path }}/{{ lxd_key_name }}.crt"
+  when: lxc_trust_output.stdout | int == 0
+  args:
+    executable: /bin/bash
+    
+- name: Setup lxd (2)
+  shell: lxc config set core.https_address [::]:8443
+  args:
+    executable: /bin/bash
+    
+- name: Setup lxd (3)
+  shell: lxc config set core.trust_password TRUE
+  args:
+    executable: /bin/bash
+
+- name: Init lxd
+  shell: lxd init --auto
+
 
 ## Start containers
 - name: Check containers status
@@ -55,6 +70,13 @@
   args:
     executable: /bin/bash
   with_items: "{{ ls_output.results }}"
+
+- name: Create installation directory in containers
+  shell: lxc exec {{ item }} -- sudo bash -c "mkdir -p {{ installation_path }}"
+  args:
+    chdir: "{{ installation_path }}"
+    executable: /bin/bash
+  loop: "{{ hostvars[inventory_hostname].containers }}"
 
 - name: Copy BDWatchdog to containers
   shell: "lxc file push -r BDWatchdog/ {{ item }}{{ installation_path }}"

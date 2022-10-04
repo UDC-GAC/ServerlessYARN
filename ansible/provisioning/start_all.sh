@@ -15,4 +15,3 @@ echo "Containers started! "
 echo "Launching services..."
 ansible-playbook launch_playbook.yml
 echo "Launch Done!"
-

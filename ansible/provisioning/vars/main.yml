@@ -1,4 +1,5 @@
-installation_path: /root
+#installation_path: /root
+installation_path: /home/vagrant
 bdwatchdog_path: "{{ installation_path }}/BDWatchdog"
 serverless_containers_path: "{{ installation_path }}/ServerlessContainers"
 lxd_key_path: "{{ serverless_containers_path }}"

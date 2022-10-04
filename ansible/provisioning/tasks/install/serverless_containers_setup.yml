@@ -9,11 +9,18 @@
     path: "{{ serverless_containers_path }}"
   register: stat_output
 
+## get the user executing the playbook
+- name: get the username running the deploy
+  become: no
+  local_action: command whoami
+  register: username_on_the_host
+
 - name: Copy ServerlessContainers
   when: not stat_output.stat.exists
   copy:
     src: ServerlessContainers/
     dest: "{{ serverless_containers_path }}"
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"
     
 - name: Install specified python requirements
   pip:

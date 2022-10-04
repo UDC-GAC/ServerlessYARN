@@ -1,18 +1,3 @@
-# Prepare environment for scripts
-- name: Prepare Environment for scripts - BDWATCHDOG_PATH
-  lineinfile:
-    path: /etc/environment
-    line: "export BDWATCHDOG_PATH={{ bdwatchdog_path }}"
-
-- name: Prepare Environment for scripts - RESCALING_PATH
-  lineinfile:
-    path: /etc/environment
-    line: "export RESCALING_PATH={{ serverless_containers_path }}/scripts/"
-
-- name: Prepare Environment for scripts - PYTHONPATH
-  lineinfile:
-    path: /etc/environment
-    line: "export PYTHONPATH=:{{ serverless_containers_path }}"
 
 ## Initialize container limits on Node Recaler
 - name: Initializing State Database - container cpu limit on Node Rescaler

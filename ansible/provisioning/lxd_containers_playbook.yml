@@ -1,11 +1,14 @@
 # Setup nodes
 - hosts: nodes
-  become: yes
-  gather_facts: no
+  become: no
+  gather_facts: yes
 
   vars_files:
     - vars/main.yml
     - config/config.yml
+
+  vars:
+    - lxd_key_name: "lxd-{{ ansible_hostname }}"
 
   tasks:
     - import_tasks: tasks/lxd_setup/lxd_containers_setup.yml
@@ -13,7 +16,7 @@
 
 # Setup server (now that nodes have been initialized)
 - hosts: localhost
-  become: yes
+  become: no
   gather_facts: no
 
   vars_files:

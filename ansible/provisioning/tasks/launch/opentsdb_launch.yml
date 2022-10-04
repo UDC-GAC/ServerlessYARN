@@ -18,11 +18,12 @@
     chdir: "{{ bdwatchdog_path }}/deployment/metrics"
     executable: /bin/bash
 
-- name: Starting Services - Web Server
-  shell: bash start.sh 
-  args:
-    chdir: "{{ bdwatchdog_path }}/deployment/webviewer"
-    executable: /bin/bash
+# apache service is already set to start on boot on installation
+#- name: Starting Services - Web Server
+#  shell: bash start.sh 
+#  args:
+#    chdir: "{{ bdwatchdog_path }}/deployment/webviewer"
+#    executable: /bin/bash
 
 - name: Copy Script for creating metrics
   copy:

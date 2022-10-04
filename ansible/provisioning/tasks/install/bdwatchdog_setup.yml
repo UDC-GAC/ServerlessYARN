@@ -4,16 +4,24 @@
     path: "{{ bdwatchdog_path }}"
   register: stat_output
         
+## get the user executing the playbook
+- name: get the username running the deploy
+  become: no
+  local_action: command whoami
+  register: username_on_the_host
+
 - name: Copy BDWatchdog
   when: not stat_output.stat.exists
   copy:
     src: bdwatchdog/
     dest: "{{ bdwatchdog_path }}"
-    
+
 - name: Create a BDWatchdog data directory
   file:
     path: "{{ installation_path }}/BDWatchdog_data"
     state: directory
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+    recurse: yes
 
 - name: Install BDWatchdog
   shell: bash install.sh
@@ -21,4 +29,25 @@
     chdir: "{{ bdwatchdog_path }}/deployment/"
     executable: /bin/bash
     creates: "{{ bdwatchdog_path }}/deployment/metrics/opentsdb/build/tsdb"
+
+- name: Change BDWatchdog dir owner
+  file:
+    path: "{{ bdwatchdog_path }}"
+    state: directory
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+    recurse: yes
+
+### esto a lo mejor se puede quitar
+## Stop tmux sessions created by root
+- name: Tmux session check
+  shell: tmux ls
+  register: tmux_output
+  ignore_errors: yes
+
+- name: Stop TIMESTAMPING Service
+  shell: tmux kill-session -t EVE_TIMES
+  when: "'EVE_TIMES' in tmux_output.stdout"
     
+- name: Stop OPENTSDB
+  shell: tmux kill-session -t OPENTSDB
+  when: "'OPENTSDB' in tmux_output.stdout"

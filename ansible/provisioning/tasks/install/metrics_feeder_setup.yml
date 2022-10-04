@@ -4,9 +4,15 @@
     path: "{{ bdwatchdog_path }}"
   register: stat_output
   
+## get the user executing the playbook
+- name: get the username running the deploy
+  become: no
+  local_action: command whoami
+  register: username_on_the_host
+
 - name: Copy BDWatchdog
   when: not stat_output.stat.exists
   copy:
     src: bdwatchdog/
     dest: "{{ bdwatchdog_path }}"
-    
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"
