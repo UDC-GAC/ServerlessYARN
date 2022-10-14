@@ -3,15 +3,22 @@ import sys
 import io
 import yaml
 
-# usage example: load_inventory_from_conf.py /etc/ansible/hosts config/config.yml
+# usage example: load_inventory_from_conf.py /etc/ansible/hosts config/config.yml  -> example outdated
 
-inventory_file = sys.argv[1]
+#inventory_file = sys.argv[1]
+#config_file = sys.argv[2]
+inventory_file = "../ansible.inventory"
+config_file = "config/config.yml"
 
-with open(sys.argv[2], "r") as f:
+
+with open(config_file, "r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
 number_of_hosts = config['number_of_client_nodes']
 number_of_containers_per_node = config['number_of_containers_per_node']
+
+cpu_per_node = config['cpus_per_client_node']
+mem_per_node = config['memory_per_client_node']
 
 structures = {}
 
@@ -24,7 +31,7 @@ for i in range(0,number_of_hosts,1):
         cont_name = 'cont' + str(j)
         host_containers.append(host_name + "-" + cont_name)
 
-    structures[host_name] = host_containers
+    structures[host_name] = {'containers': host_containers, 'cpu': str(cpu_per_node), 'mem': str(mem_per_node)}
 
 print(structures)
 
@@ -46,7 +53,7 @@ with open(inventory_file, "w") as file:
 ## write new info
 for host in structures:
 
-    container_list = structures[host]
+    container_list = structures[host]['containers']
 
     i = 0
     containers_formatted = "\'["
@@ -75,7 +82,7 @@ for host in structures:
     while (i < len(data) and host not in data[i]):
         i+=1
 
-    host_info = host + " containers=" + containers_formatted + "\n"
+    host_info = host + " cpu=" + structures[host]['cpu'] + " mem=" + structures[host]['mem'] + " containers=" + containers_formatted + "\n"
 
     if (i < len(data)):
         data[i] = host_info

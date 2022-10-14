@@ -16,7 +16,6 @@ python3 -m pip install ansible
 
 mkdir -p /etc/ansible
 cp /vagrant/ansible/ansible.cfg /etc/ansible
-cp /vagrant/ansible/ansible.inventory /etc/ansible/hosts
 
 # Create ssh keys
 USER_DIR=/home/vagrant/.ssh

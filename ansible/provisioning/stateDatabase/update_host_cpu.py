@@ -12,68 +12,68 @@ if __name__ == "__main__":
     handler = couchDB.CouchDBServer()
     database = "structures"    
     
-    host = sys.argv[1]
-    number_of_cores = int(sys.argv[2])
-    new_containers = sys.argv[3].split(',')
-    replace = sys.argv[4] == "true"
+    if (len(sys.argv) > 4):
 
-    core_mapping = {}
+        host = sys.argv[1]
+        number_of_cores = int(sys.argv[2])
+        new_containers = sys.argv[3].split(',')
+        replace = sys.argv[4] == "true"
 
-    ## New algorithm
-    for i in range(0,number_of_cores,1): 
-        core_mapping[str(i)] = {"free": 0}
+        core_mapping = {}
 
-    cpu_allowance_limit = int(number_of_cores * 100 / len(new_containers))
-    current_core = 0
-    current_free = 100
+        ## New algorithm
+        for i in range(0,number_of_cores,1): 
+            core_mapping[str(i)] = {"free": 0}
 
-    for c in new_containers:
-        to_allocate = cpu_allowance_limit
+        cpu_allowance_limit = int(number_of_cores * 100 / len(new_containers))
+        current_core = 0
+        current_free = 100
 
-        while (to_allocate > 0 and current_core < number_of_cores):
-            if (to_allocate >= 100):
-                core_mapping[str(current_core)][c] = current_free
-                to_allocate -= current_free
-                current_core += 1
-                current_free = 100
+        for c in new_containers:
+            to_allocate = cpu_allowance_limit
 
-            else:
-                min_usage = min(current_free, to_allocate)
-                core_mapping[str(current_core)][c] = min_usage
-                if (min_usage == to_allocate):
-                    ## we continue in current core
-                    current_free -= to_allocate
-                    to_allocate = 0
-                else:
-                    ## we switch to next core
+            while (to_allocate > 0 and current_core < number_of_cores):
+                if (to_allocate >= 100):
+                    core_mapping[str(current_core)][c] = current_free
                     to_allocate -= current_free
                     current_core += 1
                     current_free = 100
 
-    print(core_mapping)
+                else:
+                    min_usage = min(current_free, to_allocate)
+                    core_mapping[str(current_core)][c] = min_usage
+                    if (min_usage == to_allocate):
+                        ## we continue in current core
+                        current_free -= to_allocate
+                        to_allocate = 0
+                    else:
+                        ## we switch to next core
+                        to_allocate -= current_free
+                        current_core += 1
+                        current_free = 100
 
-    # Create database if doesnt exist
-    if not handler.database_exists(database):
-        print("Adding 'structures' documents")
-        initializer_utils.create_db(database)
-        
-    if handler.database_exists(database): 
+        print(core_mapping)
 
-        ## Host
-        try:
-            old_host = handler.get_structure(host)
+        # Create database if doesnt exist
+        if not handler.database_exists(database):
+            print("Adding 'structures' documents")
+            initializer_utils.create_db(database)
+            
+        if handler.database_exists(database): 
 
-            if ('cpu' in old_host['resources'] and not replace):
-                print("CPU information already in host " + host + " and not replacing")
+            ## Host
+            try:
+                old_host = handler.get_structure(host)
 
-            else:
-                old_host['resources']['cpu'] = dict(max=number_of_cores*100, free=0, core_usage_mapping=core_mapping)
-                handler.update_structure(old_host)
-                print("Host updated with")
-                print(core_mapping)
+                if ('cpu' in old_host['resources'] and not replace):
+                    print("CPU information already in host " + host + " and not replacing")
 
-        except ValueError:
-            # new host
-            print("Host " + host + " doesn't exist")
+                else:
+                    old_host['resources']['cpu'] = dict(max=number_of_cores*100, free=0, core_usage_mapping=core_mapping)
+                    handler.update_structure(old_host)
+                    print("Host updated with")
+                    print(core_mapping)
 
-    
+            except ValueError:
+                # new host
+                print("Host " + host + " doesn't exist")

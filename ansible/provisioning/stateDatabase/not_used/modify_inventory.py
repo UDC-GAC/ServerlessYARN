@@ -39,7 +39,6 @@ while (i < len(data) and host not in data[i]):
     i+=1
 
 if (i < len(data)):
-    data[i] = 'node2 containers=\'["cont0","cont1"]\'\n'
     data[i] = host + " containers=" + containers_formatted + "\n"
     with open(inventory_file, 'w') as file:
         file.writelines( data )

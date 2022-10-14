@@ -26,7 +26,7 @@ base_app = dict(
     containers = []    
 )
 
-# usage example: add_containers.py app1 host0 cont0,cont1 config/config.yml
+# usage example: add_containers.py app1 host0 4 4096 cont0,cont1 config/config.yml
 
 if __name__ == "__main__":
 
@@ -34,65 +34,72 @@ if __name__ == "__main__":
     handler = couchDB.CouchDBServer()
     database = "structures"
     
-    new_app = sys.argv[1]
-    new_host = sys.argv[2]
-    new_containers = sys.argv[3].split(',')
-    with open(sys.argv[4], "r") as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    if (len(sys.argv) > 6):
 
-    # Create database if doesnt exist
-    if not handler.database_exists(database):
-        print("Adding 'structures' documents")
-        initializer_utils.create_db(database)
-        
-    if handler.database_exists(database):
-                                    
-	## Container
-        for c in new_containers:
-            try:
-                old_container = handler.get_structure(c)
-                old_container["host"] = new_host
-                old_container["host_rescaler_ip"] = new_host
-                handler.update_structure(old_container)
-            except ValueError:
-                # new container
-                container = base_container
-                container["name"] = c
-                container["host"] = new_host
-                container["host_rescaler_ip"] = new_host
-                container["resources"] = dict(
-                    cpu=dict(max=config['max_cpu_percentage_per_container'], min=config['min_cpu_percentage_per_container'], guard=True),
-                    mem=dict(max=config['max_memory_per_container'], min=config['min_memory_per_container'], guard=True)
-                )
-                handler.add_structure(container)
+        new_app = sys.argv[1]
+        new_host = sys.argv[2]
+        host_cpu = sys.argv[3]
+        host_mem = sys.argv[4]
+        new_containers = sys.argv[5].split(',')
+        with open(sys.argv[6], "r") as f:
+            config = yaml.load(f, Loader=yaml.FullLoader)
 
-        ## Host
-        try:
-            old_host = handler.get_structure(new_host)
-        except ValueError:
-            # new host
-            host = base_host
-            host["name"] = new_host
-            host["host"] = new_host
-            host["resources"] = dict(
-                mem=dict(max=config['memory_per_client_node'], free=0)
-            )
-            handler.add_structure(host)
-
-        ## App
-        try:
-            old_app = handler.get_structure(new_app)
+        # Create database if doesnt exist
+        if not handler.database_exists(database):
+            print("Adding 'structures' documents")
+            initializer_utils.create_db(database)
+            
+        if handler.database_exists(database):
+                                        
+            ## Container
             for c in new_containers:
-                if c not in old_app["containers"]:
-                    old_app["containers"].append(c)
-            handler.update_structure(old_app)
-        except ValueError:
-            # new app
-            app = base_app
-            app["name"] = new_app
-            app["containers"] = new_containers
-            app["resources"] = dict(
-                cpu=dict(max=config['max_cpu_percentage_per_app'], min=config['min_cpu_percentage_per_app'], guard=False),
-                mem=dict(max=config['max_memory_per_app'], min=config['min_memory_per_app'], guard=False)
-            )
-            handler.add_structure(app)
+                try:
+                    old_container = handler.get_structure(c)
+                    old_container["host"] = new_host
+                    old_container["host_rescaler_ip"] = new_host
+                    handler.update_structure(old_container)
+                except ValueError:
+                    # new container
+                    container = base_container
+                    container["name"] = c
+                    container["host"] = new_host
+                    container["host_rescaler_ip"] = new_host
+                    container["resources"] = dict(
+                        cpu=dict(max=config['max_cpu_percentage_per_container'], min=config['min_cpu_percentage_per_container'], guard=True),
+                        mem=dict(max=config['max_memory_per_container'], min=config['min_memory_per_container'], guard=True)
+                    )
+                    handler.add_structure(container)
+
+            ## Host
+            try:
+                old_host = handler.get_structure(new_host)
+            except ValueError:
+                # new host
+                host = base_host
+                host["name"] = new_host
+                host["host"] = new_host
+                host["resources"] = dict(
+                    #mem=dict(max=config['memory_per_client_node'], free=0)
+                    cpu=dict(max=host_cpu*100, free=0),
+                    mem=dict(max=host_mem, free=0)
+                )
+                handler.add_structure(host)
+
+            ## App
+            try:
+                old_app = handler.get_structure(new_app)
+                for c in new_containers:
+                    if c not in old_app["containers"]:
+                        old_app["containers"].append(c)
+                handler.update_structure(old_app)
+            except ValueError:
+                # new app
+                app = base_app
+                app["name"] = new_app
+                app["containers"] = new_containers
+                app["resources"] = dict(
+                    cpu=dict(max=config['max_cpu_percentage_per_app'], min=config['min_cpu_percentage_per_app'], guard=False),
+                    mem=dict(max=config['max_memory_per_app'], min=config['min_memory_per_app'], guard=False)
+                )
+                handler.add_structure(app)
+            

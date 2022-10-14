@@ -27,12 +27,21 @@
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
     
+## Deactivate Scaler before updating the State Database
+- name: Deactivate Scaler Service
+  shell: "bash scripts/orchestrator/Scaler/deactivate.sh"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+  tags: start_containers
+
 ## Structures Using new script 
 - name: Initializing State Database - structures
-  shell: "python3 stateDatabase/add_containers.py app1 {{ item }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }} config/config.yml"
+  shell: "python3 stateDatabase/add_containers.py app1 {{ item }} {{ hostvars[item].cpu }} {{ hostvars[item].mem }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }} config/config.yml"  
   args:
     executable: /bin/bash
   with_items: "{{ groups['nodes'] }}"
+  tags: start_containers
   
 ## Limits Using new script 
 - name: Initializing State Database - limits
@@ -40,13 +49,15 @@
   args:
     executable: /bin/bash
   with_items: "{{ groups['nodes'] }}"
+  tags: start_containers
 
 ## Initialize cpu resource info of hosts
 - name: Initializing State Database - hosts CPU info
-  shell: "python3 stateDatabase/update_host_cpu.py {{ item }} {{ cpus_per_client_node }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }} false"
+  shell: "python3 stateDatabase/update_host_cpu.py {{ item }} {{ hostvars[item].cpu  }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }} true"
   args:
     executable: /bin/bash
   with_items: "{{ groups['nodes'] }}"
+  tags: start_containers
 
 # Starting Services
 - name: Tmux session check
@@ -83,3 +94,4 @@
     - Scaler
     - Refeeder
     - Rebalancer
+  tags: start_containers

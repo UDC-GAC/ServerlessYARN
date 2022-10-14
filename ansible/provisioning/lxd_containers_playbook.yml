@@ -12,6 +12,7 @@
 
   tasks:
     - import_tasks: tasks/lxd_setup/lxd_containers_setup.yml
+      tags: start_containers
     - import_tasks: tasks/lxd_setup/node_rescaler_launch.yml
 
 # Setup server (now that nodes have been initialized)
@@ -25,3 +26,4 @@
 
   tasks:
     - import_tasks: tasks/lxd_setup/node_rescaler_containers_init.yml
+      tags: start_containers
