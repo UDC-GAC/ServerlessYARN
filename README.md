@@ -15,7 +15,7 @@ This platform provides an automatic way of deploying ServerlessContainers throug
 ### Quickstart
 - You can clone this repository with
     ```
-    git clone https://github.com/oscar-castellanos/AutoServerlessWeb.git
+    git clone https://github.com/UDC-GAC/AutoServerlessWeb.git
     ```
 
 - Once cloned, change directory to ansible/provisioning 
