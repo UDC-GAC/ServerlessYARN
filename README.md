@@ -1,4 +1,4 @@
-# Serverless Containers Web Platform
+# AutoServerlessWeb
 
 This project provides a web platform for the framework ServerlessContainers which can be found on its own [web page](http://bdwatchdog.dec.udc.es/serverless/index.html). 
 
@@ -15,12 +15,12 @@ This platform provides an automatic way of deploying ServerlessContainers throug
 ### Quickstart
 - You can clone this repository with
     ```
-    git clone https://github.com/oscar-castellanos/TFM.git
+    git clone https://github.com/oscar-castellanos/AutoServerlessWeb.git
     ```
 
 - Once cloned, change directory to ansible/provisioning 
     ```
-    cd TFM/ansible/provisioning
+    cd AutoServerlessWeb/ansible/provisioning
     ```
 
 - And clone both BDWatchdog (with name "bdwatchdog") and ServerlessContainers (with name "ServerlessContainers") in that directory
