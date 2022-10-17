@@ -1,3 +1,6 @@
+# Virtual mode: "yes" to deploy a vagrant virtual cluster; "no" if you want to use an existing cluster 
+virtual_mode: yes
+
 ## Server Node
 cpus_server_node: 2
 memory_server_node: 4096
