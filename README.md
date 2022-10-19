@@ -44,6 +44,7 @@ This platform provides an automatic way of deploying ServerlessContainers throug
     ```
     vagrant ssh
     cd /vagrant/ansible/provisioning
+    python3 load_inventory_from_conf.py
     bash start_all.sh
     ```
 
