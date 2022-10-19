@@ -11,6 +11,8 @@ echo "Installing necessary services and programs..."
 ansible-playbook install_playbook.yml -i $INVENTORY
 echo "Install Done!"
 
+source /etc/environment
+
 echo "Starting LXC containers..."
 ansible-playbook lxd_containers_playbook.yml -i $INVENTORY
 echo "Containers started! "
