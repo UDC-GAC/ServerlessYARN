@@ -16,7 +16,7 @@
     - import_tasks: tasks/install/serverless_containers_setup.yml
     - import_tasks: tasks/install/hosts_setup_server.yml
     - import_tasks: tasks/install/web_interface_setup.yml
-    - import_tasks: tasks/install/environment_setup.yml
+    #- import_tasks: tasks/install/environment_setup.yml
     
 # Setup nodes
 - hosts: nodes
@@ -31,5 +31,5 @@
     - import_tasks: tasks/install/lxd_setup.yml
     - import_tasks: tasks/install/metrics_feeder_setup.yml
     - import_tasks: tasks/install/hosts_setup_nodes.yml
-    - import_tasks: tasks/install/environment_setup.yml
+    #- import_tasks: tasks/install/environment_setup.yml
     

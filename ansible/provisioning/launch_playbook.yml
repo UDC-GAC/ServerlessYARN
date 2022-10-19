@@ -11,6 +11,11 @@
     # change admin password both here and in config/debian_couchdb_conf.dat to effectively change it
     - couchdb_admin_pass: admin
 
+  environment:
+    BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
+    RESCALING_PATH: "{{ serverless_containers_path }}/scripts/"
+    PYTHONPATH: ":{{ serverless_containers_path }}"
+
   tasks:
     #- import_tasks: tasks/launch/couchdb_launch.yml -> couchdb service is already set to start on boot on installation
     - import_tasks: tasks/launch/opentsdb_launch.yml
