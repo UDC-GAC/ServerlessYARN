@@ -26,10 +26,16 @@
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-    
+  
+- name: Tmux session check
+  shell: tmux ls
+  register: tmux_output
+  ignore_errors: yes
+
 ## Deactivate Scaler before updating the State Database
 - name: Deactivate Scaler Service
   shell: "bash scripts/orchestrator/Scaler/deactivate.sh"
+  when: "'orchestrator' in tmux_output.stdout"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
@@ -60,11 +66,6 @@
   tags: start_containers
 
 # Starting Services
-- name: Tmux session check
-  shell: tmux ls
-  register: tmux_output
-  ignore_errors: yes
-
 - name: Starting Services
   shell: "bash scripts/services/{{ item }}/start_tmux.sh"
   when: "item not in tmux_output.stdout"
