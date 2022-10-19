@@ -100,7 +100,7 @@
   ignore_errors: yes
   
 - name: Start sending metrics to opentsdb
-  shell: lxc exec {{ item.item }} -- sudo bash -c "cd {{ bdwatchdog_path }}/MetricsFeeder && bash scripts/run_atop_stream.sh"
+  shell: lxc exec {{ item.item }} -- sudo bash -c "cd {{ bdwatchdog_path }}/MetricsFeeder && bash scripts/run_atop_stream_tmux.sh"
   when: "'ATOP' not in item.stdout"
   with_items: "{{ tmux_output.results }}"
   
