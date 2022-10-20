@@ -54,3 +54,10 @@
     state: directory
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
     recurse: yes
+
+- name: Change BDWatchdog data dir owner
+  file:
+    path: "{{ installation_path }}/BDWatchdog_data"
+    state: directory
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+    recurse: yes
