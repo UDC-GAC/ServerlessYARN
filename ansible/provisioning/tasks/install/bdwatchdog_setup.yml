@@ -30,14 +30,6 @@
     executable: /bin/bash
     creates: "{{ bdwatchdog_path }}/deployment/metrics/opentsdb/build/tsdb"
 
-- name: Change BDWatchdog dir owner
-  file:
-    path: "{{ bdwatchdog_path }}"
-    state: directory
-    owner: "{{ username_on_the_host.stdout_lines[0] }}"
-    recurse: yes
-
-### esto a lo mejor se puede quitar
 ## Stop tmux sessions created by root
 - name: Tmux session check
   shell: tmux ls
@@ -47,7 +39,18 @@
 - name: Stop TIMESTAMPING Service
   shell: tmux kill-session -t EVE_TIMES
   when: "'EVE_TIMES' in tmux_output.stdout"
-    
+
 - name: Stop OPENTSDB
-  shell: tmux kill-session -t OPENTSDB
+  #shell: tmux kill-session -t OPENTSDB
+  shell: bash stop.sh
   when: "'OPENTSDB' in tmux_output.stdout"
+  args:
+    chdir: "{{ bdwatchdog_path }}/deployment/metrics"
+    executable: /bin/bash
+
+- name: Change BDWatchdog dir owner
+  file:
+    path: "{{ bdwatchdog_path }}"
+    state: directory
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+    recurse: yes
