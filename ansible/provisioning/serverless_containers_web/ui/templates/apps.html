@@ -81,7 +81,7 @@
 
 			<!-- APP RESOURCES EDIT MODAL -->	
 			{% if item.resources_editable_data > 0 %}
-				<a href="#openModal-{{ item.name }}-resources" title="Edit" class="caja" onclick="hide_buttons('{{ item.name }}');">Edit resources</a>
+				<a href="#openModal-{{ item.name }}-resources" title="Edit" class="caja" onclick="hide_resources_submit_buttons('{{ item.name }}');">Edit resources</a>
 				<br><br>  
 				<div align="left" id="openModal-{{ item.name }}-resources" class="modalDialog">
 					<div>
@@ -185,7 +185,7 @@
 
 			<!-- CONT RESOURCES EDIT MODAL -->	
 			{% if cont.resources_editable_data > 0 %}
-				<a href="#openModal-{{ cont.name }}-resources" title="Edit" class="caja" onclick="hide_buttons('{{ cont.name }}');">Edit resources</a>
+				<a href="#openModal-{{ cont.name }}-resources" title="Edit" class="caja" onclick="hide_resources_submit_buttons('{{ cont.name }}');">Edit resources</a>
 				<br><br>  
 				<div align="left" id="openModal-{{ cont.name }}-resources" class="modalDialog">
 					<div>

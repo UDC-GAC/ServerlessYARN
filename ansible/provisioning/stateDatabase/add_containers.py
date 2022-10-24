@@ -55,9 +55,11 @@ if __name__ == "__main__":
             for c in new_containers:
                 try:
                     old_container = handler.get_structure(c)
-                    old_container["host"] = new_host
-                    old_container["host_rescaler_ip"] = new_host
-                    handler.update_structure(old_container)
+
+                    ## Changing host may be useful later for moving containers between nodes
+                    #old_container["host"] = new_host
+                    #old_container["host_rescaler_ip"] = new_host
+                    #handler.update_structure(old_container)
                 except ValueError:
                     # new container
                     container = base_container

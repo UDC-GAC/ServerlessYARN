@@ -1,0 +1,26 @@
+# Stop node scaler from nodes
+- hosts: nodes
+  become: yes
+  gather_facts: yes
+
+  vars_files:
+    - vars/main.yml
+    - config/config.yml
+
+  environment:
+    BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
+    RESCALING_PATH: "{{ serverless_containers_path }}/scripts/"
+    PYTHONPATH: ":{{ serverless_containers_path }}"
+
+  tasks:
+  - name: Tmux session check
+    shell: tmux ls
+    register: tmux_output
+    ignore_errors: yes
+
+  - name: Stop node scaler
+    shell: bash scripts/services/node_scaler/stop_node_rescaler.sh
+    when: "'node_scaler' in tmux_output.stdout"
+    args:
+      chdir: "{{ serverless_containers_path }}"
+      executable: /bin/bash

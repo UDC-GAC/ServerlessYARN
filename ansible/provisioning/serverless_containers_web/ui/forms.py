@@ -12,6 +12,7 @@ class HostResourcesFormSetHelper(FormHelper):
         self.form_class = 'form-group'
         self.form_method = 'post'
         self.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
             Field('name', type="hidden", readonly=True),
             Field('structure_type', type="hidden", readonly=True),
             Field('resource', readonly=True),
@@ -23,6 +24,10 @@ class HostResourcesFormSetHelper(FormHelper):
         self.render_required_fields = True
         
 class HostResourcesForm(forms.Form):
+    operation = forms.CharField(label= "Operation",
+            initial="resources",
+            required=True
+            )
     name = forms.CharField(label="Name",
             required=True
             )
@@ -50,6 +55,7 @@ class StructureResourcesFormSetHelper(FormHelper):
         self.form_class = 'form-group'
         self.form_method = 'post'
         self.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
             Field('name', type="hidden", readonly=True),
             Field('structure_type', type="hidden", readonly=True),
             Field('resource', readonly=True),
@@ -63,6 +69,10 @@ class StructureResourcesFormSetHelper(FormHelper):
         self.render_required_fields = True
 
 class StructureResourcesForm(forms.Form):
+    operation = forms.CharField(label= "Operation",
+            initial="resources",
+            required=True
+            )
     name = forms.CharField(label="Name",
             required=True
             )
@@ -129,6 +139,161 @@ class LimitsForm(forms.Form):
             )    
         )
 
+class RemoveStructureForm(forms.Form):
+    operation = forms.CharField(label= "Operation",
+            initial="remove",
+            required=True
+            )
+    structures_removed = forms.MultipleChoiceField(label="Structures Removed",
+            choices = (),
+            widget=forms.CheckboxSelectMultiple,
+            required=False
+            )
+    def __init__(self, *args, **kwargs):
+        super(RemoveStructureForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()            
+        self.helper.form_id = 'id-removestructureform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('structures_removed'),
+            FormActions(
+                Submit('save', 'Remove structures', css_class='caja'),
+            )    
+        )
+
+class AddHostForm(forms.Form):
+    operation = forms.CharField(label= "Operation",
+            initial="add",
+            required=True
+            )
+    structure_type = forms.CharField(label= "Structure type",
+            initial="host",
+            required=True
+            )
+    name = forms.CharField(label= "Name",
+            required=True
+            )
+    cpu_max = forms.IntegerField(label= "CPU cores",
+            required=True
+            )
+    mem_max = forms.IntegerField(label= "Memory",
+            required=True
+            )
+    number_of_containers = forms.IntegerField(label= "Number of containers",
+            initial = 0,
+            required=True
+            )
+    def __init__(self, *args, **kwargs):
+        super(AddHostForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()            
+        self.helper.form_id = 'id-addhostform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'hosts'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('structure_type', type="hidden", readonly=True),
+            Field('name'),
+            Field('cpu_max'),
+            Field('mem_max'),
+            Field('number_of_containers'),
+            FormActions(
+                Submit('save', 'Add host', css_class='caja'),
+            )    
+        )       
+
+class AddContainerForm(forms.Form):
+    operation = forms.CharField(label= "Operation",
+            initial="add",
+            required=True
+            )
+    structure_type = forms.CharField(label= "Structure type",
+            initial="container",
+            required=True
+            )
+    name = forms.CharField(label= "Name",
+            required=True
+            )
+    cpu_max = forms.IntegerField(label= "CPU Max",
+            required=True
+            )
+    cpu_min = forms.IntegerField(label= "CPU Min",
+            required=True
+            )
+    mem_max = forms.IntegerField(label= "Mem Max",
+            required=True
+            )
+    mem_min = forms.IntegerField(label= "Mem Min",
+            required=True
+            )
+    host = forms.CharField(label= "Host",
+            required=True
+            )
+    cpu_boundary = forms.IntegerField(label= "CPU boundary",
+            required=True
+            )
+    mem_boundary = forms.IntegerField(label= "Mem boundary",
+            required=True
+            )
+    def __init__(self, *args, **kwargs):
+        super(AddContainerForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()            
+        self.helper.form_id = 'id-addcontainerform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'containers'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('structure_type', type="hidden", readonly=True),
+            Field('name'),
+            Field('cpu_max'),
+            Field('cpu_min'),  
+            Field('mem_max'),
+            Field('mem_min'),
+            Field('host'),
+            Field('cpu_boundary'),
+            Field('mem_boundary'),
+            FormActions(
+                Submit('save', 'Add container', css_class='caja'),
+            )    
+        )  
+
+class AddNContainersFormSetHelper(FormHelper):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.form_method = 'post'
+        self.form_id = 'id-addncontainersform'
+        self.form_class = 'form-group'
+        self.form_method = 'post'
+        self.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('structure_type', type="hidden", readonly=True),
+            Field('host', readonly=True),
+            Field('containers_added'),
+            FormActions(
+                Submit('save-containers', 'Save changes', css_class='caja'),
+            )
+        )
+        self.render_required_fields = True
+        
+class AddNContainersForm(forms.Form):
+    operation = forms.CharField(label= "Operation",
+            initial="add",
+            required=True
+            )
+    structure_type = forms.CharField(label= "Structure type",
+            initial="Ncontainers",
+            required=True
+            )
+    host = forms.CharField(label="Host",
+            required=True
+            )
+    containers_added = forms.IntegerField(label="New Containers",
+            initial=0,
+            required=True
+            )
 
 ### Services
 # CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 5, "DEBUG": True, "DOCUMENTS_PERSISTED": ["limits", "structures", "users", "configs"] ,"ACTIVE": True}

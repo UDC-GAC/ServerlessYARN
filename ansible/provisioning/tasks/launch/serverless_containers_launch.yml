@@ -31,6 +31,7 @@
   shell: tmux ls
   register: tmux_output
   ignore_errors: yes
+  tags: start_containers
 
 ## Deactivate Scaler before updating the State Database
 - name: Deactivate Scaler Service

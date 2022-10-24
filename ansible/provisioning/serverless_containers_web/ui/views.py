@@ -1,7 +1,8 @@
 from django.shortcuts import render,redirect
-from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm, LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper, HostResourcesForm, HostResourcesFormSetHelper
+from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm, LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper, HostResourcesForm, HostResourcesFormSetHelper, RemoveStructureForm, AddHostForm, AddContainerForm, AddNContainersFormSetHelper, AddNContainersForm
 from django.forms import formset_factory
 from django.http import HttpResponse
+from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host
 import urllib.request
 import urllib.parse
 import json
@@ -9,11 +10,11 @@ import requests
 import time
 import yaml
 from bs4 import BeautifulSoup
-
+import subprocess
 
 base_url = "http://192.168.56.100:5000"
 
-## General auxiliar
+## Auxiliary general methods
 def redirect_with_errors(redirect_url, errors):
 
     red = redirect(redirect_url)
@@ -60,9 +61,13 @@ def structures(request, structure_type, html_render):
 
         resources_errors = processResources(request, url)
         limits_errors = processLimits(request, url)
+        add_errors = processAdds(request, url)
+        removes_errors = processRemoves(request, url, structure_type)
 
         if (resources_errors): errors += resources_errors
         if (limits_errors): errors += limits_errors
+        if (add_errors): errors += add_errors
+        if (removes_errors): errors += removes_errors
 
         return redirect_with_errors(structure_type,errors)
 
@@ -76,16 +81,25 @@ def structures(request, structure_type, html_render):
         data_json = {}
     
     structures = []
+    addStructureForm = None
     if (structure_type == "containers"):
         structures = getContainers(data_json)
+        hosts = getHosts(data_json)
+        addStructureForm = {}
+        addStructureForm['add_container'] = AddContainerForm()
+        addStructureForm['add_n_containers'] = setAddNContainersForm(structures,hosts,structure_type)
 
     elif(structure_type == "hosts"):
         structures = getHosts(data_json)
+        addStructureForm = AddHostForm()
 
     elif(structure_type == "apps"):
         structures = getApps(data_json)
 
-    return render(request, html_render, {'data': structures, 'requests_errors': requests_errors, 'requests_success': requests_success})
+    ## Set RemoveStructures Form
+    removeStructuresForm = setRemoveStructureForm(structures,structure_type)
+
+    return render(request, html_render, {'data': structures, 'requests_errors': requests_errors, 'requests_success': requests_success, 'addStructureForm': addStructureForm,'removeStructuresForm': removeStructuresForm})
 
 
 def containers(request):
@@ -259,12 +273,12 @@ def setStructureResourcesForm(structure, form_action):
         HostResourcesFormSet = formset_factory(HostResourcesForm, extra = 0)
         structure['resources_form'] = HostResourcesFormSet(initial = form_initial_data_list)
         structure['resources_form_helper'] = HostResourcesFormSetHelper()
-        submit_button_disp = 4
+        submit_button_disp = 5
     else:
         StructureResourcesFormSet = formset_factory(StructureResourcesForm, extra = 0)
         structure['resources_form'] = StructureResourcesFormSet(initial = form_initial_data_list)
         structure['resources_form_helper'] = StructureResourcesFormSetHelper()
-        submit_button_disp = 6
+        submit_button_disp = 7
 
     structure['resources_form_helper'].form_action = form_action
     structure['resources_editable_data'] = editable_data
@@ -303,6 +317,43 @@ def setLimitsForm(structure, form_action):
     for resource in resource_list:
         if ( not (resource in structure['limits'] and 'boundary' in structure['limits'][resource])):    
             structure['limits_form'].helper[resource + '_boundary'].update_attributes(type="hidden")
+
+def setAddNContainersForm(structures, hosts, form_action):
+
+    form_initial_data_list = []
+    editable_data = len(hosts)
+
+    for host in hosts:
+        form_initial_data = {'operation' : "add", 'structure_type' : "Ncontainers", 'host' : host['name'], 'containers_added': 0}
+        form_initial_data_list.append(form_initial_data)
+
+    formSet = formset_factory(AddNContainersForm, extra = 0)
+
+    addNform = {}
+
+    addNform['form'] = formSet(initial = form_initial_data_list)
+    addNform['helper'] = AddNContainersFormSetHelper()
+    addNform['helper'].form_action = form_action
+    addNform['editable_data'] = editable_data
+
+    #submit_button_disp = 4
+    ## Need to do this to hide extra 'Save changes' buttons on JS
+    #addNform['helper'].layout[submit_button_disp][0].name += structure['name']
+
+    return addNform
+
+def setRemoveStructureForm(structures, form_action):
+
+    removeStructuresForm = RemoveStructureForm()
+    removeStructuresForm.helper.form_action = form_action
+
+    for structure in structures:
+        if (form_action == "containers"):
+            removeStructuresForm.fields['structures_removed'].choices.append(((structure['name'],structure['host']),structure['name']))
+        else:
+            removeStructuresForm.fields['structures_removed'].choices.append((structure['name'],structure['name']))
+
+    return removeStructuresForm
 
 # Process POST requests
 def containers_guard_switch(request, container_name):
@@ -351,7 +402,7 @@ def processResources(request, url):
     if ("form-TOTAL_FORMS" in request.POST):
         total_forms = int(request.POST['form-TOTAL_FORMS'])
 
-        if (total_forms > 0):
+        if (total_forms > 0 and request.POST['form-0-operation'] == "resources"):
             
             name = request.POST['form-0-name']
 
@@ -400,7 +451,7 @@ def processLimits(request, url):
 
     errors = []
 
-    if ("name" in request.POST):
+    if ("name" in request.POST and "operation" not in request.POST):
         
         structure_name = request.POST['name']
 
@@ -433,7 +484,215 @@ def processLimitsBoundary(request, url, structure_name, resource, boundary_name)
 
     return error
 
+def processAdds(request, url):
+    errors = []
+
+    if ("operation" in request.POST and request.POST["operation"] == "add"):
+        
+        structure_name = request.POST['name']
+        structure_type = request.POST['structure_type']
+
+        resources = ["cpu","mem","disk","net","energy"]
+
+        error = ""
+
+        if (structure_type == "host"):
+            error = processAddHost(request, url, structure_name, structure_type, resources)
+        elif (structure_type == "container"):
+            host = request.POST['host']
+            error = processAddContainer(request, url, structure_name, structure_type, resources, host)
+
+        if (len(error) > 0): errors.append(error)
+
+    elif ("form-TOTAL_FORMS" in request.POST and request.POST['form-0-operation'] == "add"):
+        total_forms = int(request.POST['form-TOTAL_FORMS'])
+
+        for i in range(0,total_forms,1):
+            host = request.POST['form-' + str(i) + "-host"]
+            containers_added = request.POST['form-' + str(i) + "-containers_added"]
+            error = processAddNContainers(request, url, host, containers_added)
+            if (len(error) > 0): errors.append(error)
+
+    return errors
+
+def processAddHost(request, url, structure_name, structure_type, resources):
+    error = ""
+
+    # update inventory file
+    new_containers = int(request.POST['number_of_containers'])
+    cpu = request.POST['cpu_max']
+    mem = request.POST['mem_max']
+    add_host(structure_name,cpu,mem,new_containers)
+
+    # provision host and start its containers from playbook
+    rc = subprocess.Popen(["./ui/scripts/configure_host.sh",structure_name])
+    rc.communicate()
+    
+    return error
+
+# Not used ATM
+def processAddHost_via_API(request, url, structure_name, structure_type, resources):
+
+    full_url = url + structure_type + "/" + structure_name
+    headers = {'Content-Type': 'application/json'}
+
+    put_field_data = {
+        'name': structure_name,
+        'host': structure_name,
+        'subtype': "host",
+        'host_rescaler_ip': structure_name,
+        'host_rescaler_port': 8000,
+        'resources': {}
+    }
+
+    for resource in resources:
+        if (resource + "_max" in request.POST):
+            resource_max = request.POST[resource + "_max"]
+            put_field_data['resources'][resource] = {'max': int(resource_max), 'free': int(resource_max)}
+
+    r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+
+    error = ""
+    if (r != "" and r.status_code != requests.codes.ok):
+        soup = BeautifulSoup(r.text, features="html.parser")
+        error = "Error adding host " + structure_name + ": " + soup.get_text().strip()
+
+    return error
+
+# Does not start added containers ATM
+def processAddContainer(request, url, structure_name, structure_type, resources, host):
+
+    full_url = url + structure_type + "/" + structure_name
+    headers = {'Content-Type': 'application/json'}
+
+    put_field_data = {
+        'container': {
+            'name': structure_name,
+            'resources': {},
+            'host_rescaler_ip': host,
+            'host_rescaler_port': 8000,
+            'host': host,
+            'guard': 'false',
+            'subtype': "container",
+        },
+        'limits': {'resources': {}}
+    }
+
+    for resource in resources:
+        if (resource + "_max" in request.POST):
+            resource_max = request.POST[resource + "_max"]
+            resource_min = request.POST[resource + "_min"]
+            put_field_data['container']['resources'][resource] = {'max': int(resource_max), 'current': int(resource_max), 'min': int(resource_min), 'guard': 'false'}
+
+        if (resource + "_boundary" in request.POST):
+            resource_boundary = request.POST[resource + "_boundary"]
+            put_field_data['limits']['resources'][resource] = {'boundary': int(resource_boundary)}
+
+    #rc = subprocess.Popen(["./ui/scripts/start_container.sh", host, structure_name])
+    #rc.communicate()
+
+    r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+
+    error = ""
+    if (r != "" and r.status_code != requests.codes.ok):
+        soup = BeautifulSoup(r.text, features="html.parser")
+        error = "Error adding container " + structure_name + ": " + soup.get_text().strip()
+
+    return error
+
+def processAddNContainers(request, url, host, containers_added):
+    error = ""
+
+    # update inventory file
+    new_containers = {host: int(containers_added)}
+    add_containers_to_hosts(new_containers)
+
+    # start containers from playbook
+    rc = subprocess.Popen(["./ui/scripts/start_containers.sh",host])
+    rc.communicate()
+    
+    return error
+
+def processRemoves(request, url, structure_type):
+
+    errors = []
+
+    if ("operation" in request.POST and request.POST["operation"] == "remove"):
+        
+        structures_to_remove = request.POST.getlist('structures_removed', None)
+
+        for structure_name in structures_to_remove:
+            error = processRemoveStructure(request, url, structure_name, structure_type)
+            if (len(error) > 0): errors.append(error)
+
+    return errors    
    
+def processRemoveStructure(request, url, structure_name, structure_type):
+
+    structure_type_url = ""
+
+    if (structure_type == "containers"): 
+        structure_type_url = "container"
+        cont_host = structure_name.strip("(").strip(")").split(',')
+        structure_name = cont_host[0].strip().strip("'")
+        host_name = cont_host[1].strip().strip("'")
+
+    elif (structure_type == "hosts"): 
+        structure_type_url = "host"
+        containerList = getContainersFromHost(url, structure_name)
+
+        for container in containerList:
+            processRemoveStructure(request, url, "(" + container + "," + structure_name + ")", "containers")
+
+    elif (structure_type == "apps"): structure_type_url = "apps"
+
+    full_url = url + structure_type_url + "/" + structure_name
+    headers = {'Content-Type': 'application/json'}
+
+    r = requests.delete(full_url, headers=headers)
+    
+    error = ""
+    if (r.status_code != requests.codes.ok):
+        soup = BeautifulSoup(r.text, features="html.parser")
+        error = "Error removing structure " + structure_name + ": " + soup.get_text().strip()
+
+    ## stop container
+    if (structure_type == "containers" and error == ""): 
+
+        rc = subprocess.Popen(["./ui/scripts/stop_container.sh", host_name, structure_name])
+        rc.communicate()
+
+        # update inventory file
+        remove_container_from_host(structure_name,host_name) 
+
+    ## remove host
+    elif (structure_type == "hosts" and error == ""):
+            
+        # stop node scaler service in host
+        rc = subprocess.Popen(["./ui/scripts/stop_host_scaler.sh", structure_name])
+        rc.communicate()    
+
+        # update inventory file            
+        remove_host(structure_name)
+
+    return error    
+
+def getContainersFromHost(url, host_name):
+
+    try:
+        response = urllib.request.urlopen(url)
+        data = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data = {}
+
+    containerList = []
+
+    for item in data:
+        if (item['subtype'] == 'container' and item['host'] == host_name):
+            containerList.append(item['name'])
+                          
+    return containerList
+
 ## Services
 def services(request):
     url = base_url + "/service/"

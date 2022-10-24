@@ -82,7 +82,7 @@
 
 			<!-- CONT RESOURCES EDIT MODAL -->	
 			{% if item.resources_editable_data > 0 %}
-				<a href="#openModal-{{ item.name }}-resources" title="Edit" class="caja" onclick="hide_buttons('{{ item.name }}');">Edit resources</a>
+				<a href="#openModal-{{ item.name }}-resources" title="Edit" class="caja" onclick="hide_resources_submit_buttons('{{ item.name }}');">Edit resources</a>
 				<br><br>  
 				<div align="left" id="openModal-{{ item.name }}-resources" class="modalDialog">
 					<div>
@@ -143,6 +143,42 @@
     {% endfor %}
   </ul>
    
+  <a href="#openModal-add-container" title="Edit" class="caja">Add Container</a>
+  <br><br>  
+  <div align="left" id="openModal-add-container" class="modalDialog">
+	  <div>
+		  <a href="#close" title="Close" class="close">X</a>
+		  <h2>Add Container</h2>
+		  <p>
+			  {% load crispy_forms_tags %} {% crispy addStructureForm.add_container addStructureForm.add_container.helper %}
+		  </p>
+	  </div>
+  </div>
+
+  <a href="#openModal-add-n-containers" title="Edit" class="caja" onclick="hide_addNContainers_submit_buttons();">Add N Containers</a>
+  <br><br>  
+  <div align="left" id="openModal-add-n-containers" class="modalDialog">
+	  <div>
+		  <a href="#close" title="Close" class="close">X</a>
+		  <h2>Add N Containers</h2>
+		  <p>
+			  {% load crispy_forms_tags %} {% crispy addStructureForm.add_n_containers.form addStructureForm.add_n_containers.helper %}
+		  </p>
+	  </div>
+  </div>
+
+  <a href="#openModal-remove-containers" title="Edit" class="caja">Remove Containers</a>
+  <br><br>  
+  <div align="left" id="openModal-remove-containers" class="modalDialog">
+	  <div>
+		  <a href="#close" title="Close" class="close">X</a>
+		  <h2>Remove Containers</h2>
+		  <p>
+			  {% load crispy_forms_tags %} {% crispy removeStructuresForm removeStructuresForm.helper %}
+		  </p>
+	  </div>
+  </div>  
+
 </div>
 <HR> 
 
