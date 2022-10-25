@@ -2,9 +2,18 @@
 virtual_mode: yes
 
 ## Server Node
+server_ip: 192.168.56.100
 cpus_server_node: 2
 memory_server_node: 4096
 web_interface_port: 9000
+
+## Services Config
+orchestrator_url: "{{ server_ip }}"
+orchestrator_port: 5000
+couchdb_url: "{{ server_ip }}"
+couchdb_port: 5984
+opentsdb_url: "{{ server_ip }}"
+opentsdb_port: 4242
 
 ## Client Nodes
 number_of_client_nodes: 1

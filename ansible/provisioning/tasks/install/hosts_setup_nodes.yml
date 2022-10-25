@@ -1,5 +1,15 @@
 
-- name: Add server aliases to /etc/hosts
-  lineinfile:
-    path: /etc/hosts
-    line: "{{ hostvars[groups['server'][0]].host_ip }} couchdb orchestrator opentsdb"
+#- name: Add server aliases to /etc/hosts
+#  lineinfile:
+#    path: /etc/hosts
+#    line: "{{ hostvars[groups['server'][0]].host_ip }} couchdb orchestrator opentsdb"
+
+- name: Copy services alias and ports configuration to nodes ServerlessContainers dir
+  template:
+    src: templates/nodes_sc_services_config.yml
+    dest: "{{ serverless_containers_path }}/services_config.yml"
+
+- name: Copy services alias and ports configuration to nodes BDWatchdog dir
+  template:
+    src: templates/nodes_bdw_services_config.yml
+    dest: "{{ bdwatchdog_path }}/services_config.yml"

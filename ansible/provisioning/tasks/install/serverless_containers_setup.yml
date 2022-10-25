@@ -9,6 +9,11 @@
     path: "{{ serverless_containers_path }}"
   register: stat_output
 
+- name: Install yq
+  snap:
+    name: yq
+    state: present
+
 ## get the user executing the playbook
 - name: get the username running the deploy
   become: no

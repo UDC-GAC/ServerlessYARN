@@ -25,6 +25,7 @@
 
   vars_files:
     - vars/main.yml
+    - config/config.yml
 
   tasks:
     - import_tasks: tasks/install/serverless_containers_setup.yml

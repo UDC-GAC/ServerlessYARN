@@ -1,0 +1,11 @@
+## Orchestrator
+ORCHESTRATOR_URL: "{{ orchestrator_url }}"
+ORCHESTRATOR_PORT: "{{ orchestrator_port }}"
+
+# CouchDB
+COUCHDB_URL: "{{ couchdb_url }}"
+COUCHDB_PORT: "{{ couchdb_port }}"
+
+# OpenTSDB:
+OPENTSDB_URL: "{{ opentsdb_url }}"
+OPENTSDB_PORT: "{{ opentsdb_port }}"

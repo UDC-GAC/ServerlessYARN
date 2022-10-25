@@ -1,0 +1,11 @@
+## Orchestrator
+ORCHESTRATOR_URL: "127.0.0.1"
+ORCHESTRATOR_PORT: "{{ orchestrator_port }}"
+
+# CouchDB
+COUCHDB_URL: "127.0.0.1"
+COUCHDB_PORT: "{{ couchdb_port }}"
+
+# OpenTSDB:
+OPENTSDB_URL: "127.0.0.1"
+OPENTSDB_PORT: "{{ opentsdb_port }}"

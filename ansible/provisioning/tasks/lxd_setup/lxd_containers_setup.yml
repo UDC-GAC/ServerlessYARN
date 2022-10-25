@@ -85,14 +85,21 @@
     executable: /bin/bash
   loop: "{{ hostvars[inventory_hostname].containers }}"
 
+#- name: Install requirements in containers
+#  shell: lxc exec {{ item }} -- sudo bash -c "echo '{{ hostvars[groups['server'][0]].host_ip }} opentsdb' >> /etc/hosts &&
+#    apt-get -y update &&
+#    apt-get install -y --no-install-recommends python3-pip &&
+#    cd {{ bdwatchdog_path }}/MetricsFeeder &&
+#    pip3 install -r requirements.txt"
+#  loop: "{{ hostvars[inventory_hostname].containers }}"
+
 - name: Install requirements in containers
-  shell: lxc exec {{ item }} -- sudo bash -c "echo '{{ hostvars[groups['server'][0]].host_ip }} opentsdb' >> /etc/hosts &&
-    apt-get -y update &&
+  shell: lxc exec {{ item }} -- sudo bash -c "apt-get -y update &&
     apt-get install -y --no-install-recommends python3-pip &&
     cd {{ bdwatchdog_path }}/MetricsFeeder &&
     pip3 install -r requirements.txt"
-  loop: "{{ hostvars[inventory_hostname].containers }}"
-  
+  loop: "{{ hostvars[inventory_hostname].containers }}" 
+
 - name: Tmux session check in containers
   shell: lxc exec {{ item }} -- sudo bash -c "tmux ls"
   register: tmux_output

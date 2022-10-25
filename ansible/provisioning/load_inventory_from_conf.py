@@ -10,6 +10,43 @@ from ansible.inventory.manager import InventoryManager
 
 inventory_file = "../ansible.inventory"
 
+def update_server_ip(server_ip):
+
+    loader = DataLoader()
+    ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
+
+    hostsList = ansible_inventory.groups['server'].get_hosts()
+
+    if (len(hostsList) > 0):
+        server = hostsList[0]
+        server_info = server.name + " host_ip=" + server_ip + "\n"
+    else:
+        server_info = "sc-server" + " host_ip=" + server_ip + "\n"
+
+    print(server_info)
+
+    # read lines
+    with open(inventory_file, 'r') as file:
+        # read a list of lines into data
+        data = file.readlines()
+
+    i = 0
+    # skip to server
+    while (i < len(data) and data[i] != "[server]\n"):
+        i+=1
+    i+=1
+
+    if (i < len(data)):
+        data[i] = server_info
+        with open(inventory_file, 'w') as file:
+            file.writelines( data )
+    else:
+        new_line = server_info
+        with open(inventory_file, 'a') as file:
+            file.writelines( server_info )
+
+
+
 def write_inventory_from_conf(number_of_hosts,number_of_containers_per_node,cpu_per_node,mem_per_node):
 
     structures = {}
@@ -124,6 +161,10 @@ if __name__ == "__main__":
     mem_per_node = config['memory_per_client_node']
 
     virtual_mode = config['virtual_mode']
+
+    server_ip = config['server_ip']
+
+    update_server_ip(server_ip)
 
     if (virtual_mode): 
         write_inventory_from_conf(number_of_hosts,number_of_containers_per_node,cpu_per_node,mem_per_node)
