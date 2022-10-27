@@ -1,14 +1,14 @@
-    
-- name: Install prerequisites
-  package:
+
+- name: Install prerequisites for CouchDB
+  apt:
     name: 
      - curl
      - apt-transport-https
      - gnupg
     state: latest   
-    
+    update_cache: yes
+
 - name: Get repo key
-  #shell: curl https://couchdb.apache.org/repo/keys.asc | gpg --dearmor | tee /usr/share/keyrings/couchdb-archive-keyring.gpg >/dev/null 2>&1 
   apt_key:
     url: https://couchdb.apache.org/repo/keys.asc
     keyring: /usr/share/keyrings/couchdb-archive-keyring.gpg

@@ -1,6 +1,9 @@
 # Virtual mode: "yes" to deploy a vagrant virtual cluster; "no" if you want to use an existing cluster 
 virtual_mode: yes
 
+# Currently supported container engines: lxc, apptainer
+container_engine: apptainer
+
 ## Server Node
 server_ip: 192.168.56.100
 cpus_server_node: 2

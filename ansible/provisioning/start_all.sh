@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
-#INVENTORY=/etc/ansible/hosts
 INVENTORY=../ansible.inventory
 
 #echo "Preparing ansible inventory"
 #python3 load_inventory_from_conf.py $INVENTORY config/config.yml
+
+ansible-galaxy install gantsign.golang
 
 printf "\n"
 echo "Installing necessary services and programs..."
@@ -13,8 +14,8 @@ echo "Install Done!"
 
 source /etc/environment
 
-echo "Starting LXC containers..."
-ansible-playbook lxd_containers_playbook.yml -i $INVENTORY
+echo "Starting containers..."
+ansible-playbook start_containers_playbook.yml -i $INVENTORY
 echo "Containers started! "
 
 echo "Launching services..."

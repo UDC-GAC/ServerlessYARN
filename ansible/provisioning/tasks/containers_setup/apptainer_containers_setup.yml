@@ -1,0 +1,26 @@
+
+- name: Copy apptainer containers definition file
+  template:
+    src: "templates/{{ definition_file }}"
+    dest: "{{ installation_path }}/{{ definition_file }}"
+
+- name: Build image
+  shell: "apptainer build {{ image_file }} {{ definition_file }}"
+  args:
+    chdir: "{{ installation_path }}"
+    executable: /bin/bash
+    creates: "{{ image_file }}"
+
+- name: Check containers status
+  shell: apptainer instance list -j
+  register: apptainer_list_output
+  args:
+    executable: /bin/bash
+
+- name: Start apptainer containers
+  shell: "apptainer instance start -C {{ image_file }} {{ item }}"
+  when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"
+  args:
+    chdir: "{{ installation_path }}"
+    executable: /bin/bash
+  loop: "{{ hostvars[inventory_hostname].containers }}"

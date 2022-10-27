@@ -4,12 +4,12 @@
 #    path: /etc/hosts
 #    line: 127.0.0.1 couchdb orchestrator opentsdb
 
-- name: Copy services alias and ports configuration to server ServerlessContainers dir
+- name: Copy service aliases and port configuration to ServerlessContainers dir in server
   template:
     src: templates/server_sc_services_config.yml
     dest: "{{ serverless_containers_path }}/services_config.yml"
 
-- name: Copy services alias and ports configuration to server BDWatchdog dir
+- name: Copy service aliases and port configuration to BDWatchdog dir in server
   template:
     src: templates/server_bdw_services_config.yml
     dest: "{{ bdwatchdog_path }}/services_config.yml"

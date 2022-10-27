@@ -1,0 +1,43 @@
+# Setup nodes
+- name: Start containers in client nodes
+  hosts: nodes
+  become: no
+  gather_facts: yes
+
+  vars_files:
+    - vars/main.yml
+    - config/config.yml
+
+  environment:
+    BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
+    RESCALING_PATH: "{{ serverless_containers_path }}/scripts/"
+    PYTHONPATH: ":{{ serverless_containers_path }}"
+
+  tasks:
+    - import_tasks: tasks/containers_setup/lxd_containers_setup.yml
+      when: "container_engine == 'lxc'"
+      tags: start_containers
+      vars:
+        - lxd_key_name: "lxd-{{ ansible_hostname }}"
+
+    - import_tasks: tasks/containers_setup/apptainer_containers_setup.yml
+      when: "container_engine == 'apptainer'"
+      tags: start_containers
+      vars:
+        - definition_file: "ubuntu_container.def"
+        - image_file: "ubuntu_container.sif"
+
+    - import_tasks: tasks/containers_setup/node_rescaler_launch.yml
+
+# Setup server (now that nodes have been initialized)
+- hosts: localhost
+  become: no
+  gather_facts: no
+
+  vars_files:
+    - vars/main.yml
+    - config/config.yml
+
+  tasks:
+    - import_tasks: tasks/containers_setup/node_rescaler_containers_init.yml
+      tags: start_containers

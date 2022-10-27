@@ -33,13 +33,13 @@
 
 
 ## Start containers
-- name: Check containers status
+- name: Check lxc containers status
   shell: lxc list -f csv 
   register: lxc_list_output
   args:
     executable: /bin/bash
   
-- name: Init containers
+- name: Init lxc containers
   shell: lxc init ubuntu:20.04 {{ item }}
   when: "item not in lxc_list_output.stdout"
   loop: "{{ hostvars[inventory_hostname].containers }}"
@@ -52,13 +52,13 @@
   args:
     executable: /bin/bash
   
-- name: Start containers
+- name: Start lxc containers
   shell: lxc start {{ item.item }}
   when: "'STOPPED' in item.stdout"
   with_items: "{{ lxc_list_output.results }}"
   
 ## Send metrics  
-- name: Atop executable check in containers
+- name: Atop executable check in lxc containers
   shell: lxc exec {{ item }} -- sudo bash -c "ls /usr/bin/atop"
   register: ls_output
   ignore_errors: yes

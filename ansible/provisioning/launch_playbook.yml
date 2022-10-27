@@ -1,5 +1,6 @@
 # Setup server
-- hosts: localhost
+- name: Launch services from server node
+  hosts: localhost
   become: no
   gather_facts: no
 

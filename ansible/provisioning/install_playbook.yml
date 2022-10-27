@@ -1,5 +1,6 @@
 # Setup server
-- hosts: localhost
+- name: Install requisites in server node
+  hosts: localhost
   become: yes
   gather_facts: no
 
@@ -19,7 +20,8 @@
     #- import_tasks: tasks/install/environment_setup.yml
     
 # Setup nodes
-- hosts: nodes
+- name: Install requisites in client nodes
+  hosts: nodes
   become: yes
   gather_facts: yes
 
@@ -27,10 +29,20 @@
     - vars/main.yml
     - config/config.yml
 
+  environment:
+    HOME: /home/vagrant
+
+  roles:
+     - role: gantsign.golang
+
   tasks:
     - import_tasks: tasks/install/serverless_containers_setup.yml
-    - import_tasks: tasks/install/lxd_setup.yml
     - import_tasks: tasks/install/metrics_feeder_setup.yml
     - import_tasks: tasks/install/hosts_setup_nodes.yml
     #- import_tasks: tasks/install/environment_setup.yml
-    
+
+    - import_tasks: tasks/install/lxd_setup.yml
+      when: "container_engine == 'lxc'"
+
+    - import_tasks: tasks/install/apptainer_setup.yml
+      when: "container_engine == 'apptainer'"

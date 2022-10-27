@@ -2,4 +2,4 @@
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 port=$1
 
-python $scriptDir/manage.py runserver 0:$port
+python3 $scriptDir/manage.py runserver 0:$port

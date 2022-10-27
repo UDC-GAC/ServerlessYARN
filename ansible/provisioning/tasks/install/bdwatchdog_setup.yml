@@ -28,7 +28,7 @@
   args:
     chdir: "{{ bdwatchdog_path }}/deployment/"
     executable: /bin/bash
-    creates: "{{ bdwatchdog_path }}/deployment/metrics/opentsdb/build/tsdb"
+    creates: metrics/opentsdb/build/tsdb
 
 ## Stop tmux sessions created by root
 - name: Tmux session check

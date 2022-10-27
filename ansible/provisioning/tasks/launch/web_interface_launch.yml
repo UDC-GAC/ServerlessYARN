@@ -4,7 +4,7 @@
   register: tmux_output
   ignore_errors: yes
 
-- name: Starting Services - web_interface
+- name: Starting Services - Web Interface
   shell: "bash start_tmux.sh {{ web_interface_port }}"
   when: "'web_interface' not in tmux_output.stdout"
   args:

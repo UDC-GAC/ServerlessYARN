@@ -6,7 +6,7 @@
   register: tmux_output
   ignore_errors: yes
 
-- name: Starting Services - node scaler
+- name: Starting Services - Node Scaler
   become: yes
   shell: bash scripts/services/node_scaler/start_tmux.sh
   when: "'node_scaler' not in tmux_output.stdout"
