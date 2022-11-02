@@ -7,6 +7,7 @@ from ansible.vars.manager import VariableManager
 from ansible.inventory.manager import InventoryManager
 
 inventory_file = "../../ansible.inventory"
+host_container_separator = "."
 
 loader = DataLoader()
 ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
@@ -32,7 +33,7 @@ def add_host(hostname,cpu,mem,new_containers):
 
     for i in range(0,new_containers,1):
         cont_name = 'cont' + str(i)
-        containers.append(hostname + "-" + cont_name)
+        containers.append(hostname + host_container_separator + cont_name)
 
     write_container_list(containers,hostname,cpu,mem)
 
@@ -75,7 +76,7 @@ def add_containers_to_hosts(new_containers):
             last_container_sufix = ""
 
             if (current_containers > 0):   
-                last_container_splitted = containers[current_containers - 1].split('-')
+                last_container_splitted = containers[current_containers - 1].split(host_container_separator)
                 last_container_sufix = last_container_splitted[len(last_container_splitted)-1]
 
             new_container_index = 0
@@ -85,7 +86,7 @@ def add_containers_to_hosts(new_containers):
 
             for i in range(new_container_index,new_container_index + new_containers[host.name],1):
                 cont_name = 'cont' + str(i)
-                containers.append(host.name + "-" + cont_name)
+                containers.append(host.name + host_container_separator + cont_name)
 
             write_container_list(containers,host.name,cpu,mem)
 

@@ -1,3 +1,6 @@
+## Container engine (lxc or apptainer at the moment)
+CONTAINER_ENGINE: "{{  container_engine }}"
+
 ## Orchestrator
 ORCHESTRATOR_URL: "127.0.0.1"
 ORCHESTRATOR_PORT: "{{ orchestrator_port }}"

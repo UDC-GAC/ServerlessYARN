@@ -1,0 +1,8 @@
+# Dummy file just to feed --apply-cgroups option
+#[cpu]
+#    cpus = "0-1"
+#    period = 100000
+#    quota = 20000
+#
+#[memory]
+#    limit = {{ max_memory_per_container }}

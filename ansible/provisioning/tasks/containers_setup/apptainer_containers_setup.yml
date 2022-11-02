@@ -4,6 +4,11 @@
     src: "templates/{{ definition_file }}"
     dest: "{{ installation_path }}/{{ definition_file }}"
 
+- name: Copy apptainer containers cgroup config
+  template:
+    src: "templates/{{ cgroups_file }}"
+    dest: "{{ installation_path }}/{{ cgroups_file }}"
+
 - name: Build image
   shell: "apptainer build {{ image_file }} {{ definition_file }}"
   args:
@@ -11,6 +16,35 @@
     executable: /bin/bash
     creates: "{{ image_file }}"
 
+### Fix to add controllers to cgroups V2
+- name: Start dummy container
+  shell: "apptainer instance start -C --apply-cgroups {{ cgroups_file }} {{ image_file }} dummy_cont"
+  args:
+    chdir: "{{ installation_path }}"
+    executable: /bin/bash
+
+- name: Stop dummy container
+  shell: "apptainer instance stop dummy_cont"
+  args:
+    executable: /bin/bash
+
+- name: get the user id running the deploy
+  shell: "echo $UID"
+  args:
+    executable: /bin/bash
+  register: userid_on_the_host
+
+- name: Add controllers to cgroups
+  become: yes
+  shell: "echo '+{{ item[0] }}' >> {{ item[1] }}/cgroup.subtree_control"
+  args:
+    chdir: "/sys/fs/cgroup/"
+    executable: /bin/bash
+  with_nested:
+    - [ 'cpu', 'cpuset', 'memory' ]
+    - [ 'user.slice', "user.slice/user-{{ userid_on_the_host.stdout }}.slice", "user.slice/user-{{ userid_on_the_host.stdout }}.slice/user@{{ userid_on_the_host.stdout }}.service", "user.slice/user-{{ userid_on_the_host.stdout }}.slice/user@{{ userid_on_the_host.stdout }}.service/user.slice" ]
+
+ ####
 - name: Check containers status
   shell: apptainer instance list -j
   register: apptainer_list_output
@@ -18,7 +52,7 @@
     executable: /bin/bash
 
 - name: Start apptainer containers
-  shell: "apptainer instance start -C {{ image_file }} {{ item }}"
+  shell: "apptainer instance start -C --hostname {{ item }} --apply-cgroups {{ cgroups_file }} {{ image_file }} {{ item }}"
   when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"
   args:
     chdir: "{{ installation_path }}"

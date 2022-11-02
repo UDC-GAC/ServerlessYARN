@@ -9,4 +9,3 @@ sed -i '1!d' $USER_DIR/authorized_keys >& /dev/null
 cat /vagrant/id_rsa.pub >> $USER_DIR/authorized_keys
 chown vagrant:vagrant $USER_DIR/authorized_keys
 chmod 0600 $USER_DIR/authorized_keys >& /dev/null
-

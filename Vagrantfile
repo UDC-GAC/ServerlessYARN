@@ -34,7 +34,7 @@ Vagrant.configure("2") do |config|
   	server.vm.network "private_network", ip: SERVER_IP	
   	server.vm.network "forwarded_port", guest: WEB_INTERFACE_PORT, host: WEB_INTERFACE_PORT, host_ip: "127.0.0.1"
   	server.vm.provider "virtualbox" do |vb|
-  	  	vb.name = "Server - ServerlessContainers"
+		vb.name = "Server - ServerlessContainers"
   		vb.cpus = CPU_SERVER_NODE
   		vb.memory = MEMORY_SERVER_NODE
   	end
@@ -49,11 +49,15 @@ Vagrant.configure("2") do |config|
 	node.vm.hostname = "host#{i}"
 	node.vm.provision "shell", path: "provision/nodes.sh"
 
+	## Uncomment to provision nodes with cgroups v2 enabled
+	#node.vm.provision "shell", path: "provision/cgroupsv2.sh"
+	#node.vm.provision :reload
+
 	number_to_ip = [server_ip_to_number + 1 + i].pack('N').unpack('CCCC').join('.')
 	node.vm.network :private_network, ip: number_to_ip
 
 	node.vm.provider "virtualbox" do |vb|
-  	  	vb.name = "Node#{i} - ServerlessContainers"
+		vb.name = "Node#{i} - ServerlessContainers"
   		vb.cpus = CPUS_PER_NODE
   		vb.memory = MEMORY_PER_NODE
   	end

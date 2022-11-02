@@ -26,8 +26,10 @@
       vars:
         - definition_file: "ubuntu_container.def"
         - image_file: "ubuntu_container.sif"
+        - cgroups_file: "apptainer_containers_cgroup.toml"
 
     - import_tasks: tasks/containers_setup/node_rescaler_launch.yml
+      become: "{{ 'no' if container_engine == 'apptainer' else 'yes' }}"
 
 # Setup server (now that nodes have been initialized)
 - hosts: localhost

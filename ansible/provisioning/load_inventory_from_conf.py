@@ -9,6 +9,7 @@ from ansible.inventory.manager import InventoryManager
 # usage example: load_inventory_from_conf.py /etc/ansible/hosts config/config.yml  -> example outdated
 
 inventory_file = "../ansible.inventory"
+host_container_separator = "."
 
 def update_server_ip(server_ip):
 
@@ -101,7 +102,7 @@ def create_container_list(host_name,number_of_containers_per_node):
 
     for i in range(0,number_of_containers_per_node,1):
         cont_name = 'cont' + str(i)
-        host_containers.append(host_name + "-" + cont_name)
+        host_containers.append(host_name + host_container_separator + cont_name)
 
     return host_containers
 

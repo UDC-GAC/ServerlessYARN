@@ -11,6 +11,7 @@ This platform provides an automatic way of deploying ServerlessContainers throug
 ### Prerequisites
 - Vagrant
 - VirtualBox
+- Vagrant plugins: vagrant-hostmanager, vagrant-reload
 
 ### Quickstart
 - You can clone this repository with

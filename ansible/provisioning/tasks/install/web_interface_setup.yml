@@ -19,6 +19,11 @@
     name: beautifulsoup4
     state: latest
 
+- name: Install yq
+  snap:
+    name: yq
+    state: present
+
 - name: Copy Django secret key file
   copy:
     src: config/secret_key.txt
