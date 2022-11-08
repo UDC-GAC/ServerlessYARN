@@ -4,20 +4,14 @@
     name: python3-pip
     state: latest
     
-- name: Install Django
+- name: Install pip dependencies
   pip:
-    name: Django
+    name: "{{ item }}"
     state: latest
-    
-- name: Install Django Crispy Forms
-  pip:
-    name: django-crispy-forms
-    state: latest
-
-- name: Install Beautiful Soup library
-  pip:
-    name: beautifulsoup4
-    state: latest
+  with_items:
+    - Django
+    - django-crispy-forms
+    - beautifulsoup4
 
 - name: Install yq
   snap:

@@ -4,4 +4,4 @@ bdwatchdog_path: "{{ installation_path }}/BDWatchdog"
 serverless_containers_path: "{{ installation_path }}/ServerlessContainers"
 lxd_key_path: "{{ serverless_containers_path }}"
 apptainer_repo_path: "{{ installation_path }}/apptainer"
-web_interface_path: serverless_containers_web
+web_interface_path: services/serverless_containers_web

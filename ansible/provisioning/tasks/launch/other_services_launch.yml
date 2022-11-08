@@ -1,0 +1,11 @@
+- name: Tmux session check
+  shell: tmux ls
+  register: tmux_output
+  ignore_errors: yes
+
+- name: Starting Services - Rebooter
+  shell: "bash start_tmux.sh"
+  when: "'rebooter' not in tmux_output.stdout"
+  args:
+    chdir: services/rebooter
+    executable: /bin/bash

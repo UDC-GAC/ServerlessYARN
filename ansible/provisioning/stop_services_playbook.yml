@@ -1,0 +1,52 @@
+# Stop node scaler from nodes
+- hosts: nodes
+  become: "{{ 'no' if container_engine == 'apptainer' else 'yes' }}"
+  gather_facts: no
+
+  vars_files:
+    - vars/main.yml
+    - config/config.yml
+
+  environment:
+    BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
+    RESCALING_PATH: "{{ serverless_containers_path }}/scripts/"
+    PYTHONPATH: ":{{ serverless_containers_path }}"
+
+  tasks:
+  - name: Tmux session check
+    shell: tmux ls
+    register: tmux_output
+    ignore_errors: yes
+    tags: never, stop_node_scaler
+
+  - name: Stop node scaler
+    shell: bash scripts/services/node_scaler/stop_node_rescaler.sh
+    when: "'node_scaler' in tmux_output.stdout"
+    args:
+      chdir: "{{ serverless_containers_path }}"
+      executable: /bin/bash
+    tags: never, stop_node_scaler
+
+# Stop opentsdb from server
+- hosts: localhost
+  become: no
+  gather_facts: no
+
+  vars_files:
+    - vars/main.yml
+    - config/config.yml
+
+  tasks:
+  - name: Tmux session check
+    shell: tmux ls
+    register: tmux_output
+    ignore_errors: yes
+    tags: never, stop_opentsdb
+
+  - name: Stop OPENTSDB
+    shell: bash stop.sh
+    when: "'OPENTSDB' in tmux_output.stdout"
+    args:
+      chdir: "{{ bdwatchdog_path }}/deployment/metrics"
+      executable: /bin/bash
+    tags: never, stop_opentsdb

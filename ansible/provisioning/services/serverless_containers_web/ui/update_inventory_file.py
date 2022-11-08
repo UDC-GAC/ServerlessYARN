@@ -6,7 +6,7 @@ from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
 from ansible.inventory.manager import InventoryManager
 
-inventory_file = "../../ansible.inventory"
+inventory_file = "../../../ansible.inventory"
 host_container_separator = "."
 
 loader = DataLoader()

@@ -3,6 +3,7 @@
   shell: tmux ls
   register: tmux_output
   ignore_errors: yes
+  tags: restart_services
 
 - name: Starting Services - Web Interface
   shell: "bash start_tmux.sh {{ web_interface_port }}"
@@ -10,4 +11,4 @@
   args:
     chdir: "{{ web_interface_path }}"
     executable: /bin/bash
-
+  tags: restart_services

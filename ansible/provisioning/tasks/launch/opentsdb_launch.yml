@@ -3,6 +3,7 @@
   shell: tmux ls
   register: tmux_output
   ignore_errors: yes
+  tags: restart_services
 
 - name: Starting Services - TIMESTAMPING Service
   shell: bash start.sh 
@@ -10,6 +11,7 @@
   args:
     chdir: "{{ bdwatchdog_path }}/deployment/timestamps"
     executable: /bin/bash
+  tags: restart_services
 
 - name: Starting Services - OPENTSDB
   shell: bash start.sh 
@@ -17,6 +19,7 @@
   args:
     chdir: "{{ bdwatchdog_path }}/deployment/metrics"
     executable: /bin/bash
+  tags: restart_services
 
 # apache service is already set to start on boot on installation
 #- name: Starting Services - Web Server

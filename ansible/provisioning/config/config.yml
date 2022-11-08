@@ -4,6 +4,10 @@ virtual_mode: yes
 # Currently supported container engines: lxc, apptainer
 container_engine: apptainer
 
+# Cgroups version: v1 (Lecacy or Hybrid mode) or v2 (Unified mode)
+# Apptainer + cgroups V1 requires sudo privileges to some singularity commands at the moment
+cgroups_version: v1
+
 ## Server Node
 server_ip: 192.168.56.100
 cpus_server_node: 2

@@ -20,7 +20,7 @@
       vars:
         - lxd_key_name: "lxd-{{ ansible_hostname }}"
 
-    - import_tasks: tasks/containers_setup/apptainer_containers_setup.yml
+    - import_tasks: "tasks/containers_setup/apptainer_containers_cgroups_{{ cgroups_version }}_setup.yml"
       when: "container_engine == 'apptainer'"
       tags: start_containers
       vars:

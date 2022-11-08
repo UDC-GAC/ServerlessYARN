@@ -31,7 +31,7 @@
   shell: tmux ls
   register: tmux_output
   ignore_errors: yes
-  tags: start_containers
+  tags: start_containers, restart_services
 
 ## Deactivate Scaler before updating the State Database
 - name: Deactivate Scaler Service
@@ -44,7 +44,7 @@
 
 ## Structures Using new script 
 - name: Initializing State Database - structures
-  shell: "python3 stateDatabase/add_containers.py app1 {{ item }} {{ hostvars[item].cpu }} {{ hostvars[item].mem }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }} config/config.yml"  
+  shell: "python3 scripts/stateDatabase/add_containers.py app1 {{ item }} {{ hostvars[item].cpu }} {{ hostvars[item].mem }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }} config/config.yml"  
   args:
     executable: /bin/bash
   with_items: "{{ groups['nodes'] }}"
@@ -52,7 +52,7 @@
   
 ## Limits Using new script 
 - name: Initializing State Database - limits
-  shell: "python3 stateDatabase/add_limits.py app1 {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') | replace(',',' ') }}"
+  shell: "python3 scripts/stateDatabase/add_limits.py app1 {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') | replace(',',' ') }}"
   args:
     executable: /bin/bash
   with_items: "{{ groups['nodes'] }}"
@@ -60,7 +60,7 @@
 
 ## Initialize cpu resource info of hosts
 - name: Initializing State Database - hosts CPU info
-  shell: "python3 stateDatabase/update_host_cpu.py {{ item }} {{ hostvars[item].cpu  }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }} true"
+  shell: "python3 scripts/stateDatabase/update_host_cpu.py {{ item }} {{ hostvars[item].cpu  }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }} true"
   args:
     executable: /bin/bash
   with_items: "{{ groups['nodes'] }}"
@@ -82,6 +82,7 @@
     - refeeder
     - sanity_checker
     - rebalancer
+  tags: restart_services
 
 ## Activate Services
 - name: Activating Services
@@ -96,4 +97,4 @@
     - Scaler
     - Refeeder
     - Rebalancer
-  tags: start_containers
+  tags: start_containers, restart_services

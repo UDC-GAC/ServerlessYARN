@@ -1041,7 +1041,7 @@ def processRulesPost(request, url, rule_name, field, field_put_url):
 def checkInvalidConfig():
     error_lines = []
 
-    config_path = "../vars/main.yml"
+    config_path = "../../vars/main.yml"
     with open(config_path, "r") as config_file:
         config = yaml.load(config_file, Loader=yaml.FullLoader)
 

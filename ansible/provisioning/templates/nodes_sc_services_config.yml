@@ -1,5 +1,8 @@
 ## Container engine (lxc or apptainer at the moment)
-CONTAINER_ENGINE: "{{  container_engine }}"
+CONTAINER_ENGINE: "{{ container_engine }}"
+
+## Cgroups version: v1 (Lecacy or Hybrid mode) or v2 (Unified mode)
+CGROUPS_VERSION: "{{ cgroups_version }}"
 
 ## Orchestrator
 ORCHESTRATOR_URL: "{{ orchestrator_url }}"

@@ -2,13 +2,15 @@
 import sys
 import io
 import yaml
+import os
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
 from ansible.inventory.manager import InventoryManager
 
 # usage example: load_inventory_from_conf.py /etc/ansible/hosts config/config.yml  -> example outdated
 
-inventory_file = "../ansible.inventory"
+scriptDir = os.path.realpath(os.path.dirname(__file__))
+inventory_file = scriptDir + "/../../ansible.inventory"
 host_container_separator = "."
 
 def update_server_ip(server_ip):
@@ -150,7 +152,7 @@ if __name__ == "__main__":
 
     #inventory_file = sys.argv[1]
     #config_file = sys.argv[2]
-    config_file = "config/config.yml"
+    config_file = scriptDir + "/../config/config.yml"
 
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)

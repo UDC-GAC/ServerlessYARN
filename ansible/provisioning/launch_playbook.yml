@@ -22,3 +22,4 @@
     - import_tasks: tasks/launch/opentsdb_launch.yml
     - import_tasks: tasks/launch/serverless_containers_launch.yml
     - import_tasks: tasks/launch/web_interface_launch.yml
+    - import_tasks: tasks/launch/other_services_launch.yml
