@@ -44,7 +44,7 @@ This platform provides an automatic way of deploying ServerlessContainers throug
 - Log into the server node and execute the script to install all the necessary stuff for the framework, start the desired containers and start the ServerlessContainers services:
     ```
     vagrant ssh
-    cd /vagrant/ansible/provisioning
+    cd /vagrant/ansible/provisioning/scripts
     python3 load_inventory_from_conf.py
     bash start_all.sh
     ```
