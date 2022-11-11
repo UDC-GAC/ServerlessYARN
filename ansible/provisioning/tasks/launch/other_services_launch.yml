@@ -2,10 +2,15 @@
   shell: tmux ls
   register: tmux_output
   ignore_errors: yes
+  tags: restart_services
 
-- name: Starting Services - Rebooter
+- name: Starting other Services
   shell: "bash start_tmux.sh"
-  when: "'rebooter' not in tmux_output.stdout"
+  when: "item not in tmux_output.stdout"
   args:
-    chdir: services/rebooter
+    chdir: "services/{{ item }}"
     executable: /bin/bash
+  with_items:
+    - rebooter
+    - celery
+  tags: restart_services

@@ -2,7 +2,7 @@ from django.shortcuts import render,redirect
 from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm, LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper, HostResourcesForm, HostResourcesFormSetHelper, RemoveStructureForm, AddHostForm, AddContainerForm, AddNContainersFormSetHelper, AddNContainersForm
 from django.forms import formset_factory
 from django.http import HttpResponse
-from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host
+#from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host
 import urllib.request
 import urllib.parse
 import json
@@ -10,9 +10,18 @@ import requests
 import time
 import yaml
 from bs4 import BeautifulSoup
-import subprocess
+#import subprocess
 
-base_url = "http://192.168.56.100:5000"
+from ui.background_tasks import start_containers_task, add_host_task, remove_container_task, remove_host_task, remove_app_task
+from celery.result import AsyncResult
+
+
+config_path = "../../config/config.yml"
+with open(config_path, "r") as config_file:
+    config = yaml.load(config_file, Loader=yaml.FullLoader)
+
+base_url = "http://{0}:{1}".format(config['server_ip'],config['orchestrator_port'])
+pendings_taks = []
 
 ## Auxiliary general methods
 def redirect_with_errors(redirect_url, errors):
@@ -27,9 +36,61 @@ def redirect_with_errors(redirect_url, errors):
             i += 1
 
     else:
-        red['Location'] += '?success=yes'
+        red['Location'] += '?success=' + "Requests were successful!"
 
     return red
+
+def register_task(task_id, task_name):
+    global pendings_taks
+    pendings_taks.append((task_id,task_name))
+
+def get_pending_tasks():
+    global pendings_taks
+    still_pending_tasks = []
+    successful_tasks = []
+    failed_tasks = []
+
+    for task_id, task_name in pendings_taks:
+        task_result = AsyncResult(task_id)
+        status = task_result.status
+
+        if status != "SUCCESS" and status != "FAILURE":
+            still_pending_tasks.append((task_id,task_name))
+        elif status == "SUCCESS":
+            successful_tasks.append((task_id,task_name))
+        else:
+            failed_tasks.append((task_id,task_name,task_result.result))
+
+    for task_id, task_name in successful_tasks:
+        pendings_taks.remove((task_id, task_name))
+
+    for task_id, task_name, task_error in failed_tasks:
+        pendings_taks.remove((task_id, task_name))
+
+    # TODO: remove pending tasks after a timeout
+
+    return still_pending_tasks, successful_tasks, failed_tasks
+
+def get_pendings_tasks_to_string():
+    still_pending_tasks, successful_tasks, failed_tasks = get_pending_tasks()
+
+    still_pending_tasks_string = []
+    successful_tasks_string = []
+    failed_tasks_string = []
+
+    for task_id, task_name in still_pending_tasks:
+        info = "Task with ID {0} and name {1} is pending".format(task_id,task_name)
+        still_pending_tasks_string.append(info)
+
+    for task_id, task_name in successful_tasks:
+        success = "Task with ID {0} and name {1} has completed successfully".format(task_id,task_name)
+        successful_tasks_string.append(success)
+
+    for task_id, task_name, task_error in failed_tasks:
+        error = "Task with ID {0} and name {1} has failed with error: {2}".format(task_id,task_name,task_error)
+        failed_tasks_string.append(error)
+
+    return still_pending_tasks_string, successful_tasks_string, failed_tasks_string
 
 ## Home
 def index(request):
@@ -72,7 +133,14 @@ def structures(request, structure_type, html_render):
         return redirect_with_errors(structure_type,errors)
 
     requests_errors = request.GET.getlist("errors", None)
-    requests_success = request.GET.getlist("success", None)
+    requests_successes = request.GET.getlist("success", None)
+    requests_info = []
+
+    ## Pending tasks
+    still_pending_tasks, successful_tasks, failed_tasks = get_pendings_tasks_to_string()
+    requests_errors.extend(failed_tasks)
+    requests_successes.extend(successful_tasks)
+    requests_info.extend(still_pending_tasks)
 
     try:
         response = urllib.request.urlopen(url)
@@ -99,7 +167,7 @@ def structures(request, structure_type, html_render):
     ## Set RemoveStructures Form
     removeStructuresForm = setRemoveStructureForm(structures,structure_type)
 
-    return render(request, html_render, {'data': structures, 'requests_errors': requests_errors, 'requests_success': requests_success, 'addStructureForm': addStructureForm,'removeStructuresForm': removeStructuresForm})
+    return render(request, html_render, {'data': structures, 'requests_errors': requests_errors, 'requests_successes': requests_successes, 'requests_info': requests_info, 'addStructureForm': addStructureForm,'removeStructuresForm': removeStructuresForm})
 
 
 def containers(request):
@@ -518,16 +586,15 @@ def processAdds(request, url):
 def processAddHost(request, url, structure_name, structure_type, resources):
     error = ""
 
-    # update inventory file
     new_containers = int(request.POST['number_of_containers'])
     cpu = request.POST['cpu_max']
     mem = request.POST['mem_max']
-    add_host(structure_name,cpu,mem,new_containers)
 
     # provision host and start its containers from playbook
-    rc = subprocess.Popen(["./ui/scripts/configure_host.sh",structure_name])
-    rc.communicate()
-    
+    task = add_host_task(structure_name,cpu,mem,new_containers)
+    print("Starting task with id {0}".format(task.id))
+    register_task(task.id,"add_host_task")
+
     return error
 
 # Not used ATM
@@ -603,14 +670,13 @@ def processAddContainer(request, url, structure_name, structure_type, resources,
 def processAddNContainers(request, url, host, containers_added):
     error = ""
 
-    # update inventory file
     new_containers = {host: int(containers_added)}
-    add_containers_to_hosts(new_containers)
 
     # start containers from playbook
-    rc = subprocess.Popen(["./ui/scripts/start_containers.sh",host])
-    rc.communicate()
-    
+    task = start_containers_task.delay(host, new_containers)
+    print("Starting task with id {0}".format(task.id))
+    register_task(task.id,"start_containers_task")
+
     return error
 
 def processRemoves(request, url, structure_type):
@@ -628,6 +694,49 @@ def processRemoves(request, url, structure_type):
     return errors    
    
 def processRemoveStructure(request, url, structure_name, structure_type):
+
+    structure_type_url = ""
+    headers = {'Content-Type': 'application/json'}
+
+    if (structure_type == "containers"):
+        structure_type_url = "container"
+        cont_host = structure_name.strip("(").strip(")").split(',')
+        structure_name = cont_host[0].strip().strip("'")
+        host_name = cont_host[1].strip().strip("'")
+
+        full_url = url + structure_type_url + "/" + structure_name
+
+        task = remove_container_task.delay(full_url, headers, host_name, structure_name)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"remove_container_task")
+
+    elif (structure_type == "hosts"):
+        structure_type_url = "host"
+        containerList = getContainersFromHost(url, structure_name)
+
+        for container in containerList:
+            processRemoveStructure(request, url, "(" + container + "," + structure_name + ")", "containers")
+
+        full_url = url + structure_type_url + "/" + structure_name
+
+        task = remove_host_task.delay(full_url, headers, structure_name)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"remove_host_task")
+
+    elif (structure_type == "apps"):
+        structure_type_url = "apps"
+
+        full_url = url + structure_type_url + "/" + structure_name
+
+        task = remove_app_task.delay(full_url, headers, structure_name)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"remove_app_task")
+
+    error = ""
+    return error
+
+## Not used ATM
+def processRemoveStructure_sync(request, url, structure_name, structure_type):
 
     structure_type_url = ""
 
@@ -670,12 +779,12 @@ def processRemoveStructure(request, url, structure_name, structure_type):
             
         # stop node scaler service in host
         rc = subprocess.Popen(["./ui/scripts/stop_host_scaler.sh", structure_name])
-        rc.communicate()    
+        rc.communicate()
 
         # update inventory file            
         remove_host(structure_name)
 
-    return error    
+    return error
 
 def getContainersFromHost(url, host_name):
 
@@ -737,7 +846,14 @@ def services(request):
     data_json = json.loads(response.read())
         
     requests_errors = request.GET.getlist("errors", None)
-    requests_success = request.GET.getlist("success", None)
+    requests_successes = request.GET.getlist("success", None)
+    requests_info = []
+
+    ## Pending tasks
+    still_pending_tasks, successful_tasks, failed_tasks = get_pendings_tasks_to_string()
+    requests_errors.extend(failed_tasks)
+    requests_successes.extend(successful_tasks)
+    requests_info.extend(still_pending_tasks)
 
     ## get datetime in epoch to compare later with each service's heartbeat
     now = time.time()
@@ -806,7 +922,7 @@ def services(request):
 
     config_errors = checkInvalidConfig()
 
-    return render(request, 'services.html', {'data': data_json, 'config_errors': config_errors, 'requests_errors': requests_errors, 'requests_success': requests_success})
+    return render(request, 'services.html', {'data': data_json, 'config_errors': config_errors, 'requests_errors': requests_errors, 'requests_successes': requests_successes, 'requests_info': requests_info})
   
 def service_switch(request,service_name):
 
@@ -895,7 +1011,14 @@ def rules(request):
     data_json = json.loads(response.read())
     
     requests_errors = request.GET.getlist("errors", None)
-    requests_success = request.GET.getlist("success", None)
+    requests_successes = request.GET.getlist("success", None)
+    requests_info = []
+
+    ## Pending tasks
+    still_pending_tasks, successful_tasks, failed_tasks = get_pendings_tasks_to_string()
+    requests_errors.extend(failed_tasks)
+    requests_successes.extend(successful_tasks)
+    requests_info.extend(still_pending_tasks)
 
     for item in data_json:
         item['rule_readable'] = jsonBooleanToHumanReadable(item['rule'])
@@ -946,7 +1069,7 @@ def rules(request):
 
     config_errors = checkInvalidConfig()
 
-    return render(request, 'rules.html', {'data': data_json, 'resources':rulesResources, 'types':ruleTypes, 'config_errors': config_errors, 'requests_errors': requests_errors, 'requests_success': requests_success})
+    return render(request, 'rules.html', {'data': data_json, 'resources':rulesResources, 'types':ruleTypes, 'config_errors': config_errors, 'requests_errors': requests_errors, 'requests_successes': requests_successes, 'requests_info': requests_info})
 
 def getRulesResources(data):
     resources = []

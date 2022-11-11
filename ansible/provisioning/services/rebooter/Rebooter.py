@@ -14,7 +14,7 @@ import json
 SERVICE_NAME = "rebooter"
 BDW_SERVICES = ["EVE_TIMES", "OPENTSDB"]
 SC_SERVICES = ["orchestrator", "database_snapshoter", "structure_snapshoter", "guardian", "scaler", "refeeder", "sanity_checker", "rebalancer"]
-ASW_SERVICES = ["web_interface"]
+ASW_SERVICES = ["web_interface", "celery"]
 
 SERVICES = BDW_SERVICES + SC_SERVICES + ASW_SERVICES
 
@@ -40,6 +40,19 @@ def log_error(message, debug):
 def get_time_now_string():
     return str(time.strftime("%H:%M:%S", time.localtime()))
 
+def stop_opentsdb():
+    ## Stop OpenTSDB
+    rc = RunnerConfig(
+        private_data_dir=private_data_dir,
+        playbook="stop_services_playbook.yml",
+        tags='stop_opentsdb',
+        inventory='../ansible.inventory'
+    )
+    rc.prepare()
+    r = Runner(config=rc)
+    r.run()
+    log_info("OpenTSDB service stopped",debug)
+
 def test_opentsdb_connection(opentsdb_server):
     session = requests.Session()
     start = int(time.time())
@@ -48,27 +61,19 @@ def test_opentsdb_connection(opentsdb_server):
 
     try:
         r = session.post("{0}/{1}".format(opentsdb_server, "api/query"), data=json.dumps(query), 
-            headers={'content-type': 'application/json', 'Accept': 'application/json'})
+            headers={'content-type': 'application/json', 'Accept': 'application/json'},timeout=10)
 
         if r.status_code == 200 or r.status_code == 400:
             log_info("OpenTSDB service working properly",debug)
         else:
             log_warning("OpenTSDB service reports some problems, going to stop",debug)
+            stop_opentsdb()
 
-            ## Stop OpenTSDB
-            rc = RunnerConfig(
-                private_data_dir=private_data_dir,
-                playbook="stop_services_playbook.yml",
-                tags='stop_opentsdb',
-                inventory='../ansible.inventory'
-            )
-            rc.prepare()
-            r = Runner(config=rc)
-            r.run()
-            log_info("OpenTSDB service stopped",debug)
-
-    except requests.ConnectionError as e:
+    except requests.ConnectionError:
         log_warning("OpenTSDB service down",debug)
+    except requests.exceptions.ReadTimeout:
+        log_warning("OpenTSDB service reports some problems, going to stop",debug)
+        stop_opentsdb()
 
 def check_services():
     logging.basicConfig(filename=SERVICE_NAME + '.log', level=logging.INFO)

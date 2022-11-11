@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -e
 HOST_NAME=$1
 CONT_NAME=$2
 

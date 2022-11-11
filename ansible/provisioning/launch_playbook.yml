@@ -16,10 +16,13 @@
     BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
     RESCALING_PATH: "{{ serverless_containers_path }}/scripts/"
     PYTHONPATH: ":{{ serverless_containers_path }}"
+    CELERY_BROKER: "redis://127.0.0.1:6379/0"
+    CELERY_BACKEND: "redis://127.0.0.1:6379/0"
 
   tasks:
     #- import_tasks: tasks/launch/couchdb_launch.yml -> couchdb service is already set to start on boot on installation
     - import_tasks: tasks/launch/opentsdb_launch.yml
     - import_tasks: tasks/launch/serverless_containers_launch.yml
-    - import_tasks: tasks/launch/web_interface_launch.yml
-    - import_tasks: tasks/launch/other_services_launch.yml
+    #- import_tasks: tasks/launch/web_interface_launch.yml
+    #- import_tasks: tasks/launch/other_services_launch.yml
+    - import_tasks: tasks/launch/autoserverlessweb_services_launch.yml

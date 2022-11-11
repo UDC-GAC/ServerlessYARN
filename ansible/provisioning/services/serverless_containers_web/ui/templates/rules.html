@@ -18,7 +18,7 @@
     
 <H4>Rules</H4>
 
-  <!-- Requests errors -->
+  <!-- Requests status -->
   {% if requests_errors %}
     {% for error in requests_errors %}
       <div class="alert">
@@ -26,11 +26,24 @@
           <strong>Error!</strong> {{ error }}
       </div> 
     {% endfor %}
-  {% elif requests_success %}
-    <div class="alert success">
-      <span class="closebtn">&times;</span>
-      <strong>Success!</strong> All requests were successful!
-    </div>
+  {% endif %}
+
+  {% if requests_successes %}
+  	{% for success in requests_successes %}
+	  <div class="alert success">
+		  <span class="closebtn">&times;</span>
+		  <strong>Success!</strong> {{ success }}
+	  </div>
+	{% endfor %}
+  {% endif %}
+
+  {% if requests_info %}
+  	{% for info in requests_info %}
+	  <div class="alert info">
+		  <span class="closebtn">&times;</span>
+		  <strong>Info!</strong> {{ info }}
+	  </div>
+	{% endfor %}
   {% endif %}
 
   <!-- Unstable configuration alerts -->

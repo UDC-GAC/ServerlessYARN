@@ -16,8 +16,9 @@
     - import_tasks: tasks/install/bdwatchdog_setup.yml
     - import_tasks: tasks/install/serverless_containers_setup.yml
     - import_tasks: tasks/install/hosts_setup_server.yml
-    - import_tasks: tasks/install/web_interface_setup.yml
-    - import_tasks: tasks/install/other_services_setup.yml
+    #- import_tasks: tasks/install/web_interface_setup.yml
+    #- import_tasks: tasks/install/other_services_setup.yml
+    - import_tasks: tasks/install/autoserverlessweb_services_setup.yml
     #- import_tasks: tasks/install/environment_setup.yml
     
 # Setup nodes

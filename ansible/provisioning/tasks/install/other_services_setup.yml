@@ -10,3 +10,5 @@
   with_items:
     - libtmux
     - ansible_runner
+    - celery
+    - redis

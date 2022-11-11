@@ -1,0 +1,55 @@
+
+- name: Install pip3
+  package:
+    name: python3-pip
+    state: latest
+    
+## Perhaps a requirements.txt is better
+- name: Install pip dependencies
+  pip:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - Django
+    - django-crispy-forms
+    - beautifulsoup4
+    - libtmux
+    - ansible_runner
+    - celery
+    - redis
+
+- name: Install yq
+  snap:
+    name: yq
+    state: present
+
+- name: Copy Django secret key file
+  copy:
+    src: config/secret_key.txt
+    dest: /etc/secret_key.txt
+
+- name: Check for redis installation
+  stat:
+    path: "{{ installation_path }}/redis/src/redis-server"
+  register: stat_output
+
+- name: Create redis directory
+  become: no
+  file:
+    path: "{{ installation_path }}/redis"
+    state: directory
+
+- name: Download redis 
+  become: no
+  unarchive:
+    src: http://download.redis.io/releases/redis-7.0.5.tar.gz
+    dest: "{{ installation_path }}/redis"
+    remote_src: yes
+    extra_opts: [--strip-components=1]
+  when: not stat_output.stat.exists
+
+- name: Install redis
+  become: no
+  make:
+    chdir: "{{ installation_path }}/redis"
+  when: not stat_output.stat.exists

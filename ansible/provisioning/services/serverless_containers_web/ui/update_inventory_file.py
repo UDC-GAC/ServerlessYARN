@@ -9,8 +9,6 @@ from ansible.inventory.manager import InventoryManager
 inventory_file = "../../../ansible.inventory"
 host_container_separator = "."
 
-loader = DataLoader()
-ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
 
 def remove_host(host_name):
 
@@ -39,6 +37,9 @@ def add_host(hostname,cpu,mem,new_containers):
 
 def remove_container_from_host(container,hostname):
 
+    loader = DataLoader()
+    ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
+
     hostsList = ansible_inventory.groups['nodes'].get_hosts()
 
     for host in hostsList:
@@ -55,11 +56,12 @@ def remove_container_from_host(container,hostname):
                 
             break
 
-
-
 def add_containers_to_hosts(new_containers):
 
     # example of new_containers argument: {'host0': 2, 'host1': 1}
+
+    loader = DataLoader()
+    ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
 
     hostsList = ansible_inventory.groups['nodes'].get_hosts()
     
@@ -75,7 +77,7 @@ def add_containers_to_hosts(new_containers):
             
             last_container_sufix = ""
 
-            if (current_containers > 0):   
+            if (current_containers > 0):
                 last_container_splitted = containers[current_containers - 1].split(host_container_separator)
                 last_container_sufix = last_container_splitted[len(last_container_splitted)-1]
 
