@@ -14,7 +14,7 @@ import json
 SERVICE_NAME = "rebooter"
 BDW_SERVICES = ["EVE_TIMES", "OPENTSDB"]
 SC_SERVICES = ["orchestrator", "database_snapshoter", "structure_snapshoter", "guardian", "scaler", "refeeder", "sanity_checker", "rebalancer"]
-ASW_SERVICES = ["web_interface", "celery"]
+ASW_SERVICES = ["web_interface", "celery", "redis_server"]
 
 SERVICES = BDW_SERVICES + SC_SERVICES + ASW_SERVICES
 
