@@ -7,19 +7,16 @@
   vars_files:
     - vars/main.yml
     - config/config.yml
-    
+      
   environment: 
-    HOME: /home/vagrant
+    HOME: "{{ installation_path }}"
 
   tasks:
     - import_tasks: tasks/install/couchdb_setup.yml
     - import_tasks: tasks/install/bdwatchdog_setup.yml
     - import_tasks: tasks/install/serverless_containers_setup.yml
     - import_tasks: tasks/install/hosts_setup_server.yml
-    #- import_tasks: tasks/install/web_interface_setup.yml
-    #- import_tasks: tasks/install/other_services_setup.yml
     - import_tasks: tasks/install/autoserverlessweb_services_setup.yml
-    #- import_tasks: tasks/install/environment_setup.yml
     
 # Setup nodes
 - name: Install requisites in client nodes
@@ -32,7 +29,7 @@
     - config/config.yml
 
   environment:
-    HOME: /home/vagrant
+    HOME: "{{ installation_path }}"
 
   roles:
      - role: gantsign.golang
@@ -41,7 +38,6 @@
     - import_tasks: tasks/install/serverless_containers_setup.yml
     - import_tasks: tasks/install/metrics_feeder_setup.yml
     - import_tasks: tasks/install/hosts_setup_nodes.yml
-    #- import_tasks: tasks/install/environment_setup.yml
 
     - import_tasks: tasks/install/lxd_setup.yml
       when: "container_engine == 'lxc'"

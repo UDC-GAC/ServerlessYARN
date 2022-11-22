@@ -22,7 +22,7 @@
   file:
     src: "{{ golang_install_dir }}/bin/go"
     dest: /usr/local/bin/go
-    state: link   
+    state: link
 
 - name: Clone Apptainer repo
   git:

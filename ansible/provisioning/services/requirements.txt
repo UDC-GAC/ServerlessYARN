@@ -1,0 +1,7 @@
+Django
+django-crispy-forms
+beautifulsoup4
+libtmux
+ansible_runner
+celery
+redis

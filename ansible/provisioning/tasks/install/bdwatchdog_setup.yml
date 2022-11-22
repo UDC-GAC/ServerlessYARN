@@ -41,7 +41,6 @@
   when: "'EVE_TIMES' in tmux_output.stdout"
 
 - name: Stop OPENTSDB
-  #shell: tmux kill-session -t OPENTSDB
   shell: bash stop.sh
   when: "'OPENTSDB' in tmux_output.stdout"
   args:

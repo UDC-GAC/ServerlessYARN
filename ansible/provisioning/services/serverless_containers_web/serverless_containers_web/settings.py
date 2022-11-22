@@ -26,7 +26,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 #SECRET_KEY = 'django-insecure-sqy8cfm^_e-=_!4!ftw94k&9fdm*sc41kcjp!@^5hpn^8foii*'
 
 ## Key read from file
-with open('/etc/secret_key.txt') as f:
+scriptDir = os.path.realpath(os.path.dirname(__file__))
+vars_file = scriptDir + "/../../../vars/main.yml"
+with open(vars_file, "r") as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
+installation_path = config['installation_path']
+
+with open(installation_path + '/.django_secret_key.txt', "r") as f:
     SECRET_KEY = f.read().strip()
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -85,7 +91,7 @@ WSGI_APPLICATION = 'serverless_containers_web.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': str(BASE_DIR / 'db.sqlite3'),
     }
 }
 

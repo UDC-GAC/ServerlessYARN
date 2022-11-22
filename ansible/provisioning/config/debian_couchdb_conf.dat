@@ -1,21 +1,3 @@
-Name: couchdb/adminpass
-Template: couchdb/adminpass
-Value: admin
-Owners: couchdb
-Flags: seen
-
-Name: couchdb/adminpass_again
-Template: couchdb/adminpass_again
-Value: admin
-Owners: couchdb
-Flags: seen
-
-Name: couchdb/bindaddress
-Template: couchdb/bindaddress
-Value: 127.0.0.1
-Owners: couchdb
-Flags: seen
-
 Name: couchdb/mode
 Template: couchdb/mode
 Value: standalone
@@ -28,3 +10,20 @@ Value: abcd
 Owners: couchdb
 Flags: seen
 
+Name: couchdb/bindaddress
+Template: couchdb/bindaddress
+Value: 127.0.0.1
+Owners: couchdb
+Flags: seen
+
+Name: couchdb/adminpass
+Template: couchdb/adminpass
+Value: admin
+Owners: couchdb
+Flags: seen
+
+Name: couchdb/adminpass_again
+Template: couchdb/adminpass_again
+Value: admin
+Owners: couchdb
+Flags: seen

@@ -57,6 +57,7 @@
   when: "'STOPPED' in item.stdout"
   with_items: "{{ lxc_list_output.results }}"
   
+## TODO: create lxd image to avoid repeating the following steps on every new container
 ## Send metrics  
 - name: Atop executable check in lxc containers
   shell: lxc exec {{ item }} -- sudo bash -c "ls /usr/bin/atop"
@@ -84,14 +85,6 @@
     chdir: "{{ installation_path }}"
     executable: /bin/bash
   loop: "{{ hostvars[inventory_hostname].containers }}"
-
-#- name: Install requirements in containers
-#  shell: lxc exec {{ item }} -- sudo bash -c "echo '{{ hostvars[groups['server'][0]].host_ip }} opentsdb' >> /etc/hosts &&
-#    apt-get -y update &&
-#    apt-get install -y --no-install-recommends python3-pip &&
-#    cd {{ bdwatchdog_path }}/MetricsFeeder &&
-#    pip3 install -r requirements.txt"
-#  loop: "{{ hostvars[inventory_hostname].containers }}"
 
 - name: Install requirements in containers
   shell: lxc exec {{ item }} -- sudo bash -c "apt-get -y update &&

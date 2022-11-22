@@ -81,7 +81,6 @@ if __name__ == "__main__":
                 host["name"] = new_host
                 host["host"] = new_host
                 host["resources"] = dict(
-                    #mem=dict(max=config['memory_per_client_node'], free=0)
                     cpu=dict(max=host_cpu*100, free=0),
                     mem=dict(max=host_mem, free=0)
                 )

@@ -4,29 +4,26 @@
     name: python3-pip
     state: latest
     
-## Perhaps a requirements.txt is better
 - name: Install pip dependencies
   pip:
-    name: "{{ item }}"
-    state: latest
-  with_items:
-    - Django
-    - django-crispy-forms
-    - beautifulsoup4
-    - libtmux
-    - ansible_runner
-    - celery
-    - redis
+    requirements: services/requirements.txt
 
 - name: Install yq
   snap:
     name: yq
     state: present
 
+- name: get the username running the deploy
+  become: no
+  local_action: command whoami
+  register: username_on_the_host
+
 - name: Copy Django secret key file
   copy:
-    src: config/secret_key.txt
-    dest: /etc/secret_key.txt
+    src: config/django_secret_key.txt
+    dest: "{{ installation_path }}/.django_secret_key.txt"
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+    mode: "0600"
 
 - name: Check for redis installation
   stat:

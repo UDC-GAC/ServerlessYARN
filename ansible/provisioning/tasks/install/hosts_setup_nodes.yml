@@ -1,9 +1,4 @@
 
-#- name: Add server aliases to /etc/hosts
-#  lineinfile:
-#    path: /etc/hosts
-#    line: "{{ hostvars[groups['server'][0]].host_ip }} couchdb orchestrator opentsdb"
-
 - name: Copy service aliases and port configuration to ServerlessContainers dir in nodes
   template:
     src: templates/nodes_sc_services_config.yml

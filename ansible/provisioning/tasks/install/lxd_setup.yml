@@ -10,7 +10,7 @@
     name: atop
     state: latest
 
-## A lo mejor no interesa pararlos por si estaban corriendo de normal
+## It may not be interesting to stop atop in case it was running as a normal basis
 - name: Stop atop on host
   become: true
   service: 

@@ -17,6 +17,8 @@ N = configs['number_of_client_nodes']
 CPUS_PER_NODE = configs['cpus_per_client_node']
 MEMORY_PER_NODE = configs['memory_per_client_node']
 
+CGROUPS_VERSION = configs['cgroups_version']
+
 Vagrant.configure("2") do |config|
 
   config.vm.box = "bento/ubuntu-20.04" 
@@ -49,9 +51,10 @@ Vagrant.configure("2") do |config|
 	node.vm.hostname = "host#{i}"
 	node.vm.provision "shell", path: "provision/nodes.sh"
 
-	## Uncomment to provision nodes with cgroups v2 enabled
-	#node.vm.provision "shell", path: "provision/cgroupsv2.sh"
-	#node.vm.provision :reload
+	if CGROUPS_VERSION == "v2" then
+		node.vm.provision "shell", path: "provision/cgroupsv2.sh"
+		node.vm.provision :reload
+	end
 
 	number_to_ip = [server_ip_to_number + 1 + i].pack('N').unpack('CCCC').join('.')
 	node.vm.network :private_network, ip: number_to_ip

@@ -10,8 +10,8 @@
 
   environment:
     BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
-    RESCALING_PATH: "{{ serverless_containers_path }}/scripts/"
-    PYTHONPATH: ":{{ serverless_containers_path }}"
+    SERVERLESS_PATH: "{{ serverless_containers_path }}"
+    PYTHONPATH: "{{ bdwatchdog_path }}:{{ serverless_containers_path }}"
 
   tasks:
     - import_tasks: tasks/containers_setup/lxd_containers_setup.yml
