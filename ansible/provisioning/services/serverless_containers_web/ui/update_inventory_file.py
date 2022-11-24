@@ -7,7 +7,7 @@ from ansible.vars.manager import VariableManager
 from ansible.inventory.manager import InventoryManager
 
 inventory_file = "../../../ansible.inventory"
-host_container_separator = "."
+host_container_separator = "-"
 
 
 def remove_host(host_name):

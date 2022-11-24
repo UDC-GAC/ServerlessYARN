@@ -6,7 +6,7 @@
     
 - name: Install pip dependencies
   pip:
-    requirements: services/requirements.txt
+    requirements: "{{ playbook_dir }}/services/requirements.txt"
 
 - name: Install yq
   snap:

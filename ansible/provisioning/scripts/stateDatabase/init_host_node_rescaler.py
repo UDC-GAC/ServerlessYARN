@@ -64,6 +64,6 @@ if __name__ == "__main__":
             if (r.status_code == requests.codes.ok):
                 print("Container " + c + " updated with: " + str(put_field_data))
             else:
+                # For some reason, the first initialization always results in an error, but it actually works
+                print("Response from node scaler: " + str(r.content))
                 print("Error initializing " + resource + " value for " + c + " in host " + host)
-
-

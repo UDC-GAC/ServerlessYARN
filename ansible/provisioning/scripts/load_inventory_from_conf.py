@@ -11,7 +11,7 @@ from ansible.inventory.manager import InventoryManager
 
 scriptDir = os.path.realpath(os.path.dirname(__file__))
 inventory_file = scriptDir + "/../../ansible.inventory"
-host_container_separator = "."
+host_container_separator = "-"
 
 def update_server_ip(server_ip):
 
