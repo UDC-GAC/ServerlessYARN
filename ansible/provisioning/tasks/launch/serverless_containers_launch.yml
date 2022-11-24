@@ -60,7 +60,7 @@
 
 ## Initialize cpu resource info of hosts
 - name: Initializing State Database - hosts CPU info
-  shell: "python3 scripts/stateDatabase/update_host_cpu.py {{ item }} {{ hostvars[item].cpu  }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }} true"
+  shell: "python3 scripts/stateDatabase/update_host_cpu.py {{ item }} {{ hostvars[item].cpu  }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }} true config/config.yml"
   args:
     executable: /bin/bash
   with_items: "{{ groups['nodes'] }}"

@@ -1,5 +1,59 @@
-- name: Start couchdb
+- name: Start couchdb service
   become: true
+  when: "virtual_mode"
   service: 
     name: couchdb 
-    state: started 
+    state: started
+
+## This assumes that the container engine in question is already installed in the server node
+- name: Start couchdb inside a container
+  block:
+    - name: Start couchdb inside an apptainer/singularity container
+      block:
+        - name: Copy couchdb container definition file
+          template:
+            src: "templates/{{ definition_file }}"
+            dest: "{{ installation_path }}/{{ definition_file }}"
+
+        - name: Copy debian config for couchdb install file
+          copy:
+            src: config/debian_couchdb_conf.dat
+            dest: "{{ installation_path }}/debian_couchdb_conf.dat"
+
+        - name: Build image
+          shell: "singularity build {{ image_file }} {{ definition_file }}"
+          args:
+            chdir: "{{ installation_path }}"
+            executable: /bin/bash
+            creates: "{{ image_file }}"
+
+        - name: Check containers status
+          shell: singularity instance list -j
+          register: apptainer_list_output
+          args:
+            executable: /bin/bash
+
+        - name: Start couchdb apptainer container
+          shell: "singularity instance start -C --writable-tmpfs -f {{ image_file }} {{ container_name }}"
+          when: "'\"instance\": \"{{ container_name }}\",' not in apptainer_list_output.stdout"
+          args:
+            chdir: "{{ installation_path }}"
+            executable: /bin/bash
+
+        - name: Wait some seconds for CouchDB to start
+          pause:
+            seconds: 30
+
+      when: "container_engine == 'apptainer'"
+      vars:
+        - definition_file: "couchdb_container.def"
+        - image_file: "couchdb_container.sif"
+        - container_name: "couchdb_cont"
+
+    - name: Start couchdb inside a lxc container
+      debug:
+        msg: 'Couchdb inside a lxc container not yet supported'
+      when: "container_engine == 'lxc'"
+
+  when: "not virtual_mode"
+  become: no

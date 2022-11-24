@@ -3,8 +3,9 @@ import src.StateDatabase.couchdb as couchDB
 import src.StateDatabase.utils as couchdb_utils
 import sys
 import json
+import yaml
 
-# usage example: update_host_cpu.py host0 4 cont0,cont1 true
+# usage example: update_host_cpu.py host0 4 cont0,cont1 true config/config.yml
 
 if __name__ == "__main__":
 
@@ -18,6 +19,8 @@ if __name__ == "__main__":
         number_of_cores = int(sys.argv[2])
         new_containers = sys.argv[3].split(',')
         replace = sys.argv[4] == "true"
+        with open(sys.argv[5], "r") as f:
+            config = yaml.load(f, Loader=yaml.FullLoader)
 
         core_mapping = {}
 
@@ -25,7 +28,9 @@ if __name__ == "__main__":
         for i in range(0,number_of_cores,1): 
             core_mapping[str(i)] = {"free": 0}
 
-        cpu_allowance_limit = int(number_of_cores * 100 / len(new_containers))
+        max_cpu_division = int(number_of_cores * 100 / len(new_containers))
+        max_cpu_percentage_per_container = int(config['max_cpu_percentage_per_container'])
+        cpu_allowance_limit = min(max_cpu_division, max_cpu_percentage_per_container)
         current_core = 0
         current_free = 100
 
