@@ -1,7 +1,7 @@
 # Setup server
 - name: Install requisites in server node
   hosts: localhost
-  become: yes
+  become: "virtual_mode"
   gather_facts: no
 
   vars_files:
@@ -10,9 +10,12 @@
       
   environment: 
     HOME: "{{ installation_path }}"
+    OPENTSDB_LOG_PATH: "{{ opentsdb_log_path }}"
 
   tasks:
     - import_tasks: tasks/install/couchdb_setup.yml
+      when: "virtual_mode"
+
     - import_tasks: tasks/install/bdwatchdog_setup.yml
     - import_tasks: tasks/install/serverless_containers_setup.yml
     - import_tasks: tasks/install/hosts_setup_server.yml
@@ -21,7 +24,7 @@
 # Setup nodes
 - name: Install requisites in client nodes
   hosts: nodes
-  become: yes
+  become: "virtual_mode"
   gather_facts: yes
 
   vars_files:
@@ -33,6 +36,7 @@
 
   roles:
      - role: gantsign.golang
+       when: "virtual_mode"
 
   tasks:
     - import_tasks: tasks/install/serverless_containers_setup.yml
@@ -40,7 +44,7 @@
     - import_tasks: tasks/install/hosts_setup_nodes.yml
 
     - import_tasks: tasks/install/lxd_setup.yml
-      when: "container_engine == 'lxc'"
+      when: "virtual_mode and container_engine == 'lxc'"
 
     - import_tasks: tasks/install/apptainer_setup.yml
-      when: "container_engine == 'apptainer'"
+      when: "virtual_mode and container_engine == 'apptainer'"

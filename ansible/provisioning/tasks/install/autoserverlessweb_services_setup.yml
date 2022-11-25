@@ -1,18 +1,21 @@
 
 - name: Install pip3
+  when: "virtual_mode"
   package:
     name: python3-pip
     state: latest
     
-- name: Install pip dependencies
-  pip:
-    requirements: "{{ playbook_dir }}/services/requirements.txt"
-
 - name: Install yq
+  when: "virtual_mode"
   snap:
     name: yq
     state: present
 
+- name: Install pip dependencies
+  pip:
+    requirements: "{{ playbook_dir }}/services/requirements.txt"
+    executable: pip3
+    
 - name: get the username running the deploy
   become: no
   local_action: command whoami

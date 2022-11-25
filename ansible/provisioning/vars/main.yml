@@ -2,5 +2,6 @@ installation_path: /home/vagrant # it may be necessary to stick to a home direct
 bdwatchdog_path: "{{ installation_path }}/BDWatchdog"
 serverless_containers_path: "{{ installation_path }}/ServerlessContainers"
 lxd_key_path: "{{ serverless_containers_path }}"
+opentsdb_log_path: "{{ bdwatchdog_path }}/opentsdb/log"
 apptainer_repo_path: "{{ installation_path }}/apptainer"
 web_interface_path: services/serverless_containers_web

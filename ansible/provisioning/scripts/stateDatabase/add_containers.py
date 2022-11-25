@@ -38,8 +38,8 @@ if __name__ == "__main__":
 
         new_app = sys.argv[1]
         new_host = sys.argv[2]
-        host_cpu = sys.argv[3]
-        host_mem = sys.argv[4]
+        host_cpu = int(sys.argv[3])
+        host_mem = int(sys.argv[4])
         new_containers = sys.argv[5].split(',')
         with open(sys.argv[6], "r") as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
@@ -77,12 +77,22 @@ if __name__ == "__main__":
                 old_host = handler.get_structure(new_host)
             except ValueError:
                 # new host
+                max_cpu_division = int(host_cpu * 100 / len(new_containers))
+                max_cpu_percentage_per_container = int(config['max_cpu_percentage_per_container'])
+                cpu_allowance_limit = min(max_cpu_division, max_cpu_percentage_per_container)
+                free_cpu = host_cpu*100 - (cpu_allowance_limit * len(new_containers))
+
+                max_mem_division = host_mem / len(new_containers)
+                max_memory_per_container = int(config['max_memory_per_container'])
+                mem_limit = min(max_mem_division, max_memory_per_container)
+                free_mem = host_mem - (mem_limit * len(new_containers))
+
                 host = base_host
                 host["name"] = new_host
                 host["host"] = new_host
                 host["resources"] = dict(
-                    cpu=dict(max=host_cpu*100, free=0),
-                    mem=dict(max=host_mem, free=0)
+                    cpu=dict(max=host_cpu*100, free=free_cpu),
+                    mem=dict(max=host_mem, free=free_mem)
                 )
                 handler.add_structure(host)
 

@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
         ## New algorithm
         for i in range(0,number_of_cores,1): 
-            core_mapping[str(i)] = {"free": 0}
+            core_mapping[str(i)] = {"free": 100}
 
         max_cpu_division = int(number_of_cores * 100 / len(new_containers))
         max_cpu_percentage_per_container = int(config['max_cpu_percentage_per_container'])
@@ -40,6 +40,7 @@ if __name__ == "__main__":
             while (to_allocate > 0 and current_core < number_of_cores):
                 if (to_allocate >= 100):
                     core_mapping[str(current_core)][c] = current_free
+                    core_mapping[str(current_core)]["free"] -= current_free
                     to_allocate -= current_free
                     current_core += 1
                     current_free = 100
@@ -47,6 +48,7 @@ if __name__ == "__main__":
                 else:
                     min_usage = min(current_free, to_allocate)
                     core_mapping[str(current_core)][c] = min_usage
+                    core_mapping[str(current_core)]["free"] -= min_usage
                     if (min_usage == to_allocate):
                         ## we continue in current core
                         current_free -= to_allocate
@@ -74,7 +76,11 @@ if __name__ == "__main__":
                     print("CPU information already in host " + host + " and not replacing")
 
                 else:
-                    old_host['resources']['cpu'] = dict(max=number_of_cores*100, free=0, core_usage_mapping=core_mapping)
+                    max_cpu_division = int(number_of_cores * 100 / len(new_containers))
+                    cpu_allowance_limit = min(max_cpu_division, max_cpu_percentage_per_container)
+                    free_cpu = number_of_cores*100 - (cpu_allowance_limit * len(new_containers))
+
+                    old_host['resources']['cpu'] = dict(max=number_of_cores*100, free=free_cpu, core_usage_mapping=core_mapping)
                     handler.update_structure(old_host)
                     print("Host updated with")
                     print(core_mapping)

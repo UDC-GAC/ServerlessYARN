@@ -1,18 +1,20 @@
 
 - name: Install pip3
+  when: "virtual_mode"
   package:
     name: python3-pip
     state: latest
+
+- name: Install yq
+  when: "virtual_mode"
+  snap:
+    name: yq
+    state: present
 
 - name: Check if ServerlessContainers directory is already there
   stat:
     path: "{{ serverless_containers_path }}"
   register: stat_output
-
-- name: Install yq
-  snap:
-    name: yq
-    state: present
 
 ## get the user executing the playbook
 - name: get the username running the deploy
@@ -30,8 +32,10 @@
 - name: Install specified python requirements
   pip:
     requirements: "{{ serverless_containers_path }}/requirements.txt"
-    
+    executable: pip3
+
 - name: Install gunicorn
+  when: "virtual_mode"
   package:
     name: gunicorn
     state: latest

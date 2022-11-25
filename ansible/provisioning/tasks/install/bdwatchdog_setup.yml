@@ -3,7 +3,7 @@
   stat:
     path: "{{ bdwatchdog_path }}"
   register: stat_output
-        
+
 ## get the user executing the playbook
 - name: get the username running the deploy
   become: no
@@ -16,6 +16,7 @@
     src: bdwatchdog/
     dest: "{{ bdwatchdog_path }}"
 
+# TODO: read BDWatchdog_data path from BDWatchdog/deployment/config or viceversa
 - name: Create a BDWatchdog data directory
   file:
     path: "{{ installation_path }}/BDWatchdog_data"
@@ -23,8 +24,22 @@
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
     recurse: yes
 
+- name: Copy logback.xml file
+  template:
+    src: "templates/opentsdb_logback.xml"
+    dest: "{{ bdwatchdog_path }}/deployment/metrics/logback.xml"
+
 - name: Install BDWatchdog
   shell: bash install.sh
+  when: "virtual_mode"
+  args:
+    chdir: "{{ bdwatchdog_path }}/deployment/"
+    executable: /bin/bash
+    creates: metrics/opentsdb/build/tsdb
+
+- name: Install just OpenTSDB
+  shell: bash prepare.sh ssh_setup && cd metrics/ && bash install.sh
+  when: "not virtual_mode"
   args:
     chdir: "{{ bdwatchdog_path }}/deployment/"
     executable: /bin/bash

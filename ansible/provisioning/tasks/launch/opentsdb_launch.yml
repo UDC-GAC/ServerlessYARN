@@ -5,9 +5,10 @@
   ignore_errors: yes
   tags: restart_services
 
+## ATM the timestamping service won't be launched in a existing cluster as it cannot be easily installed by a non-root user
 - name: Starting Services - TIMESTAMPING Service
   shell: bash start.sh 
-  when: "'EVE_TIMES' not in tmux_output.stdout"
+  when: "virtual_mode and 'EVE_TIMES' not in tmux_output.stdout"
   args:
     chdir: "{{ bdwatchdog_path }}/deployment/timestamps"
     executable: /bin/bash

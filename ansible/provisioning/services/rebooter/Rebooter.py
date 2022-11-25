@@ -18,6 +18,8 @@ ASW_SERVICES = ["web_interface", "celery", "redis_server"]
 
 SERVICES = BDW_SERVICES + SC_SERVICES + ASW_SERVICES
 
+ONLY_VIRTUAL_MODE = ["EVE_TIMES"]
+
 private_data_dir = "../.."
 debug = True
 
@@ -78,6 +80,7 @@ def test_opentsdb_connection(opentsdb_server):
 def check_services():
     logging.basicConfig(filename=SERVICE_NAME + '.log', level=logging.INFO)
     global debug
+    global SERVICES
 
     ## Test connection for OPENTSDB setup
     config_file = private_data_dir + "/config/config.yml"
@@ -87,6 +90,10 @@ def check_services():
     opentsdb_url = "127.0.0.1"
     opentsdb_port = config['opentsdb_port']
     opentsdb_server = 'http://' + opentsdb_url + ":" + str(opentsdb_port)
+
+    virtual_mode = config['virtual_mode']
+    if not virtual_mode:
+        SERVICES = [x for x in SERVICES if x not in ONLY_VIRTUAL_MODE]
 
     ## Playbook running setup
     rc = RunnerConfig(
