@@ -152,7 +152,7 @@ def structures(request, structure_type, html_render):
     addStructureForm = None
     if (structure_type == "containers"):
         structures = getContainers(data_json)
-        hosts = getHosts(data_json)
+        hosts = getHostsNames(data_json)
         addStructureForm = {}
         addStructureForm['add_container'] = AddContainerForm()
         addStructureForm['add_n_containers'] = setAddNContainersForm(structures,hosts,structure_type)
@@ -204,11 +204,12 @@ def getHosts(data):
 
             ## we order this list using name container to keep the order consistent with the 'cpu_cores' dict below
             item['containers'] = sorted(containers, key=lambda d: d['name']) 
-                      
 
             # Adjustment to don't let core_usage_mapping be too wide on html display
             if ("cpu" in item['resources'] and "core_usage_mapping" in item['resources']['cpu']):
                 core_mapping = item['resources']['cpu']['core_usage_mapping']
+                core_mapping = {int(k) : v for k, v in core_mapping.items()}
+                core_mapping = dict(sorted(core_mapping.items()))
 
                 ## fill usage with 0 when a container doesn't show in a core
                 for core,mapping in list(core_mapping.items()):
@@ -216,13 +217,20 @@ def getHosts(data):
                         if (cont['name'] not in mapping):
                             mapping[cont['name']] = 0
 
-                    mapping = sorted(mapping.items())
-                    core_mapping[core] = dict(mapping)
+                    mapping = dict(sorted(mapping.items()))
+
+                    ## Move 'free' shares of core always to start of dict
+                    free = mapping['free']
+                    mapping_list = list(mapping.items())
+                    mapping_list.remove(('free',free))
+                    mapping_list.insert(0,('free',free))
+
+                    core_mapping[core] = dict(mapping_list)
 
                 item['resources']['cpu_cores'] = core_mapping
 
                 # remove core_usage_mapping from the cpu resources since now that info is in 'cpu_cores'
-                item['resources']['cpu'] = {k:v for k,v in item['resources']['cpu'].items() if k != 'core_usage_mapping'}             
+                item['resources']['cpu'] = {k:v for k,v in item['resources']['cpu'].items() if k != 'core_usage_mapping'}
 
             ## Host Resources Form
             setStructureResourcesForm(item,"hosts")
@@ -232,6 +240,17 @@ def getHosts(data):
 
             hosts.append(item)
                           
+    return hosts
+
+def getHostsNames(data):
+
+    hosts = []
+
+    for item in data:
+        if (item['subtype'] == 'host'):
+
+            hosts.append(item)
+
     return hosts
 
 def getApps(data):
