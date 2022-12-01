@@ -20,7 +20,7 @@
 
     - import_tasks: tasks/install/bdwatchdog_setup.yml
     - import_tasks: tasks/install/serverless_containers_setup.yml
-    - import_tasks: tasks/install/hosts_setup_server.yml
+    - import_tasks: tasks/install/hosts_setup.yml
     - import_tasks: tasks/install/autoserverlessweb_services_setup.yml
 
 # Setup nodes
@@ -37,15 +37,11 @@
     HOME: "{{ lookup('env', 'HOME' )}}"
     INSTALLATION_PATH: "{{ installation_path }}"
 
-  roles:
-     - role: gantsign.golang
-       when: "virtual_mode"
-
   tasks:
     - import_tasks: tasks/install/create_installation_dir.yml
     - import_tasks: tasks/install/serverless_containers_setup.yml
     - import_tasks: tasks/install/metrics_feeder_setup.yml
-    - import_tasks: tasks/install/hosts_setup_nodes.yml
+    - import_tasks: tasks/install/hosts_setup.yml
 
     - import_tasks: tasks/install/lxd_setup.yml
       when: "virtual_mode and container_engine == 'lxc'"

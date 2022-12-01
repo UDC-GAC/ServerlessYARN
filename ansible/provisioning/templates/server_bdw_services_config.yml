@@ -1,3 +1,0 @@
-# OpenTSDB:
-OPENTSDB_URL: "127.0.0.1"
-OPENTSDB_PORT: "{{ opentsdb_port }}"

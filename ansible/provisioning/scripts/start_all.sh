@@ -4,8 +4,6 @@ scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 
 INVENTORY=${scriptDir}/../../ansible.inventory
 
-ansible-galaxy install gantsign.golang
-
 if [ -n ${SLURM_JOB_ID} ]
 then
     echo "Loading config from SLURM"

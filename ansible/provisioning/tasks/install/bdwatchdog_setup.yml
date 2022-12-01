@@ -24,11 +24,6 @@
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
     recurse: yes
 
-- name: Copy logback.xml file
-  template:
-    src: "templates/opentsdb_logback.xml"
-    dest: "{{ bdwatchdog_path }}/deployment/metrics/logback.xml"
-
 - name: Install BDWatchdog
   shell: bash install.sh
   when: "virtual_mode"
