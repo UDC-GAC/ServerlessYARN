@@ -52,7 +52,12 @@
      chdir: "{{ apptainer_repo_path }}/builddir"
      target: install
   when: not stat_output.stat.exists
-  
+
+- name: get the username running the deploy
+  become: no
+  local_action: command whoami
+  register: username_on_the_host
+
 - name: Change Apptainer repo dir owner
   file:
     path: "{{ apptainer_repo_path }}"

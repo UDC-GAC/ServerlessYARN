@@ -1,18 +1,20 @@
 # Setup server
 - name: Install requisites in server node
   hosts: localhost
-  become: "virtual_mode"
+  become: "{{ virtual_mode }}"
   gather_facts: no
 
   vars_files:
     - vars/main.yml
     - config/config.yml
-      
-  environment: 
-    HOME: "{{ installation_path }}"
+
+  environment:
+    HOME: "{{ lookup('env', 'HOME' )}}"
+    INSTALLATION_PATH: "{{ installation_path }}"
     OPENTSDB_LOG_PATH: "{{ opentsdb_log_path }}"
 
   tasks:
+    - import_tasks: tasks/install/create_installation_dir.yml
     - import_tasks: tasks/install/couchdb_setup.yml
       when: "virtual_mode"
 
@@ -20,11 +22,11 @@
     - import_tasks: tasks/install/serverless_containers_setup.yml
     - import_tasks: tasks/install/hosts_setup_server.yml
     - import_tasks: tasks/install/autoserverlessweb_services_setup.yml
-    
+
 # Setup nodes
 - name: Install requisites in client nodes
   hosts: nodes
-  become: "virtual_mode"
+  become: "{{ virtual_mode }}"
   gather_facts: yes
 
   vars_files:
@@ -32,13 +34,15 @@
     - config/config.yml
 
   environment:
-    HOME: "{{ installation_path }}"
+    HOME: "{{ lookup('env', 'HOME' )}}"
+    INSTALLATION_PATH: "{{ installation_path }}"
 
   roles:
      - role: gantsign.golang
        when: "virtual_mode"
 
   tasks:
+    - import_tasks: tasks/install/create_installation_dir.yml
     - import_tasks: tasks/install/serverless_containers_setup.yml
     - import_tasks: tasks/install/metrics_feeder_setup.yml
     - import_tasks: tasks/install/hosts_setup_nodes.yml

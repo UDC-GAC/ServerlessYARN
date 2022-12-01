@@ -4,7 +4,7 @@
   package:
     name: python3-pip
     state: latest
-    
+
 - name: Install yq
   when: "virtual_mode"
   snap:
@@ -15,7 +15,7 @@
   pip:
     requirements: "{{ playbook_dir }}/services/requirements.txt"
     executable: pip3
-    
+
 - name: get the username running the deploy
   become: no
   local_action: command whoami
