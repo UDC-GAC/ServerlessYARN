@@ -18,15 +18,7 @@ base_host = dict(
     subtype='host'
 )
 
-base_app = dict(
-    type='structure',
-    subtype='application',
-    guard=True,
-    guard_policy="serverless",
-    containers = []    
-)
-
-# usage example: add_containers.py app1 host0 4 4096 cont0,cont1 config/config.yml
+# usage example: add_containers.py host0 4 4096 cont0,cont1 config/config.yml
 
 if __name__ == "__main__":
 
@@ -34,14 +26,13 @@ if __name__ == "__main__":
     handler = couchDB.CouchDBServer()
     database = "structures"
     
-    if (len(sys.argv) > 6):
+    if (len(sys.argv) > 5):
 
-        new_app = sys.argv[1]
-        new_host = sys.argv[2]
-        host_cpu = int(sys.argv[3])
-        host_mem = int(sys.argv[4])
-        new_containers = sys.argv[5].split(',')
-        with open(sys.argv[6], "r") as f:
+        new_host = sys.argv[1]
+        host_cpu = int(sys.argv[2])
+        host_mem = int(sys.argv[3])
+        new_containers = sys.argv[4].split(',')
+        with open(sys.argv[5], "r") as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
         # Create database if doesnt exist
@@ -95,22 +86,3 @@ if __name__ == "__main__":
                     mem=dict(max=host_mem, free=free_mem)
                 )
                 handler.add_structure(host)
-
-            ## App
-            try:
-                old_app = handler.get_structure(new_app)
-                for c in new_containers:
-                    if c not in old_app["containers"]:
-                        old_app["containers"].append(c)
-                handler.update_structure(old_app)
-            except ValueError:
-                # new app
-                app = base_app
-                app["name"] = new_app
-                app["containers"] = new_containers
-                app["resources"] = dict(
-                    cpu=dict(max=config['max_cpu_percentage_per_app'], min=config['min_cpu_percentage_per_app'], guard=False),
-                    mem=dict(max=config['max_memory_per_app'], min=config['min_memory_per_app'], guard=False)
-                )
-                handler.add_structure(app)
-            

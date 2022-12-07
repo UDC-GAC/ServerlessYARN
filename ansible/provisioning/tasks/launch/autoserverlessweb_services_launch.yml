@@ -28,6 +28,6 @@
     chdir: "services/{{ item }}"
     executable: /bin/bash
   with_items:
-    - rebooter
     - celery
+    - rebooter
   tags: restart_services

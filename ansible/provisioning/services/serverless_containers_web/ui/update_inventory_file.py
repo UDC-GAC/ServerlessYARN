@@ -102,7 +102,10 @@ def write_container_list(container_list,host,cpu,mem):
         containers_formatted += "\"" + container_list[i] + "\","
         i += 1
         
-    containers_formatted += "\"" + container_list[i] + "\"]\'"
+    if len(container_list) > 0:
+        containers_formatted += "\"" + container_list[i] + "\"]\'"
+    else:
+        containers_formatted += "]\'"
 
     # read lines
     with open(inventory_file, 'r') as file:

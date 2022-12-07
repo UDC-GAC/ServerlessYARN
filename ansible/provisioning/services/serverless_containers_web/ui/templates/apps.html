@@ -257,9 +257,64 @@
 	</div>
     {% endfor %}
 
+	{% if item.add_containers_to_app_editable_data > 0 %}
+		<p></p>
+		<a href="#openModal-containers-to-app-{{ item.name }}" title="Edit" class="caja">Add Containers to App</a>
+		<br><br>
+		<div align="left" id="openModal-containers-to-app-{{ item.name }}" class="modalDialog">
+			<div>
+				<a href="#close" title="Close" class="close">X</a>
+				<h2>Add Containers to App {{ item.name }}</h2>
+				<p>
+					{% load crispy_forms_tags %} {% crispy item.add_containers_to_app_form item.add_containers_to_app_form.helper %}
+				</p>
+			</div>
+		</div>
+	{% endif %}
+
+	{% if item.remove_containers_from_app_editable_data > 0 %}
+		<p></p>
+		<a href="#openModal-remove-containers-from-app-{{ item.name }}" title="Edit" class="caja">Remove Containers from App</a>
+		<br><br>
+		<div align="left" id="openModal-remove-containers-from-app-{{ item.name }}" class="modalDialog">
+			<div>
+				<a href="#close" title="Close" class="close">X</a>
+				<h2>Remove Containers from App {{ item.name }}</h2>
+				<p>
+					{% load crispy_forms_tags %} {% crispy item.remove_containers_from_app_form item.remove_containers_from_app_form.helper %}
+				</p>
+			</div>
+		</div>
+	{% endif %}
+
     </li>    
     {% endfor %}
   </ul>
+
+  <a href="#openModal-add-app" title="Edit" class="caja">Add App</a>
+  <br><br>
+  <div align="left" id="openModal-add-app" class="modalDialog">
+	  <div>
+		  <a href="#close" title="Close" class="close">X</a>
+		  <h2>Add App</h2>
+		  <p>
+			  {% load crispy_forms_tags %} {% crispy addStructureForm addStructureForm.helper %}
+		  </p>
+	  </div>
+  </div>
+
+  <a href="#openModal-remove-apps" title="Edit" class="caja">Remove Apps</a>
+  <br><br>
+  <div align="left" id="openModal-remove-apps" class="modalDialog">
+	  <div>
+		  <a href="#close" title="Close" class="close">X</a>
+		  <h2>Remove Apps</h2>
+		  <p>
+			  {% load crispy_forms_tags %} {% crispy removeStructuresForm removeStructuresForm.helper %}
+		  </p>
+	  </div>
+  </div>
+
 </div>
 <HR> 
 

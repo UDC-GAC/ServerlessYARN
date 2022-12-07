@@ -39,6 +39,22 @@ def add_host_task(host,cpu,mem,new_containers):
         raise Exception(error)
 
 @shared_task
+def add_container_to_app_task(full_url, headers, host, container, app):
+
+    r = requests.put(full_url, headers=headers)
+
+    error = ""
+    if (r != "" and r.status_code != requests.codes.ok):
+        soup = BeautifulSoup(r.text, features="html.parser")
+        error = "Error adding container " + container + "to app " + app + ": " + soup.get_text().strip()
+
+    if (error == ""):
+        ## TODO: start app on container (move files and execute script)
+        pass
+    else:
+        raise Exception(error)
+
+@shared_task
 def remove_container_task(full_url, headers, host_name, cont_name):
 
     r = requests.delete(full_url, headers=headers)
@@ -49,7 +65,7 @@ def remove_container_task(full_url, headers, host_name, cont_name):
         error = "Error removing container " + cont_name + ": " + soup.get_text().strip()
 
     ## stop container
-    if (error == ""): 
+    if (error == ""):
 
         rc = subprocess.Popen(["./ui/scripts/stop_container.sh", host_name, cont_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = rc.communicate()
@@ -75,7 +91,7 @@ def remove_host_task(full_url, headers, host_name):
         error = "Error removing host " + host_name + ": " + soup.get_text().strip()
 
     ## remove host
-    elif (error == ""):
+    if (error == ""):
             
         # stop node scaler service in host
         rc = subprocess.Popen(["./ui/scripts/stop_host_scaler.sh", host_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -102,7 +118,23 @@ def remove_app_task(full_url, headers, app_name):
         error = "Error removing app " + app_name + ": " + soup.get_text().strip()
 
     ## TODO: actually stop app
-    elif (error == ""):
+    if (error == ""):
+        pass
+    else:
+        raise Exception(error)
+
+@shared_task
+def remove_container_from_app_task(full_url, headers, container_name, app_name):
+
+    r = requests.delete(full_url, headers=headers)
+
+    error = ""
+    if (r.status_code != requests.codes.ok):
+        soup = BeautifulSoup(r.text, features="html.parser")
+        error = "Error removing container " + container_name + " from app " + app_name + ": " + soup.get_text().strip()
+
+    ## TODO: actually stop app
+    if (error == ""):
         pass
     else:
         raise Exception(error)

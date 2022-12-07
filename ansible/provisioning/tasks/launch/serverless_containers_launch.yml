@@ -26,7 +26,7 @@
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-  
+
 - name: Tmux session check
   shell: tmux ls
   register: tmux_output
@@ -44,15 +44,15 @@
 
 ## Structures Using new script 
 - name: Initializing State Database - structures
-  shell: "python3 scripts/stateDatabase/add_containers.py app1 {{ item }} {{ hostvars[item].cpu }} {{ hostvars[item].mem }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }} config/config.yml"  
+  shell: "python3 scripts/stateDatabase/add_containers.py {{ item }} {{ hostvars[item].cpu }} {{ hostvars[item].mem }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }} config/config.yml"
   args:
     executable: /bin/bash
   with_items: "{{ groups['nodes'] }}"
   tags: start_containers
-  
+
 ## Limits Using new script 
 - name: Initializing State Database - limits
-  shell: "python3 scripts/stateDatabase/add_limits.py app1 {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') | replace(',',' ') }}"
+  shell: "python3 scripts/stateDatabase/add_limits.py {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') | replace(',',' ') }}"
   args:
     executable: /bin/bash
   with_items: "{{ groups['nodes'] }}"

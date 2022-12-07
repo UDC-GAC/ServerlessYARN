@@ -258,7 +258,7 @@ class AddContainerForm(forms.Form):
             FormActions(
                 Submit('save', 'Add container', css_class='caja'),
             )    
-        )  
+        )
 
 class AddNContainersFormSetHelper(FormHelper):
     def __init__(self, *args, **kwargs):
@@ -294,6 +294,119 @@ class AddNContainersForm(forms.Form):
             initial=0,
             required=True
             )
+
+class AddAppForm(forms.Form):
+    operation = forms.CharField(label= "Operation",
+            initial="add",
+            required=True
+            )
+    structure_type = forms.CharField(label= "Structure type",
+            initial="apps",
+            required=True
+            )
+    name = forms.CharField(label= "Name",
+            required=True
+            )
+    cpu_max = forms.IntegerField(label= "CPU Max",
+            required=True
+            )
+    cpu_min = forms.IntegerField(label= "CPU Min",
+            required=True
+            )
+    mem_max = forms.IntegerField(label= "Mem Max",
+            required=True
+            )
+    mem_min = forms.IntegerField(label= "Mem Min",
+            required=True
+            )
+    cpu_boundary = forms.IntegerField(label= "CPU boundary",
+            required=True
+            )
+    mem_boundary = forms.IntegerField(label= "Mem boundary",
+            required=True
+            )
+    def __init__(self, *args, **kwargs):
+        super(AddAppForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-addappform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'apps'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('structure_type', type="hidden", readonly=True),
+            Field('name'),
+            Field('cpu_max'),
+            Field('cpu_min'),
+            Field('mem_max'),
+            Field('mem_min'),
+            Field('cpu_boundary'),
+            Field('mem_boundary'),
+            FormActions(
+                Submit('save', 'Add app', css_class='caja'),
+            )
+        )
+
+class AddContainersToAppForm(forms.Form):
+    operation = forms.CharField(label= "Operation",
+            initial="add",
+            required=True
+            )
+    structure_type = forms.CharField(label= "Structure type",
+            initial="containers_to_app",
+            required=True
+            )
+    name = forms.CharField(label= "App",
+            required=True
+            )
+    containers_to_add = forms.MultipleChoiceField(label="Containers to Add",
+            choices = (),
+            widget=forms.CheckboxSelectMultiple,
+            required=False
+            )
+    def __init__(self, *args, **kwargs):
+        super(AddContainersToAppForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-addcontainerstoappform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('structure_type', type="hidden", readonly=True),
+            Field('name', readonly=True),
+            Field('containers_to_add'),
+            FormActions(
+                Submit('save', 'Add Containers to App', css_class='caja'),
+            )
+        )
+
+class RemoveContainersFromAppForm(forms.Form):
+    operation = forms.CharField(label= "Operation",
+            initial="remove",
+            required=True
+            )
+    app = forms.CharField(label= "App",
+            required=True
+            )
+    containers_removed = forms.MultipleChoiceField(label="Structures Removed",
+            choices = (),
+            widget=forms.CheckboxSelectMultiple,
+            required=False
+            )
+    def __init__(self, *args, **kwargs):
+        super(RemoveContainersFromAppForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-removecontainersfromapp'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('app', type="hidden", readonly=True),
+            Field('containers_removed'),
+            FormActions(
+                Submit('save', 'Remove containers from app', css_class='caja'),
+            )
+        )
 
 ### Services
 # CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 5, "DEBUG": True, "DOCUMENTS_PERSISTED": ["limits", "structures", "users", "configs"] ,"ACTIVE": True}

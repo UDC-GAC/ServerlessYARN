@@ -1,5 +1,7 @@
 from django.shortcuts import render,redirect
-from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm, LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper, HostResourcesForm, HostResourcesFormSetHelper, RemoveStructureForm, AddHostForm, AddContainerForm, AddNContainersFormSetHelper, AddNContainersForm
+from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm
+from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper, HostResourcesForm, HostResourcesFormSetHelper
+from ui.forms import RemoveStructureForm, AddHostForm, AddContainerForm, AddNContainersFormSetHelper, AddNContainersForm, AddAppForm, AddContainersToAppForm, RemoveContainersFromAppForm
 from django.forms import formset_factory
 from django.http import HttpResponse
 #from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host
@@ -12,7 +14,7 @@ import yaml
 from bs4 import BeautifulSoup
 #import subprocess
 
-from ui.background_tasks import start_containers_task, add_host_task, remove_container_task, remove_host_task, remove_app_task
+from ui.background_tasks import start_containers_task, add_host_task, add_container_to_app_task, remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task
 from celery.result import AsyncResult
 
 
@@ -163,6 +165,7 @@ def structures(request, structure_type, html_render):
 
     elif(structure_type == "apps"):
         structures = getApps(data_json)
+        addStructureForm = AddAppForm()
 
     ## Set RemoveStructures Form
     removeStructuresForm = setRemoveStructureForm(structures,structure_type)
@@ -284,11 +287,22 @@ def getApps(data):
             ## App Limits Form
             setLimitsForm(item,"apps")
 
+            ## App RemoveContainersFromApp Form
+            setRemoveContainersFromAppForm(item, containers, "apps")
+
             ## Set labels for apps values
             item['resources_values_labels'] = getStructuresValuesLabels(item, 'resources')
             item['limits_values_labels'] = getStructuresValuesLabels(item, 'limits')
 
             apps.append(item)
+
+    allContainers = getAllContainers(data)
+    freeContainers = getFreeContainers(allContainers, apps)
+
+    for app in apps:
+        ## App AddContainersToApp Form
+        setAddContainersToAppForm(app, freeContainers, "apps")
+
     return apps
 
 def getContainers(data):
@@ -310,6 +324,28 @@ def getContainers(data):
 
             containers.append(item)
     return containers
+
+def getAllContainers(data):
+    containers = []
+
+    for item in data:
+        if (item['subtype'] == 'container'):
+            containers.append(item)
+
+    return containers
+
+def getFreeContainers(allContainers, apps):
+    freeContainers = []
+    busyContainers = []
+
+    for app in apps:
+        busyContainers.extend(app['containers_full'])
+
+    for container in allContainers:
+        if container not in busyContainers:
+            freeContainers.append(container)
+
+    return freeContainers
 
 def getStructuresValuesLabels(item, field):
 
@@ -405,6 +441,19 @@ def setLimitsForm(structure, form_action):
         if ( not (resource in structure['limits'] and 'boundary' in structure['limits'][resource])):    
             structure['limits_form'].helper[resource + '_boundary'].update_attributes(type="hidden")
 
+def setAddContainersToAppForm(structure, free_containers, form_action):
+    addContainersToAppForm = AddContainersToAppForm()
+    addContainersToAppForm.fields['name'].initial = structure['name']
+    addContainersToAppForm.helper.form_action = form_action
+
+    editable_data = 0
+    for container in free_containers:
+        editable_data += 1
+        addContainersToAppForm.fields['containers_to_add'].choices.append(((container['name'],container['host']),container['name']))
+
+    structure['add_containers_to_app_form'] = addContainersToAppForm
+    structure['add_containers_to_app_editable_data'] = editable_data
+
 def setAddNContainersForm(structures, hosts, form_action):
 
     form_initial_data_list = []
@@ -441,6 +490,19 @@ def setRemoveStructureForm(structures, form_action):
             removeStructuresForm.fields['structures_removed'].choices.append((structure['name'],structure['name']))
 
     return removeStructuresForm
+
+def setRemoveContainersFromAppForm(app, containers, form_action):
+    removeContainersFromAppForm = RemoveContainersFromAppForm()
+    removeContainersFromAppForm.fields['app'].initial = app['name']
+    removeContainersFromAppForm.helper.form_action = form_action
+
+    editable_data = 0
+    for container in containers:
+        editable_data += 1
+        removeContainersFromAppForm.fields['containers_removed'].choices.append((container['name'],container['name']))
+
+    app['remove_containers_from_app_form'] = removeContainersFromAppForm
+    app['remove_containers_from_app_editable_data'] = editable_data
 
 # Process POST requests
 def containers_guard_switch(request, container_name):
@@ -588,6 +650,17 @@ def processAdds(request, url):
         elif (structure_type == "container"):
             host = request.POST['host']
             error = processAddContainer(request, url, structure_name, structure_type, resources, host)
+        elif (structure_type == "apps"):
+            error = processAddApp(request, url, structure_name, structure_type, resources)
+        elif (structure_type == "containers_to_app"):
+            app = structure_name
+            containers_to_add = request.POST.getlist('containers_to_add', None)
+            for container in containers_to_add:
+                error = processAddContainerToApp(request, url, app, container)
+                if (len(error) > 0): errors.append(error)
+                error = ""
+                # Workaround to keep all updates to State DB
+                time.sleep(0.25)
 
         if (len(error) > 0): errors.append(error)
 
@@ -698,17 +771,81 @@ def processAddNContainers(request, url, host, containers_added):
 
     return error
 
+def processAddApp(request, url, structure_name, structure_type, resources):
+
+    full_url = url + structure_type + "/" + structure_name
+    headers = {'Content-Type': 'application/json'}
+
+    put_field_data = {
+        'app': {
+            'name': structure_name,
+            'resources': {},
+            'guard': False,
+            'subtype': "application",
+        },
+        'limits': {'resources': {}}
+    }
+
+    for resource in resources:
+        if (resource + "_max" in request.POST):
+            resource_max = request.POST[resource + "_max"]
+            resource_min = request.POST[resource + "_min"]
+            put_field_data['app']['resources'][resource] = {'max': int(resource_max), 'min': int(resource_min), 'guard': 'false'}
+
+        if (resource + "_boundary" in request.POST):
+            resource_boundary = request.POST[resource + "_boundary"]
+            put_field_data['limits']['resources'][resource] = {'boundary': int(resource_boundary)}
+
+    r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+
+    error = ""
+    if (r != "" and r.status_code != requests.codes.ok):
+        soup = BeautifulSoup(r.text, features="html.parser")
+        error = "Error adding app " + structure_name + ": " + soup.get_text().strip()
+
+    return error
+
+def processAddContainerToApp(request, url, app, container_host_duple):
+
+    cont_host = container_host_duple.strip("(").strip(")").split(',')
+    container = cont_host[0].strip().strip("'")
+    host = cont_host[1].strip().strip("'")
+
+    headers = {'Content-Type': 'application/json'}
+    full_url = url + "container/{0}/{1}".format(container,app)
+
+    task = add_container_to_app_task.delay(full_url, headers, host, container, app)
+    print("Starting task with id {0}".format(task.id))
+    register_task(task.id,"add_container_to_app_task")
+
+    error = ""
+    return error
+
+
 def processRemoves(request, url, structure_type):
 
     errors = []
 
     if ("operation" in request.POST and request.POST["operation"] == "remove"):
         
-        structures_to_remove = request.POST.getlist('structures_removed', None)
+        if ("structures_removed" in request.POST):
 
-        for structure_name in structures_to_remove:
-            error = processRemoveStructure(request, url, structure_name, structure_type)
-            if (len(error) > 0): errors.append(error)
+            structures_to_remove = request.POST.getlist('structures_removed', None)
+
+            for structure_name in structures_to_remove:
+                error = processRemoveStructure(request, url, structure_name, structure_type)
+                if (len(error) > 0): errors.append(error)
+
+        elif ("containers_removed" in request.POST):
+            ## Remove containers from app scenario
+            containers_to_remove = request.POST.getlist('containers_removed', None)
+            app = request.POST['app']
+
+            for container_name in containers_to_remove:
+                error = processRemoveContainerFromApp(request, url, container_name, app, structure_type)
+                if (len(error) > 0): errors.append(error)
+                # Workaround to keep all updates to State DB
+                time.sleep(0.25)
 
     return errors    
    
@@ -750,6 +887,18 @@ def processRemoveStructure(request, url, structure_name, structure_type):
         task = remove_app_task.delay(full_url, headers, structure_name)
         print("Starting task with id {0}".format(task.id))
         register_task(task.id,"remove_app_task")
+
+    error = ""
+    return error
+
+def processRemoveContainerFromApp(request, url, container_name, app, structure_type):
+
+    full_url = url + "container/{0}/{1}".format(container_name, app)
+    headers = {'Content-Type': 'application/json'}
+
+    task = remove_container_from_app_task.delay(full_url, headers, container_name, app)
+    print("Starting task with id {0}".format(task.id))
+    register_task(task.id,"remove_container_from_app_task")
 
     error = ""
     return error

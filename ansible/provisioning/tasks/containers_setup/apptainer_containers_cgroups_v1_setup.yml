@@ -22,8 +22,14 @@
   args:
     executable: /bin/bash
 
+- name: Create directories to bind to containers
+  file:
+    path: "{{ installation_path }}/singularity_binds/{{ item }}"
+    state: directory
+  loop: "{{ hostvars[inventory_hostname].containers }}"
+
 - name: Start apptainer containers
-  shell: "sudo singularity instance start -C --hostname {{ item }} --apply-cgroups {{ cgroups_file }} {{ image_file }} {{ item }}"
+  shell: "sudo singularity instance start -C --hostname {{ item }} --apply-cgroups {{ cgroups_file }} --bind ./singularity_binds/{{ item }}:/opt/bind {{ image_file }} {{ item }}"
   when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"
   args:
     chdir: "{{ installation_path }}"

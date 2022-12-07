@@ -4,7 +4,7 @@ scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 
 INVENTORY=${scriptDir}/../../ansible.inventory
 
-if [ -n ${SLURM_JOB_ID} ]
+if [ ! -z ${SLURM_JOB_ID} ]
 then
     echo "Loading config from SLURM"
     python3 ${scriptDir}/load_config_from_slurm.py
@@ -19,6 +19,7 @@ ansible-playbook ${scriptDir}/../install_playbook.yml -i $INVENTORY
 echo "Install Done!"
 
 source /etc/environment
+export PATH=$PATH:$HOME/.local/bin
 
 echo "Starting containers..."
 ansible-playbook ${scriptDir}/../start_containers_playbook.yml -i $INVENTORY
