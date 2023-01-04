@@ -14,7 +14,8 @@ import yaml
 from bs4 import BeautifulSoup
 #import subprocess
 
-from ui.background_tasks import start_containers_task, add_host_task, add_container_to_app_task, remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task
+from ui.background_tasks import start_containers_task, add_host_task, add_app_task, add_container_to_app_task, start_containers_with_app_task
+from ui.background_tasks import remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task
 from celery.result import AsyncResult
 
 
@@ -347,6 +348,16 @@ def getFreeContainers(allContainers, apps):
 
     return freeContainers
 
+def getAppInfo(data, app_name):
+    app = {}
+
+    for item in data:
+        if (item['subtype'] == 'application' and item['name'] == app_name):
+
+            return item
+
+    return app
+
 def getStructuresValuesLabels(item, field):
 
     values_labels = []
@@ -444,12 +455,20 @@ def setLimitsForm(structure, form_action):
 def setAddContainersToAppForm(structure, free_containers, form_action):
     addContainersToAppForm = AddContainersToAppForm()
     addContainersToAppForm.fields['name'].initial = structure['name']
+    addContainersToAppForm.fields['files_dir'].initial = structure['files_dir']
+    addContainersToAppForm.fields['install_script'].initial = structure['install_script']
+    addContainersToAppForm.fields['start_script'].initial = structure['start_script']
+    addContainersToAppForm.fields['stop_script'].initial = structure['stop_script']
+
     addContainersToAppForm.helper.form_action = form_action
 
-    editable_data = 0
-    for container in free_containers:
-        editable_data += 1
-        addContainersToAppForm.fields['containers_to_add'].choices.append(((container['name'],container['host']),container['name']))
+    # We can always use the formulary to add create containers for the app
+    editable_data = 1
+    # ATM, if a install_script is required we can't add existing containers because they may not have installed the app requirements
+    if (structure['install_script'] == ""):
+        for container in free_containers:
+            editable_data += 1
+            addContainersToAppForm.fields['containers_to_add'].choices.append(((container['name'],container['host']),container['name']))
 
     structure['add_containers_to_app_form'] = addContainersToAppForm
     structure['add_containers_to_app_editable_data'] = editable_data
@@ -494,12 +513,17 @@ def setRemoveStructureForm(structures, form_action):
 def setRemoveContainersFromAppForm(app, containers, form_action):
     removeContainersFromAppForm = RemoveContainersFromAppForm()
     removeContainersFromAppForm.fields['app'].initial = app['name']
+    removeContainersFromAppForm.fields['files_dir'].initial = app['files_dir']
+    removeContainersFromAppForm.fields['install_script'].initial = app['install_script']
+    removeContainersFromAppForm.fields['start_script'].initial = app['start_script']
+    removeContainersFromAppForm.fields['stop_script'].initial = app['stop_script']
+
     removeContainersFromAppForm.helper.form_action = form_action
 
     editable_data = 0
     for container in containers:
         editable_data += 1
-        removeContainersFromAppForm.fields['containers_removed'].choices.append((container['name'],container['name']))
+        removeContainersFromAppForm.fields['containers_removed'].choices.append(((container['name'],container['host']),container['name']))
 
     app['remove_containers_from_app_form'] = removeContainersFromAppForm
     app['remove_containers_from_app_editable_data'] = editable_data
@@ -662,6 +686,9 @@ def processAdds(request, url):
                 # Workaround to keep all updates to State DB
                 time.sleep(0.25)
 
+            if ('fill_with_new_containers' in request.POST):
+                error = processFillWithNewContainers(request, url, app)
+
         if (len(error) > 0): errors.append(error)
 
     elif ("form-TOTAL_FORMS" in request.POST and request.POST['form-0-operation'] == "add"):
@@ -776,12 +803,22 @@ def processAddApp(request, url, structure_name, structure_type, resources):
     full_url = url + structure_type + "/" + structure_name
     headers = {'Content-Type': 'application/json'}
 
+    app_files = {}
+    app_files['files_dir'] = request.POST['files_dir']
+    app_files['install_script'] = request.POST['install_script']
+    app_files['start_script'] = request.POST['start_script']
+    app_files['stop_script'] = request.POST['stop_script']
+
     put_field_data = {
         'app': {
             'name': structure_name,
             'resources': {},
             'guard': False,
             'subtype': "application",
+            'files_dir': app_files['files_dir'],
+            'install_script': app_files['install_script'],
+            'start_script': app_files['start_script'],
+            'stop_script': app_files['stop_script']
         },
         'limits': {'resources': {}}
     }
@@ -796,13 +833,11 @@ def processAddApp(request, url, structure_name, structure_type, resources):
             resource_boundary = request.POST[resource + "_boundary"]
             put_field_data['limits']['resources'][resource] = {'boundary': int(resource_boundary)}
 
-    r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+    task = add_app_task.delay(full_url, headers, put_field_data, structure_name, app_files)
+    print("Starting task with id {0}".format(task.id))
+    register_task(task.id,"add_app_task")
 
     error = ""
-    if (r != "" and r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error adding app " + structure_name + ": " + soup.get_text().strip()
-
     return error
 
 def processAddContainerToApp(request, url, app, container_host_duple):
@@ -811,16 +846,42 @@ def processAddContainerToApp(request, url, app, container_host_duple):
     container = cont_host[0].strip().strip("'")
     host = cont_host[1].strip().strip("'")
 
+    app_files = {}
+    app_files['files_dir'] = request.POST['files_dir']
+    app_files['install_script'] = request.POST['install_script']
+    app_files['start_script'] = request.POST['start_script']
+    app_files['stop_script'] = request.POST['stop_script']
+
     headers = {'Content-Type': 'application/json'}
     full_url = url + "container/{0}/{1}".format(container,app)
 
-    task = add_container_to_app_task.delay(full_url, headers, host, container, app)
+    task = add_container_to_app_task.delay(full_url, headers, host, container, app, app_files)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"add_container_to_app_task")
 
     error = ""
     return error
 
+def processFillWithNewContainers(request, url, app):
+
+    # Calculate number of new containers based on all hosts free resources (CPU and mem ATM)
+    newContainers = getNewPossibleContainers(url, app)
+
+    # Start new containers (with app image if necessary) and start app on them
+    headers = {'Content-Type': 'application/json'}
+    app_files = {}
+    app_files['files_dir'] = request.POST['files_dir']
+    app_files['install_script'] = request.POST['install_script']
+    app_files['start_script'] = request.POST['start_script']
+    app_files['stop_script'] = request.POST['stop_script']
+
+    for host in newContainers:
+        task = start_containers_with_app_task.delay(url, headers, host, newContainers[host], app, app_files)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"add_container_to_app_task")
+
+    error = ""
+    return error
 
 def processRemoves(request, url, structure_type):
 
@@ -840,9 +901,14 @@ def processRemoves(request, url, structure_type):
             ## Remove containers from app scenario
             containers_to_remove = request.POST.getlist('containers_removed', None)
             app = request.POST['app']
+            app_files = {}
+            app_files['files_dir'] = request.POST['files_dir']
+            app_files['install_script'] = request.POST['install_script']
+            app_files['start_script'] = request.POST['start_script']
+            app_files['stop_script'] = request.POST['stop_script']
 
-            for container_name in containers_to_remove:
-                error = processRemoveContainerFromApp(request, url, container_name, app, structure_type)
+            for container in containers_to_remove:
+                error = processRemoveContainerFromApp(url, container, app, app_files)
                 if (len(error) > 0): errors.append(error)
                 # Workaround to keep all updates to State DB
                 time.sleep(0.25)
@@ -881,6 +947,10 @@ def processRemoveStructure(request, url, structure_name, structure_type):
 
     elif (structure_type == "apps"):
         structure_type_url = "apps"
+        containerList, app_files = getContainersFromApp(url, structure_name)
+
+        for container in containerList:
+            processRemoveContainerFromApp(url, "({0},{1})".format(container['name'],container['host']), structure_name, app_files)
 
         full_url = url + structure_type_url + "/" + structure_name
 
@@ -891,17 +961,109 @@ def processRemoveStructure(request, url, structure_name, structure_type):
     error = ""
     return error
 
-def processRemoveContainerFromApp(request, url, container_name, app, structure_type):
+def processRemoveContainerFromApp(url, container_host_duple, app, app_files):
 
-    full_url = url + "container/{0}/{1}".format(container_name, app)
+    cont_host = container_host_duple.strip("(").strip(")").split(',')
+    container = cont_host[0].strip().strip("'")
+    host = cont_host[1].strip().strip("'")
+
+    full_url = url + "container/{0}/{1}".format(container, app)
     headers = {'Content-Type': 'application/json'}
 
-    task = remove_container_from_app_task.delay(full_url, headers, container_name, app)
+    task = remove_container_from_app_task.delay(full_url, headers, host, container, app, app_files)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"remove_container_from_app_task")
 
     error = ""
     return error
+
+
+def getNewPossibleContainers(url, app_name):
+
+    try:
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data_json = {}
+
+    new_possible_containers = {}
+    hosts = getHostsNames(data_json)
+    app = getAppInfo(data_json,app_name)
+
+    # free resources
+    total_free_cpu = 0
+    total_free_mem = 0
+    for host in hosts:
+        new_possible_containers[host['name']] = 0
+        total_free_cpu += host['resources']['cpu']['free']
+        total_free_mem += host['resources']['mem']['free']
+
+    # CPU
+    max_cpu_app = app['resources']['cpu']['max']
+    min_cpu_app = app['resources']['cpu']['min']
+    max_mem_app = app['resources']['mem']['max']
+    min_mem_app = app['resources']['mem']['min']
+
+    # TODO: read cpu values from config file OR app parameter (not added) OR get it somehow dinamically
+    max_cpu_containers = 400
+    min_cpu_containers = 50
+    max_mem_containers = 4096
+    min_mem_containers = 1024
+
+    # CPU
+    min_min_conts_app_cpu = int(min_cpu_app / min_cpu_containers) # minimum number of containers working at minimum considering app cpu resource
+    max_min_conts_host_cpu = int(total_free_cpu / min_cpu_containers) # maximum number of containers working at minimum considering hosts cpu resource
+    cpu_space_left = max_min_conts_host_cpu > min_min_conts_app_cpu # True there is space left for some containers considering cpu resource
+
+    # MEM
+    min_min_conts_app_mem = int(min_mem_app / min_mem_containers)
+    max_min_conts_host_mem = int(total_free_mem / min_mem_containers)
+    # TODO: fix free memory showing 0 on host
+    #mem_space_left = max_min_conts_host_mem > min_min_conts_app_mem
+    mem_space_left = True
+
+    if (cpu_space_left and mem_space_left):
+
+        remaining_max_cpu = max_cpu_app
+        remaining_max_mem = max_mem_app
+
+        for host in hosts:
+            free_cpu = host['resources']['cpu']['free']
+            free_mem = host['resources']['mem']['free']
+            #max_containers_cpu[host['name']] = 0
+
+            new_container_at_max_cpu = free_cpu >= max_cpu_containers and remaining_max_cpu > 0
+            #new_container_at_max_mem = free_cpu >= max_mem_containers and remaining_max_mem > 0
+            new_container_at_max_mem = True
+
+            while new_container_at_max_cpu and new_container_at_max_mem:
+                new_possible_containers[host['name']] += 1
+                free_cpu -= max_cpu_containers
+                free_mem -= max_mem_containers
+                remaining_max_cpu -= max_cpu_containers
+                remaining_max_mem -= max_mem_containers
+
+                new_container_at_max_cpu = free_cpu >= max_cpu_containers and remaining_max_cpu > 0
+                #new_container_at_max_mem = free_cpu >= max_mem_containers and remaining_max_mem > 0
+                new_container_at_max_mem = True
+
+            new_container_below_max_cpu = free_cpu >= min_cpu_containers and remaining_max_cpu > 0
+            #new_container_below_max_mem = free_mem >= min_mem_containers and remaining_max_mem > 0
+            new_container_below_max_mem = True
+
+            if new_container_below_max_cpu and new_container_below_max_mem:
+                new_possible_containers[host['name']] += 1
+                remaining_max_cpu -= free_cpu
+                remaining_max_mem -= free_mem
+                free_cpu = 0
+                free_mem = 0
+
+                new_container_below_max_cpu = free_cpu >= min_cpu_containers and remaining_max_cpu > 0
+                #new_container_below_max_mem = free_mem >= min_mem_containers and remaining_max_mem > 0
+                new_container_below_max_mem = True
+
+    return new_possible_containers
+
 
 ## Not used ATM
 def processRemoveStructure_sync(request, url, structure_name, structure_type):
@@ -969,6 +1131,36 @@ def getContainersFromHost(url, host_name):
             containerList.append(item['name'])
                           
     return containerList
+
+def getContainersFromApp(url, app_name):
+
+    try:
+        response = urllib.request.urlopen(url)
+        data = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data = {}
+
+    containerList = []
+    containerNamesList = []
+    app_files = {}
+    app_files['files_dir'] = ""
+    app_files['install_script'] = ""
+    app_files['start_script'] = ""
+    app_files['stop_script'] = ""
+
+    for item in data:
+        if (item['subtype'] == 'application' and item['name'] == app_name):
+            containerNamesList = item['containers']
+            app_files['files_dir'] = item['files_dir']
+            app_files['install_script'] = item['install_script']
+            app_files['start_script'] = item['start_script']
+            app_files['stop_script'] = item['stop_script']
+
+    for item in data:
+        if (item['subtype'] == 'container' and item['name'] in containerNamesList):
+            containerList.append(item)
+
+    return containerList, app_files
 
 ## Services
 def services(request):

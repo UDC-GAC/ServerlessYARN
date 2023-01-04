@@ -24,8 +24,11 @@
       when: "container_engine == 'apptainer'"
       tags: start_containers
       vars:
+        - template_definition_file: "ubuntu_container.def"
         - definition_file: "ubuntu_container.def"
         - image_file: "ubuntu_container.sif"
+        - app_base_image_file: "ubuntu_container.sif"
+        - app_name: "base"
         - cgroups_file: "apptainer_containers_cgroup.toml"
 
     - import_tasks: tasks/containers_setup/node_rescaler_launch.yml

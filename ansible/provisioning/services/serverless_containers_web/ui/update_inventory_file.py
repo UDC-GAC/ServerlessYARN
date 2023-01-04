@@ -64,7 +64,8 @@ def add_containers_to_hosts(new_containers):
     ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
 
     hostsList = ansible_inventory.groups['nodes'].get_hosts()
-    
+    addedContainers = {}
+
     for host in hostsList:
 
         if (host.name in new_containers):
@@ -72,6 +73,7 @@ def add_containers_to_hosts(new_containers):
             cpu = host.vars['cpu']
             mem = host.vars['mem']
             containers = host.vars['containers']
+            addedContainers[host.name] = []
 
             current_containers = len(containers)
             
@@ -88,10 +90,13 @@ def add_containers_to_hosts(new_containers):
 
             for i in range(new_container_index,new_container_index + new_containers[host.name],1):
                 cont_name = 'cont' + str(i)
-                containers.append(host.name + host_container_separator + cont_name)
+                full_cont_name = host.name + host_container_separator + cont_name
+                containers.append(full_cont_name)
+                addedContainers[host.name].append(full_cont_name)
 
             write_container_list(containers,host.name,cpu,mem)
 
+    return addedContainers
 
 def write_container_list(container_list,host,cpu,mem):
             

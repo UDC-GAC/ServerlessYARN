@@ -10,7 +10,7 @@ base_container = dict(
     guard_policy="serverless",
     host_rescaler_port='8000',
     name="base_container",
-    guard=False
+    guard=True
 )
 
 base_host = dict(

@@ -22,6 +22,8 @@
     - import_tasks: tasks/install/serverless_containers_setup.yml
     - import_tasks: tasks/install/hosts_setup.yml
     - import_tasks: tasks/install/autoserverlessweb_services_setup.yml
+    - import_tasks: tasks/install/apptainer_setup.yml
+      when: "virtual_mode and container_engine == 'apptainer'"
 
 # Setup nodes
 - name: Install requisites in client nodes

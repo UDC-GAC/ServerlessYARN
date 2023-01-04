@@ -325,6 +325,18 @@ class AddAppForm(forms.Form):
     mem_boundary = forms.IntegerField(label= "Mem boundary",
             required=True
             )
+    files_dir = forms.CharField(label= "Files directory",
+            required=False
+            )
+    install_script = forms.CharField(label= "Install script",
+            required=False
+            )
+    start_script = forms.CharField(label= "Start script",
+            required=True
+            )
+    stop_script = forms.CharField(label= "Stop script",
+            required=True
+            )
     def __init__(self, *args, **kwargs):
         super(AddAppForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -342,6 +354,10 @@ class AddAppForm(forms.Form):
             Field('mem_min'),
             Field('cpu_boundary'),
             Field('mem_boundary'),
+            Field('files_dir'),
+            Field('install_script'),
+            Field('start_script'),
+            Field('stop_script'),
             FormActions(
                 Submit('save', 'Add app', css_class='caja'),
             )
@@ -364,6 +380,21 @@ class AddContainersToAppForm(forms.Form):
             widget=forms.CheckboxSelectMultiple,
             required=False
             )
+    fill_with_new_containers = forms.BooleanField(label= "Fill with new containers",
+            required=False
+            )
+    files_dir = forms.CharField(label= "Files directory",
+            required=False
+            )
+    install_script = forms.CharField(label= "Install script",
+            required=True
+            )
+    start_script = forms.CharField(label= "Start script",
+            required=True
+            )
+    stop_script = forms.CharField(label= "Stop script",
+            required=True
+            )
     def __init__(self, *args, **kwargs):
         super(AddContainersToAppForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -375,6 +406,11 @@ class AddContainersToAppForm(forms.Form):
             Field('structure_type', type="hidden", readonly=True),
             Field('name', readonly=True),
             Field('containers_to_add'),
+            Field('fill_with_new_containers'),
+            Field('files_dir',type="hidden", readonly=True),
+            Field('install_script',type="hidden", readonly=True),
+            Field('start_script',type="hidden", readonly=True),
+            Field('stop_script',type="hidden", readonly=True),
             FormActions(
                 Submit('save', 'Add Containers to App', css_class='caja'),
             )
@@ -393,6 +429,18 @@ class RemoveContainersFromAppForm(forms.Form):
             widget=forms.CheckboxSelectMultiple,
             required=False
             )
+    files_dir = forms.CharField(label= "Files directory",
+            required=False
+            )
+    install_script = forms.CharField(label= "Install script",
+            required=True
+            )
+    start_script = forms.CharField(label= "Start script",
+            required=True
+            )
+    stop_script = forms.CharField(label= "Stop script",
+            required=True
+            )
     def __init__(self, *args, **kwargs):
         super(RemoveContainersFromAppForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -403,6 +451,10 @@ class RemoveContainersFromAppForm(forms.Form):
             Field('operation', type="hidden", readonly=True),
             Field('app', type="hidden", readonly=True),
             Field('containers_removed'),
+            Field('files_dir',type="hidden", readonly=True),
+            Field('install_script',type="hidden", readonly=True),
+            Field('start_script',type="hidden", readonly=True),
+            Field('stop_script',type="hidden", readonly=True),
             FormActions(
                 Submit('save', 'Remove containers from app', css_class='caja'),
             )

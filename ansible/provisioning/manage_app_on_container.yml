@@ -1,0 +1,102 @@
+# Start an app on a container
+- hosts: nodes
+  become: no
+  gather_facts: no
+
+  vars_files:
+    - vars/main.yml
+    - config/config.yml
+
+  vars:
+    - container_bind_dir: "{{ installation_path }}/singularity_binds/{{ container }}"
+    - bind_dir_on_container: /opt/bind
+
+  environment:
+    BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
+    RESCALING_PATH: "{{ serverless_containers_path }}/scripts/"
+    PYTHONPATH: ":{{ serverless_containers_path }}"
+
+  ## Singularity + cgroups v1
+  tasks:
+
+  - name: get the username id running the deploy
+    become: no
+    local_action: command id -u
+    register: userid_on_the_host
+    tags: never, start_app
+
+  - name: Copy app files already on container if there was an installation
+    shell: "sudo singularity exec instance://{{ container }} bash -c 'cp -pr /opt/{{ app_name }}/* {{ bind_dir_on_container }} && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/*'"
+    when: "install_script != ''"
+    args:
+      executable: /bin/bash
+    tags: never, start_app
+
+  - name: Check if app files directory is already there
+    when: "files_dir != ''"
+    stat:
+      path: "{{ container_bind_dir }}/{{ files_dir }}"
+    register: stat_output
+    tags: start_app, stop_app
+
+  - name: Copy app files directory
+    when: "files_dir != '' and not stat_output.stat.exists"
+    copy:
+      src: "apps/{{ files_dir }}"
+      dest: "{{ container_bind_dir }}/"
+      mode: preserve
+    tags: start_app, stop_app
+
+  - name: Copy app start script
+    copy:
+      src: "apps/{{ start_script }}"
+      dest: "{{ container_bind_dir }}/{{ start_script }}"
+      mode: preserve
+    tags: start_app 
+
+  - name: Copy app stop script
+    copy:
+      src: "apps/{{ stop_script }}"
+      dest: "{{ container_bind_dir }}/{{ stop_script }}"
+      mode: preserve
+    tags: start_app, stop_app
+
+  - name: Execute start script on container
+    shell: "sudo singularity exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script }}"
+    #when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"
+    args:
+      executable: /bin/bash
+    tags: never, start_app
+
+  - name: Execute stop script on container
+    shell: "sudo singularity exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script }}"
+    #when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"
+    args:
+      executable: /bin/bash
+    tags: never, stop_app
+
+  - name: Remove app files directory
+    when: "files_dir != ''"
+    file:
+      path: "{{ container_bind_dir }}/{{ files_dir }}"
+      state: absent
+    tags: never, stop_app
+
+  - name: Remove app install script
+    when: "install_script != ''"
+    file:
+      path: "{{ container_bind_dir }}/{{ install_script }}"
+      state: absent
+    tags: never, stop_app
+
+  - name: Remove app start script
+    file:
+      path: "{{ container_bind_dir }}/{{ start_script }}"
+      state: absent
+    tags: never, stop_app
+
+  - name: Remove app stop script
+    file:
+      path: "{{ container_bind_dir }}/{{ stop_script }}"
+      state: absent
+    tags: never, stop_app
