@@ -19,8 +19,6 @@
   copy:
     src: "apps/{{ files_dir }}"
     dest: "{{ installation_path }}/apps/{{ app_name }}"
-    mode: preserve
-    directory_mode: preserve
   tags: never, create_app
 
 - name: Copy app install script
@@ -29,7 +27,6 @@
   copy:
     src: "apps/{{ install_script }}"
     dest: "{{ installation_path }}/apps/{{ app_name }}/{{ install_script }}"
-    mode: preserve
   tags: never, create_app
 
 - name: Build image
