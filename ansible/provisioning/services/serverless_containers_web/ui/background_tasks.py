@@ -179,8 +179,15 @@ def remove_host_task(full_url, headers, host_name):
         raise Exception(error)
 
 @shared_task
-def remove_app_task(full_url, headers, app_name):
+def remove_app_task(url, structure_type_url, headers, app_name, container_list, app_files):
 
+    # first, remove all containers from app
+    for container in container_list:
+        full_url = url + "container/{0}/{1}".format(container['name'], app_name)
+        remove_container_from_app_task(full_url, headers, container['host'], container['name'], app_name, app_files)
+
+    # then, actually remove app
+    full_url = url + structure_type_url + "/" + app_name
     r = requests.delete(full_url, headers=headers)
     
     error = ""

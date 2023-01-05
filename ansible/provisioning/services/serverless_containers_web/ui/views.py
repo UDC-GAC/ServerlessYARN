@@ -949,12 +949,7 @@ def processRemoveStructure(request, url, structure_name, structure_type):
         structure_type_url = "apps"
         containerList, app_files = getContainersFromApp(url, structure_name)
 
-        for container in containerList:
-            processRemoveContainerFromApp(url, "({0},{1})".format(container['name'],container['host']), structure_name, app_files)
-
-        full_url = url + structure_type_url + "/" + structure_name
-
-        task = remove_app_task.delay(full_url, headers, structure_name)
+        task = remove_app_task.delay(url, structure_type_url, headers, structure_name, containerList, app_files)
         print("Starting task with id {0}".format(task.id))
         register_task(task.id,"remove_app_task")
 
