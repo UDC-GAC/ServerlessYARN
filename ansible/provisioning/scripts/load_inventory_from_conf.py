@@ -1,17 +1,18 @@
 #!/usr/bin/env python
 import sys
 import io
-import yaml
 import os
+import yaml
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
 from ansible.inventory.manager import InventoryManager
 
-# usage example: load_inventory_from_conf.py /etc/ansible/hosts config/config.yml  -> example outdated
-
 scriptDir = os.path.realpath(os.path.dirname(__file__))
 inventory_file = scriptDir + "/../../ansible.inventory"
 host_container_separator = "-"
+
+sys.path.append(scriptDir + "/../services/serverless_containers_web/ui")
+from update_inventory_file import write_container_list
 
 def update_server_ip(server_ip):
 
@@ -49,7 +50,6 @@ def update_server_ip(server_ip):
             file.writelines( server_info )
 
 
-
 def write_inventory_from_conf(number_of_hosts,number_of_containers_per_node,cpu_per_node,mem_per_node):
 
     structures = {}
@@ -77,7 +77,7 @@ def write_inventory_from_conf(number_of_hosts,number_of_containers_per_node,cpu_
             file.write(data[i])
 
     for host in structures:
-        write_container_list(host,structures[host]['cpu'],structures[host]['mem'],structures[host]['containers'])
+        write_container_list(structures[host]['containers'],host,structures[host]['cpu'],structures[host]['mem'])
 
 def update_inventory_hosts_containers(number_of_containers_per_node):
 
@@ -96,7 +96,7 @@ def update_inventory_hosts_containers(number_of_containers_per_node):
     print(structures)
 
     for host in structures:
-        write_container_list(host,structures[host]['cpu'],structures[host]['mem'],structures[host]['containers'])
+        write_container_list(structures[host]['containers'],host,structures[host]['cpu'],structures[host]['mem'])
 
 def create_container_list(host_name,number_of_containers_per_node):
 
@@ -108,53 +108,8 @@ def create_container_list(host_name,number_of_containers_per_node):
 
     return host_containers
 
-def write_container_list(host,cpu,mem,container_list):
-
-    i = 0
-    containers_formatted = "\'["
-
-    while (i < len(container_list) - 1):
-        containers_formatted += "\"" + container_list[i] + "\","
-        i += 1
-        
-    if len(container_list) > 0:
-        containers_formatted += "\"" + container_list[i] + "\"]\'"
-    else:
-        containers_formatted += "]\'"
-
-    # read lines
-    with open(inventory_file, 'r') as file:
-        # read a list of lines into data
-        data = file.readlines()
-
-
-    i = 0
-
-    # skip to nodes
-    while (i < len(data) and data[i] != "[nodes]\n"):
-        i+=1
-
-    i+=1
-
-    # skip to desired node
-    while (i < len(data) and host not in data[i]):
-        i+=1
-
-    host_info = host + " cpu=" + str(cpu) + " mem=" + str(mem) + " containers=" + containers_formatted + "\n"
-
-    if (i < len(data)):
-        data[i] = host_info
-        with open(inventory_file, 'w') as file:
-            file.writelines( data )
-    else:
-        new_line = host_info
-        with open(inventory_file, 'a') as file:
-            file.writelines( host_info )
-
 if __name__ == "__main__":   
 
-    #inventory_file = sys.argv[1]
-    #config_file = sys.argv[2]
     config_file = scriptDir + "/../config/config.yml"
 
     with open(config_file, "r") as f:

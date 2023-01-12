@@ -31,7 +31,7 @@ if __name__ == "__main__":
         new_host = sys.argv[1]
         host_cpu = int(sys.argv[2])
         host_mem = int(sys.argv[3])
-        new_containers = sys.argv[4].split(',')
+        containers = sys.argv[4].split(',')
         with open(sys.argv[5], "r") as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -43,7 +43,8 @@ if __name__ == "__main__":
         if handler.database_exists(database):
                                         
             ## Container
-            for c in new_containers:
+            new_containers = []
+            for c in containers:
                 try:
                     old_container = handler.get_structure(c)
 
@@ -53,6 +54,7 @@ if __name__ == "__main__":
                     #handler.update_structure(old_container)
                 except ValueError:
                     # new container
+                    new_containers.append(c)
                     container = base_container
                     container["name"] = c
                     container["host"] = new_host
@@ -68,21 +70,78 @@ if __name__ == "__main__":
                 old_host = handler.get_structure(new_host)
             except ValueError:
                 # new host
-                max_cpu_division = int(host_cpu * 100 / len(new_containers))
+                max_shares = host_cpu * 100
+                max_cpu_division = int(max_shares / len(containers))
                 max_cpu_percentage_per_container = int(config['max_cpu_percentage_per_container'])
                 cpu_allowance_limit = min(max_cpu_division, max_cpu_percentage_per_container)
-                free_cpu = host_cpu*100 - (cpu_allowance_limit * len(new_containers))
 
-                max_mem_division = host_mem / len(new_containers)
+                core_mapping = {}
+                for i in range(0,host_cpu,1):
+                    core_mapping[str(i)] = {"free": 100}
+
+                max_mem_division = host_mem / len(containers)
                 max_memory_per_container = int(config['max_memory_per_container'])
                 mem_limit = min(max_mem_division, max_memory_per_container)
-                free_mem = host_mem - (mem_limit * len(new_containers))
 
                 host = base_host
                 host["name"] = new_host
                 host["host"] = new_host
                 host["resources"] = dict(
-                    cpu=dict(max=host_cpu*100, free=free_cpu),
-                    mem=dict(max=host_mem, free=free_mem)
+                    cpu=dict(max=max_shares, free=max_shares, core_usage_mapping=core_mapping),
+                    mem=dict(max=host_mem, free=host_mem)
                 )
                 handler.add_structure(host)
+
+            ## Update Host core mapping
+            try:
+                host_info = handler.get_structure(new_host)
+                current_free_cpu = host_info['resources']['cpu']['free']
+                max_cpu = host_info['resources']['cpu']['max']
+
+                if len(new_containers) > 0:
+                    max_cpu_division = int(current_free_cpu / len(new_containers))
+                else:
+                    max_cpu_division = 0
+                max_cpu_percentage_per_container = int(config['max_cpu_percentage_per_container'])
+                cpu_allowance_limit = min(max_cpu_division, max_cpu_percentage_per_container)
+
+                core_mapping = host_info['resources']['cpu']['core_usage_mapping']
+                current_core = 0
+                current_free = core_mapping[str(current_core)]['free']
+
+                for c in new_containers:
+                    to_allocate = cpu_allowance_limit
+
+                    while (to_allocate > 0 and current_core < host_cpu):
+                        if (to_allocate >= 100):
+                            core_mapping[str(current_core)][c] = current_free
+                            core_mapping[str(current_core)]["free"] -= current_free
+                            to_allocate -= current_free
+                            current_core += 1
+                            if current_core < host_cpu: current_free = core_mapping[str(current_core)]['free']
+
+                        else:
+                            min_usage = min(current_free, to_allocate)
+                            core_mapping[str(current_core)][c] = min_usage
+                            core_mapping[str(current_core)]["free"] -= min_usage
+                            if (min_usage == to_allocate):
+                                ## we continue in current core
+                                current_free -= to_allocate
+                                to_allocate = 0
+                            else:
+                                ## we switch to next core
+                                to_allocate -= current_free
+                                current_core += 1
+                                if current_core < host_cpu: current_free = core_mapping[str(current_core)]['free']
+
+                print(core_mapping)
+
+                # Update DB
+                host_info['resources']['cpu'] = dict(max=max_cpu, free=current_free_cpu, core_usage_mapping=core_mapping)
+                handler.update_structure(host_info)
+                print("Host updated with")
+                print(core_mapping)
+
+            except ValueError:
+                # new host
+                print("Host " + new_host + " doesn't exist")

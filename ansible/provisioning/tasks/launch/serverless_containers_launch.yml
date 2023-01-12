@@ -33,13 +33,15 @@
   ignore_errors: yes
   tags: start_containers, restart_services
 
-## Deactivate Scaler before updating the State Database
-- name: Deactivate Scaler Service
-  shell: "bash scripts/orchestrator/Scaler/deactivate.sh"
+## Deactivate some services before updating the State Database
+- name: Deactivate services before updating State Database
+  shell: "bash scripts/orchestrator/{{ item }}/deactivate.sh"
   when: "'orchestrator' in tmux_output.stdout"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
+  with_items:
+    - Scaler
   tags: start_containers
 
 ## Structures Using new script 
@@ -53,14 +55,6 @@
 ## Limits Using new script 
 - name: Initializing State Database - limits
   shell: "python3 scripts/stateDatabase/add_limits.py {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') | replace(',',' ') }}"
-  args:
-    executable: /bin/bash
-  with_items: "{{ groups['nodes'] }}"
-  tags: start_containers
-
-## Initialize cpu resource info of hosts
-- name: Initializing State Database - hosts CPU info
-  shell: "python3 scripts/stateDatabase/update_host_cpu.py {{ item }} {{ hostvars[item].cpu  }} {{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }} true config/config.yml"
   args:
     executable: /bin/bash
   with_items: "{{ groups['nodes'] }}"

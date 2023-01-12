@@ -4,20 +4,19 @@ from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormS
 from ui.forms import RemoveStructureForm, AddHostForm, AddContainerForm, AddNContainersFormSetHelper, AddNContainersForm, AddAppForm, AddContainersToAppForm, RemoveContainersFromAppForm
 from django.forms import formset_factory
 from django.http import HttpResponse
-#from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host
 import urllib.request
 import urllib.parse
 import json
 import requests
 import time
 import yaml
+import re
+import functools
 from bs4 import BeautifulSoup
-#import subprocess
 
 from ui.background_tasks import start_containers_task, add_host_task, add_app_task, add_container_to_app_task, start_containers_with_app_task
 from ui.background_tasks import remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task
 from celery.result import AsyncResult
-
 
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file:
@@ -184,6 +183,45 @@ def apps(request):
     return structures(request, "apps","apps.html")
 
 # Prepare data to HTML
+def compareContainerNames(container1, container2):
+    # When using a dict to store container info
+    if isinstance(container1, dict):
+        cname1 = container1['name']
+        cname2 = container2['name']
+    # When using a tuple to store container info (host core mapping case))
+    elif isinstance(container1, tuple):
+        cname1 = container1[0]
+        cname2 = container2[0]
+    # When using containers as strings
+    else:
+        cname1 = container1
+        cname2 = container2
+
+    id1 = re.sub('.*?([0-9]*)$',r'\1',cname1)
+    id2 = re.sub('.*?([0-9]*)$',r'\1',cname2)
+
+    if id1 != "" and id2 != "":
+        basename1 = cname1[:-len(id1)]
+        basename2 = cname2[:-len(id2)]
+    else:
+        basename1 = cname1
+        basename2 = cname2
+
+    if basename1 < basename2:
+        return -1
+    elif basename1 > basename2:
+        return 1
+    else:
+        if id1 != "" and id2 != "":
+            if int(id1) < int(id2):
+                return -1
+            elif int(id1) > int(id2):
+                return 1
+            else:
+                return 0
+        else:
+            return 0
+
 def getHosts(data):
     hosts = []
 
@@ -207,11 +245,19 @@ def getHosts(data):
                     containers.append(structure)
 
             ## we order this list using name container to keep the order consistent with the 'cpu_cores' dict below
-            item['containers'] = sorted(containers, key=lambda d: d['name']) 
+            item['containers'] = sorted(containers, key=functools.cmp_to_key(compareContainerNames))
 
             # Adjustment to don't let core_usage_mapping be too wide on html display
             if ("cpu" in item['resources'] and "core_usage_mapping" in item['resources']['cpu']):
-                core_mapping = item['resources']['cpu']['core_usage_mapping']
+
+                # Remove removed containers from host core mapping
+                core_mapping = {}
+                container_names = [d['name'] for d in item['containers']]
+                for core, mapping in list(item['resources']['cpu']['core_usage_mapping'].items()):
+                    m = {k:v for k,v in mapping.items() if k in container_names or k == "free"}
+                    core_mapping[core] = m
+
+                # Core sorting
                 core_mapping = {int(k) : v for k, v in core_mapping.items()}
                 core_mapping = dict(sorted(core_mapping.items()))
 
@@ -221,7 +267,7 @@ def getHosts(data):
                         if (cont['name'] not in mapping):
                             mapping[cont['name']] = 0
 
-                    mapping = dict(sorted(mapping.items()))
+                    mapping = dict(sorted(mapping.items(),key=functools.cmp_to_key(compareContainerNames)))
 
                     ## Move 'free' shares of core always to start of dict
                     free = mapping['free']
@@ -279,7 +325,7 @@ def getApps(data):
 
                     containers.append(structure)
 
-            item['containers_full'] = containers
+            item['containers_full'] = sorted(containers, key=functools.cmp_to_key(compareContainerNames))
             item['limits'] = getLimits(item['name'])
 
             ## App Resources Form
@@ -324,7 +370,7 @@ def getContainers(data):
             item['limits_values_labels'] = getStructuresValuesLabels(item, 'limits')
 
             containers.append(item)
-    return containers
+    return sorted(containers, key=functools.cmp_to_key(compareContainerNames))
 
 def getAllContainers(data):
     containers = []

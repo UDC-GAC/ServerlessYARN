@@ -1,14 +1,14 @@
 #!/usr/bin/python
-
 import io
+import os
 import re
 from ansible.parsing.dataloader import DataLoader
 from ansible.vars.manager import VariableManager
 from ansible.inventory.manager import InventoryManager
 
-inventory_file = "../../../ansible.inventory"
+scriptDir = os.path.realpath(os.path.dirname(__file__))
+inventory_file = scriptDir + "/../../../../ansible.inventory"
 host_container_separator = "-"
-
 
 def remove_host(host_name):
 
@@ -99,7 +99,7 @@ def add_containers_to_hosts(new_containers):
     return addedContainers
 
 def write_container_list(container_list,host,cpu,mem):
-            
+
     i = 0
     containers_formatted = "\'["
 
