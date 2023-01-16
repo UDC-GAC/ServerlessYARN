@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'ui',
     'crispy_forms',
+    'django_json_widget',
 ]
 
 MIDDLEWARE = [

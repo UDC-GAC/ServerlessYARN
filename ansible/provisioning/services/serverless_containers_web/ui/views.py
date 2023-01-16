@@ -1,7 +1,7 @@
 from django.shortcuts import render,redirect
 from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm
 from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper, HostResourcesForm, HostResourcesFormSetHelper
-from ui.forms import RemoveStructureForm, AddHostForm, AddContainerForm, AddNContainersFormSetHelper, AddNContainersForm, AddAppForm, AddContainersToAppForm, RemoveContainersFromAppForm
+from ui.forms import RemoveStructureForm, AddHostForm, AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddAppForm, AddContainersToAppForm, RemoveContainersFromAppForm
 from django.forms import formset_factory
 from django.http import HttpResponse
 import urllib.request
@@ -156,8 +156,8 @@ def structures(request, structure_type, html_render):
         structures = getContainers(data_json)
         hosts = getHostsNames(data_json)
         addStructureForm = {}
-        addStructureForm['add_container'] = AddContainerForm()
-        addStructureForm['add_n_containers'] = setAddNContainersForm(structures,hosts,structure_type)
+        addStructureForm['add_containers'] = setAddContainersForm(structures,hosts,structure_type)
+        #addStructureForm['add_n_containers'] = setAddNContainersForm(structures,hosts,structure_type)
 
     elif(structure_type == "hosts"):
         structures = getHosts(data_json)
@@ -519,6 +519,20 @@ def setAddContainersToAppForm(structure, free_containers, form_action):
     structure['add_containers_to_app_form'] = addContainersToAppForm
     structure['add_containers_to_app_editable_data'] = editable_data
 
+def setAddContainersForm(structures, hosts, form_action):
+
+    host_list = {}
+    for host in hosts:
+        host_list[host['name']] = 0
+
+    addContainersForm = AddContainersForm()
+    addContainersForm.fields['host_list'].initial = host_list
+
+    addContainersForm.helper.form_action = form_action
+
+    return addContainersForm
+
+# Not used ATM
 def setAddNContainersForm(structures, hosts, form_action):
 
     form_initial_data_list = []
@@ -708,22 +722,22 @@ def processAdds(request, url):
 
     if ("operation" in request.POST and request.POST["operation"] == "add"):
         
-        structure_name = request.POST['name']
         structure_type = request.POST['structure_type']
-
         resources = ["cpu","mem","disk","net","energy"]
 
         error = ""
 
         if (structure_type == "host"):
-            error = processAddHost(request, url, structure_name, structure_type, resources)
+            host_name = request.POST['name']
+            error = processAddHost(request, url, host_name, structure_type, resources)
         elif (structure_type == "container"):
-            host = request.POST['host']
-            error = processAddContainer(request, url, structure_name, structure_type, resources, host)
+            host_list = request.POST['host_list']
+            error = processAddContainers(request, url, structure_type, resources, host_list)
         elif (structure_type == "apps"):
-            error = processAddApp(request, url, structure_name, structure_type, resources)
+            app = request.POST['name']
+            error = processAddApp(request, url, app, structure_type, resources)
         elif (structure_type == "containers_to_app"):
-            app = structure_name
+            app = request.POST['name']
             containers_to_add = request.POST.getlist('containers_to_add', None)
             for container in containers_to_add:
                 error = processAddContainerToApp(request, url, app, container)
@@ -737,14 +751,14 @@ def processAdds(request, url):
 
         if (len(error) > 0): errors.append(error)
 
-    elif ("form-TOTAL_FORMS" in request.POST and request.POST['form-0-operation'] == "add"):
-        total_forms = int(request.POST['form-TOTAL_FORMS'])
+    #elif ("form-TOTAL_FORMS" in request.POST and request.POST['form-0-operation'] == "add"):
+    #    total_forms = int(request.POST['form-TOTAL_FORMS'])
 
-        for i in range(0,total_forms,1):
-            host = request.POST['form-' + str(i) + "-host"]
-            containers_added = request.POST['form-' + str(i) + "-containers_added"]
-            error = processAddNContainers(request, url, host, containers_added)
-            if (len(error) > 0): errors.append(error)
+    #    for i in range(0,total_forms,1):
+    #        host = request.POST['form-' + str(i) + "-host"]
+    #        containers_added = request.POST['form-' + str(i) + "-containers_added"]
+    #        error = processAddNContainers(request, url, host, containers_added)
+    #        if (len(error) > 0): errors.append(error)
 
     return errors
 
@@ -791,47 +805,34 @@ def processAddHost_via_API(request, url, structure_name, structure_type, resourc
 
     return error
 
-# Does not start added containers ATM
-def processAddContainer(request, url, structure_name, structure_type, resources, host):
+def processAddContainers(request, url, structure_type, resources, host_list):
 
-    full_url = url + structure_type + "/" + structure_name
-    headers = {'Content-Type': 'application/json'}
-
-    put_field_data = {
-        'container': {
-            'name': structure_name,
-            'resources': {},
-            'host_rescaler_ip': host,
-            'host_rescaler_port': 8000,
-            'host': host,
-            'guard': 'false',
-            'subtype': "container",
-        },
-        'limits': {'resources': {}}
-    }
+    error = ""
+    container_resources = {}
+    host_list = json.loads(host_list)
 
     for resource in resources:
         if (resource + "_max" in request.POST):
-            resource_max = request.POST[resource + "_max"]
-            resource_min = request.POST[resource + "_min"]
-            put_field_data['container']['resources'][resource] = {'max': int(resource_max), 'current': int(resource_max), 'min': int(resource_min), 'guard': 'false'}
-
+            container_resources[resource + "_max"] = request.POST[resource + "_max"]
+            container_resources[resource + "_min"] = request.POST[resource + "_min"]
         if (resource + "_boundary" in request.POST):
-            resource_boundary = request.POST[resource + "_boundary"]
-            put_field_data['limits']['resources'][resource] = {'boundary': int(resource_boundary)}
+            boundary = request.POST[resource + "_boundary"]
+            if boundary == "":
+                container_resources[resource + "_boundary"] = "0"
+            else:
+                container_resources[resource + "_boundary"] = boundary
 
-    #rc = subprocess.Popen(["./ui/scripts/start_container.sh", host, structure_name])
-    #rc.communicate()
-
-    r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
-
-    error = ""
-    if (r != "" and r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error adding container " + structure_name + ": " + soup.get_text().strip()
+    # start containers from playbook
+    for host in host_list:
+        print(host)
+        new_containers = {host: host_list[host]}
+        task = start_containers_task.delay(host, new_containers, container_resources)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"start_containers_task")
 
     return error
 
+# Not used ATM
 def processAddNContainers(request, url, host, containers_added):
     error = ""
 

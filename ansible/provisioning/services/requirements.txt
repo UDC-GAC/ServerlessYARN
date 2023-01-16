@@ -1,5 +1,6 @@
 Django
 django-crispy-forms
+django_json_widget
 beautifulsoup4
 libtmux
 ansible_runner

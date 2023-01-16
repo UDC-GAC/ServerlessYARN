@@ -146,7 +146,7 @@
 						<a href="#close" title="Close" class="close">X</a>
 						<h2>Edit boundaries of {{ item.name }}</h2>
 						<p>
-							{% load crispy_forms_tags %} {% crispy item.limits_form item.limits_form.helper %}
+							{% load crispy_forms_tags %} {% crispy item.limits_form %}
 						</p>
 					</div>
 				</div>
@@ -250,7 +250,7 @@
 						<a href="#close" title="Close" class="close">X</a>
 						<h2>Edit boundaries of {{ cont.name }}</h2>
 						<p>
-							{% load crispy_forms_tags %} {% crispy cont.limits_form cont.limits_form.helper %}
+							{% load crispy_forms_tags %} {% crispy cont.limits_form %}
 						</p>
 					</div>
 				</div>
@@ -271,7 +271,7 @@
 				<a href="#close" title="Close" class="close">X</a>
 				<h2>Add Containers to App {{ item.name }}</h2>
 				<p>
-					{% load crispy_forms_tags %} {% crispy item.add_containers_to_app_form item.add_containers_to_app_form.helper %}
+					{% load crispy_forms_tags %} {% crispy item.add_containers_to_app_form %}
 				</p>
 			</div>
 		</div>
@@ -286,7 +286,7 @@
 				<a href="#close" title="Close" class="close">X</a>
 				<h2>Remove Containers from App {{ item.name }}</h2>
 				<p>
-					{% load crispy_forms_tags %} {% crispy item.remove_containers_from_app_form item.remove_containers_from_app_form.helper %}
+					{% load crispy_forms_tags %} {% crispy item.remove_containers_from_app_form %}
 				</p>
 			</div>
 		</div>
@@ -303,7 +303,7 @@
 		  <a href="#close" title="Close" class="close">X</a>
 		  <h2>Add App</h2>
 		  <p>
-			  {% load crispy_forms_tags %} {% crispy addStructureForm addStructureForm.helper %}
+			  {% load crispy_forms_tags %} {% crispy addStructureForm %}
 		  </p>
 	  </div>
   </div>
@@ -315,7 +315,7 @@
 		  <a href="#close" title="Close" class="close">X</a>
 		  <h2>Remove Apps</h2>
 		  <p>
-			  {% load crispy_forms_tags %} {% crispy removeStructuresForm removeStructuresForm.helper %}
+			  {% load crispy_forms_tags %} {% crispy removeStructuresForm %}
 		  </p>
 	  </div>
   </div>

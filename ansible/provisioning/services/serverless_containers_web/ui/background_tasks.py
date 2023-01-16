@@ -11,18 +11,32 @@ import json
 # TODO: check if lock is actually working
 lock = redis.Redis().lock("celery")
 
+def container_list_to_formatted_str(container_list):
+    return str(container_list).replace('[','').replace(']','').replace(', ',',').replace('\'','')
+
 @shared_task
-def start_containers_task(host, new_containers):
+def start_containers_task(host, new_containers, container_resources):
 
     # update inventory file
     with lock:
-        add_containers_to_hosts(new_containers)
+        added_containers = add_containers_to_hosts(new_containers)
 
-    rc = subprocess.Popen(["./ui/scripts/start_containers.sh",host], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    added_formatted_containers = container_list_to_formatted_str(added_containers[host])
+
+    max_cpu_percentage_per_container = container_resources["cpu_max"]
+    min_cpu_percentage_per_container = container_resources["cpu_min"]
+    cpu_boundary = container_resources["cpu_boundary"]
+    max_memory_per_container = container_resources["mem_max"]
+    min_memory_per_container = container_resources["mem_min"]
+    mem_boundary = container_resources["mem_boundary"]
+
+    rc = subprocess.Popen([
+        "./ui/scripts/start_containers.sh",host,added_formatted_containers, max_cpu_percentage_per_container, min_cpu_percentage_per_container, cpu_boundary, max_memory_per_container, min_memory_per_container, mem_boundary
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = rc.communicate()
 
     if rc.returncode != 0:
-        error = "Error starting containers {0}: {1}".format(str(new_containers),err.decode("utf-8"))
+        error = "Error starting containers {0}: {1}".format(added_formatted_containers,err.decode("utf-8"))
         raise Exception(error)
 
 @shared_task

@@ -2,6 +2,7 @@ from django import forms
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit, Layout, ButtonHolder, Field, Button
 from crispy_forms.bootstrap import FormActions
+from django_json_widget.widgets import JSONEditorWidget
 
 ### Structures
 class HostResourcesFormSetHelper(FormHelper):
@@ -105,7 +106,7 @@ class LimitsForm(forms.Form):
     name = forms.CharField(label="Name",
             required=True
             ) 
-    cpu_boundary = forms.IntegerField(label="CPU Boundary (CPU percentage)",
+    cpu_boundary = forms.IntegerField(label="CPU Boundary (CPU shares)",
             required=True
             )
     mem_boundary = forms.IntegerField(label="Memory Boundary (MB)",
@@ -204,7 +205,7 @@ class AddHostForm(forms.Form):
             )    
         )       
 
-class AddContainerForm(forms.Form):
+class AddContainersForm(forms.Form):
     operation = forms.CharField(label= "Operation",
             initial="add",
             required=True
@@ -213,8 +214,9 @@ class AddContainerForm(forms.Form):
             initial="container",
             required=True
             )
-    name = forms.CharField(label= "Name",
-            required=True
+    host_list = forms.CharField(label= "Hosts",
+            required=True,
+            widget=JSONEditorWidget(width="50%", height="50%", options={'mode':'form', 'name': 'hosts', 'maxVisibleChilds': 10, 'modes': []})
             )
     cpu_max = forms.IntegerField(label= "CPU Max",
             required=True
@@ -228,17 +230,14 @@ class AddContainerForm(forms.Form):
     mem_min = forms.IntegerField(label= "Mem Min",
             required=True
             )
-    host = forms.CharField(label= "Host",
-            required=True
-            )
     cpu_boundary = forms.IntegerField(label= "CPU boundary",
-            required=True
+            required=False
             )
     mem_boundary = forms.IntegerField(label= "Mem boundary",
-            required=True
+            required=False
             )
     def __init__(self, *args, **kwargs):
-        super(AddContainerForm, self).__init__(*args, **kwargs)
+        super(AddContainersForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()            
         self.helper.form_id = 'id-addcontainerform'
         self.helper.form_class = 'form-group'
@@ -247,17 +246,16 @@ class AddContainerForm(forms.Form):
         self.helper.layout = Layout(
             Field('operation', type="hidden", readonly=True),
             Field('structure_type', type="hidden", readonly=True),
-            Field('name'),
+            Field('host_list'),
             Field('cpu_max'),
             Field('cpu_min'),  
             Field('mem_max'),
             Field('mem_min'),
-            Field('host'),
             Field('cpu_boundary'),
             Field('mem_boundary'),
             FormActions(
                 Submit('save', 'Add container', css_class='caja'),
-            )    
+            )
         )
 
 class AddNContainersFormSetHelper(FormHelper):

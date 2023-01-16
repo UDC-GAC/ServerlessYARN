@@ -142,7 +142,7 @@
 						<a href="#close" title="Close" class="close">X</a>
 						<h2>Edit boundaries of {{ item.name }}</h2>
 						<p>
-							{% load crispy_forms_tags %} {% crispy item.limits_form item.limits_form.helper %}
+							{% load crispy_forms_tags %} {% crispy item.limits_form %}
 						</p>
 					</div>
 				</div>
@@ -156,26 +156,14 @@
     {% endfor %}
   </ul>
    
-  <a href="#openModal-add-container" title="Edit" class="caja">Add Container</a>
+  <a href="#openModal-add-containers" title="Edit" class="caja">Add Containers</a>
   <br><br>  
-  <div align="left" id="openModal-add-container" class="modalDialog">
+  <div align="left" id="openModal-add-containers" class="modalDialog">
 	  <div>
 		  <a href="#close" title="Close" class="close">X</a>
-		  <h2>Add Container</h2>
+		  <h2>Add Containers</h2>
 		  <p>
-			  {% load crispy_forms_tags %} {% crispy addStructureForm.add_container addStructureForm.add_container.helper %}
-		  </p>
-	  </div>
-  </div>
-
-  <a href="#openModal-add-n-containers" title="Edit" class="caja" onclick="hide_addNContainers_submit_buttons();">Add N Containers</a>
-  <br><br>  
-  <div align="left" id="openModal-add-n-containers" class="modalDialog">
-	  <div>
-		  <a href="#close" title="Close" class="close">X</a>
-		  <h2>Add N Containers</h2>
-		  <p>
-			  {% load crispy_forms_tags %} {% crispy addStructureForm.add_n_containers.form addStructureForm.add_n_containers.helper %}
+			  {% load crispy_forms_tags %} {% crispy addStructureForm.add_containers %}
 		  </p>
 	  </div>
   </div>
@@ -187,7 +175,7 @@
 		  <a href="#close" title="Close" class="close">X</a>
 		  <h2>Remove Containers</h2>
 		  <p>
-			  {% load crispy_forms_tags %} {% crispy removeStructuresForm removeStructuresForm.helper %}
+			  {% load crispy_forms_tags %} {% crispy removeStructuresForm %}
 		  </p>
 	  </div>
   </div>  

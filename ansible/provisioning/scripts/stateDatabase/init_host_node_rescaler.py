@@ -6,7 +6,7 @@ import yaml
 import itertools
 import src.StateDatabase.couchdb as couchDB
 
-# usage example: init_host_node_rescaler.py host0 cpu 4 cont0,cont1 config/config.yml
+# usage example: init_host_node_rescaler.py host0 cpu 4 cont0,cont1 200 100 config/config.yml
 
 node_recaler_port = 8000
 
@@ -18,7 +18,7 @@ def getIntegerListRange(list_num):
     return num_range
 
 if __name__ == "__main__":
-    
+
     handler = couchDB.CouchDBServer()
     database = "structures"
 
@@ -26,7 +26,9 @@ if __name__ == "__main__":
     resource = sys.argv[2]
     resource_max_value = int(sys.argv[3])
     containers = sys.argv[4].split(',')
-    with open(sys.argv[5], "r") as f:
+    max_resource_per_container = int(sys.argv[5])
+    min_resource_per_container = int(sys.argv[6])
+    with open(sys.argv[7], "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     base_url = "http://" + host + ":" + str(node_recaler_port) + "/container/"
@@ -53,34 +55,13 @@ if __name__ == "__main__":
 
     if (resource == "cpu"):
         # cpu_allowance_limit
-        if host_found and resource in host_info['resources']:
-            free_cpu = host_info['resources'][resource]['free']
-        else:
-            max_cores = resource_max_value
-            free_cpu = max_cores * 100
-
-        if len(new_containers) > 0:
-            max_cpu_division = int(free_cpu / len(new_containers))
-        else:
-            max_cpu_division = 0
-        max_cpu_percentage_per_container = int(config['max_cpu_percentage_per_container'])
-        cpu_allowance_limit = min(max_cpu_division, max_cpu_percentage_per_container)
+        cpu_allowance_limit = max_resource_per_container
         total_allowance_allocated = 0
         current_core = 0
 
     elif (resource == "mem"):
         # mem_limit
-        if host_found and resource in host_info['resources']:
-            free_memory = host_info['resources'][resource]['free']
-        else:
-            free_memory = resource_max_value
-
-        if len(new_containers) > 0:
-            max_mem_division = free_memory / len(new_containers)
-        else:
-            max_mem_division = 0
-        max_memory_per_container = int(config['max_memory_per_container'])
-        mem_limit = min(max_mem_division, max_memory_per_container)
+        mem_limit = max_resource_per_container
 
     for c in containers:
         full_url = base_url + c
@@ -140,7 +121,7 @@ if __name__ == "__main__":
                 else:
                     allocated = 0
                     for core in range(0,number_of_cores):
-                        if c in core_mapping[str(core)]:
+                        if c in core_mapping[str(core)] and core_mapping[str(core)][c] > 0:
                             allocated += core_mapping[str(core)][c]
                             cpu_core_list.append(core)
 

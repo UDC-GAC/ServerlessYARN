@@ -29,14 +29,15 @@ memory_per_client_node: 4096
 
 ## Containers initial values
 number_of_containers_per_node: 2
-max_cpu_percentage_per_container: 400
+max_cpu_percentage_per_container: 200
 min_cpu_percentage_per_container: 50
-max_memory_per_container: 4096
+max_memory_per_container: 2048
 min_memory_per_container: 1024
 
+# TODO: It may be interesting to leave the possibility to start at least one app from config
 ## Application initial values
-#number_of_apps: 1 -> at the moment, i support only 1 app
-max_cpu_percentage_per_app: 400
-min_cpu_percentage_per_app: 100
-max_memory_per_app: 4096
-min_memory_per_app: 2048
+#number_of_apps: 1
+#max_cpu_percentage_per_app: 400
+#min_cpu_percentage_per_app: 100
+#max_memory_per_app: 4096
+#min_memory_per_app: 2048

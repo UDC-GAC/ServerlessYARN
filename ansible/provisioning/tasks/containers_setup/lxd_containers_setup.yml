@@ -11,18 +11,18 @@
 - name: Check if certificate already added to trust store
   shell: lxc config trust list -f csv | wc -l  
   register: lxc_trust_output
-        
+
 - name: Setup lxd (1)
   shell: "lxc config trust add {{ lxd_key_path }}/{{ lxd_key_name }}.crt"
   when: lxc_trust_output.stdout | int == 0
   args:
     executable: /bin/bash
-    
+
 - name: Setup lxd (2)
   shell: lxc config set core.https_address [::]:8443
   args:
     executable: /bin/bash
-    
+
 - name: Setup lxd (3)
   shell: lxc config set core.trust_password TRUE
   args:
@@ -38,12 +38,12 @@
   register: lxc_list_output
   args:
     executable: /bin/bash
-  
+
 - name: Init lxc containers
   shell: lxc init ubuntu:20.04 {{ item }}
   when: "item not in lxc_list_output.stdout"
   loop: "{{ hostvars[inventory_hostname].containers }}"
-  
+
 - name: Check again containers status
   shell: lxc list -f csv | grep {{ item }}
   register: lxc_list_output
@@ -51,12 +51,12 @@
   ignore_errors: yes
   args:
     executable: /bin/bash
-  
+
 - name: Start lxc containers
   shell: lxc start {{ item.item }}
   when: "'STOPPED' in item.stdout"
   with_items: "{{ lxc_list_output.results }}"
-  
+
 ## TODO: create lxd image to avoid repeating the following steps on every new container
 ## Send metrics  
 - name: Atop executable check in lxc containers
@@ -98,9 +98,8 @@
   register: tmux_output
   loop: "{{ hostvars[inventory_hostname].containers }}"
   ignore_errors: yes
-  
+
 - name: Start sending metrics to opentsdb
   shell: lxc exec {{ item.item }} -- sudo bash -c "cd {{ bdwatchdog_path }}/MetricsFeeder && bash scripts/run_atop_stream_tmux.sh"
   when: "'ATOP' not in item.stdout"
   with_items: "{{ tmux_output.results }}"
-  
