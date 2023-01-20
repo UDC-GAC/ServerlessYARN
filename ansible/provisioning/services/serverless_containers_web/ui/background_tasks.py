@@ -2,14 +2,71 @@ import time
 import subprocess
 import requests
 from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host
-
 from celery import shared_task
+from celery.result import AsyncResult
 from bs4 import BeautifulSoup
 import redis
 import json
 
+r = redis.Redis()
+redis_prefix = "pending_tasks"
 # TODO: check if lock is actually working
-lock = redis.Redis().lock("celery")
+lock = r.lock("celery")
+
+def register_task(task_id, task_name):
+    key = "{0}:{1}".format(redis_prefix,task_id)
+    r.mset({key: task_name})
+
+def get_pending_tasks():
+    still_pending_tasks = []
+    successful_tasks = []
+    failed_tasks = []
+
+    for key in r.scan_iter("{0}:*".format(redis_prefix)):
+        task_name = r.get(key).decode("utf-8")
+        task_id = key.decode("utf-8")[len(redis_prefix) + 1:]
+        task_result = AsyncResult(task_id)
+        status = task_result.status
+
+        if status != "SUCCESS" and status != "FAILURE":
+            still_pending_tasks.append((task_id,task_name))
+        elif status == "SUCCESS":
+            successful_tasks.append((task_id,task_name))
+        else:
+            failed_tasks.append((task_id,task_name,task_result.result))
+
+    # remove completed or failed tasks
+    for task_id, task_name in successful_tasks:
+        r.delete("{0}:{1}".format(redis_prefix, task_id))
+
+    for task_id, task_name, task_error in failed_tasks:
+        r.delete("{0}:{1}".format(redis_prefix, task_id))
+
+    # TODO: remove pending tasks after a timeout
+
+    return still_pending_tasks, successful_tasks, failed_tasks
+
+def get_pendings_tasks_to_string():
+    still_pending_tasks, successful_tasks, failed_tasks = get_pending_tasks()
+
+    still_pending_tasks_string = []
+    successful_tasks_string = []
+    failed_tasks_string = []
+
+    for task_id, task_name in still_pending_tasks:
+        info = "Task with ID {0} and name {1} is pending".format(task_id,task_name)
+        still_pending_tasks_string.append(info)
+
+    for task_id, task_name in successful_tasks:
+        success = "Task with ID {0} and name {1} has completed successfully".format(task_id,task_name)
+        successful_tasks_string.append(success)
+
+    for task_id, task_name, task_error in failed_tasks:
+        error = "Task with ID {0} and name {1} has failed with error: {2}".format(task_id,task_name,task_error)
+        failed_tasks_string.append(error)
+
+    return still_pending_tasks_string, successful_tasks_string, failed_tasks_string
+
 
 def container_list_to_formatted_str(container_list):
     return str(container_list).replace('[','').replace(']','').replace(', ',',').replace('\'','')
@@ -54,7 +111,7 @@ def add_host_task(host,cpu,mem,new_containers):
         raise Exception(error)
 
 @shared_task
-def add_app_task(full_url, headers, put_field_data, app, app_files):
+def add_app_task(full_url, headers, put_field_data, app, app_files, new_containers, container_resources):
 
     r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
 
@@ -78,6 +135,19 @@ def add_app_task(full_url, headers, put_field_data, app, app_files):
             if rc.returncode != 0:
                 error = "Error creating app {0}: {1}".format(app, err.decode("utf-8"))
                 raise Exception(error)
+
+        url = full_url[:full_url.rfind('/')]
+        url = url[:url.rfind('/')] + "/"
+        for host in new_containers:
+            task = start_containers_with_app_task.delay(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])
+            register_task(task.id,"start_containers_with_app_task")
+            if "bigger" in new_containers[host]:
+                task = start_containers_with_app_task.delay(url, headers, host, new_containers[host]["bigger"], app, app_files, container_resources["bigger"])
+                register_task(task.id,"start_containers_with_app_task")
+            if "smaller" in new_containers[host]:
+                task = start_containers_with_app_task.delay(url, headers, host, new_containers[host]["smaller"], app, app_files, container_resources["smaller"])
+                register_task(task.id,"start_containers_with_app_task")
+
 
     else:
         raise Exception(error)
@@ -109,11 +179,13 @@ def add_container_to_app_task(full_url, headers, host, container, app, app_files
         raise Exception(error)
 
 @shared_task
-def start_containers_with_app_task(url, headers, host, new_containers, app, app_files):
-
+def start_containers_with_app_task(url, headers, host, new_containers, app, app_files, container_resources):
+    #TODO: merge function with start_containers_task
     # update inventory file
     with lock:
         added_containers = add_containers_to_hosts({host: new_containers})
+
+    added_formatted_containers = container_list_to_formatted_str(added_containers[host])
 
     # Start containers
     if app_files['install_script']:
@@ -125,7 +197,16 @@ def start_containers_with_app_task(url, headers, host, new_containers, app, app_
         definition_file = "ubuntu_container.def"
         image_file = "ubuntu_container.sif"
 
-    rc = subprocess.Popen(["./ui/scripts/start_containers_with_app.sh", host, app, template_definition_file, definition_file, image_file, app_files['files_dir'], app_files['install_script']], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    max_cpu_percentage_per_container = container_resources["cpu_max"]
+    min_cpu_percentage_per_container = container_resources["cpu_min"]
+    cpu_boundary = container_resources["cpu_boundary"]
+    max_memory_per_container = container_resources["mem_max"]
+    min_memory_per_container = container_resources["mem_min"]
+    mem_boundary = container_resources["mem_boundary"]
+
+    rc = subprocess.Popen([
+        "./ui/scripts/start_containers_with_app.sh", host, app, template_definition_file, definition_file, image_file, app_files['files_dir'], app_files['install_script'], added_formatted_containers, max_cpu_percentage_per_container, min_cpu_percentage_per_container, cpu_boundary, max_memory_per_container, min_memory_per_container, mem_boundary
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = rc.communicate()
 
     if rc.returncode != 0:

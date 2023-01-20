@@ -16,14 +16,13 @@ from bs4 import BeautifulSoup
 
 from ui.background_tasks import start_containers_task, add_host_task, add_app_task, add_container_to_app_task, start_containers_with_app_task
 from ui.background_tasks import remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task
-from celery.result import AsyncResult
+from ui.background_tasks import register_task, get_pendings_tasks_to_string
 
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file:
     config = yaml.load(config_file, Loader=yaml.FullLoader)
 
 base_url = "http://{0}:{1}".format(config['server_ip'],config['orchestrator_port'])
-pendings_taks = []
 
 ## Auxiliary general methods
 def redirect_with_errors(redirect_url, errors):
@@ -41,58 +40,6 @@ def redirect_with_errors(redirect_url, errors):
         red['Location'] += '?success=' + "Requests were successful!"
 
     return red
-
-def register_task(task_id, task_name):
-    global pendings_taks
-    pendings_taks.append((task_id,task_name))
-
-def get_pending_tasks():
-    global pendings_taks
-    still_pending_tasks = []
-    successful_tasks = []
-    failed_tasks = []
-
-    for task_id, task_name in pendings_taks:
-        task_result = AsyncResult(task_id)
-        status = task_result.status
-
-        if status != "SUCCESS" and status != "FAILURE":
-            still_pending_tasks.append((task_id,task_name))
-        elif status == "SUCCESS":
-            successful_tasks.append((task_id,task_name))
-        else:
-            failed_tasks.append((task_id,task_name,task_result.result))
-
-    for task_id, task_name in successful_tasks:
-        pendings_taks.remove((task_id, task_name))
-
-    for task_id, task_name, task_error in failed_tasks:
-        pendings_taks.remove((task_id, task_name))
-
-    # TODO: remove pending tasks after a timeout
-
-    return still_pending_tasks, successful_tasks, failed_tasks
-
-def get_pendings_tasks_to_string():
-    still_pending_tasks, successful_tasks, failed_tasks = get_pending_tasks()
-
-    still_pending_tasks_string = []
-    successful_tasks_string = []
-    failed_tasks_string = []
-
-    for task_id, task_name in still_pending_tasks:
-        info = "Task with ID {0} and name {1} is pending".format(task_id,task_name)
-        still_pending_tasks_string.append(info)
-
-    for task_id, task_name in successful_tasks:
-        success = "Task with ID {0} and name {1} has completed successfully".format(task_id,task_name)
-        successful_tasks_string.append(success)
-
-    for task_id, task_name, task_error in failed_tasks:
-        error = "Task with ID {0} and name {1} has failed with error: {2}".format(task_id,task_name,task_error)
-        failed_tasks_string.append(error)
-
-    return still_pending_tasks_string, successful_tasks_string, failed_tasks_string
 
 ## Home
 def index(request):
@@ -809,7 +756,7 @@ def processAddContainers(request, url, structure_type, resources, host_list):
 
     error = ""
     container_resources = {}
-    host_list = json.loads(host_list)
+    host_list = json.loads(host_list.replace("\'","\""))
 
     for resource in resources:
         if (resource + "_max" in request.POST):
@@ -824,7 +771,6 @@ def processAddContainers(request, url, structure_type, resources, host_list):
 
     # start containers from playbook
     for host in host_list:
-        print(host)
         new_containers = {host: host_list[host]}
         task = start_containers_task.delay(host, new_containers, container_resources)
         print("Starting task with id {0}".format(task.id))
@@ -850,6 +796,7 @@ def processAddApp(request, url, structure_name, structure_type, resources):
     full_url = url + structure_type + "/" + structure_name
     headers = {'Content-Type': 'application/json'}
 
+    ## APP info
     app_files = {}
     app_files['files_dir'] = request.POST['files_dir']
     app_files['install_script'] = request.POST['install_script']
@@ -880,12 +827,187 @@ def processAddApp(request, url, structure_name, structure_type, resources):
             resource_boundary = request.POST[resource + "_boundary"]
             put_field_data['limits']['resources'][resource] = {'boundary': int(resource_boundary)}
 
-    task = add_app_task.delay(full_url, headers, put_field_data, structure_name, app_files)
+    # Get existing hosts
+    try:
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data_json = {}
+
+    hosts = getHostsNames(data_json)
+    # Data to test
+    # hosts.append(hosts[0].copy())
+    # hosts.append(hosts[0].copy())
+    # hosts.append(hosts[0].copy())
+    # hosts[1]['name'] = "host2"
+    # hosts[2]['name'] = "host3"
+    # hosts[3]['name'] = "host4"
+    # hosts[1]['resources'] = hosts[0]['resources'].copy()
+    # hosts[2]['resources'] = hosts[0]['resources'].copy()
+    # hosts[3]['resources'] = hosts[0]['resources'].copy()
+    # hosts[1]['resources']['cpu'] = hosts[0]['resources']['cpu'].copy()
+    # hosts[2]['resources']['cpu'] = hosts[0]['resources']['cpu'].copy()
+    # hosts[3]['resources']['cpu'] = hosts[0]['resources']['cpu'].copy()
+    # hosts[1]['resources']['mem'] = hosts[0]['resources']['mem'].copy()
+    # hosts[2]['resources']['mem'] = hosts[0]['resources']['mem'].copy()
+    # hosts[3]['resources']['mem'] = hosts[0]['resources']['mem'].copy()
+    #print(hosts)
+
+    # Check if there is space for app
+    free_resources = {}
+    for resource in resources:
+        if (resource + "_max" in request.POST):
+            free_resources[resource] = 0
+
+    for free_resource in free_resources:
+        for host in hosts:
+            free_resources[free_resource] += host['resources'][free_resource]['free']
+
+    space_left_for_app = True
+    for free_resource in free_resources:
+        if free_resources[free_resource] < put_field_data['app']['resources'][free_resource]['max']:
+            space_left_for_app = False
+
+    error = ""
+    if not space_left_for_app:
+        error = "There is no space left for app {0}".format(structure_name)
+        return error
+
+    ## Containers to create
+    number_of_containers = int(request.POST['number_of_containers'])
+    container_resources = getContainerResourcesForApp(number_of_containers, put_field_data)
+
+    ## Container assignation to hosts
+    assignation_policy = request.POST['assignation_policy']
+    new_containers, error = getContainerAssignationForApp(assignation_policy, hosts, number_of_containers, container_resources, structure_name)
+    if error != "": return error
+
+    container_resources["regular"] = {x:str(y) for x,y in container_resources["regular"].items()}
+    if "bigger" in container_resources: container_resources["bigger"] = {x:str(y) for x,y in container_resources["bigger"].items()}
+    if "smaller" in container_resources: container_resources["smaller"] = {x:str(y) for x,y in container_resources["smaller"].items()}
+
+    task = add_app_task.delay(full_url, headers, put_field_data, structure_name, app_files, new_containers, container_resources)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"add_app_task")
 
-    error = ""
     return error
+
+def getContainerResourcesForApp(number_of_containers, app_data):
+
+    container_resources = {}
+    container_resources['regular'] = {}
+    container_resources['regular']['cpu_max'] = app_data['app']['resources']['cpu']['max'] / number_of_containers
+    container_resources['regular']['cpu_min'] = int(app_data['app']['resources']['cpu']['min'] / number_of_containers)
+    container_resources['regular']['cpu_boundary'] = 20
+    container_resources['regular']['mem_max'] = int(app_data['app']['resources']['mem']['max'] / number_of_containers)
+    container_resources['regular']['mem_min'] = int(app_data['app']['resources']['mem']['min'] / number_of_containers)
+    container_resources['regular']['mem_boundary'] = 256
+
+    # CPU shares allocation
+    # We will try to allocate shares in multiples of 100
+    # TODO: do the same for minimum cpu?
+    # TODO: scale maximum (and maybe minimum) mem according to cpu changes
+    correctly_allocated = False
+    cpu_modulo = container_resources['regular']['cpu_max'] % 100
+    if  cpu_modulo == 0:
+        # we don't have to do anything
+        correctly_allocated = True
+    else:
+        # Case 1: we create a bigger container
+        if cpu_modulo < 50:
+            # Check that it is actually possible for the containers to give shares
+            if container_resources['regular']['cpu_max'] > 100:
+                container_resources['bigger'] = container_resources['regular'].copy()
+                container_resources['bigger']['cpu_max'] = container_resources['regular']['cpu_max'] + cpu_modulo*(number_of_containers - 1)
+                container_resources['regular']['cpu_max'] -= cpu_modulo
+                correctly_allocated = True
+        # Case 2: we create a smaller container
+        else:
+            smaller_resources = container_resources['regular']['cpu_max'] - ((100 - cpu_modulo) * (number_of_containers - 1))
+            # Check that the smaller container is not too small
+            if smaller_resources >= 10:
+                container_resources['smaller'] = container_resources['regular'].copy()
+                container_resources['smaller']['cpu_max'] = smaller_resources
+                container_resources['regular']['cpu_max'] += (100 - cpu_modulo)
+                correctly_allocated = True
+
+    if not correctly_allocated:
+        # use original resource allocation
+        pass
+
+    # Round to integer
+    container_resources["regular"]["cpu_max"] = round(container_resources["regular"]["cpu_max"])
+    if "bigger" in container_resources: container_resources["bigger"]["cpu_max"] = round(container_resources["bigger"]["cpu_max"])
+    if "smaller" in container_resources: container_resources["smaller"]["cpu_max"] = round(container_resources["smaller"]["cpu_max"])
+
+    return container_resources
+
+def getContainerAssignationForApp(assignation_policy, hosts, number_of_containers, container_resources, app_name):
+
+    error = ""
+    new_containers = {}
+
+    irregular_container_to_allocate = 0
+    if "smaller" in container_resources or "bigger" in container_resources:
+        irregular_container_to_allocate = 1
+    containers_to_allocate = number_of_containers - irregular_container_to_allocate
+    assignation = {}
+    for host in hosts:
+        assignation[host['name']] = {}
+        assignation[host['name']]["regular"] = 0
+
+    # TODO: check mem as well as cpu
+    if assignation_policy == "Fill-up":
+        for host in hosts:
+            free_cpu = host['resources']['cpu']['free']
+            if containers_to_allocate + irregular_container_to_allocate <= 0:
+                break
+            # First we try to assign the bigger container if it exists
+            if irregular_container_to_allocate > 0 and "bigger" in container_resources and free_cpu >= container_resources["bigger"]['cpu_max']:
+                assignation[host['name']]["bigger"] = 1
+                irregular_container_to_allocate = 0
+                free_cpu -= container_resources["bigger"]['cpu_max']
+            while containers_to_allocate > 0 and free_cpu >= container_resources["regular"]['cpu_max']:
+                assignation[host['name']]["regular"] += 1
+                containers_to_allocate -= 1
+                free_cpu -= container_resources['regular']['cpu_max']
+            # Lastly we try to assign the smaller container if it exists
+            if irregular_container_to_allocate > 0 and "smaller" in container_resources and free_cpu >= container_resources["smaller"]['cpu_max']:
+                assignation[host['name']]["smaller"] = 1
+                irregular_container_to_allocate = 0
+                free_cpu -= container_resources["smaller"]['cpu_max']
+
+    elif assignation_policy == "Cyclic":
+        hosts_without_space = 0
+        while containers_to_allocate + irregular_container_to_allocate > 0 and hosts_without_space < len(hosts):
+            for host in hosts:
+                if containers_to_allocate + irregular_container_to_allocate <= 0 or hosts_without_space >= len(hosts):
+                    break
+
+                # First we try to assign the bigger container if it exists
+                if irregular_container_to_allocate > 0 and "bigger" in container_resources and host['resources']['cpu']['free'] >= container_resources["bigger"]['cpu_max']:
+                    assignation[host['name']]["bigger"] = 1
+                    irregular_container_to_allocate = 0
+                    host['resources']['cpu']['free'] -= container_resources["bigger"]['cpu_max']
+                elif host['resources']['cpu']['free'] >= container_resources['regular']['cpu_max']:
+                    assignation[host['name']]['regular'] += 1
+                    containers_to_allocate -= 1
+                    host['resources']['cpu']['free'] -= container_resources['regular']['cpu_max']
+                # Lastly we try to assign the smaller container if it exists
+                elif irregular_container_to_allocate > 0 and "smaller" in container_resources and host['resources']['cpu']['free'] >= container_resources["smaller"]['cpu_max']:
+                    assignation[host['name']]["smaller"] = 1
+                    irregular_container_to_allocate = 0
+                    host['resources']['cpu']['free'] -= container_resources["smaller"]['cpu_max']
+                else:
+                    hosts_without_space += 1
+
+    if containers_to_allocate > 0:
+        error = "Could not allocate containers for app {0}".format(app_name)
+        return new_containers, error
+
+    new_containers = {x:y for x,y in assignation.items() if y['regular'] > 0 or "bigger" in y or "smaller" in y}
+
+    return new_containers, error
 
 def processAddContainerToApp(request, url, app, container_host_duple):
 

@@ -258,6 +258,7 @@ class AddContainersForm(forms.Form):
             )
         )
 
+# Not used ATM
 class AddNContainersFormSetHelper(FormHelper):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -275,7 +276,8 @@ class AddNContainersFormSetHelper(FormHelper):
             )
         )
         self.render_required_fields = True
-        
+
+# Not used ATM
 class AddNContainersForm(forms.Form):
     operation = forms.CharField(label= "Operation",
             initial="add",
@@ -303,6 +305,16 @@ class AddAppForm(forms.Form):
             required=True
             )
     name = forms.CharField(label= "Name",
+            required=True
+            )
+    number_of_containers = forms.IntegerField(label= "Number of instances",
+            required=True
+            )
+    assignation_policy = forms.ChoiceField(label= "Assignation policy",
+            choices = (
+                ("Fill-up", "Fill up"),
+                ("Cyclic", "Cyclic"),
+                ),
             required=True
             )
     cpu_max = forms.IntegerField(label= "CPU Max",
@@ -346,6 +358,8 @@ class AddAppForm(forms.Form):
             Field('operation', type="hidden", readonly=True),
             Field('structure_type', type="hidden", readonly=True),
             Field('name'),
+            Field('number_of_containers'),
+            Field('assignation_policy'),
             Field('cpu_max'),
             Field('cpu_min'),
             Field('mem_max'),

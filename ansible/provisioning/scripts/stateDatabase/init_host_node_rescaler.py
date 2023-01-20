@@ -22,152 +22,153 @@ if __name__ == "__main__":
     handler = couchDB.CouchDBServer()
     database = "structures"
 
-    host = sys.argv[1]
-    resource = sys.argv[2]
-    resource_max_value = int(sys.argv[3])
-    containers = sys.argv[4].split(',')
-    max_resource_per_container = int(sys.argv[5])
-    min_resource_per_container = int(sys.argv[6])
-    with open(sys.argv[7], "r") as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    if (len(sys.argv) > 7):
+        host = sys.argv[1]
+        resource = sys.argv[2]
+        resource_max_value = int(sys.argv[3])
+        containers = sys.argv[4].split(',')
+        max_resource_per_container = int(sys.argv[5])
+        min_resource_per_container = int(sys.argv[6])
+        with open(sys.argv[7], "r") as f:
+            config = yaml.load(f, Loader=yaml.FullLoader)
 
-    base_url = "http://" + host + ":" + str(node_recaler_port) + "/container/"
-    headers = {'Content-Type': 'application/json'}
+        base_url = "http://" + host + ":" + str(node_recaler_port) + "/container/"
+        headers = {'Content-Type': 'application/json'}
 
-    new_containers = containers
-    host_found = False
-    if handler.database_exists(database):
-        try:
-            host_info = handler.get_structure(host)
-            host_found = True
+        new_containers = containers
+        host_found = False
+        if handler.database_exists(database):
+            try:
+                host_info = handler.get_structure(host)
+                host_found = True
 
-            new_containers = []
-            for cont in containers:
-                try:
-                    cont_info = handler.get_structure(cont)
-                except ValueError:
-                    # new container
-                    new_containers.append(cont)
+                new_containers = []
+                for cont in containers:
+                    try:
+                        cont_info = handler.get_structure(cont)
+                    except ValueError:
+                        # new container
+                        new_containers.append(cont)
 
-        except ValueError:
-            # host does not exist
-            pass
-
-    if (resource == "cpu"):
-        # cpu_allowance_limit
-        cpu_allowance_limit = max_resource_per_container
-        total_allowance_allocated = 0
-        current_core = 0
-
-    elif (resource == "mem"):
-        # mem_limit
-        mem_limit = max_resource_per_container
-
-    for c in containers:
-        full_url = base_url + c
-
-        r = requests.get(full_url)   
-        requested_data = json.loads(r.content)
-
-        ## initialize only if not initialized previously
-        not_initialized = False
+            except ValueError:
+                # host does not exist
+                pass
 
         if (resource == "cpu"):
+            # cpu_allowance_limit
+            cpu_allowance_limit = max_resource_per_container
+            total_allowance_allocated = 0
+            current_core = 0
 
-            not_initialized = int(requested_data['cpu']['cpu_allowance_limit']) == -1
+        elif (resource == "mem"):
+            # mem_limit
+            mem_limit = max_resource_per_container
 
-            # Host already stored in StateDatabase
-            if host_found and resource in host_info['resources'] and "core_usage_mapping" in host_info['resources'][resource]:
+        for c in containers:
+            full_url = base_url + c
 
-                if not_initialized:
+            r = requests.get(full_url)
+            requested_data = json.loads(r.content)
+
+            ## initialize only if not initialized previously
+            not_initialized = False
+
+            if (resource == "cpu"):
+
+                not_initialized = int(requested_data['cpu']['cpu_allowance_limit']) == -1
+
+                # Host already stored in StateDatabase
+                if host_found and resource in host_info['resources'] and "core_usage_mapping" in host_info['resources'][resource]:
+
+                    if not_initialized:
+                        if c in new_containers:
+                            # Container not added to the StateDatabase yet
+                            to_allocate = cpu_allowance_limit
+                            cont_cpu_allowance_limit = cpu_allowance_limit
+                    else:
+                        continue
+
+                    core_mapping = host_info['resources'][resource]['core_usage_mapping']
+                    number_of_cores = len(core_mapping)
+                    current_free = core_mapping[str(current_core)]['free']
+
+                    cpu_core_list = []
+
                     if c in new_containers:
-                        # Container not added to the StateDatabase yet
-                        to_allocate = cpu_allowance_limit
-                        cont_cpu_allowance_limit = cpu_allowance_limit
-                else:
-                    continue
-
-                core_mapping = host_info['resources'][resource]['core_usage_mapping']
-                number_of_cores = len(core_mapping)
-                current_free = core_mapping[str(current_core)]['free']
-
-                cpu_core_list = []
-
-                if c in new_containers:
-                    while (to_allocate > 0 and current_core < number_of_cores):
-                        if (to_allocate >= 100):
-                            if current_free > 0: cpu_core_list.append(current_core)
-                            core_mapping[str(current_core)][c] = current_free
-                            core_mapping[str(current_core)]["free"] -= current_free
-                            to_allocate -= current_free
-                            current_core += 1
-                            if current_core < number_of_cores: current_free = core_mapping[str(current_core)]['free']
-
-                        else:
-                            if current_free > 0: cpu_core_list.append(current_core)
-                            min_usage = min(current_free, to_allocate)
-                            core_mapping[str(current_core)][c] = min_usage
-                            core_mapping[str(current_core)]["free"] -= min_usage
-                            if (min_usage == to_allocate):
-                                ## we continue in current core
-                                current_free -= to_allocate
-                                to_allocate = 0
-                            else:
-                                ## we switch to next core
+                        while (to_allocate > 0 and current_core < number_of_cores):
+                            if (to_allocate >= 100):
+                                if current_free > 0: cpu_core_list.append(current_core)
+                                core_mapping[str(current_core)][c] = current_free
+                                core_mapping[str(current_core)]["free"] -= current_free
                                 to_allocate -= current_free
                                 current_core += 1
                                 if current_core < number_of_cores: current_free = core_mapping[str(current_core)]['free']
 
+                            else:
+                                if current_free > 0: cpu_core_list.append(current_core)
+                                min_usage = min(current_free, to_allocate)
+                                core_mapping[str(current_core)][c] = min_usage
+                                core_mapping[str(current_core)]["free"] -= min_usage
+                                if (min_usage == to_allocate):
+                                    ## we continue in current core
+                                    current_free -= to_allocate
+                                    to_allocate = 0
+                                else:
+                                    ## we switch to next core
+                                    to_allocate -= current_free
+                                    current_core += 1
+                                    if current_core < number_of_cores: current_free = core_mapping[str(current_core)]['free']
+
+                    else:
+                        allocated = 0
+                        for core in range(0,number_of_cores):
+                            if c in core_mapping[str(core)] and core_mapping[str(core)][c] > 0:
+                                allocated += core_mapping[str(core)][c]
+                                cpu_core_list.append(core)
+
+                        cont_cpu_allowance_limit = allocated
+
+                    cpu_num = getIntegerListRange(cpu_core_list)
+
+                # Host not in StateDatabase yet
                 else:
-                    allocated = 0
-                    for core in range(0,number_of_cores):
-                        if c in core_mapping[str(core)] and core_mapping[str(core)][c] > 0:
-                            allocated += core_mapping[str(core)][c]
-                            cpu_core_list.append(core)
+                    cont_cpu_allowance_limit = cpu_allowance_limit
 
-                    cont_cpu_allowance_limit = allocated
+                    # cpu_num
+                    initial_core = int(total_allowance_allocated // 100)
+                    total_allowance_allocated += cont_cpu_allowance_limit
+                    last_core = int((total_allowance_allocated - 1) // 100)
+                    if (last_core > initial_core):
+                        cpu_num = str(initial_core) + "-" + str(last_core)
+                    else:
+                        cpu_num = str(initial_core)
 
-                cpu_num = getIntegerListRange(cpu_core_list)
+                put_field_data = {"cpu": {"cpu_allowance_limit": cont_cpu_allowance_limit,"cpu_num": cpu_num}}
 
-            # Host not in StateDatabase yet
-            else:
-                cont_cpu_allowance_limit = cpu_allowance_limit
+            elif (resource == "mem"):
 
-                # cpu_num
-                initial_core = int(total_allowance_allocated // 100)
-                total_allowance_allocated += cont_cpu_allowance_limit
-                last_core = int((total_allowance_allocated - 1) // 100)
-                if (last_core > initial_core):
-                    cpu_num = str(initial_core) + "-" + str(last_core)
+                not_initialized = int(requested_data['mem']['mem_limit']) == -1
+
+                if not_initialized:
+                    if c in new_containers:
+                        cont_mem_limit = mem_limit
+                    else:
+                        # Container already added to the StateDatabase (but not initialized)
+                        cont_info = handler.get_structure(c)
+                        cont_mem_limit = cont_info['resources']['mem']['current']
+                        if cont_mem_limit == -1: cont_mem_limit = cont_info['resources']['mem']['max']
                 else:
-                    cpu_num = str(initial_core)
+                    continue
 
-            put_field_data = {"cpu": {"cpu_allowance_limit": cont_cpu_allowance_limit,"cpu_num": cpu_num}}
+                put_field_data = {"mem": {"mem_limit": cont_mem_limit, "unit": "M"}}
 
-        elif (resource == "mem"):
+            if (not_initialized):
 
-            not_initialized = int(requested_data['mem']['mem_limit']) == -1 
+                r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
 
-            if not_initialized:
-                if c in new_containers:
-                    cont_mem_limit = mem_limit
+                if (r.status_code == requests.codes.ok):
+                    print("Container " + c + " updated with: " + str(put_field_data))
                 else:
-                    # Container already added to the StateDatabase (but not initialized)
-                    cont_info = handler.get_structure(c)
-                    cont_mem_limit = cont_info['resources']['mem']['current']
-                    if cont_mem_limit == -1: cont_mem_limit = cont_info['resources']['mem']['max']
-            else:
-                continue
-
-            put_field_data = {"mem": {"mem_limit": cont_mem_limit, "unit": "M"}}
-
-        if (not_initialized):
-
-            r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
-
-            if (r.status_code == requests.codes.ok):
-                print("Container " + c + " updated with: " + str(put_field_data))
-            else:
-                # For some reason, the first initialization always results in an error, but it actually works
-                print("Response from node scaler: " + str(r.content))
-                print("Error initializing " + resource + " value for " + c + " in host " + host)
+                    # For some reason, the first initialization always results in an error, but it actually works
+                    print("Response from node scaler: " + str(r.content))
+                    print("Error initializing " + resource + " value for " + c + " in host " + host)

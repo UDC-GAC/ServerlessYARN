@@ -45,8 +45,8 @@ base_host_to_API = dict(
 # usage example: add_containers.py host0 4 4096 cont0,cont1 200 100 50 2048 1024 512 config/config.yml
 
 if __name__ == "__main__":
-    if (len(sys.argv) > 11):
 
+    if (len(sys.argv) > 11):
         new_host = sys.argv[1]
         host_cpu = int(sys.argv[2])
         host_mem = int(sys.argv[3])
