@@ -11,7 +11,7 @@ STOP_SCRIPT=$7
 cd ../../
 INVENTORY=../ansible.inventory
 
-ansible-playbook manage_app_on_container.yml -i $INVENTORY -t start_app -l $HOST_NAME \
+unbuffer ansible-playbook manage_app_on_container.yml -i $INVENTORY -t start_app -l $HOST_NAME \
     --extra-vars \
         "container=$CONTAINER \
         app_name=$APP_NAME \

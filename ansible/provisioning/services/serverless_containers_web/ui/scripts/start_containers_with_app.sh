@@ -18,7 +18,7 @@ MEM_BOUNDARY=${14}
 cd ../../
 INVENTORY=../ansible.inventory
 
-ansible-playbook start_containers_playbook.yml -i $INVENTORY -t start_containers -l $HOST_NAME,localhost \
+unbuffer ansible-playbook start_containers_playbook.yml -i $INVENTORY -t start_containers -l $HOST_NAME,localhost \
     --extra-vars \
         "template_definition_file=$TEMPLATE_DEFINITION_FILE \
         definition_file=$DEFINITION_FILE \
@@ -32,7 +32,7 @@ ansible-playbook start_containers_playbook.yml -i $INVENTORY -t start_containers
         max_memory_per_container=$MAX_MEMORY_PER_CONTAINER \
         min_memory_per_container=$MIN_MEMORY_PER_CONTAINER"
 
-ansible-playbook launch_playbook.yml -i $INVENTORY -t start_containers \
+unbuffer ansible-playbook launch_playbook.yml -i $INVENTORY -t start_containers \
     --extra-vars \
         "container_list=$CONTAINERS \
         max_cpu_percentage_per_container=$MAX_CPU_PERCENTAGE_PER_CONTAINER \

@@ -9,7 +9,7 @@ INSTALL_SCRIPT=$5
 cd ../../
 INVENTORY=../ansible.inventory
 
-ansible-playbook start_containers_playbook.yml -i $INVENTORY -t create_app \
+unbuffer ansible-playbook start_containers_playbook.yml -i $INVENTORY -t create_app \
     --extra-vars \
         "template_definition_file=app_container.def \
         definition_file=$DEFINITION_FILE \

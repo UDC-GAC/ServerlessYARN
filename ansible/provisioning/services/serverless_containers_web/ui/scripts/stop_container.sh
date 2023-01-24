@@ -14,15 +14,15 @@ cgroups_version=`yq '.cgroups_version' < $CONFIG_FILE`
 
 if [ $container_engine = "lxc" ]
 then
-    ansible $HOST_NAME -i $INVENTORY -m shell -a "lxc stop $CONT_NAME"
+    unbuffer ansible $HOST_NAME -i $INVENTORY -m shell -a "lxc stop $CONT_NAME"
 
 elif [ $container_engine = "apptainer" ]
 then
     if [ $cgroups_version = "v1" ]
     then
-        ansible $HOST_NAME -i $INVENTORY -m shell -a "sudo singularity instance stop $CONT_NAME"
+        unbuffer ansible $HOST_NAME -i $INVENTORY -m shell -a "sudo singularity instance stop $CONT_NAME"
     else
-        ansible $HOST_NAME -i $INVENTORY -m shell -a "singularity instance stop $CONT_NAME"
+        unbuffer ansible $HOST_NAME -i $INVENTORY -m shell -a "singularity instance stop $CONT_NAME"
     fi
 
 else

@@ -883,8 +883,8 @@ def processAddApp(request, url, structure_name, structure_type, resources):
     if error != "": return error
 
     container_resources["regular"] = {x:str(y) for x,y in container_resources["regular"].items()}
-    if "bigger" in container_resources: container_resources["bigger"] = {x:str(y) for x,y in container_resources["bigger"].items()}
-    if "smaller" in container_resources: container_resources["smaller"] = {x:str(y) for x,y in container_resources["smaller"].items()}
+    if "bigger" in container_resources: container_resources["irregular"] = {x:str(y) for x,y in container_resources["bigger"].items()}
+    if "smaller" in container_resources: container_resources["irregular"] = {x:str(y) for x,y in container_resources["smaller"].items()}
 
     task = add_app_task.delay(full_url, headers, put_field_data, structure_name, app_files, new_containers, container_resources)
     print("Starting task with id {0}".format(task.id))
@@ -964,7 +964,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                 break
             # First we try to assign the bigger container if it exists
             if irregular_container_to_allocate > 0 and "bigger" in container_resources and free_cpu >= container_resources["bigger"]['cpu_max']:
-                assignation[host['name']]["bigger"] = 1
+                assignation[host['name']]["irregular"] = 1
                 irregular_container_to_allocate = 0
                 free_cpu -= container_resources["bigger"]['cpu_max']
             while containers_to_allocate > 0 and free_cpu >= container_resources["regular"]['cpu_max']:
@@ -973,7 +973,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                 free_cpu -= container_resources['regular']['cpu_max']
             # Lastly we try to assign the smaller container if it exists
             if irregular_container_to_allocate > 0 and "smaller" in container_resources and free_cpu >= container_resources["smaller"]['cpu_max']:
-                assignation[host['name']]["smaller"] = 1
+                assignation[host['name']]["irregular"] = 1
                 irregular_container_to_allocate = 0
                 free_cpu -= container_resources["smaller"]['cpu_max']
 
@@ -986,7 +986,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
 
                 # First we try to assign the bigger container if it exists
                 if irregular_container_to_allocate > 0 and "bigger" in container_resources and host['resources']['cpu']['free'] >= container_resources["bigger"]['cpu_max']:
-                    assignation[host['name']]["bigger"] = 1
+                    assignation[host['name']]["irregular"] = 1
                     irregular_container_to_allocate = 0
                     host['resources']['cpu']['free'] -= container_resources["bigger"]['cpu_max']
                 elif host['resources']['cpu']['free'] >= container_resources['regular']['cpu_max']:
@@ -995,7 +995,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     host['resources']['cpu']['free'] -= container_resources['regular']['cpu_max']
                 # Lastly we try to assign the smaller container if it exists
                 elif irregular_container_to_allocate > 0 and "smaller" in container_resources and host['resources']['cpu']['free'] >= container_resources["smaller"]['cpu_max']:
-                    assignation[host['name']]["smaller"] = 1
+                    assignation[host['name']]["irregular"] = 1
                     irregular_container_to_allocate = 0
                     host['resources']['cpu']['free'] -= container_resources["smaller"]['cpu_max']
                 else:
@@ -1005,7 +1005,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
         error = "Could not allocate containers for app {0}".format(app_name)
         return new_containers, error
 
-    new_containers = {x:y for x,y in assignation.items() if y['regular'] > 0 or "bigger" in y or "smaller" in y}
+    new_containers = {x:y for x,y in assignation.items() if y['regular'] > 0 or "irregular" in y}
 
     return new_containers, error
 

@@ -2,7 +2,7 @@ import time
 import subprocess
 import requests
 from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host
-from celery import shared_task
+from celery import shared_task, chain
 from celery.result import AsyncResult
 from bs4 import BeautifulSoup
 import redis
@@ -92,6 +92,9 @@ def start_containers_task(host, new_containers, container_resources):
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = rc.communicate()
 
+    # Log ansible output
+    print(out.decode("utf-8") )
+
     if rc.returncode != 0:
         error = "Error starting containers {0}: {1}".format(added_formatted_containers,err.decode("utf-8"))
         raise Exception(error)
@@ -105,6 +108,9 @@ def add_host_task(host,cpu,mem,new_containers):
 
     rc = subprocess.Popen(["./ui/scripts/configure_host.sh",host], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = rc.communicate()
+
+    # Log ansible output
+    print(out.decode("utf-8") )
 
     if rc.returncode != 0:
         error = "Error adding host {0}: {1}".format(host, err.decode("utf-8"))
@@ -132,6 +138,9 @@ def add_app_task(full_url, headers, put_field_data, app, app_files, new_containe
             rc = subprocess.Popen(["./ui/scripts/create_app.sh",definition_file, image_file, app, files_dir, install_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = rc.communicate()
 
+            # Log ansible output
+            print(out.decode("utf-8") )
+
             if rc.returncode != 0:
                 error = "Error creating app {0}: {1}".format(app, err.decode("utf-8"))
                 raise Exception(error)
@@ -139,15 +148,13 @@ def add_app_task(full_url, headers, put_field_data, app, app_files, new_containe
         url = full_url[:full_url.rfind('/')]
         url = url[:url.rfind('/')] + "/"
         for host in new_containers:
-            task = start_containers_with_app_task.delay(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])
-            register_task(task.id,"start_containers_with_app_task")
-            if "bigger" in new_containers[host]:
-                task = start_containers_with_app_task.delay(url, headers, host, new_containers[host]["bigger"], app, app_files, container_resources["bigger"])
+            if "irregular" in new_containers[host]:
+                # Start a chain of tasks so that containers of same host are started sequentially
+                tasks = chain(start_containers_with_app_task.si(url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.si(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])).apply_async()
+                register_task(tasks.id,"start_containers_with_app_task")
+            else:
+                task = start_containers_with_app_task.delay(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])
                 register_task(task.id,"start_containers_with_app_task")
-            if "smaller" in new_containers[host]:
-                task = start_containers_with_app_task.delay(url, headers, host, new_containers[host]["smaller"], app, app_files, container_resources["smaller"])
-                register_task(task.id,"start_containers_with_app_task")
-
 
     else:
         raise Exception(error)
@@ -171,6 +178,9 @@ def add_container_to_app_task(full_url, headers, host, container, app, app_files
 
         rc = subprocess.Popen(["./ui/scripts/start_app_on_container.sh", host, container, app, files_dir, install_script, start_script, stop_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = rc.communicate()
+
+        # Log ansible output
+        print(out.decode("utf-8") )
 
         if rc.returncode != 0:
             error = "Error starting app {0} on container {1}: {2}".format(app, container, err.decode("utf-8"))
@@ -209,8 +219,11 @@ def start_containers_with_app_task(url, headers, host, new_containers, app, app_
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = rc.communicate()
 
+    # Log ansible output
+    print(out.decode("utf-8") )
+
     if rc.returncode != 0:
-        error = "Error starting containers {0}: {1}".format(str(new_containers),err.decode("utf-8"))
+        error = "Error starting containers {0}: {1}".format(added_formatted_containers,err.decode("utf-8"))
         raise Exception(error)
 
     # Start app on containers
@@ -235,6 +248,9 @@ def remove_container_task(full_url, headers, host_name, cont_name):
 
         rc = subprocess.Popen(["./ui/scripts/stop_container.sh", host_name, cont_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = rc.communicate()
+
+        # Log ansible output
+        print(out.decode("utf-8") )
 
         if rc.returncode != 0:
             error = "Error stopping container {0}: {1}".format(cont_name,err.decode("utf-8"))
@@ -262,6 +278,9 @@ def remove_host_task(full_url, headers, host_name):
         # stop node scaler service in host
         rc = subprocess.Popen(["./ui/scripts/stop_host_scaler.sh", host_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = rc.communicate()
+
+        # Log ansible output
+        print(out.decode("utf-8") )
 
         if rc.returncode != 0:
             error = "Error stopping host {0} scaler service: {1}".format(host_name,err.decode("utf-8"))
@@ -314,6 +333,9 @@ def remove_container_from_app_task(full_url, headers, host, container, app, app_
 
         rc = subprocess.Popen(["./ui/scripts/stop_app_on_container.sh", host, container, app, files_dir, install_script, start_script, stop_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = rc.communicate()
+
+        # Log ansible output
+        print(out.decode("utf-8") )
 
         if rc.returncode != 0:
             error = "Error stopping app {0} on container {1}: {2}".format(app, container, err.decode("utf-8"))
