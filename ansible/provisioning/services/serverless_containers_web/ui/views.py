@@ -1,7 +1,7 @@
 from django.shortcuts import render,redirect
 from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm
 from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper, HostResourcesForm, HostResourcesFormSetHelper
-from ui.forms import RemoveStructureForm, AddHostForm, AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddAppForm, AddContainersToAppForm, RemoveContainersFromAppForm
+from ui.forms import RemoveStructureForm, AddHostForm, AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddAppForm, AddContainersToAppForm, RemoveContainersFromAppForm, StartAppForm
 from django.forms import formset_factory
 from django.http import HttpResponse
 import urllib.request
@@ -15,7 +15,7 @@ import functools
 from bs4 import BeautifulSoup
 
 from ui.background_tasks import start_containers_task, add_host_task, add_app_task, add_container_to_app_task, start_containers_with_app_task
-from ui.background_tasks import remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task
+from ui.background_tasks import remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task, start_app
 from ui.background_tasks import register_task, get_pendings_tasks_to_string
 
 config_path = "../../config/config.yml"
@@ -281,6 +281,10 @@ def getApps(data):
             ## App Limits Form
             setLimitsForm(item,"apps")
 
+            ## Start App or Add Containers to App Form
+            started_app = len(containers) > 0
+            setStartAppForm(item, "apps", started_app)
+
             ## App RemoveContainersFromApp Form
             setRemoveContainersFromAppForm(item, containers, "apps")
 
@@ -290,12 +294,12 @@ def getApps(data):
 
             apps.append(item)
 
-    allContainers = getAllContainers(data)
-    freeContainers = getFreeContainers(allContainers, apps)
+    # allContainers = getAllContainers(data)
+    # freeContainers = getFreeContainers(allContainers, apps)
 
-    for app in apps:
-        ## App AddContainersToApp Form
-        setAddContainersToAppForm(app, freeContainers, "apps")
+    # for app in apps:
+    #     ## App AddContainersToApp Form
+    #     setAddContainersToAppForm(app, freeContainers, "apps")
 
     return apps
 
@@ -319,6 +323,7 @@ def getContainers(data):
             containers.append(item)
     return sorted(containers, key=functools.cmp_to_key(compareContainerNames))
 
+# Not used ATM
 def getAllContainers(data):
     containers = []
 
@@ -328,6 +333,7 @@ def getAllContainers(data):
 
     return containers
 
+# Not used ATM
 def getFreeContainers(allContainers, apps):
     freeContainers = []
     busyContainers = []
@@ -445,6 +451,15 @@ def setLimitsForm(structure, form_action):
         if ( not (resource in structure['limits'] and 'boundary' in structure['limits'][resource])):    
             structure['limits_form'].helper[resource + '_boundary'].update_attributes(type="hidden")
 
+def setStartAppForm(structure, form_action, started_app):
+    startAppForm = StartAppForm()
+    startAppForm.fields['name'].initial = structure['name']
+    startAppForm.helper.form_action = form_action
+
+    structure['start_app_form'] = startAppForm
+    structure['started_app'] = started_app
+
+# Not used ATM
 def setAddContainersToAppForm(structure, free_containers, form_action):
     addContainersToAppForm = AddContainersToAppForm()
     addContainersToAppForm.fields['name'].initial = structure['name']
@@ -685,27 +700,21 @@ def processAdds(request, url):
             error = processAddApp(request, url, app, structure_type, resources)
         elif (structure_type == "containers_to_app"):
             app = request.POST['name']
-            containers_to_add = request.POST.getlist('containers_to_add', None)
-            for container in containers_to_add:
-                error = processAddContainerToApp(request, url, app, container)
-                if (len(error) > 0): errors.append(error)
-                error = ""
-                # Workaround to keep all updates to State DB
-                time.sleep(0.25)
+            # containers_to_add = request.POST.getlist('containers_to_add', None)
+            # for container in containers_to_add:
+            #     error = processAddContainerToApp(request, url, app, container)
+            #     if (len(error) > 0): errors.append(error)
+            #     error = ""
+            #     # Workaround to keep all updates to State DB
+            #     time.sleep(0.25)
 
-            if ('fill_with_new_containers' in request.POST):
-                error = processFillWithNewContainers(request, url, app)
+            #if ('fill_with_new_containers' in request.POST):
+            #    error = processFillWithNewContainers(request, url, app)
+
+            if ('number_of_containers' in request.POST):
+                error = processStartApp(request, url, app)
 
         if (len(error) > 0): errors.append(error)
-
-    #elif ("form-TOTAL_FORMS" in request.POST and request.POST['form-0-operation'] == "add"):
-    #    total_forms = int(request.POST['form-TOTAL_FORMS'])
-
-    #    for i in range(0,total_forms,1):
-    #        host = request.POST['form-' + str(i) + "-host"]
-    #        containers_added = request.POST['form-' + str(i) + "-containers_added"]
-    #        error = processAddNContainers(request, url, host, containers_added)
-    #        if (len(error) > 0): errors.append(error)
 
     return errors
 
@@ -827,6 +836,17 @@ def processAddApp(request, url, structure_name, structure_type, resources):
             resource_boundary = request.POST[resource + "_boundary"]
             put_field_data['limits']['resources'][resource] = {'boundary': int(resource_boundary)}
 
+    error = ""
+    task = add_app_task.delay(full_url, headers, put_field_data, structure_name, app_files)
+    print("Starting task with id {0}".format(task.id))
+    register_task(task.id,"add_app_task")
+
+    return error
+
+def processStartApp(request, url, app_name):
+
+    headers = {'Content-Type': 'application/json'}
+
     # Get existing hosts
     try:
         response = urllib.request.urlopen(url)
@@ -853,54 +873,66 @@ def processAddApp(request, url, structure_name, structure_type, resources):
     # hosts[3]['resources']['mem'] = hosts[0]['resources']['mem'].copy()
     #print(hosts)
 
+    app = getAppInfo(data_json, app_name)
+
+    ## APP info
+    app_files = {}
+    app_files['files_dir'] = app['files_dir']
+    app_files['install_script'] = app['install_script']
+    app_files['start_script'] = app['start_script']
+    app_files['stop_script'] = app['stop_script']
+
+    app_resources = {}
+    for resource in app['resources']:
+        app_resources[resource] = {}
+        app_resources[resource]['max'] = app['resources'][resource]['max']
+        app_resources[resource]['current'] = app['resources'][resource]['current']
+        app_resources[resource]['min'] = app['resources'][resource]['min']
+
     # Check if there is space for app
     free_resources = {}
-    for resource in resources:
-        if (resource + "_max" in request.POST):
-            free_resources[resource] = 0
-
-    for free_resource in free_resources:
+    for resource in app_resources:
+        free_resources[resource] = 0
         for host in hosts:
-            free_resources[free_resource] += host['resources'][free_resource]['free']
+            free_resources[resource] += host['resources'][resource]['free']
 
     space_left_for_app = True
-    for free_resource in free_resources:
-        if free_resources[free_resource] < put_field_data['app']['resources'][free_resource]['max']:
+    for resource in free_resources:
+        if free_resources[resource] < app_resources[resource]['max'] - app_resources[resource]['current']:
             space_left_for_app = False
 
     error = ""
     if not space_left_for_app:
-        error = "There is no space left for app {0}".format(structure_name)
+        error = "There is no space left for app {0}".format(app_name)
         return error
 
     ## Containers to create
     number_of_containers = int(request.POST['number_of_containers'])
-    container_resources = getContainerResourcesForApp(number_of_containers, put_field_data)
+    container_resources = getContainerResourcesForApp(number_of_containers, app_resources)
 
     ## Container assignation to hosts
     assignation_policy = request.POST['assignation_policy']
-    new_containers, error = getContainerAssignationForApp(assignation_policy, hosts, number_of_containers, container_resources, structure_name)
+    new_containers, error = getContainerAssignationForApp(assignation_policy, hosts, number_of_containers, container_resources, app_name)
     if error != "": return error
 
     container_resources["regular"] = {x:str(y) for x,y in container_resources["regular"].items()}
     if "bigger" in container_resources: container_resources["irregular"] = {x:str(y) for x,y in container_resources["bigger"].items()}
     if "smaller" in container_resources: container_resources["irregular"] = {x:str(y) for x,y in container_resources["smaller"].items()}
 
-    task = add_app_task.delay(full_url, headers, put_field_data, structure_name, app_files, new_containers, container_resources)
-    print("Starting task with id {0}".format(task.id))
-    register_task(task.id,"add_app_task")
+    start_app(url, headers, app_name, app_files, new_containers, container_resources)
 
     return error
 
-def getContainerResourcesForApp(number_of_containers, app_data):
+
+def getContainerResourcesForApp(number_of_containers, app_resources):
 
     container_resources = {}
     container_resources['regular'] = {}
-    container_resources['regular']['cpu_max'] = app_data['app']['resources']['cpu']['max'] / number_of_containers
-    container_resources['regular']['cpu_min'] = int(app_data['app']['resources']['cpu']['min'] / number_of_containers)
+    container_resources['regular']['cpu_max'] = (app_resources['cpu']['max'] - app_resources['cpu']['current']) / number_of_containers
+    container_resources['regular']['cpu_min'] = int(app_resources['cpu']['min'] / number_of_containers)
     container_resources['regular']['cpu_boundary'] = 20
-    container_resources['regular']['mem_max'] = int(app_data['app']['resources']['mem']['max'] / number_of_containers)
-    container_resources['regular']['mem_min'] = int(app_data['app']['resources']['mem']['min'] / number_of_containers)
+    container_resources['regular']['mem_max'] = int((app_resources['mem']['max'] - app_resources['mem']['current']) / number_of_containers)
+    container_resources['regular']['mem_min'] = int(app_resources['mem']['min'] / number_of_containers)
     container_resources['regular']['mem_boundary'] = 256
 
     # CPU shares allocation
@@ -1009,6 +1041,22 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
 
     return new_containers, error
 
+def apps_stop_switch(request, structure_name):
+
+    url = base_url + "/structure/"
+    headers = {'Content-Type': 'application/json'}
+
+    containerList, app_files = getContainersFromApp(url, structure_name)
+
+    for container in containerList:
+        container_host_duple = "({0},{1})".format(container['name'],container['host'])
+        processRemoveContainerFromApp(url, container_host_duple, structure_name, app_files)
+        # Workaround to keep all updates to State DB
+        time.sleep(0.25)
+
+    return redirect("apps")
+
+# Not used ATM
 def processAddContainerToApp(request, url, app, container_host_duple):
 
     cont_host = container_host_duple.strip("(").strip(")").split(',')
@@ -1031,6 +1079,7 @@ def processAddContainerToApp(request, url, app, container_host_duple):
     error = ""
     return error
 
+## Not used ATM
 def processFillWithNewContainers(request, url, app):
 
     # Calculate number of new containers based on all hosts free resources (CPU and mem ATM)
@@ -1141,7 +1190,7 @@ def processRemoveContainerFromApp(url, container_host_duple, app, app_files):
     error = ""
     return error
 
-
+# Not used ATM
 def getNewPossibleContainers(url, app_name):
 
     try:

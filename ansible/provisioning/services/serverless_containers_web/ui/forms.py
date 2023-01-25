@@ -307,16 +307,6 @@ class AddAppForm(forms.Form):
     name = forms.CharField(label= "Name",
             required=True
             )
-    number_of_containers = forms.IntegerField(label= "Number of instances",
-            required=True
-            )
-    assignation_policy = forms.ChoiceField(label= "Assignation policy",
-            choices = (
-                ("Fill-up", "Fill up"),
-                ("Cyclic", "Cyclic"),
-                ),
-            required=True
-            )
     cpu_max = forms.IntegerField(label= "CPU Max",
             required=True
             )
@@ -358,8 +348,6 @@ class AddAppForm(forms.Form):
             Field('operation', type="hidden", readonly=True),
             Field('structure_type', type="hidden", readonly=True),
             Field('name'),
-            Field('number_of_containers'),
-            Field('assignation_policy'),
             Field('cpu_max'),
             Field('cpu_min'),
             Field('mem_max'),
@@ -375,6 +363,46 @@ class AddAppForm(forms.Form):
             )
         )
 
+class StartAppForm(forms.Form):
+    operation = forms.CharField(label= "Operation",
+            initial="add",
+            required=True
+            )
+    structure_type = forms.CharField(label= "Structure type",
+            initial="containers_to_app",
+            required=True
+            )
+    name = forms.CharField(label= "App",
+            required=True
+            )
+    number_of_containers = forms.IntegerField(label= "Number of instances",
+            required=True
+            )
+    assignation_policy = forms.ChoiceField(label= "Assignation policy",
+            choices = (
+                ("Fill-up", "Fill up"),
+                ("Cyclic", "Cyclic"),
+                ),
+            required=True
+            )
+    def __init__(self, *args, **kwargs):
+        super(StartAppForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-startappform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('structure_type', type="hidden", readonly=True),
+            Field('name', readonly=True),
+            Field('number_of_containers'),
+            Field('assignation_policy'),
+            FormActions(
+                Submit('save', 'Start App', css_class='caja'),
+            )
+        )
+
+# Not used ATM
 class AddContainersToAppForm(forms.Form):
     operation = forms.CharField(label= "Operation",
             initial="add",

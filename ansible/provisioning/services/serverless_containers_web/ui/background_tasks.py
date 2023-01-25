@@ -117,7 +117,7 @@ def add_host_task(host,cpu,mem,new_containers):
         raise Exception(error)
 
 @shared_task
-def add_app_task(full_url, headers, put_field_data, app, app_files, new_containers, container_resources):
+def add_app_task(full_url, headers, put_field_data, app, app_files):
 
     r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
 
@@ -145,19 +145,20 @@ def add_app_task(full_url, headers, put_field_data, app, app_files, new_containe
                 error = "Error creating app {0}: {1}".format(app, err.decode("utf-8"))
                 raise Exception(error)
 
-        url = full_url[:full_url.rfind('/')]
-        url = url[:url.rfind('/')] + "/"
-        for host in new_containers:
-            if "irregular" in new_containers[host]:
-                # Start a chain of tasks so that containers of same host are started sequentially
-                tasks = chain(start_containers_with_app_task.si(url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.si(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])).apply_async()
-                register_task(tasks.id,"start_containers_with_app_task")
-            else:
-                task = start_containers_with_app_task.delay(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])
-                register_task(task.id,"start_containers_with_app_task")
-
     else:
         raise Exception(error)
+
+def start_app(url, headers, app, app_files, new_containers, container_resources):
+
+    # Start containers with app
+    for host in new_containers:
+        if "irregular" in new_containers[host]:
+            # Start a chain of tasks so that containers of same host are started sequentially
+            tasks = chain(start_containers_with_app_task.si(url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.si(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])).apply_async()
+            register_task(tasks.id,"start_containers_with_app_task")
+        else:
+            task = start_containers_with_app_task.delay(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])
+            register_task(task.id,"start_containers_with_app_task")
 
 @shared_task
 def add_container_to_app_task(full_url, headers, host, container, app, app_files):

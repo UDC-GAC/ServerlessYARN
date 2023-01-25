@@ -262,16 +262,24 @@
 	</div>
     {% endfor %}
 
-	{% if item.add_containers_to_app_editable_data > 0 %}
+	{% if item.started_app %}
 		<p></p>
-		<a href="#openModal-containers-to-app-{{ item.name }}" title="Edit" class="caja">Add Containers to App</a>
+		<form action="{% url 'apps_stop_switch' item.name %}" method="POST">
+			{% csrf_token %}
+			<td><button class="deactivate-btn" type="submit" name="stop_switch">Stop app</button></td>
+		</form>
+	{% endif %}
+
+	{% if item.start_app_form %}
+		<p></p>
+		<a href="#openModal-start-app-{{ item.name }}" title="Edit" class="caja">{% if item.started_app %} Add new containers to app {% else %} Start app {% endif %}</a>
 		<br><br>
-		<div align="left" id="openModal-containers-to-app-{{ item.name }}" class="modalDialog">
+		<div align="left" id="openModal-start-app-{{ item.name }}" class="modalDialog">
 			<div>
 				<a href="#close" title="Close" class="close">X</a>
-				<h2>Add Containers to App {{ item.name }}</h2>
+				<h2>{% if item.started_app %} Add new containers to app {% else %} Start app {% endif %} {{ item.name }}</h2>
 				<p>
-					{% load crispy_forms_tags %} {% crispy item.add_containers_to_app_form %}
+					{% load crispy_forms_tags %} {% crispy item.start_app_form %}
 				</p>
 			</div>
 		</div>
