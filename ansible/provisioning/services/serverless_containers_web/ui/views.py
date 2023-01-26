@@ -929,16 +929,9 @@ def getContainerResourcesForApp(number_of_containers, app_resources):
     container_resources = {}
     container_resources['regular'] = {}
     container_resources['regular']['cpu_max'] = (app_resources['cpu']['max'] - app_resources['cpu']['current']) / number_of_containers
-    container_resources['regular']['cpu_min'] = int(app_resources['cpu']['min'] / number_of_containers)
-    container_resources['regular']['cpu_boundary'] = 20
-    container_resources['regular']['mem_max'] = int((app_resources['mem']['max'] - app_resources['mem']['current']) / number_of_containers)
-    container_resources['regular']['mem_min'] = int(app_resources['mem']['min'] / number_of_containers)
-    container_resources['regular']['mem_boundary'] = 256
 
-    # CPU shares allocation
+    # CPU max shares allocation
     # We will try to allocate shares in multiples of 100
-    # TODO: do the same for minimum cpu?
-    # TODO: scale maximum (and maybe minimum) mem according to cpu changes
     correctly_allocated = False
     cpu_modulo = container_resources['regular']['cpu_max'] % 100
     if  cpu_modulo == 0:
@@ -963,11 +956,54 @@ def getContainerResourcesForApp(number_of_containers, app_resources):
                 container_resources['regular']['cpu_max'] += (100 - cpu_modulo)
                 correctly_allocated = True
 
+    # CPU min and other resources allocation
+    if 'bigger' in container_resources or 'smaller' in container_resources:
+        if 'bigger' in container_resources: irregular = 'bigger'
+        else: irregular = 'smaller'
+
+        # We will scale resources mantaining the original ratio with cpu_max
+        # example: 400/100 max/min shares between 3 containers -> 133.333/33.333 shares each -> modified to 200/50 bigger container and 100/25 regular
+        container_resources['regular']['cpu_min'] = container_resources['regular']['cpu_max'] / (app_resources['cpu']['max'] / app_resources['cpu']['min'])
+        container_resources['regular']['mem_max'] = container_resources['regular']['cpu_max'] / (app_resources['cpu']['max'] / app_resources['mem']['max'])
+        container_resources['regular']['mem_min'] = container_resources['regular']['cpu_max'] / (app_resources['cpu']['max'] / app_resources['mem']['min'])
+
+        container_resources[irregular]['cpu_min'] = container_resources[irregular]['cpu_max'] / (app_resources['cpu']['max'] / app_resources['cpu']['min'])
+        container_resources[irregular]['mem_max'] = container_resources[irregular]['cpu_max'] / (app_resources['cpu']['max'] / app_resources['mem']['max'])
+        container_resources[irregular]['mem_min'] = container_resources[irregular]['cpu_max'] / (app_resources['cpu']['max'] / app_resources['mem']['min'])
+
+        # Adjust resource values to integer
+        for key in ['cpu_min', 'mem_max', 'mem_min']:
+            resource_modulo = container_resources['regular'][key] % 1
+            if resource_modulo < 0.5:
+                if container_resources['regular'][key] >= 1:
+                    container_resources[irregular][key] = round(container_resources[irregular][key] + (resource_modulo * (number_of_containers - 1)))
+                    container_resources['regular'][key] = int(container_resources['regular'][key])
+            else:
+                smaller_resources = container_resources[irregular][key] - ((1 - resource_modulo) * (number_of_containers - 1))
+                if smaller_resources >= 1:
+                    container_resources[irregular][key] = round(smaller_resources)
+                    container_resources['regular'][key] = round(container_resources['regular'][key])
+    else:
+        container_resources['regular']['cpu_min'] = int(app_resources['cpu']['min'] / number_of_containers)
+        container_resources['regular']['mem_max'] = int((app_resources['mem']['max'] - app_resources['mem']['current']) / number_of_containers)
+        container_resources['regular']['mem_min'] = int(app_resources['mem']['min'] / number_of_containers)
+
+
+    # Boundaries
+    # TODO: maybe assign boundaries based on app boundary?
+    container_resources['regular']['cpu_boundary'] = 20
+    container_resources['regular']['mem_boundary'] = 256
+    if 'bigger' in container_resources or 'smaller' in container_resources:
+        if 'bigger' in container_resources: irregular = 'bigger'
+        else: irregular = 'smaller'
+        container_resources[irregular]['cpu_boundary'] = 20
+        container_resources[irregular]['mem_boundary'] = 256
+
     if not correctly_allocated:
         # use original resource allocation
         pass
 
-    # Round to integer
+    # Round cpu max to integer
     container_resources["regular"]["cpu_max"] = round(container_resources["regular"]["cpu_max"])
     if "bigger" in container_resources: container_resources["bigger"]["cpu_max"] = round(container_resources["bigger"]["cpu_max"])
     if "smaller" in container_resources: container_resources["smaller"]["cpu_max"] = round(container_resources["smaller"]["cpu_max"])
@@ -992,22 +1028,26 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
     if assignation_policy == "Fill-up":
         for host in hosts:
             free_cpu = host['resources']['cpu']['free']
+            free_mem = host['resources']['mem']['free']
             if containers_to_allocate + irregular_container_to_allocate <= 0:
                 break
             # First we try to assign the bigger container if it exists
-            if irregular_container_to_allocate > 0 and "bigger" in container_resources and free_cpu >= container_resources["bigger"]['cpu_max']:
+            if irregular_container_to_allocate > 0 and "bigger" in container_resources and free_cpu >= container_resources["bigger"]['cpu_max'] and free_mem >= container_resources["bigger"]['mem_max']:
                 assignation[host['name']]["irregular"] = 1
                 irregular_container_to_allocate = 0
                 free_cpu -= container_resources["bigger"]['cpu_max']
-            while containers_to_allocate > 0 and free_cpu >= container_resources["regular"]['cpu_max']:
+                free_mem -= container_resources["bigger"]['mem_max']
+            while containers_to_allocate > 0 and free_cpu >= container_resources["regular"]['cpu_max'] and free_mem >= container_resources["regular"]['mem_max']:
                 assignation[host['name']]["regular"] += 1
                 containers_to_allocate -= 1
                 free_cpu -= container_resources['regular']['cpu_max']
+                free_mem -= container_resources['regular']['mem_max']
             # Lastly we try to assign the smaller container if it exists
-            if irregular_container_to_allocate > 0 and "smaller" in container_resources and free_cpu >= container_resources["smaller"]['cpu_max']:
+            if irregular_container_to_allocate > 0 and "smaller" in container_resources and free_cpu >= container_resources["smaller"]['cpu_max'] and free_mem >= container_resources["smaller"]['mem_max']:
                 assignation[host['name']]["irregular"] = 1
                 irregular_container_to_allocate = 0
                 free_cpu -= container_resources["smaller"]['cpu_max']
+                free_mem -= container_resources["smaller"]['mem_max']
 
     elif assignation_policy == "Cyclic":
         hosts_without_space = 0
@@ -1017,19 +1057,22 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     break
 
                 # First we try to assign the bigger container if it exists
-                if irregular_container_to_allocate > 0 and "bigger" in container_resources and host['resources']['cpu']['free'] >= container_resources["bigger"]['cpu_max']:
+                if irregular_container_to_allocate > 0 and "bigger" in container_resources and host['resources']['cpu']['free'] >= container_resources["bigger"]['cpu_max'] and host['resources']['mem']['free'] >= container_resources["bigger"]['mem_max']:
                     assignation[host['name']]["irregular"] = 1
                     irregular_container_to_allocate = 0
                     host['resources']['cpu']['free'] -= container_resources["bigger"]['cpu_max']
-                elif host['resources']['cpu']['free'] >= container_resources['regular']['cpu_max']:
+                    host['resources']['mem']['free'] -= container_resources["bigger"]['mem_max']
+                elif containers_to_allocate > 0 and host['resources']['cpu']['free'] >= container_resources['regular']['cpu_max'] and host['resources']['mem']['free'] >= container_resources['regular']['mem_max']:
                     assignation[host['name']]['regular'] += 1
                     containers_to_allocate -= 1
                     host['resources']['cpu']['free'] -= container_resources['regular']['cpu_max']
+                    host['resources']['mem']['free'] -= container_resources['regular']['mem_max']
                 # Lastly we try to assign the smaller container if it exists
-                elif irregular_container_to_allocate > 0 and "smaller" in container_resources and host['resources']['cpu']['free'] >= container_resources["smaller"]['cpu_max']:
+                elif irregular_container_to_allocate > 0 and "smaller" in container_resources and host['resources']['cpu']['free'] >= container_resources["smaller"]['cpu_max'] and host['resources']['mem']['free'] >= container_resources["smaller"]['mem_max']:
                     assignation[host['name']]["irregular"] = 1
                     irregular_container_to_allocate = 0
                     host['resources']['cpu']['free'] -= container_resources["smaller"]['cpu_max']
+                    host['resources']['mem']['free'] -= container_resources["smaller"]['mem_max']
                 else:
                     hosts_without_space += 1
 
@@ -1052,7 +1095,7 @@ def apps_stop_switch(request, structure_name):
         container_host_duple = "({0},{1})".format(container['name'],container['host'])
         processRemoveContainerFromApp(url, container_host_duple, structure_name, app_files)
         # Workaround to keep all updates to State DB
-        time.sleep(0.25)
+        time.sleep(0.5)
 
     return redirect("apps")
 
@@ -1129,7 +1172,7 @@ def processRemoves(request, url, structure_type):
                 error = processRemoveContainerFromApp(url, container, app, app_files)
                 if (len(error) > 0): errors.append(error)
                 # Workaround to keep all updates to State DB
-                time.sleep(0.25)
+                time.sleep(0.5)
 
     return errors    
    

@@ -11,6 +11,12 @@
     name: yq
     state: present
 
+- name: Install expect-dev
+  when: "virtual_mode"
+  package:
+    name: python3-pip
+    state: latest
+
 - name: Install pip dependencies
   pip:
     requirements: "{{ playbook_dir }}/services/requirements.txt"

@@ -232,7 +232,7 @@ def start_containers_with_app_task(url, headers, host, new_containers, app, app_
         full_url = url + "container/{0}/{1}".format(container,app)
         add_container_to_app_task(full_url, headers, host, container, app, app_files)
         # Workaround to keep all updates to State DB
-        time.sleep(0.25)
+        time.sleep(0.5)
 
 @shared_task
 def remove_container_task(full_url, headers, host_name, cont_name):
