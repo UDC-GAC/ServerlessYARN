@@ -25,17 +25,17 @@ debug = True
 
 ## Logging
 def log_info(message, debug):
-    logging.info(message)
+    logging.info("[{0}] INFO: {1}".format(get_time_now_string(), message))
     if debug:
         print("[{0}] INFO: {1}".format(get_time_now_string(), message))
 
 def log_warning(message, debug):
-    logging.warning(message)
+    logging.warning("[{0}] INFO: {1}".format(get_time_now_string(), message))
     if debug:
         print(colored("[{0}] WARN: {1}".format(get_time_now_string(), message), "yellow"))
 
 def log_error(message, debug):
-    logging.error(message)
+    logging.error("[{0}] INFO: {1}".format(get_time_now_string(), message))
     if debug:
         print(colored("[{0}] ERROR: {1}".format(get_time_now_string(), message), "red"))
 

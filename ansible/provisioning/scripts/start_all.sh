@@ -13,13 +13,14 @@ then
     python3 ${scriptDir}/load_inventory_from_conf.py
 fi
 
+export PATH=$HOME/.local/bin:$PATH
+
 echo ""
 echo "Installing necessary services and programs..."
 ansible-playbook ${scriptDir}/../install_playbook.yml -i $INVENTORY
 echo "Install Done!"
 
 source /etc/environment
-export PATH=$PATH:$HOME/.local/bin
 
 echo "Starting containers..."
 ansible-playbook ${scriptDir}/../start_containers_playbook.yml -i $INVENTORY

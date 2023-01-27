@@ -62,14 +62,14 @@
     tags: start_app, stop_app
 
   - name: Execute start script on container
-    shell: "sudo singularity exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script }}"
+    shell: "sudo singularity exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script }} </dev/null"
     #when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"
     args:
       executable: /bin/bash
     tags: never, start_app
 
   - name: Execute stop script on container
-    shell: "sudo singularity exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script }}"
+    shell: "sudo singularity exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script }} </dev/null"
     #when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"
     args:
       executable: /bin/bash

@@ -50,7 +50,9 @@ if __name__ == "__main__":
         new_host = sys.argv[1]
         host_cpu = int(sys.argv[2])
         host_mem = int(sys.argv[3])
-        containers = sys.argv[4].split(',')
+        containers = sys.argv[4]
+        if containers != "None": containers = containers.split(',')
+        else: containers = []
         max_cpu_percentage_per_container = int(sys.argv[5])
         min_cpu_percentage_per_container = int(sys.argv[6])
         cpu_boundary = int(sys.argv[7])

@@ -123,7 +123,7 @@ def update_inventory_file(inventory_file, server, client_nodes, cpus_per_node, m
 
     # Nodes
     for host in client_nodes:
-        write_container_list(host,cpus_per_node,memory_per_node,[])
+        write_container_list([],host,cpus_per_node,memory_per_node)
 
 if __name__ == "__main__":
 

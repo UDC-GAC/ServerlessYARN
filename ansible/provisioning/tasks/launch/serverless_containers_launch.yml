@@ -51,24 +51,13 @@
     - rebalancer
   tags: restart_services
 
-## Deactivate some services before updating the State Database
-- name: Deactivate services before updating State Database
-  shell: "bash scripts/orchestrator/{{ item }}/deactivate.sh"
-  when: "'orchestrator' in tmux_output.stdout"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-  with_items:
-    - Scaler
-  tags: start_containers
-
 ## Structures Using new script
 - name: Initializing State Database - structures
   shell: "python3 scripts/stateDatabase/add_containers_API.py {{ item }} {{ hostvars[item].cpu }} {{ hostvars[item].mem }} {{ container_list }} {{ max_cpu_percentage_per_container }} {{ min_cpu_percentage_per_container }} {{ cpu_boundary }} {{ max_memory_per_container }} {{ min_memory_per_container }} {{ mem_boundary }} config/config.yml"
   args:
     executable: /bin/bash
   vars:
-    container_list: "{{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }}"
+    container_list: "{{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') if hostvars[item].containers | length > 0 else 'None' }}"
     cpu_boundary: 20
     mem_boundary: 256
   with_items: "{{ groups['nodes'] }}"
