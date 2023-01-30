@@ -13,6 +13,7 @@ then
     python3 ${scriptDir}/load_inventory_from_conf.py
 fi
 
+# This is useful in case we need to use a newer version of ansible installed in $HOME/.local/bin
 export PATH=$HOME/.local/bin:$PATH
 
 echo ""
@@ -21,6 +22,8 @@ ansible-playbook ${scriptDir}/../install_playbook.yml -i $INVENTORY
 echo "Install Done!"
 
 source /etc/environment
+# Repeat the export command in case the /etc/environment file overwrites the PATH variable
+export PATH=$HOME/.local/bin:$PATH
 
 echo "Starting containers..."
 ansible-playbook ${scriptDir}/../start_containers_playbook.yml -i $INVENTORY

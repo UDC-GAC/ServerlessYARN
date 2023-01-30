@@ -908,7 +908,8 @@ def processStartApp(request, url, app_name):
 
     ## Containers to create
     number_of_containers = int(request.POST['number_of_containers'])
-    container_resources = getContainerResourcesForApp(number_of_containers, app_resources)
+    benevolence = int(request.POST['benevolence'])
+    container_resources = getContainerResourcesForApp(number_of_containers, app_resources, benevolence)
 
     ## Container assignation to hosts
     assignation_policy = request.POST['assignation_policy']
@@ -924,7 +925,7 @@ def processStartApp(request, url, app_name):
     return error
 
 
-def getContainerResourcesForApp(number_of_containers, app_resources):
+def getContainerResourcesForApp(number_of_containers, app_resources, benevolence):
 
     container_resources = {}
     container_resources['regular'] = {}
@@ -989,15 +990,20 @@ def getContainerResourcesForApp(number_of_containers, app_resources):
         container_resources['regular']['mem_min'] = int(app_resources['mem']['min'] / number_of_containers)
 
 
-    # Boundaries
-    # TODO: maybe assign boundaries based on app boundary?
-    container_resources['regular']['cpu_boundary'] = 20
-    container_resources['regular']['mem_boundary'] = 256
+    # Boundaries are assigned based on max and min value of resource and the benevolence policy value
+    # example: for 200/100 max/min cpu and a high benevolence value (or 'lax' limits) : boundary = (200-100)/4 = 25 -> actual minimum cpu (without takint into account rebalancing) 100+25*2 = 150
+    # same example for low benevolence valye (or 'strict' limits) : boundary = (200-100)/16 = 6 -> actual minimum cpu 100+6*2 = 112
+    if benevolence == 1: divider = 4
+    elif benevolence == 2: divider = 8
+    else: divider = 16
+
+    container_resources['regular']['cpu_boundary'] = round((container_resources['regular']['cpu_max'] - container_resources['regular']['cpu_min']) / divider)
+    container_resources['regular']['mem_boundary'] = round((container_resources['regular']['mem_max'] - container_resources['regular']['mem_min']) / divider)
     if 'bigger' in container_resources or 'smaller' in container_resources:
         if 'bigger' in container_resources: irregular = 'bigger'
         else: irregular = 'smaller'
-        container_resources[irregular]['cpu_boundary'] = 20
-        container_resources[irregular]['mem_boundary'] = 256
+        container_resources[irregular]['cpu_boundary'] = round((container_resources[irregular]['cpu_max'] - container_resources[irregular]['cpu_min']) / divider)
+        container_resources[irregular]['mem_boundary'] = round((container_resources[irregular]['mem_max'] - container_resources[irregular]['mem_min']) / divider)
 
     if not correctly_allocated:
         # use original resource allocation

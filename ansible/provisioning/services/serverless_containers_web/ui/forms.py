@@ -385,6 +385,14 @@ class StartAppForm(forms.Form):
                 ),
             required=True
             )
+    benevolence = forms.ChoiceField(label= "Scaling benevolence",
+            choices = (
+                (1, "Lax"),
+                (2, "Medium"),
+                (3, "Strict"),
+                ),
+            required=True
+            )
     def __init__(self, *args, **kwargs):
         super(StartAppForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -397,6 +405,7 @@ class StartAppForm(forms.Form):
             Field('name', readonly=True),
             Field('number_of_containers'),
             Field('assignation_policy'),
+            Field('benevolence'),
             FormActions(
                 Submit('save', 'Start App', css_class='caja'),
             )
