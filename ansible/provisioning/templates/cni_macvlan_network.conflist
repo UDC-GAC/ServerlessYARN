@@ -1,0 +1,31 @@
+{
+    "cniVersion": "1.0.0",
+    "name": "macvlan_{{ hostname }}",
+    "plugins": [
+        {
+            "type": "macvlan",
+            "master": "{{ iface }}",
+            "linkInContainer": false,
+            "mode": "bridge",
+            "ipam": {
+                "type": "host-local",
+                "ranges": [ [ {
+                        "subnet": "{{ subnet }}",
+                        "rangeStart": "{{ rangeStart }}",
+                        "rangeEnd": "{{ rangeEnd }}"
+                } ] ],
+                "routes": [ { 
+                    "dst": "0.0.0.0/0"
+                } ]
+            }
+        },
+        {
+            "type": "firewall"
+        },
+        {
+            "type": "portmap",
+            "capabilities": {"portMappings": true},
+            "snat": true
+        }
+    ]
+}

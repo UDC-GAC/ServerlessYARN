@@ -5,3 +5,4 @@ lxd_key_path: "{{ serverless_containers_path }}"
 opentsdb_log_path: "{{ bdwatchdog_path }}/opentsdb/log"
 apptainer_repo_path: "{{ installation_path }}/apptainer"
 web_interface_path: services/serverless_containers_web
+singularity_cgroups_group: singularity

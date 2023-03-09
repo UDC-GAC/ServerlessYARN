@@ -24,4 +24,7 @@
     - import_tasks: tasks/launch/couchdb_launch.yml
     - import_tasks: tasks/launch/opentsdb_launch.yml
     - import_tasks: tasks/launch/serverless_containers_launch.yml
+      vars:
+        - nodes: "{{ host_list | split(',') if host_list is defined else groups['nodes'] }}"
+
     - import_tasks: tasks/launch/autoserverlessweb_services_launch.yml

@@ -6,7 +6,7 @@
     executable: /bin/bash
   vars:
     container_list: "{{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }}"
-  with_items: "{{ groups['nodes'] }}"
+  with_items: "{{ nodes }}"
 
 - name: Initializing State Database - container mem limit on Node Scaler
   shell: "python3 scripts/stateDatabase/init_host_node_rescaler.py {{ item }} mem {{ hostvars[item].mem }} {{ container_list }} {{ max_memory_per_container }} {{ min_memory_per_container }} config/config.yml"
@@ -14,4 +14,4 @@
     executable: /bin/bash
   vars:
     container_list: "{{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }}"
-  with_items: "{{ groups['nodes'] }}"
+  with_items: "{{ nodes }}"

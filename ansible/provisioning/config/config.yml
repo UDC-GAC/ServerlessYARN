@@ -34,6 +34,13 @@ min_cpu_percentage_per_container: 50
 max_memory_per_container: 2048
 min_memory_per_container: 1024
 
+## Container network configuration
+# host interface through which the containers of different nodes communicate with each other
+iface: eth1
+# currently supported modes: bridge, ptp, macvlan, ipvlan
+mode: ipvlan
+subnet: 10.22.0.0/16
+
 # TODO: It may be interesting to leave the possibility to start at least one app from config
 ## Application initial values
 #number_of_apps: 1

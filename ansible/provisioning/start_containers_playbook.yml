@@ -24,11 +24,13 @@
       when: "container_engine == 'apptainer'"
       tags: start_containers
       vars:
+        - containers: "{{ container_list | split(',') if container_list is defined else hostvars[inventory_hostname].containers }}"
         - template_definition_file: "ubuntu_container.def"
         - definition_file: "ubuntu_container.def"
-        - image_file: "ubuntu_container.sif"
+        - app_base_name: "base"
+        - app_name: "{{ app_base_name }}"
         - app_base_image_file: "ubuntu_container.sif"
-        - app_name: "base"
+        - image_file: "{{ app_base_image_file }}"
         - cgroups_file: "apptainer_containers_cgroup.toml"
         - files_dir: ""
         - install_script: ""
@@ -53,3 +55,5 @@
   tasks:
     - import_tasks: tasks/containers_setup/node_rescaler_containers_init.yml
       tags: start_containers
+      vars:
+        - nodes: "{{ host_list | split(',') if host_list is defined else groups['nodes'] }}"

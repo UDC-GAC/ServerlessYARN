@@ -2,7 +2,7 @@ import time
 import subprocess
 import requests
 from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host
-from celery import shared_task, chain
+from celery import shared_task, chain, chord
 from celery.result import AsyncResult
 from bs4 import BeautifulSoup
 import redis
@@ -150,15 +150,67 @@ def add_app_task(full_url, headers, put_field_data, app, app_files):
 
 def start_app(url, headers, app, app_files, new_containers, container_resources):
 
+    # TODO: setup network before starting app on containers -> first start containers (without starting app) then setup network and start app on the same task
+
+    setup_network_task = setup_containers_network_task.s(url, headers, app, app_files)
+    start_containers_tasks = []
+
     # Start containers with app
+    i = 0
     for host in new_containers:
         if "irregular" in new_containers[host]:
             # Start a chain of tasks so that containers of same host are started sequentially
-            tasks = chain(start_containers_with_app_task.si(url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.si(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])).apply_async()
-            register_task(tasks.id,"start_containers_with_app_task")
+            # tasks = chain(start_containers_with_app_task.si(url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.si(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])).apply_async()
+            # register_task(tasks.id,"start_containers_with_app_task")
+            # start_containers_tasks.append(chain(start_containers_with_app_task.si({},url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
+            if i == 0:
+                start_containers_tasks.append(chain(start_containers_with_app_task.s({},url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
+            else:
+                start_containers_tasks.append(chain(start_containers_with_app_task.s(url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
+
         else:
-            task = start_containers_with_app_task.delay(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])
-            register_task(task.id,"start_containers_with_app_task")
+            # task = start_containers_with_app_task.delay(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])
+            # register_task(task.id,"start_containers_with_app_task")
+            # start_containers_tasks.append(start_containers_with_app_task.si({},url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
+            if i == 0:
+                start_containers_tasks.append(start_containers_with_app_task.s({},url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
+            else:
+                start_containers_tasks.append(start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
+
+        i += 1
+
+    if len(start_containers_tasks) > 0:
+        # Celery chords may be the best solution, but they seem to be somewhat bugged
+        #task = chord(start_containers_tasks)(setup_network_task)
+
+        start_containers_tasks.append(setup_network_task)
+        task = chain(*start_containers_tasks).delay()
+        register_task(task.id,"setup_containers_network_task")
+
+@shared_task
+def setup_containers_network_task(app_containers, url, headers, app, app_files):
+
+    # if chord worked:
+    ## app_containers example = [{host0: ["host0-cont0","host0-cont1","host1-cont2"]}, {host1: ["host1-cont0"]}]
+    # app_containers_dict = {}
+    # for d in app_containers:
+    #     app_containers_dict = mergeDictionary(app_containers_dict, d)
+
+    # app_containers example = {'host0': ['host0-cont0', 'host0-cont1'], 'host1': ['host1-cont0', 'host1-cont1']}
+    hosts = ','.join(list(app_containers.keys()))
+    app_containers_dict = json.dumps(app_containers).replace(" ","")
+
+    rc = subprocess.Popen([
+        "./ui/scripts/setup_network_on_container.sh", hosts, app_containers_dict
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = rc.communicate()
+
+    # Log ansible output
+    print(out.decode("utf-8") )
+
+    if rc.returncode != 0:
+        error = "Error setting network for app {0}: {1}".format(app,err.decode("utf-8"))
+        raise Exception(error)
 
 @shared_task
 def add_container_to_app_task(full_url, headers, host, container, app, app_files):
@@ -189,8 +241,16 @@ def add_container_to_app_task(full_url, headers, host, container, app, app_files
     else:
         raise Exception(error)
 
+
+def mergeDictionary(dict_1, dict_2):
+   dict_3 = {**dict_1, **dict_2}
+   for key, value in dict_3.items():
+       if key in dict_1 and key in dict_2:
+               dict_3[key] = value + dict_2[key]
+   return dict_3
+
 @shared_task
-def start_containers_with_app_task(url, headers, host, new_containers, app, app_files, container_resources):
+def start_containers_with_app_task(already_added_containers, url, headers, host, new_containers, app, app_files, container_resources):
     #TODO: merge function with start_containers_task
     # update inventory file
     with lock:
@@ -233,6 +293,8 @@ def start_containers_with_app_task(url, headers, host, new_containers, app, app_
         add_container_to_app_task(full_url, headers, host, container, app, app_files)
         # Workaround to keep all updates to State DB
         time.sleep(0.5)
+
+    return mergeDictionary(already_added_containers,added_containers)
 
 @shared_task
 def remove_container_task(full_url, headers, host_name, cont_name):

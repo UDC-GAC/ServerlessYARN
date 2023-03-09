@@ -1,0 +1,32 @@
+{
+    "cniVersion": "1.0.0",
+    "name": "bridge_{{ hostname }}",
+    "plugins": [
+        {
+            "type": "bridge",
+            "bridge": "singularity-BR",
+            "isGateway": true,
+            "ipMasq": true,
+            "ipam": {
+                "type": "host-local",
+                "ranges": [ [ {
+                        "subnet": "{{ subnet }}",
+                        "rangeStart": "{{ rangeStart }}",
+                        "rangeEnd": "{{ rangeEnd }}",
+                        "gateway": "{{ rangeStart }}"
+                } ] ],
+                "routes": [ { 
+                    "dst": "0.0.0.0/0"
+                } ]
+            }
+        },
+        {
+            "type": "firewall"
+        },
+        {
+            "type": "portmap",
+            "capabilities": {"portMappings": true},
+            "snat": true
+        }
+    ]
+}

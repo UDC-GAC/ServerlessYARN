@@ -1,0 +1,29 @@
+{
+    "cniVersion": "1.0.0",
+    "name": "ipvlan_{{ hostname }}",
+    "plugins": [
+        {
+            "type": "ipvlan",
+            "master": "{{ iface }}",
+            "ipam": {
+                "type": "host-local",
+                "ranges": [ [ {
+                        "subnet": "{{ subnet }}",
+                        "rangeStart": "{{ rangeStart }}",
+                        "rangeEnd": "{{ rangeEnd }}"
+                } ] ],
+                "routes": [ { 
+                    "dst": "0.0.0.0/0"
+                } ]
+            }
+        },
+        {
+            "type": "firewall"
+        },
+        {
+            "type": "portmap",
+            "capabilities": {"portMappings": true},
+            "snat": true
+        }
+    ]
+}

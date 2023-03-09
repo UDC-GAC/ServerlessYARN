@@ -57,4 +57,4 @@
   args:
     chdir: "{{ installation_path }}"
     executable: /bin/bash
-  loop: "{{ hostvars[inventory_hostname].containers }}"
+  with_items: "{{ containers }}"

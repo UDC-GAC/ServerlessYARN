@@ -1,0 +1,59 @@
+
+- name: Get interfaces IPs
+  shell: "ip -f inet addr show {{ iface }} | sed -En -e 's/.*inet ([0-9.]+).*/\\1/p'"
+  register: iface_ip
+
+- name: Copy script
+  copy:
+    src: scripts/get_subnets.py
+    dest: "{{ installation_path }}/get_subnets.py"
+
+- name: Get subnets
+  shell: "python3 {{ installation_path }}/get_subnets.py {{ subnet }} {{ hostlist }} {{ iface_ip_list }}"
+  vars:
+    hostlist: "{{ play_hosts | replace('[','') | replace(']','') | replace(', ',',') }}"
+    iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'iface_ip') | map(attribute='stdout') | list | replace('[','') | replace(']','') | replace(', ',',') }}"
+  args:
+    executable: /bin/bash
+  register: subnet_dict 
+  # output example: {host0 : {iface_ip: 192.168.56.100, subnet: 10.23.0.0/18, rangeStart: 10.23.0.1, rangeEnd: 10.23.63.254}, host1: ...}
+
+## Setup CNI plugin config
+- name: Check apptainer config directory for installation from Deb or RPM packages
+  shell: find /etc -name apptainer.conf -type f 2> /dev/null
+  register: apptainer_config_file
+
+- name: Get apptainer config path
+  set_fact: 
+    apptainer_config_path: "{{ apptainer_config_file.stdout | dirname }}"
+
+- name: Check apptainer config directory for default installation from source
+  when: apptainer_config_path == ""
+  shell: find /usr/local/etc -name apptainer.conf -type f 2> /dev/null
+  register: apptainer_config_file
+
+- name: Get apptainer config path
+  when: '"skip_reason" not in apptainer_config_file'
+  set_fact:
+    apptainer_config_path: "{{ apptainer_config_file.stdout | dirname }}"
+
+- name: Setup plugin config
+  when: item.key == inventory_hostname
+  template:
+    src: "templates/cni_{{ mode }}_network.conflist"
+    dest: "{{ apptainer_config_path }}/network/{{ mode }}_{{ inventory_hostname }}.conflist"
+  with_dict: "{{ subnet_dict.stdout }}"
+  vars:
+    rangeStart: "{{ item.value.rangeStart }}"
+    rangeEnd: "{{ item.value.rangeEnd }}"
+    hostname: "{{ inventory_hostname }}"
+
+## Setup routes
+- name: Setup routes
+  when: (mode == 'bridge' or mode == 'ptp') and item.key != inventory_hostname
+  shell: "ip route replace {{ item.value.subnet }} via {{ item.value.iface_ip }} dev {{ iface }}"
+  args:
+     executable: /bin/bash
+  with_dict: "{{ subnet_dict.stdout }}"
+
+## TODO: check how to setup macvlan correctly, since it needs promiscuous mode on vagrant cluster but not on some clusters

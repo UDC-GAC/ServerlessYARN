@@ -1,0 +1,30 @@
+{
+    "cniVersion": "1.0.0",
+    "name": "ptp_{{ hostname }}",
+    "plugins": [
+        {
+            "type": "ptp",
+            "ipMasq": true,
+            "ipam": {
+                "type": "host-local",
+                "ranges": [ [ {
+                        "subnet": "{{ subnet }}",
+                        "rangeStart": "{{ rangeStart }}",
+                        "rangeEnd": "{{ rangeEnd }}"
+                } ] ],
+                "routes": [ { 
+                    "dst": "0.0.0.0/0"
+                } ]
+            }
+        },
+        {
+            "type": "firewall"
+        },
+        {
+            "type": "portmap",
+            "capabilities": {"portMappings": true},
+            "snat": true
+        }
+    ]
+}
+

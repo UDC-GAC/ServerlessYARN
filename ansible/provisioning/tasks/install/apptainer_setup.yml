@@ -1,72 +1,89 @@
 
-- name: Install prerequisites for Apptainer
-  apt:
-    name: 
-     - build-essential
-     - libseccomp-dev
-     - pkg-config
-     - uidmap
-     - squashfs-tools
-     - squashfuse
-     - fuse2fs
-     - fuse-overlayfs
-     - fakeroot
-     - cryptsetup
-     - curl
-     - wget
-     - git
-    state: latest  
-    update_cache: yes
+- name: Check for previous apptainer installation
+  shell: which apptainer
+  register: result
+  ignore_errors: true
 
-- name: Download go
-  unarchive:
-    src: https://go.dev/dl/go1.19.3.linux-amd64.tar.gz
-    dest: /usr/local
-    remote_src: yes
+- name: Install apptainer + prerequisites
+  when: result is failed
+  block:
+    - name: Install prerequisites for Apptainer
+      apt:
+        name:
+        - build-essential
+        - libseccomp-dev
+        - pkg-config
+        - uidmap
+        - squashfs-tools
+        - squashfuse
+        - fuse2fs
+        - fuse-overlayfs
+        - fakeroot
+        - cryptsetup
+        - curl
+        - wget
+        - git
+        state: latest
+        update_cache: yes
 
-- name: Create Go executable symlink
-  file:
-    src: /usr/local/go/bin/go
-    dest: /usr/local/bin/go
-    state: link
+    - name: Download go
+      unarchive:
+        src: https://go.dev/dl/go1.19.3.linux-amd64.tar.gz
+        dest: /usr/local
+        remote_src: yes
 
-- name: Clone Apptainer repo
-  git:
-    repo: https://github.com/apptainer/apptainer.git
-    dest: "{{ apptainer_repo_path }}"
+    - name: Create Go executable symlink
+      file:
+        src: /usr/local/go/bin/go
+        dest: /usr/local/bin/go
+        state: link
 
-- name: Check for apptainer installation
-  stat:
-    path: "{{ apptainer_repo_path }}/builddir/apptainer"
-  register: stat_output
+    - name: Clone Apptainer repo
+      git:
+        repo: https://github.com/apptainer/apptainer.git
+        dest: "{{ apptainer_repo_path }}"
 
-- name: Configure Apptainer
-  shell: ./mconfig
-  when: not stat_output.stat.exists
-  args:
-     chdir: "{{ apptainer_repo_path }}"
-     executable: /bin/bash
+    - name: Configure Apptainer
+      shell: ./mconfig
+      args:
+        chdir: "{{ apptainer_repo_path }}"
+        executable: /bin/bash
 
-- name: Build Apptainer
-  make: 
-     chdir: "{{ apptainer_repo_path }}/builddir"
-  when: not stat_output.stat.exists
+    - name: Build Apptainer
+      make:
+        chdir: "{{ apptainer_repo_path }}/builddir"
 
-- name: Install Apptainer
-  become: yes
-  make: 
-     chdir: "{{ apptainer_repo_path }}/builddir"
-     target: install
-  when: not stat_output.stat.exists
+    - name: Install Apptainer
+      become: yes
+      make:
+        chdir: "{{ apptainer_repo_path }}/builddir"
+        target: install
+
+    - name: get the username running the deploy
+      become: no
+      local_action: command whoami
+      register: username_on_the_host
+
+    - name: Change Apptainer repo dir owner
+      file:
+        path: "{{ apptainer_repo_path }}"
+        state: directory
+        owner: "{{ username_on_the_host.stdout_lines[0] }}"
+        recurse: yes
+
+# TODO: avoid execution on localhost
+- name: Create group to manipulate cgroups as non-root user
+  group:
+    name: "{{ singularity_cgroups_group }}"
+    state: present
 
 - name: get the username running the deploy
   become: no
   local_action: command whoami
   register: username_on_the_host
 
-- name: Change Apptainer repo dir owner
-  file:
-    path: "{{ apptainer_repo_path }}"
-    state: directory
-    owner: "{{ username_on_the_host.stdout_lines[0] }}"
-    recurse: yes
+- name: Add user to group
+  user:
+    name: "{{ username_on_the_host.stdout }}"
+    groups: "{{ singularity_cgroups_group }}"
+    append: true

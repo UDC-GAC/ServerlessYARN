@@ -60,7 +60,7 @@
     container_list: "{{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') if hostvars[item].containers | length > 0 else 'None' }}"
     cpu_boundary: 20
     mem_boundary: 256
-  with_items: "{{ groups['nodes'] }}"
+  with_items: "{{ nodes }}"
   tags: start_containers
 
 ## Activate Services

@@ -130,19 +130,19 @@ def apps(request):
     return structures(request, "apps","apps.html")
 
 # Prepare data to HTML
-def compareContainerNames(container1, container2):
+def compareStructureNames(structure1, structure2):
     # When using a dict to store container info
-    if isinstance(container1, dict):
-        cname1 = container1['name']
-        cname2 = container2['name']
+    if isinstance(structure1, dict):
+        cname1 = structure1['name']
+        cname2 = structure2['name']
     # When using a tuple to store container info (host core mapping case))
-    elif isinstance(container1, tuple):
-        cname1 = container1[0]
-        cname2 = container2[0]
+    elif isinstance(structure1, tuple):
+        cname1 = structure1[0]
+        cname2 = structure2[0]
     # When using containers as strings
     else:
-        cname1 = container1
-        cname2 = container2
+        cname1 = structure1
+        cname2 = structure2
 
     id1 = re.sub('.*?([0-9]*)$',r'\1',cname1)
     id2 = re.sub('.*?([0-9]*)$',r'\1',cname2)
@@ -192,7 +192,7 @@ def getHosts(data):
                     containers.append(structure)
 
             ## we order this list using name container to keep the order consistent with the 'cpu_cores' dict below
-            item['containers'] = sorted(containers, key=functools.cmp_to_key(compareContainerNames))
+            item['containers'] = sorted(containers, key=functools.cmp_to_key(compareStructureNames))
 
             # Adjustment to don't let core_usage_mapping be too wide on html display
             if ("cpu" in item['resources'] and "core_usage_mapping" in item['resources']['cpu']):
@@ -214,7 +214,7 @@ def getHosts(data):
                         if (cont['name'] not in mapping):
                             mapping[cont['name']] = 0
 
-                    mapping = dict(sorted(mapping.items(),key=functools.cmp_to_key(compareContainerNames)))
+                    mapping = dict(sorted(mapping.items(),key=functools.cmp_to_key(compareStructureNames)))
 
                     ## Move 'free' shares of core always to start of dict
                     free = mapping['free']
@@ -236,7 +236,8 @@ def getHosts(data):
             item['resources_values_labels'] = getStructuresValuesLabels(item, 'resources')
 
             hosts.append(item)
-                          
+
+    hosts = sorted(hosts,key=functools.cmp_to_key(compareStructureNames))
     return hosts
 
 def getHostsNames(data):
@@ -248,6 +249,7 @@ def getHostsNames(data):
 
             hosts.append(item)
 
+    hosts = sorted(hosts,key=functools.cmp_to_key(compareStructureNames))
     return hosts
 
 def getApps(data):
@@ -272,7 +274,7 @@ def getApps(data):
 
                     containers.append(structure)
 
-            item['containers_full'] = sorted(containers, key=functools.cmp_to_key(compareContainerNames))
+            item['containers_full'] = sorted(containers, key=functools.cmp_to_key(compareStructureNames))
             item['limits'] = getLimits(item['name'])
 
             ## App Resources Form
@@ -321,7 +323,7 @@ def getContainers(data):
             item['limits_values_labels'] = getStructuresValuesLabels(item, 'limits')
 
             containers.append(item)
-    return sorted(containers, key=functools.cmp_to_key(compareContainerNames))
+    return sorted(containers, key=functools.cmp_to_key(compareStructureNames))
 
 # Not used ATM
 def getAllContainers(data):

@@ -20,7 +20,8 @@ INVENTORY=../ansible.inventory
 
 unbuffer ansible-playbook start_containers_playbook.yml -i $INVENTORY -t start_containers -l $HOST_NAME,localhost \
     --extra-vars \
-        "template_definition_file=$TEMPLATE_DEFINITION_FILE \
+        "host_list=$HOST_NAME \
+        template_definition_file=$TEMPLATE_DEFINITION_FILE \
         definition_file=$DEFINITION_FILE \
         image_file=$IMAGE_FILE \
         app_name=$APP_NAME \
@@ -34,7 +35,8 @@ unbuffer ansible-playbook start_containers_playbook.yml -i $INVENTORY -t start_c
 
 unbuffer ansible-playbook launch_playbook.yml -i $INVENTORY -t start_containers \
     --extra-vars \
-        "container_list=$CONTAINERS \
+        "host_list=$HOST_NAME \
+        container_list=$CONTAINERS \
         max_cpu_percentage_per_container=$MAX_CPU_PERCENTAGE_PER_CONTAINER \
         min_cpu_percentage_per_container=$MIN_CPU_PERCENTAGE_PER_CONTAINER \
         cpu_boundary=$CPU_BOUNDARY \
