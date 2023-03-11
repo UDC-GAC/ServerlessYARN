@@ -10,7 +10,7 @@
     dest: "{{ installation_path }}/{{ cgroups_file }}"
 
 - name: Build image
-  shell: "singularity build {{ image_file }} {{ definition_file }}"
+  shell: "{{ singularity_command_alias }} build {{ image_file }} {{ definition_file }}"
   args:
     chdir: "{{ installation_path }}"
     executable: /bin/bash
@@ -18,13 +18,13 @@
 
 ### Fix to add controllers to cgroups V2
 - name: Start dummy container
-  shell: "singularity instance start -C --apply-cgroups {{ cgroups_file }} {{ image_file }} dummy_cont"
+  shell: "{{ singularity_command_alias }} instance start -C --apply-cgroups {{ cgroups_file }} {{ image_file }} dummy_cont"
   args:
     chdir: "{{ installation_path }}"
     executable: /bin/bash
 
 - name: Stop dummy container
-  shell: "singularity instance stop dummy_cont"
+  shell: "{{ singularity_command_alias }} instance stop dummy_cont"
   args:
     executable: /bin/bash
 
@@ -46,13 +46,13 @@
 
  ####
 - name: Check containers status
-  shell: singularity instance list -j
+  shell: "{{ singularity_command_alias }} instance list -j"
   register: apptainer_list_output
   args:
     executable: /bin/bash
 
 - name: Start apptainer containers
-  shell: "singularity instance start -C --hostname {{ item }} --apply-cgroups {{ cgroups_file }} {{ image_file }} {{ item }}"
+  shell: "{{ singularity_command_alias }} instance start -C --hostname {{ item }} --apply-cgroups {{ cgroups_file }} {{ image_file }} {{ item }}"
   when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"
   args:
     chdir: "{{ installation_path }}"

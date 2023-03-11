@@ -26,26 +26,52 @@
 
       - name: Get containers IP addresses
         when: item[0].key == inventory_hostname
-        shell: "sudo singularity exec instance://{{ item[1] }} hostname -I"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[1] }} hostname -I"
         args:
           executable: /bin/bash
-        loop: "{{ container_dict | dict2items | subelements('value') }}"
+        loop: "{{ container_loop }}"
         register: ip_addresses
 
       - name: Update hostname resolution in containers
         when: item[0][0].key == inventory_hostname
-        shell: "sudo singularity exec instance://{{ item[0][1] }} bash -c \
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0][1] }} bash -c \
           'cp /etc/hosts {{ bind_dir_on_container }} \
           && {{ sed_command }} {{ bind_dir_on_container }}/hosts \
           && cat {{ bind_dir_on_container }}/hosts > /etc/hosts \
           && rm {{ bind_dir_on_container }}/hosts'"
+        args:
+          executable: /bin/bash
         vars:
           iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'ip_addresses') | map(attribute='results') }}"
           sed_command: sed -i '\''1s/^/{{ item[1].stdout | trim }} {{ item[1].item[1] }}\n/'\''
-        loop: "{{ container_dict | dict2items | subelements('value')|product(iface_ip_list | flatten(levels=1) | reject('search','skip_reason'))|list }}"
+        loop: "{{ container_loop | product(iface_ip_list | flatten(levels=1) | reject('search','skip_reason'))|list }}"
+
+      # Iptables setup ready, but i'll leave it commented in case it interferes with hadoop/yarn tests
+      # - name: Setup Iptables (1)
+      #   when: item[0].key == inventory_hostname
+      #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[1] }} bash -c \
+      #     'iptables-nft -P FORWARD DROP \
+      #     && iptables-nft -P INPUT DROP \
+      #     && iptables-nft -A INPUT -m state --state INVALID -j DROP \
+      #     && iptables-nft -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT \
+      #     && iptables-nft -A INPUT -i lo -j ACCEPT'"
+      #   args:
+      #     executable: /bin/bash
+      #   loop: "{{ container_loop }}"
+
+      # - name: Setup Iptables (2)
+      #   when: item[0][0].key == inventory_hostname
+      #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0][1] }} bash -c \
+      #     'iptables-nft -A INPUT -s {{ item[1].stdout | trim }} -j ACCEPT'"
+      #   args:
+      #     executable: /bin/bash
+      #   vars:
+      #     iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'ip_addresses') | map(attribute='results') }}"
+      #   loop: "{{ container_loop | product(iface_ip_list | flatten(levels=1) | reject('search','skip_reason'))|list }}"
 
     vars:
       - container_dict: "{{ app_containers }}"
+      - container_loop: "{{ container_dict | dict2items | subelements('value') }}"
     tags: never, setup_network
 
   ## Start
@@ -57,7 +83,7 @@
         register: userid_on_the_host
 
       - name: Copy app files already on container if there was an installation
-        shell: "sudo singularity exec instance://{{ container }} bash -c 'cp -pr /opt/{{ app_name }}/* {{ bind_dir_on_container }} && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/*'"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c 'cp -pr /opt/{{ app_name }}/* {{ bind_dir_on_container }} && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/*'"
         when: "install_script != ''"
         args:
           executable: /bin/bash
@@ -91,7 +117,7 @@
         tags: stop_app
 
       - name: Execute start script on container
-        shell: "sudo singularity exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script }} </dev/null"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script }} </dev/null"
         #when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"
         args:
           executable: /bin/bash
@@ -102,7 +128,7 @@
   - name: Stop app on container
     block:
       - name: Execute stop script on container
-        shell: "sudo singularity exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script }} </dev/null"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script }} </dev/null"
         #when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"
         args:
           executable: /bin/bash

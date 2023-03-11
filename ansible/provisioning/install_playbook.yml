@@ -52,4 +52,4 @@
       when: "virtual_mode and container_engine == 'apptainer'"
 
     - import_tasks: tasks/install/network_setup.yml
-      when: "virtual_mode and container_engine == 'apptainer'"
+      when: "container_engine == 'apptainer'"

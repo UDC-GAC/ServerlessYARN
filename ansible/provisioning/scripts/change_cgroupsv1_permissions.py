@@ -7,10 +7,11 @@ import sys
 if __name__ == "__main__":
 
     ## Get container PID
-    group = sys.argv[1]
-    container = sys.argv[2]
+    singularity_command_alias = sys.argv[1]
+    group = sys.argv[2]
+    container = sys.argv[3]
 
-    process = subprocess.Popen(["sudo", "singularity", "instance", "list", "-j", container], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = subprocess.Popen(["sudo", singularity_command_alias, "instance", "list", "-j", container], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     stdout, stderr = process.communicate()
     parsed = json.loads(stdout)

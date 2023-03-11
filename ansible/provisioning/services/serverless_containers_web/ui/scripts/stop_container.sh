@@ -10,6 +10,7 @@ INVENTORY=../ansible.inventory
 CONFIG_FILE=config/config.yml
 
 container_engine=`yq '.container_engine' < $CONFIG_FILE`
+singularity_command_alias=`yq '.singularity_command_alias' < $CONFIG_FILE`
 cgroups_version=`yq '.cgroups_version' < $CONFIG_FILE`
 
 if [ $container_engine = "lxc" ]
@@ -20,9 +21,9 @@ elif [ $container_engine = "apptainer" ]
 then
     if [ $cgroups_version = "v1" ]
     then
-        unbuffer ansible $HOST_NAME -i $INVENTORY -m shell -a "sudo singularity instance stop $CONT_NAME"
+        unbuffer ansible $HOST_NAME -i $INVENTORY -m shell -a "sudo $singularity_command_alias instance stop $CONT_NAME"
     else
-        unbuffer ansible $HOST_NAME -i $INVENTORY -m shell -a "singularity instance stop $CONT_NAME"
+        unbuffer ansible $HOST_NAME -i $INVENTORY -m shell -a "$singularity_command_alias instance stop $CONT_NAME"
     fi
 
 else

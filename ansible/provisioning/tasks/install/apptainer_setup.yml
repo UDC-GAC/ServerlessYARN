@@ -1,6 +1,6 @@
 
 - name: Check for previous apptainer installation
-  shell: which apptainer
+  shell: "which {{ singularity_command_alias }}"
   register: result
   ignore_errors: true
 

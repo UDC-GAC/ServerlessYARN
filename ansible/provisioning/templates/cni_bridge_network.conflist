@@ -15,7 +15,11 @@
                         "rangeEnd": "{{ rangeEnd }}",
                         "gateway": "{{ rangeStart }}"
                 } ] ],
-                "routes": [ { 
+                "routes": [ {
+                    "dst": "{{ subnet }}",
+                    "gw": "{{ rangeStart }}"
+                },
+                {
                     "dst": "0.0.0.0/0"
                 } ]
             }

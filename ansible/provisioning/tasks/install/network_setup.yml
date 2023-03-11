@@ -21,6 +21,7 @@
 ## Setup CNI plugin config
 - name: Check apptainer config directory for installation from Deb or RPM packages
   shell: find /etc -name apptainer.conf -type f 2> /dev/null
+  ignore_errors: yes
   register: apptainer_config_file
 
 - name: Get apptainer config path
@@ -30,6 +31,7 @@
 - name: Check apptainer config directory for default installation from source
   when: apptainer_config_path == ""
   shell: find /usr/local/etc -name apptainer.conf -type f 2> /dev/null
+  ignore_errors: yes
   register: apptainer_config_file
 
 - name: Get apptainer config path
@@ -50,7 +52,7 @@
 
 ## Setup routes
 - name: Setup routes
-  when: (mode == 'bridge' or mode == 'ptp') and item.key != inventory_hostname
+  when: virtual_mode and (mode == 'bridge' or mode == 'ptp') and item.key != inventory_hostname
   shell: "ip route replace {{ item.value.subnet }} via {{ item.value.iface_ip }} dev {{ iface }}"
   args:
      executable: /bin/bash

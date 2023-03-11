@@ -34,6 +34,7 @@
         - cgroups_file: "apptainer_containers_cgroup.toml"
         - files_dir: ""
         - install_script: ""
+        - bind_dir_on_container: /opt/bind
 
     - import_tasks: tasks/containers_setup/node_rescaler_launch.yml
       become: "{{ 'no' if container_engine == 'apptainer' else 'yes' }}"

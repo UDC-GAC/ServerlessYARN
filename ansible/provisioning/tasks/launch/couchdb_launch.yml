@@ -21,20 +21,20 @@
             dest: "{{ installation_path }}/debian_couchdb_conf.dat"
 
         - name: Build image
-          shell: "singularity build {{ image_file }} {{ definition_file }}"
+          shell: "{{ singularity_command_alias }} build {{ image_file }} {{ definition_file }}"
           args:
             chdir: "{{ installation_path }}"
             executable: /bin/bash
             creates: "{{ image_file }}"
 
         - name: Check containers status
-          shell: singularity instance list -j
+          shell: "{{ singularity_command_alias }} instance list -j"
           register: apptainer_list_output
           args:
             executable: /bin/bash
 
         - name: Start couchdb apptainer container
-          shell: "singularity instance start -C --writable-tmpfs -f {{ image_file }} {{ container_name }}"
+          shell: "{{ singularity_command_alias }} instance start -C --writable-tmpfs -f {{ image_file }} {{ container_name }}"
           when: "'\"instance\": \"{{ container_name }}\",' not in apptainer_list_output.stdout"
           args:
             chdir: "{{ installation_path }}"

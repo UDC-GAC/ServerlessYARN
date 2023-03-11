@@ -1,5 +1,6 @@
 ## Container engine (lxc or apptainer at the moment)
 CONTAINER_ENGINE: "{{ container_engine }}"
+SINGULARITY_COMMAND_ALIAS: "{{ singularity_command_alias }}" # singularity or apptainer (only relevant when using apptainer as container engine)
 
 ## Cgroups version: v1 (Lecacy or Hybrid mode) or v2 (Unified mode)
 CGROUPS_VERSION: "{{ cgroups_version }}"
