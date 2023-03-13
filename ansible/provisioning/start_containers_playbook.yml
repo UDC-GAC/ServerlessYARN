@@ -2,7 +2,7 @@
 - name: Start containers in client nodes
   hosts: nodes
   become: no
-  gather_facts: yes
+  gather_facts: no
 
   vars_files:
     - vars/main.yml
@@ -18,7 +18,7 @@
       when: "container_engine == 'lxc'"
       tags: start_containers
       vars:
-        - lxd_key_name: "lxd-{{ ansible_hostname }}"
+        - lxd_key_name: "lxd-{{ inventory_hostname }}"
 
     - import_tasks: "tasks/containers_setup/apptainer_containers_cgroups_{{ cgroups_version }}_setup.yml"
       when: "container_engine == 'apptainer'"
