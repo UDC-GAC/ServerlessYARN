@@ -1,0 +1,72 @@
+Bootstrap: localimage
+From: apps/base/{{ app_base_image_file }}
+
+%files
+    "{{ installation_path }}/apps/hadoop/files_dir" /opt/files_dir
+    "{{ installation_path }}/apps/hadoop/setup.sh" /opt/setup.sh
+    # To avoid repeating hadoop download
+    "{{ installation_path }}/apps/hadoop/hadoop-2.9.2.tar.gz" /opt/hadoop-2.9.2.tar.gz
+    #"{{ installation_path }}/apps/hadoop/hadoop-3.3.4.tar.gz" /opt/hadoop-3.3.4.tar.gz
+
+%post
+    # Install basic software and Java
+    apt-get -y update
+    apt-get install -y wget gettext-base openssh-client openssh-server
+    apt-get install -y openjdk-8-jdk
+
+    # Trying to setup firewall (iptables prevent hadoop cluster from working)
+    #apt-get remove -y iptables
+    #apt-get install -y ufw kmod
+    #apt-get install -y nftables
+    #apt-get install -y --reinstall linux-headers-$(uname -r)
+    #apt-get -y update && apt-get -y upgrade
+    #modprobe iptable_filter
+    #modprobe /lib/modules/$(uname -r)/kernel/net/ipv4/netfilter/iptable_filter.ko
+    #ufw --force enable
+
+    export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+
+    # Setup SSH
+    mkdir /run/sshd
+    chmod 0711 /run/sshd
+
+    # Setup hadoop
+    export HADOOP_CONF_DIR=/opt/files_dir/hadoop_conf
+    #export DATA_DIR=/opt/bind/files_dir/data_dir
+    export DATA_DIR=$HOME/files_dir/data_dir
+    cd /opt
+    mkdir -p files_dir/data_dir
+    #wget https://archive.apache.org/dist/hadoop/core/hadoop-2.9.2/hadoop-2.9.2.tar.gz
+    #wget https://archive.apache.org/dist/hadoop/core/hadoop-3.3.4/hadoop-3.3.4.tar.gz
+    #mkdir hadoop && tar xf hadoop-3.3.4.tar.gz -C hadoop --strip-components 1
+    mkdir hadoop && tar xf hadoop-2.9.2.tar.gz -C hadoop --strip-components 1
+    chown -R $(whoami):$(whoami) hadoop
+    cp files_dir/config/format_filesystem.sh hadoop
+    mkdir -p $HADOOP_CONF_DIR && cp -r hadoop/etc/hadoop/* $HADOOP_CONF_DIR/
+    envsubst < files_dir/config/hdfs-site.xml > $HADOOP_CONF_DIR/hdfs-site.xml
+    cp files_dir/config/core-site.xml $HADOOP_CONF_DIR/core-site.xml
+    cp files_dir/config/mapred-site.xml $HADOOP_CONF_DIR/mapred-site.xml
+    cp files_dir/config/yarn-site.xml $HADOOP_CONF_DIR/yarn-site.xml
+    cp files_dir/config/slaves $HADOOP_CONF_DIR/slaves
+
+    # Increase hadoop performance
+    sysctl vm.swappiness=1
+
+%environment
+    export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+    #export DATA_DIR=/opt/bind/files_dir/data_dir
+    export DATA_DIR=$HOME/files_dir/data_dir
+    export HADOOP_HOME=/opt/hadoop/
+    export HADOOP_CONF_DIR=$HOME/files_dir/hadoop_conf
+    export YARN_CONF_DIR=$HADOOP_CONF_DIR
+    export HADOOP_LOG_DIR=$HOME/hadoop_logs
+    export YARN_LOG_DIR=$HOME/yarn_logs
+    ## Hadoop users (hadoop 3.3.4)
+    #export HDFS_NAMENODE_USER=$(whoami)
+    #export HDFS_DATANODE_USER=$(whoami)
+    #export HDFS_SECONDARYNAMENODE_USER=$(whoami)
+    #export YARN_RESOURCEMANAGER_USER=$(whoami)
+    #export YARN_NODEMANAGER_USER=$(whoami)
+%startscript
+    cd /opt/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream_tmux.sh && \
+    bash /opt/setup.sh

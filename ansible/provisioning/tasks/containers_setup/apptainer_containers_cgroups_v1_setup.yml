@@ -2,6 +2,13 @@
 - name: Create apps directory
   delegate_to: localhost
   file:
+    path: "{{ installation_path }}/apps/{{ app_base_name }}"
+    state: directory
+  tags: create_app
+
+- name: Create apps directory
+  delegate_to: localhost
+  file:
     path: "{{ installation_path }}/apps/{{ app_name }}"
     state: directory
   tags: create_app
@@ -10,15 +17,17 @@
   delegate_to: localhost
   template:
     src: "templates/{{ template_definition_file }}"
-    dest: "{{ installation_path }}/apps/{{ app_name }}/{{ definition_file }}"
+    dest: "{{ installation_path }}/apps/{{ app_base_name }}/{{ definition_file }}"
   tags: create_app
 
+# TODO: add basename filter in other uses of app files (files_dir, install script, start script or stop script)
+# TODO: allow install script, start script or stop script to be included in files_dir
 - name: Copy app files directory
   delegate_to: localhost
   when: "files_dir != ''"
   copy:
-    src: "apps/{{ files_dir }}"
-    dest: "{{ installation_path }}/apps/{{ app_name }}"
+    src: "apps/{{ files_dir }}/"
+    dest: "{{ installation_path }}/apps/{{ app_base_name }}/{{ files_dir | basename }}"
   tags: never, create_app
 
 - name: Copy app install script
@@ -26,16 +35,25 @@
   when: "install_script != ''"
   copy:
     src: "apps/{{ install_script }}"
-    dest: "{{ installation_path }}/apps/{{ app_name }}/{{ install_script }}"
+    dest: "{{ installation_path }}/apps/{{ app_base_name }}/{{ install_script | basename }}"
+  tags: never, create_app
+
+- name: Copy hadoop app setup script
+  delegate_to: localhost
+  when: "app_jar != ''"
+  copy:
+    src: "apps/hadoop/setup.sh"
+    dest: "{{ installation_path }}/apps/hadoop/setup.sh"
   tags: never, create_app
 
 - name: Build image
   delegate_to: localhost
-  shell: "{{ singularity_command_alias }} build apps/{{ app_name }}/{{ image_file }} apps/{{ app_name }}/{{ definition_file }}"
+  #shell: "{{ singularity_command_alias }} build apps/{{ app_name }}/{{ image_file }} apps/{{ app_name }}/{{ definition_file }}"
+  shell: "{{ singularity_command_alias }} build apps/{{ app_base_name }}/{{ image_file }} apps/{{ app_base_name }}/{{ definition_file }}"
   args:
     chdir: "{{ installation_path }}"
     executable: /bin/bash
-    creates: "apps/{{ app_name }}/{{ image_file }}"
+    creates: "apps/{{ app_base_name }}/{{ image_file }}"
   tags: create_app
 
 - name: Create images directory
@@ -51,7 +69,7 @@
 - name: Copy image to host
   when: not stat_output.stat.exists
   copy:
-    src: "{{ installation_path }}/apps/{{ app_name }}/{{ image_file }}"
+    src: "{{ installation_path }}/apps/{{ app_base_name }}/{{ image_file }}"
     dest: "{{ installation_path }}/images/{{ image_file }}"
     mode: preserve
 
@@ -82,14 +100,22 @@
     extra_connection: "{{ ',ptp' if mode == 'ipvlan' else '' }}"
   with_items: "{{ containers }}"
 
-- name: Copy host resolution in containers (1)
+- name: Setup host resolution in containers (1)
   copy:
     src: /etc/hosts
     remote_src: true
     dest: "{{ installation_path }}/singularity_binds/{{ item }}"
   with_items: "{{ containers }}"
 
-- name: Copy host resolution in containers (2)
+# - name: Setup host resolution in containers (2)
+#   shell: "sudo {{ singularity_command_alias }} exec instance://{{ item }} bash -c \
+#     'echo 127.0.0.1 {{ item }} >> /etc/hosts'"
+#   args:
+#     chdir: "{{ installation_path }}"
+#     executable: /bin/bash
+#   with_items: "{{ containers }}"
+
+- name: Setup host resolution in containers (2)
   shell: "sudo {{ singularity_command_alias }} exec instance://{{ item }} bash -c \
     'cat {{ bind_dir_on_container }}/hosts >> /etc/hosts \
     && rm {{ bind_dir_on_container }}/hosts'"

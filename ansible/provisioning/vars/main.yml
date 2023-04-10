@@ -1,5 +1,6 @@
 installation_path: /home/vagrant/AutoServerlessWeb_install
 bdwatchdog_path: "{{ installation_path }}/BDWatchdog"
+bdwatchdog_source_path: "{{ installation_path }}/BDWatchdog_source"
 serverless_containers_path: "{{ installation_path }}/ServerlessContainers"
 lxd_key_path: "{{ serverless_containers_path }}"
 opentsdb_log_path: "{{ bdwatchdog_path }}/opentsdb/log"

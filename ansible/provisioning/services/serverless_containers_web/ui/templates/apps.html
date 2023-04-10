@@ -65,10 +65,11 @@
 			</tr>
 		
 			<tr><td>Guard Policy</td> <td>{{ item.guard_policy }}</td></tr>
-			<tr><td>Files directory</td> <td>{{ item.files_dir }}</td></tr>
-			<tr><td>Install script</td> <td>{{ item.install_script }}</td></tr>
-			<tr><td>Start script</td> <td>{{ item.start_script }}</td></tr>
-			<tr><td>Stop script</td> <td>{{ item.stop_script }}</td></tr>
+			{% if item.files_dir %} <tr><td>Files directory</td> <td>{{ item.files_dir }}</td></tr> {% endif %}
+			{% if item.install_script %} <tr><td>Install script</td> <td>{{ item.install_script }}</td></tr> {% endif %}
+			{% if item.start_script %} <tr><td>Start script</td> <td>{{ item.start_script }}</td></tr> {% endif %}
+			{% if item.stop_script %} <tr><td>Stop script</td> <td>{{ item.stop_script }}</td></tr> {% endif %}
+			{% if item.app_jar %} <tr><td>App JAR</td> <td>{{ item.app_jar }}</td></tr> {% endif %}
 
 		</table>
 		<p></p>
@@ -311,7 +312,19 @@
 		  <a href="#close" title="Close" class="close">X</a>
 		  <h2>Add App</h2>
 		  <p>
-			  {% load crispy_forms_tags %} {% crispy addStructureForm %}
+			  {% load crispy_forms_tags %} {% crispy addStructureForm.app %}
+		  </p>
+	  </div>
+  </div>
+
+  <a href="#openModal-add-hadoop-app" title="Edit" class="caja">Add Hadoop App</a>
+  <br><br>
+  <div align="left" id="openModal-add-hadoop-app" class="modalDialog">
+	  <div>
+		  <a href="#close" title="Close" class="close">X</a>
+		  <h2>Add Hadoop App</h2>
+		  <p>
+			  {% load crispy_forms_tags %} {% crispy addStructureForm.hadoop_app %}
 		  </p>
 	  </div>
   </div>

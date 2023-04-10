@@ -80,6 +80,10 @@ def start_containers_task(host, new_containers, container_resources):
 
     added_formatted_containers = container_list_to_formatted_str(added_containers[host])
 
+    if added_formatted_containers == "":
+        # Nothing to do
+        return
+
     max_cpu_percentage_per_container = container_resources["cpu_max"]
     min_cpu_percentage_per_container = container_resources["cpu_min"]
     cpu_boundary = container_resources["cpu_boundary"]
@@ -187,6 +191,90 @@ def start_app(url, headers, app, app_files, new_containers, container_resources)
         task = chain(*start_containers_tasks).delay()
         register_task(task.id,"setup_containers_network_task")
 
+def start_hadoop_app(url, headers, app, app_files, new_containers, container_resources):
+
+    # TODO: setup network before starting app on containers -> first start containers (without starting app) then setup network and start app on the same task
+
+    # Calculate resources for Hadoop cluster
+    hadoop_resources = {}
+    # TODO: avoid underusing resources (example: an irregular container with low resources limiting the whole hadoop cluster)
+    for resource_type in ["regular","irregular"]:
+        if resource_type in container_resources:
+            hadoop_resources[resource_type] = {}
+
+            total_cores = int(container_resources[resource_type]["cpu_max"])//100
+            total_memory = int(container_resources[resource_type]["mem_max"])
+            total_disks = 1
+            reserved_memory = 512 # take value from table
+            available_memory = total_memory - reserved_memory
+            min_container_size = 512 # take value from table
+
+            number_of_hadoop_containers = int(min(2*total_cores, 1.8*total_disks, available_memory/min_container_size))
+            mem_per_container = max(min_container_size, available_memory/number_of_hadoop_containers)
+
+            scheduler_maximum_memory = int(number_of_hadoop_containers * mem_per_container)
+            scheduler_minimum_memory = int(mem_per_container)
+            nodemanager_memory = scheduler_maximum_memory
+            map_memory = scheduler_minimum_memory
+            reduce_memory = int(min(2*mem_per_container, available_memory))
+            mapreduce_am_memory = reduce_memory
+
+            total_available_memory = 0
+            for host in new_containers:
+                if resource_type in new_containers[host]:
+                    total_available_memory += available_memory * new_containers[host][resource_type]
+
+            if total_available_memory < map_memory + reduce_memory + mapreduce_am_memory:
+                memory_slice = nodemanager_memory/3.5
+                scheduler_minimum_memory = int(memory_slice)
+                map_memory = scheduler_minimum_memory
+                reduce_memory = scheduler_minimum_memory
+                mapreduce_am_memory = int(1.5 * memory_slice)
+
+            map_memory_java_opts = int(0.8 * map_memory)
+            reduce_memory_java_opts = int(0.8 * reduce_memory)
+            mapreduce_am_memory_java_opts = int(0.8* mapreduce_am_memory)
+
+            hadoop_resources[resource_type]["vcores"] = total_cores
+            hadoop_resources[resource_type]["scheduler_maximum_memory"] = scheduler_maximum_memory
+            hadoop_resources[resource_type]["scheduler_minimum_memory"] = scheduler_minimum_memory
+            hadoop_resources[resource_type]["nodemanager_memory"] = nodemanager_memory
+            hadoop_resources[resource_type]["map_memory"] = map_memory
+            hadoop_resources[resource_type]["map_memory_java_opts"] = map_memory_java_opts
+            hadoop_resources[resource_type]["reduce_memory"] = reduce_memory
+            hadoop_resources[resource_type]["reduce_memory_java_opts"] = reduce_memory_java_opts
+            hadoop_resources[resource_type]["mapreduce_am_memory"] = mapreduce_am_memory
+            hadoop_resources[resource_type]["mapreduce_am_memory_java_opts"] = mapreduce_am_memory_java_opts
+            print(hadoop_resources[resource_type])
+
+    return
+
+    setup_network_task = setup_containers_network_task.s(url, headers, app, app_files)
+    start_containers_tasks = []
+
+    # Start containers with app
+    i = 0
+    for host in new_containers:
+        if "irregular" in new_containers[host]:
+            # Start a chain of tasks so that containers of same host are started sequentially
+            if i == 0:
+                start_containers_tasks.append(chain(start_containers_with_app_task.s({},url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
+            else:
+                start_containers_tasks.append(chain(start_containers_with_app_task.s(url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
+
+        else:
+            if i == 0:
+                start_containers_tasks.append(start_containers_with_app_task.s({},url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
+            else:
+                start_containers_tasks.append(start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
+
+        i += 1
+
+    if len(start_containers_tasks) > 0:
+        start_containers_tasks.append(setup_network_task)
+        task = chain(*start_containers_tasks).delay()
+        register_task(task.id,"setup_containers_network_task")
+
 @shared_task
 def setup_containers_network_task(app_containers, url, headers, app, app_files):
 
@@ -211,6 +299,14 @@ def setup_containers_network_task(app_containers, url, headers, app, app_files):
     if rc.returncode != 0:
         error = "Error setting network for app {0}: {1}".format(app,err.decode("utf-8"))
         raise Exception(error)
+
+    # Start app on containers
+    for host in app_containers:
+        for container in app_containers[host]:
+            full_url = url + "container/{0}/{1}".format(container,app)
+            add_container_to_app_task(full_url, headers, host, container, app, app_files)
+            # Workaround to keep all updates to State DB
+            time.sleep(0.5)
 
 @shared_task
 def add_container_to_app_task(full_url, headers, host, container, app, app_files):
@@ -252,6 +348,11 @@ def mergeDictionary(dict_1, dict_2):
 @shared_task
 def start_containers_with_app_task(already_added_containers, url, headers, host, new_containers, app, app_files, container_resources):
     #TODO: merge function with start_containers_task
+
+    if new_containers == 0:
+        # Nothing to do
+        return already_added_containers
+
     # update inventory file
     with lock:
         added_containers = add_containers_to_hosts({host: new_containers})
@@ -287,12 +388,12 @@ def start_containers_with_app_task(already_added_containers, url, headers, host,
         error = "Error starting containers {0}: {1}".format(added_formatted_containers,err.decode("utf-8"))
         raise Exception(error)
 
-    # Start app on containers
-    for container in added_containers[host]:
-        full_url = url + "container/{0}/{1}".format(container,app)
-        add_container_to_app_task(full_url, headers, host, container, app, app_files)
-        # Workaround to keep all updates to State DB
-        time.sleep(0.5)
+    # # Start app on containers
+    # for container in added_containers[host]:
+    #     full_url = url + "container/{0}/{1}".format(container,app)
+    #     add_container_to_app_task(full_url, headers, host, container, app, app_files)
+    #     # Workaround to keep all updates to State DB
+    #     time.sleep(0.5)
 
     return mergeDictionary(already_added_containers,added_containers)
 

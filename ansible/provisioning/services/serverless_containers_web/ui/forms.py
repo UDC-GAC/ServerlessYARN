@@ -363,6 +363,37 @@ class AddAppForm(forms.Form):
             )
         )
 
+class AddHadoopAppForm(AddAppForm):
+    app_jar = forms.CharField(label= "App JAR",
+            required=True
+            )
+    def __init__(self, *args, **kwargs):
+        super(AddHadoopAppForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-addhadoopappform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'apps'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('structure_type', type="hidden", readonly=True),
+            Field('name'),
+            Field('cpu_max'),
+            Field('cpu_min'),
+            Field('mem_max'),
+            Field('mem_min'),
+            Field('cpu_boundary'),
+            Field('mem_boundary'),
+            Field('files_dir'),
+            Field('install_script'),
+            Field('start_script'),
+            Field('stop_script'),
+            Field('app_jar'),
+            FormActions(
+                Submit('save', 'Add app', css_class='caja'),
+            )
+        )
+
 class StartAppForm(forms.Form):
     operation = forms.CharField(label= "Operation",
             initial="add",

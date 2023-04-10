@@ -2,12 +2,13 @@ Bootstrap: docker
 From: ubuntu:20.04
 
 %files
-    "{{ bdwatchdog_path }}" /opt/BDWatchdog
+    "{{ bdwatchdog_source_path }}" /opt/BDWatchdog
 
 %post
     apt-get -y update
-    apt-get -y install atop tmux iptables
+    apt-get -y install atop tmux
     apt-get -y install net-tools iputils-ping traceroute iputils-tracepath
+    #apt-get -y install iptables
     apt-get install -y --no-install-recommends python3-pip
     cd /opt/BDWatchdog/MetricsFeeder
     pip3 install -r requirements.txt

@@ -8,7 +8,8 @@
     - config/config.yml
 
   vars:
-    - container_bind_dir: "{{ installation_path }}/singularity_binds/{{ container }}"
+    - bind_dir: "{{ installation_path }}/singularity_binds"
+    - container_bind_dir: "{{ bind_dir }}/{{ container }}"
     - bind_dir_on_container: /opt/bind
 
   environment:
@@ -21,18 +22,19 @@
   ## Setup network
   ## TODO: maybe setup a DNS server is better
   ## TODO: setup iptables
-  - name: Setup network on container
+  - name: Setup network on containers
     block:
 
       - name: Get containers IP addresses
         when: item[0].key == inventory_hostname
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[1] }} hostname -I"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[1] }} hostname -I | awk '{print $1}'"
         args:
           executable: /bin/bash
         loop: "{{ container_loop }}"
         register: ip_addresses
 
       - name: Update hostname resolution in containers
+        #when: item[0][0].key == inventory_hostname and item[0][1] != item[1].item[1]
         when: item[0][0].key == inventory_hostname
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0][1] }} bash -c \
           'cp /etc/hosts {{ bind_dir_on_container }} \
@@ -73,6 +75,100 @@
       - container_dict: "{{ app_containers }}"
       - container_loop: "{{ container_dict | dict2items | subelements('value') }}"
     tags: never, setup_network
+
+  - name: Setup hadoop on containers
+    block:
+      - name: Get containers IP addresses
+        when: item[0].key == inventory_hostname
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[1] }} hostname -I | awk '{print $1}'"
+        args:
+          executable: /bin/bash
+        loop: "{{ container_loop }}"
+        register: ip_addresses
+
+      - name: get the username id running the deploy
+        become: no
+        local_action: command id -u
+        register: userid_on_the_host
+
+      - name: Copy app files already on containers
+        when: item[0].key == inventory_hostname
+        #shell: "sudo {{ singularity_command_alias }} exec instance://{{ item }} bash -c 'cp -pr /opt/files_dir {{ bind_dir_on_container }} && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/*'"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[1] }} bash -c 'cp -pr /opt/files_dir ~/ && chown -R {{ userid_on_the_host.stdout }} ~/*'"
+        args:
+          executable: /bin/bash
+        loop: "{{ container_loop }}"
+
+      - name: Update slaves file on containers
+        when: item[0][0].key == inventory_hostname and item[1].item[1] != rm_container
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0][1] }} bash -c \
+          'echo {{ item[1].item[1] }} >> $HADOOP_CONF_DIR/slaves'"
+        args:
+          executable: /bin/bash
+        vars:
+          iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'ip_addresses') | map(attribute='results') }}"
+        loop: "{{ container_loop | product(iface_ip_list | flatten(levels=1) | reject('search','skip_reason'))|list }}"
+
+      - name: Copy hadoop config files to containers
+        when: item[0][0].key == inventory_hostname
+        template:
+          src: "templates/hadoop/{{ item[1] }}"
+          dest: "{{ bind_dir }}/{{ item[0][1] }}/{{ item[1] }}"
+        vars:
+          file_list: ["core-site.xml", "yarn-site.xml", "mapred-site.xml"]
+        loop: "{{ container_loop | product(file_list) | list }}"
+
+      - name: Update hadoop config files in containers
+        when: item[0][0].key == inventory_hostname
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0][1] }} bash -c \
+          'cp {{ bind_dir_on_container }}/{{ item[1] }} $HADOOP_CONF_DIR/{{ item[1] }}'"
+        args:
+          executable: /bin/bash
+        vars:
+          file_list: ["core-site.xml", "yarn-site.xml", "mapred-site.xml"]
+        loop: "{{ container_loop | product(file_list) | list }}"
+
+      - name: Update ssh known_hosts on ResourceManager/Namenode container
+        when: rm_host == inventory_hostname
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \
+          'ssh-keyscan -t rsa `hostname` >> ~/.ssh/known_hosts \
+          && ssh-keyscan -t rsa -f $HADOOP_CONF_DIR/slaves >> ~/.ssh/known_hosts'"
+        args:
+          executable: /bin/bash
+
+      - name: Move RM/NN container ssh public key
+        when: rm_host == inventory_hostname
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \
+          'cp ~/.ssh/id_rsa.pub {{ bind_dir_on_container }}/{{ rm_container }}.pub'"
+        args:
+          executable: /bin/bash
+
+      - name: Fetch RM/NN container ssh public key
+        when: rm_host == inventory_hostname
+        fetch:
+          src: "{{ bind_dir }}/{{ rm_container }}/{{ rm_container}}.pub"
+          dest: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container}}.pub"
+          flat: yes
+
+      - name: Copy RM/NN container ssh public key to the other containers
+        when: item[0].key == inventory_hostname and item[1] != rm_container
+        copy:
+          src: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container}}.pub"
+          dest: "{{ bind_dir }}/{{ item[1] }}/{{ rm_container}}.pub"
+        loop: "{{ container_loop }}"
+
+      - name: Append RM/NN container ssh public key to authorized keys of containers
+        when: item[0].key == inventory_hostname and item[1] != rm_container
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[1] }} bash -c \
+          'cat {{ bind_dir_on_container }}/{{ rm_container}}.pub >> ~/.ssh/authorized_keys'"
+        args:
+          executable: /bin/bash
+        loop: "{{ container_loop }}"
+
+    vars:
+      - container_dict: "{{ app_containers }}"
+      - container_loop: "{{ container_dict | dict2items | subelements('value') }}"
+    tags: never, setup_hadoop
 
   ## Start
   - name: Start app on container

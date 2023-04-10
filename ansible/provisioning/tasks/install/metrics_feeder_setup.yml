@@ -1,7 +1,7 @@
 
 - name: Check if BDWatchdog directory is already there
   stat:
-    path: "{{ bdwatchdog_path }}"
+    path: "{{ bdwatchdog_source_path }}"
   register: stat_output
   
 ## get the user executing the playbook
@@ -14,5 +14,5 @@
   when: not stat_output.stat.exists
   copy:
     src: bdwatchdog/
-    dest: "{{ bdwatchdog_path }}"
+    dest: "{{ bdwatchdog_source_path }}"
     owner: "{{ username_on_the_host.stdout_lines[0] }}"

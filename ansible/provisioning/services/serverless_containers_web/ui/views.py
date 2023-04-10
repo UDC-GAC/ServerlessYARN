@@ -1,7 +1,7 @@
 from django.shortcuts import render,redirect
 from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm
 from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper, HostResourcesForm, HostResourcesFormSetHelper
-from ui.forms import RemoveStructureForm, AddHostForm, AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddAppForm, AddContainersToAppForm, RemoveContainersFromAppForm, StartAppForm
+from ui.forms import RemoveStructureForm, AddHostForm, AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddAppForm, AddHadoopAppForm, AddContainersToAppForm, RemoveContainersFromAppForm, StartAppForm
 from django.forms import formset_factory
 from django.http import HttpResponse
 import urllib.request
@@ -15,7 +15,7 @@ import functools
 from bs4 import BeautifulSoup
 
 from ui.background_tasks import start_containers_task, add_host_task, add_app_task, add_container_to_app_task, start_containers_with_app_task
-from ui.background_tasks import remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task, start_app
+from ui.background_tasks import remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task, start_app, start_hadoop_app
 from ui.background_tasks import register_task, get_pendings_tasks_to_string
 
 config_path = "../../config/config.yml"
@@ -112,7 +112,9 @@ def structures(request, structure_type, html_render):
 
     elif(structure_type == "apps"):
         structures = getApps(data_json)
-        addStructureForm = AddAppForm()
+        addStructureForm = {}
+        addStructureForm['app'] = AddAppForm()
+        addStructureForm['hadoop_app'] = AddHadoopAppForm()
 
     ## Set RemoveStructures Form
     removeStructuresForm = setRemoveStructureForm(structures,structure_type)
@@ -809,10 +811,11 @@ def processAddApp(request, url, structure_name, structure_type, resources):
 
     ## APP info
     app_files = {}
-    app_files['files_dir'] = request.POST['files_dir']
-    app_files['install_script'] = request.POST['install_script']
-    app_files['start_script'] = request.POST['start_script']
-    app_files['stop_script'] = request.POST['stop_script']
+    for f in ['files_dir', 'install_script', 'start_script', 'stop_script', 'app_jar']:
+        if f in request.POST:
+            app_files[f] = request.POST[f]
+        else:
+            app_files[f] = ""
 
     put_field_data = {
         'app': {
@@ -823,7 +826,8 @@ def processAddApp(request, url, structure_name, structure_type, resources):
             'files_dir': app_files['files_dir'],
             'install_script': app_files['install_script'],
             'start_script': app_files['start_script'],
-            'stop_script': app_files['stop_script']
+            'stop_script': app_files['stop_script'],
+            'app_jar': app_files['app_jar']
         },
         'limits': {'resources': {}}
     }
@@ -879,10 +883,11 @@ def processStartApp(request, url, app_name):
 
     ## APP info
     app_files = {}
-    app_files['files_dir'] = app['files_dir']
-    app_files['install_script'] = app['install_script']
-    app_files['start_script'] = app['start_script']
-    app_files['stop_script'] = app['stop_script']
+    for f in ['files_dir', 'install_script', 'start_script', 'stop_script', 'app_jar']:
+        if f in app:
+            app_files[f] = app[f]
+        else:
+            app_files[f] = ""
 
     app_resources = {}
     for resource in app['resources']:
@@ -908,10 +913,27 @@ def processStartApp(request, url, app_name):
         error = "There is no space left for app {0}".format(app_name)
         return error
 
+    if app_files['app_jar'] != "":
+        ## ResourceManager/Namenode resources
+        rm_minimum_cpu = 100
+        rm_minimum_mem = 1024
+        app_resources['cpu']['max'] -= rm_minimum_cpu
+        app_resources['cpu']['min'] -= rm_minimum_cpu
+        app_resources['mem']['max'] -= rm_minimum_mem
+        app_resources['mem']['min'] -= rm_minimum_mem
+
     ## Containers to create
     number_of_containers = int(request.POST['number_of_containers'])
     benevolence = int(request.POST['benevolence'])
     container_resources = getContainerResourcesForApp(number_of_containers, app_resources, benevolence)
+
+    if app_files['app_jar'] != "":
+        container_resources['rm-nn'] = {}
+        container_resources['rm-nn']['cpu_max'] = rm_minimum_cpu
+        container_resources['rm-nn']['cpu_min'] = rm_minimum_cpu
+        container_resources['rm-nn']['mem_max'] = rm_minimum_mem
+        container_resources['rm-nn']['mem_min'] = rm_minimum_mem
+        number_of_containers += 1
 
     ## Container assignation to hosts
     assignation_policy = request.POST['assignation_policy']
@@ -921,8 +943,16 @@ def processStartApp(request, url, app_name):
     container_resources["regular"] = {x:str(y) for x,y in container_resources["regular"].items()}
     if "bigger" in container_resources: container_resources["irregular"] = {x:str(y) for x,y in container_resources["bigger"].items()}
     if "smaller" in container_resources: container_resources["irregular"] = {x:str(y) for x,y in container_resources["smaller"].items()}
+    if "rm-nn" in container_resources: container_resources["rm-nn"] = {x:str(y) for x,y in container_resources["rm-nn"].items()}
 
-    start_app(url, headers, app_name, app_files, new_containers, container_resources)
+    # print(container_resources)
+    # print(new_containers)
+    # return error
+
+    if app_files['app_jar'] != "":
+        start_hadoop_app(url, headers, app_name, app_files, new_containers, container_resources)
+    else:
+        start_app(url, headers, app_name, app_files, new_containers, container_resources)
 
     return error
 
@@ -1024,9 +1054,12 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
     new_containers = {}
 
     irregular_container_to_allocate = 0
+    hadoop_container_to_allocate = 0
     if "smaller" in container_resources or "bigger" in container_resources:
         irregular_container_to_allocate = 1
-    containers_to_allocate = number_of_containers - irregular_container_to_allocate
+    if "rm-nn" in container_resources:
+        hadoop_container_to_allocate = 1
+    containers_to_allocate = number_of_containers - irregular_container_to_allocate - hadoop_container_to_allocate
     assignation = {}
     for host in hosts:
         assignation[host['name']] = {}
@@ -1037,7 +1070,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
         for host in hosts:
             free_cpu = host['resources']['cpu']['free']
             free_mem = host['resources']['mem']['free']
-            if containers_to_allocate + irregular_container_to_allocate <= 0:
+            if containers_to_allocate + irregular_container_to_allocate + hadoop_container_to_allocate <= 0:
                 break
             # First we try to assign the bigger container if it exists
             if irregular_container_to_allocate > 0 and "bigger" in container_resources and free_cpu >= container_resources["bigger"]['cpu_max'] and free_mem >= container_resources["bigger"]['mem_max']:
@@ -1050,16 +1083,22 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                 containers_to_allocate -= 1
                 free_cpu -= container_resources['regular']['cpu_max']
                 free_mem -= container_resources['regular']['mem_max']
-            # Lastly we try to assign the smaller container if it exists
+            # We try to assign the smaller container if it exists
             if irregular_container_to_allocate > 0 and "smaller" in container_resources and free_cpu >= container_resources["smaller"]['cpu_max'] and free_mem >= container_resources["smaller"]['mem_max']:
                 assignation[host['name']]["irregular"] = 1
                 irregular_container_to_allocate = 0
                 free_cpu -= container_resources["smaller"]['cpu_max']
                 free_mem -= container_resources["smaller"]['mem_max']
+            # Lastly we try to assign the resourcemanager/namenode container if it exists
+            if hadoop_container_to_allocate > 0 and "rm-nn" in container_resources and free_cpu >= container_resources["rm-nn"]['cpu_max'] and free_mem >= container_resources["rm-nn"]['mem_max']:
+                assignation[host['name']]["rm-nn"] = 1
+                hadoop_container_to_allocate = 0
+                free_cpu -= container_resources["rm-nn"]['cpu_max']
+                free_mem -= container_resources["rm-nn"]['mem_max']
 
     elif assignation_policy == "Cyclic":
         hosts_without_space = 0
-        while containers_to_allocate + irregular_container_to_allocate > 0 and hosts_without_space < len(hosts):
+        while containers_to_allocate + irregular_container_to_allocate + hadoop_container_to_allocate > 0 and hosts_without_space < len(hosts):
             for host in hosts:
                 if containers_to_allocate + irregular_container_to_allocate <= 0 or hosts_without_space >= len(hosts):
                     break
@@ -1075,12 +1114,18 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     containers_to_allocate -= 1
                     host['resources']['cpu']['free'] -= container_resources['regular']['cpu_max']
                     host['resources']['mem']['free'] -= container_resources['regular']['mem_max']
-                # Lastly we try to assign the smaller container if it exists
+                # We try to assign the smaller container if it exists
                 elif irregular_container_to_allocate > 0 and "smaller" in container_resources and host['resources']['cpu']['free'] >= container_resources["smaller"]['cpu_max'] and host['resources']['mem']['free'] >= container_resources["smaller"]['mem_max']:
                     assignation[host['name']]["irregular"] = 1
                     irregular_container_to_allocate = 0
                     host['resources']['cpu']['free'] -= container_resources["smaller"]['cpu_max']
                     host['resources']['mem']['free'] -= container_resources["smaller"]['mem_max']
+                # Lastly we try to assign the resourcemanager/namenode container if it exists
+                elif hadoop_container_to_allocate > 0 and "rm-nn" in container_resources and host['resources']['cpu']['free'] >= container_resources["rm-nn"]['cpu_max'] and host['resources']['mem']['free'] >= container_resources["rm-nn"]['mem_max']:
+                    assignation[host['name']]["rm-nn"] = 1
+                    hadoop_container_to_allocate = 0
+                    host['resources']['cpu']['free'] -= container_resources["rm-nn"]['cpu_max']
+                    host['resources']['mem']['free'] -= container_resources["rm-nn"]['mem_max']
                 else:
                     hosts_without_space += 1
 
@@ -1088,7 +1133,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
         error = "Could not allocate containers for app {0}".format(app_name)
         return new_containers, error
 
-    new_containers = {x:y for x,y in assignation.items() if y['regular'] > 0 or "irregular" in y}
+    new_containers = {x:y for x,y in assignation.items() if y['regular'] > 0 or "irregular" in y or "rm-nn" in y}
 
     return new_containers, error
 
