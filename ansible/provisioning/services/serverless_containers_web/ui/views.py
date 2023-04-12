@@ -915,11 +915,15 @@ def processStartApp(request, url, app_name):
 
     if app_files['app_jar'] != "":
         ## ResourceManager/Namenode resources
-        rm_minimum_cpu = 100
-        rm_minimum_mem = 1024
-        app_resources['cpu']['max'] -= rm_minimum_cpu
+        rm_maximum_cpu = 100
+        rm_minimum_cpu = 50
+        rm_cpu_boundary = 10
+        rm_maximum_mem = 1024
+        rm_minimum_mem = 512
+        rm_mem_boundary = 128
+        app_resources['cpu']['max'] -= rm_maximum_cpu
         app_resources['cpu']['min'] -= rm_minimum_cpu
-        app_resources['mem']['max'] -= rm_minimum_mem
+        app_resources['mem']['max'] -= rm_maximum_mem
         app_resources['mem']['min'] -= rm_minimum_mem
 
     ## Containers to create
@@ -929,10 +933,13 @@ def processStartApp(request, url, app_name):
 
     if app_files['app_jar'] != "":
         container_resources['rm-nn'] = {}
-        container_resources['rm-nn']['cpu_max'] = rm_minimum_cpu
+        container_resources['rm-nn']['cpu_max'] = rm_maximum_cpu
         container_resources['rm-nn']['cpu_min'] = rm_minimum_cpu
-        container_resources['rm-nn']['mem_max'] = rm_minimum_mem
+        container_resources['rm-nn']['cpu_boundary'] = rm_cpu_boundary
+        container_resources['rm-nn']['mem_max'] = rm_maximum_mem
         container_resources['rm-nn']['mem_min'] = rm_minimum_mem
+        container_resources['rm-nn']['mem_boundary'] = rm_mem_boundary
+
         number_of_containers += 1
 
     ## Container assignation to hosts

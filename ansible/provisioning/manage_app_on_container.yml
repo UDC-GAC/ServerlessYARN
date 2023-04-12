@@ -165,6 +165,16 @@
           executable: /bin/bash
         loop: "{{ container_loop }}"
 
+      - name: Format filesystem, start HDFS and YARN
+        when: rm_host == inventory_hostname
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \
+          'cd $HADOOP_HOME \
+          && bash format_filesystem.sh \
+          && sbin/start-dfs.sh \
+          && sbin/start-yarn.sh'"
+        args:
+          executable: /bin/bash
+
     vars:
       - container_dict: "{{ app_containers }}"
       - container_loop: "{{ container_dict | dict2items | subelements('value') }}"
@@ -187,33 +197,33 @@
       - name: Check if app files directory is already there
         when: "files_dir != ''"
         stat:
-          path: "{{ container_bind_dir }}/{{ files_dir }}"
+          path: "{{ container_bind_dir }}/{{ files_dir | basename }}"
         register: stat_output
         tags: stop_app
 
       - name: Copy app files directory
         when: "files_dir != '' and not stat_output.stat.exists"
         copy:
-          src: "apps/{{ files_dir }}"
-          dest: "{{ container_bind_dir }}/"
+          src: "apps/{{ files_dir }}/"
+          dest: "{{ container_bind_dir }}/{{ files_dir | basename }}"
           mode: preserve
         tags: stop_app
 
       - name: Copy app start script
         copy:
           src: "apps/{{ start_script }}"
-          dest: "{{ container_bind_dir }}/{{ start_script }}"
+          dest: "{{ container_bind_dir }}/{{ start_script | basename }}"
           mode: preserve
 
       - name: Copy app stop script
         copy:
           src: "apps/{{ stop_script }}"
-          dest: "{{ container_bind_dir }}/{{ stop_script }}"
+          dest: "{{ container_bind_dir }}/{{ stop_script | basename }}"
           mode: preserve
         tags: stop_app
 
       - name: Execute start script on container
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script }} </dev/null"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null"
         #when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"
         args:
           executable: /bin/bash
@@ -224,7 +234,7 @@
   - name: Stop app on container
     block:
       - name: Execute stop script on container
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script }} </dev/null"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script | basename }} </dev/null"
         #when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"
         args:
           executable: /bin/bash
@@ -232,23 +242,23 @@
       - name: Remove app files directory
         when: "files_dir != ''"
         file:
-          path: "{{ container_bind_dir }}/{{ files_dir }}"
+          path: "{{ container_bind_dir }}/{{ files_dir | basename }}"
           state: absent
 
       - name: Remove app install script
         when: "install_script != ''"
         file:
-          path: "{{ container_bind_dir }}/{{ install_script }}"
+          path: "{{ container_bind_dir }}/{{ install_script | basename }}"
           state: absent
 
       - name: Remove app start script
         file:
-          path: "{{ container_bind_dir }}/{{ start_script }}"
+          path: "{{ container_bind_dir }}/{{ start_script | basename }}"
           state: absent
 
       - name: Remove app stop script
         file:
-          path: "{{ container_bind_dir }}/{{ stop_script }}"
+          path: "{{ container_bind_dir }}/{{ stop_script | basename }}"
           state: absent
 
     tags: never, stop_app

@@ -7,13 +7,14 @@ DEFINITION_FILE=$4
 IMAGE_FILE=$5
 FILES_DIR=$6
 INSTALL_SCRIPT=$7
-CONTAINERS=$8
-MAX_CPU_PERCENTAGE_PER_CONTAINER=$9
-MIN_CPU_PERCENTAGE_PER_CONTAINER=${10}
-CPU_BOUNDARY=${11}
-MAX_MEMORY_PER_CONTAINER=${12}
-MIN_MEMORY_PER_CONTAINER=${13}
-MEM_BOUNDARY=${14}
+APP_JAR=$8
+CONTAINERS=$9
+MAX_CPU_PERCENTAGE_PER_CONTAINER=${10}
+MIN_CPU_PERCENTAGE_PER_CONTAINER=${11}
+CPU_BOUNDARY=${12}
+MAX_MEMORY_PER_CONTAINER=${13}
+MIN_MEMORY_PER_CONTAINER=${14}
+MEM_BOUNDARY=${15}
 
 cd ../../
 INVENTORY=../ansible.inventory
@@ -27,6 +28,7 @@ unbuffer ansible-playbook start_containers_playbook.yml -i $INVENTORY -t start_c
         app_name=$APP_NAME \
         files_dir=$FILES_DIR \
         install_script=$INSTALL_SCRIPT \
+        app_jar=$APP_JAR \
         container_list=$CONTAINERS \
         max_cpu_percentage_per_container=$MAX_CPU_PERCENTAGE_PER_CONTAINER \
         min_cpu_percentage_per_container=$MIN_CPU_PERCENTAGE_PER_CONTAINER \

@@ -197,13 +197,14 @@ def start_hadoop_app(url, headers, app, app_files, new_containers, container_res
 
     # Calculate resources for Hadoop cluster
     hadoop_resources = {}
-    # TODO: avoid underusing resources (example: an irregular container with low resources limiting the whole hadoop cluster)
-    for resource_type in ["regular","irregular"]:
-        if resource_type in container_resources:
-            hadoop_resources[resource_type] = {}
+    # TODO: avoid underusing resources (example: an irregular container with low resources limiting the whole hadoop cluster) -> it seems a Hadoop problem
+    # Workaround: always use a 'bigger' container instead of 'smaller' to only underuse resources on the bigger one
+    for container_type in ["regular","irregular"]:
+        if container_type in container_resources:
+            hadoop_resources[container_type] = {}
 
-            total_cores = int(container_resources[resource_type]["cpu_max"])//100
-            total_memory = int(container_resources[resource_type]["mem_max"])
+            total_cores = int(container_resources[container_type]["cpu_max"])//100
+            total_memory = int(container_resources[container_type]["mem_max"])
             total_disks = 1
             reserved_memory = 512 # take value from table
             available_memory = total_memory - reserved_memory
@@ -221,8 +222,8 @@ def start_hadoop_app(url, headers, app, app_files, new_containers, container_res
 
             total_available_memory = 0
             for host in new_containers:
-                if resource_type in new_containers[host]:
-                    total_available_memory += available_memory * new_containers[host][resource_type]
+                if container_type in new_containers[host]:
+                    total_available_memory += available_memory * new_containers[host][container_type]
 
             if total_available_memory < map_memory + reduce_memory + mapreduce_am_memory:
                 memory_slice = nodemanager_memory/3.5
@@ -235,45 +236,40 @@ def start_hadoop_app(url, headers, app, app_files, new_containers, container_res
             reduce_memory_java_opts = int(0.8 * reduce_memory)
             mapreduce_am_memory_java_opts = int(0.8* mapreduce_am_memory)
 
-            hadoop_resources[resource_type]["vcores"] = total_cores
-            hadoop_resources[resource_type]["scheduler_maximum_memory"] = scheduler_maximum_memory
-            hadoop_resources[resource_type]["scheduler_minimum_memory"] = scheduler_minimum_memory
-            hadoop_resources[resource_type]["nodemanager_memory"] = nodemanager_memory
-            hadoop_resources[resource_type]["map_memory"] = map_memory
-            hadoop_resources[resource_type]["map_memory_java_opts"] = map_memory_java_opts
-            hadoop_resources[resource_type]["reduce_memory"] = reduce_memory
-            hadoop_resources[resource_type]["reduce_memory_java_opts"] = reduce_memory_java_opts
-            hadoop_resources[resource_type]["mapreduce_am_memory"] = mapreduce_am_memory
-            hadoop_resources[resource_type]["mapreduce_am_memory_java_opts"] = mapreduce_am_memory_java_opts
-            print(hadoop_resources[resource_type])
+            hadoop_resources[container_type]["vcores"] = str(total_cores)
+            hadoop_resources[container_type]["scheduler_maximum_memory"] = str(scheduler_maximum_memory)
+            hadoop_resources[container_type]["scheduler_minimum_memory"] = str(scheduler_minimum_memory)
+            hadoop_resources[container_type]["nodemanager_memory"] = str(nodemanager_memory)
+            hadoop_resources[container_type]["map_memory"] = str(map_memory)
+            hadoop_resources[container_type]["map_memory_java_opts"] = str(map_memory_java_opts)
+            hadoop_resources[container_type]["reduce_memory"] = str(reduce_memory)
+            hadoop_resources[container_type]["reduce_memory_java_opts"] = str(reduce_memory_java_opts)
+            hadoop_resources[container_type]["mapreduce_am_memory"] = str(mapreduce_am_memory)
+            hadoop_resources[container_type]["mapreduce_am_memory_java_opts"] = str(mapreduce_am_memory_java_opts)
+            print(hadoop_resources[container_type])
 
-    return
-
-    setup_network_task = setup_containers_network_task.s(url, headers, app, app_files)
+    setup_network_task = setup_containers_hadoop_network_task.s(url, headers, app, app_files, hadoop_resources, new_containers)
     start_containers_tasks = []
 
     # Start containers with app
     i = 0
     for host in new_containers:
-        if "irregular" in new_containers[host]:
-            # Start a chain of tasks so that containers of same host are started sequentially
-            if i == 0:
-                start_containers_tasks.append(chain(start_containers_with_app_task.s({},url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
-            else:
-                start_containers_tasks.append(chain(start_containers_with_app_task.s(url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
+        start_host_containers_taks = []
 
-        else:
-            if i == 0:
-                start_containers_tasks.append(start_containers_with_app_task.s({},url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
-            else:
-                start_containers_tasks.append(start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
+        for container_type in ["rm-nn", "irregular", "regular"]:
+            if container_type in new_containers[host]:
+                if i == 0:
+                    start_host_containers_taks.append(start_containers_with_app_task.s({}, url, headers, host, new_containers[host][container_type], app, app_files, container_resources[container_type]))
+                else:
+                    start_host_containers_taks.append(start_containers_with_app_task.s(url, headers, host, new_containers[host][container_type], app, app_files, container_resources[container_type]))
+                i += 1
 
-        i += 1
+        start_containers_tasks.append(chain(*start_host_containers_taks))
 
     if len(start_containers_tasks) > 0:
         start_containers_tasks.append(setup_network_task)
         task = chain(*start_containers_tasks).delay()
-        register_task(task.id,"setup_containers_network_task")
+        register_task(task.id,"{0}_app_task".format(app))
 
 @shared_task
 def setup_containers_network_task(app_containers, url, headers, app, app_files):
@@ -309,6 +305,57 @@ def setup_containers_network_task(app_containers, url, headers, app, app_files):
             time.sleep(0.5)
 
 @shared_task
+def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_files, hadoop_resources, new_containers):
+
+    # Get rm-nn container (it is the first container from the host that got that container)
+    for host in new_containers:
+        if "rm-nn" in new_containers[host]:
+            rm_host = host
+            rm_container = app_containers[host][0]
+            break
+
+    # app_containers example = {'host0': ['host0-cont0', 'host0-cont1'], 'host1': ['host1-cont0', 'host1-cont1']}
+    hosts = ','.join(list(app_containers.keys()))
+    app_containers_dict = json.dumps(app_containers).replace(" ","")
+
+    # TODO: adapt for irregular containers also
+    vcores = hadoop_resources["regular"]["vcores"]
+    scheduler_maximum_memory = hadoop_resources["regular"]["scheduler_maximum_memory"]
+    scheduler_minimum_memory = hadoop_resources["regular"]["scheduler_minimum_memory"]
+    nodemanager_memory = hadoop_resources["regular"]["nodemanager_memory"]
+    map_memory = hadoop_resources["regular"]["map_memory"]
+    map_memory_java_opts = hadoop_resources["regular"]["map_memory_java_opts"]
+    reduce_memory = hadoop_resources["regular"]["reduce_memory"]
+    reduce_memory_java_opts = hadoop_resources["regular"]["reduce_memory_java_opts"]
+    mapreduce_am_memory = hadoop_resources["regular"]["mapreduce_am_memory"]
+    mapreduce_am_memory_java_opts = hadoop_resources["regular"]["mapreduce_am_memory_java_opts"]
+
+    rc = subprocess.Popen([
+        "./ui/scripts/setup_hadoop_network_on_container.sh", hosts, app, app_containers_dict, rm_host, rm_container, vcores, scheduler_maximum_memory, scheduler_minimum_memory, nodemanager_memory, map_memory, map_memory_java_opts, reduce_memory, reduce_memory_java_opts, mapreduce_am_memory, map_memory_java_opts
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = rc.communicate()
+
+    # Log ansible output
+    print(out.decode("utf-8") )
+
+    if rc.returncode != 0:
+        error = "Error setting network for app {0}: {1}".format(app,err.decode("utf-8"))
+        raise Exception(error)
+
+    # Start app on NM containers
+    for host in app_containers:
+        for container in app_containers[host]:
+            if container != rm_container:
+                full_url = url + "container/{0}/{1}".format(container,app)
+                add_container_to_hadoop_app_task(full_url, headers, host, container, app, app_files, rm_container)
+                # Workaround to keep all updates to State DB
+                time.sleep(0.5)
+
+    # Lastly, start app on RM container
+    full_url = url + "container/{0}/{1}".format(rm_container,app)
+    add_container_to_hadoop_app_task(full_url, headers, rm_host, rm_container, app, app_files, rm_container)
+
+@shared_task
 def add_container_to_app_task(full_url, headers, host, container, app, app_files):
 
     r = requests.put(full_url, headers=headers)
@@ -337,9 +384,38 @@ def add_container_to_app_task(full_url, headers, host, container, app, app_files
     else:
         raise Exception(error)
 
+@shared_task
+def add_container_to_hadoop_app_task(full_url, headers, host, container, app, app_files, rm_container):
+
+    r = requests.put(full_url, headers=headers)
+
+    error = ""
+    if (r != "" and r.status_code != requests.codes.ok):
+        soup = BeautifulSoup(r.text, features="html.parser")
+        error = "Error adding container " + container + " to app " + app + ": " + soup.get_text().strip()
+
+    if (error == ""):
+        if (container == rm_container):
+            files_dir = app_files['files_dir']
+            install_script = app_files['install_script']
+            start_script = app_files['start_script']
+            stop_script = app_files['stop_script']
+
+            rc = subprocess.Popen(["./ui/scripts/start_app_on_container.sh", host, container, app, files_dir, install_script, start_script, stop_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            out, err = rc.communicate()
+
+            # Log ansible output
+            print(out.decode("utf-8") )
+
+            if rc.returncode != 0:
+                error = "Error starting app {0} on container {1}: {2}".format(app, container, err.decode("utf-8"))
+                raise Exception(error)
+    else:
+        raise Exception(error)
+
 
 def mergeDictionary(dict_1, dict_2):
-   dict_3 = {**dict_1, **dict_2}
+   dict_3 = {**dict_2, **dict_1}
    for key, value in dict_3.items():
        if key in dict_1 and key in dict_2:
                dict_3[key] = value + dict_2[key]
@@ -360,10 +436,14 @@ def start_containers_with_app_task(already_added_containers, url, headers, host,
     added_formatted_containers = container_list_to_formatted_str(added_containers[host])
 
     # Start containers
-    if app_files['install_script']:
+    if app_files['install_script'] and app_files['install_script'] != "":
         template_definition_file="app_container.def"
         definition_file = "{0}_container.def".format(app.replace(" ", "_"))
         image_file = "{0}_container.sif".format(app.replace(" ", "_"))
+    elif app_files['app_jar'] and app_files['app_jar'] != "":
+        template_definition_file="hadoop_container.def"
+        definition_file = "hadoop_container.def"
+        image_file = "hadoop_container.sif"
     else:
         template_definition_file="ubuntu_container.def"
         definition_file = "ubuntu_container.def"
@@ -377,7 +457,7 @@ def start_containers_with_app_task(already_added_containers, url, headers, host,
     mem_boundary = container_resources["mem_boundary"]
 
     rc = subprocess.Popen([
-        "./ui/scripts/start_containers_with_app.sh", host, app, template_definition_file, definition_file, image_file, app_files['files_dir'], app_files['install_script'], added_formatted_containers, max_cpu_percentage_per_container, min_cpu_percentage_per_container, cpu_boundary, max_memory_per_container, min_memory_per_container, mem_boundary
+        "./ui/scripts/start_containers_with_app.sh", host, app, template_definition_file, definition_file, image_file, app_files['files_dir'], app_files['install_script'], app_files['app_jar'], added_formatted_containers, max_cpu_percentage_per_container, min_cpu_percentage_per_container, cpu_boundary, max_memory_per_container, min_memory_per_container, mem_boundary
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = rc.communicate()
 
@@ -505,10 +585,10 @@ def remove_container_from_app_task(full_url, headers, host, container, app, app_
             error = "Error stopping app {0} on container {1}: {2}".format(app, container, err.decode("utf-8"))
             raise Exception(error)
 
-        if install_script != "":
+        #if install_script != "":
             # remove container if it has been created specifically for this app
             # full_url[:full_url.rfind('/')] removes the last part of url -> .../container/host0-cont0/app1 -> .../container/host0-cont0
-            remove_container_task(full_url[:full_url.rfind('/')], headers, host, container)
+        remove_container_task(full_url[:full_url.rfind('/')], headers, host, container)
 
     else:
         raise Exception(error)
