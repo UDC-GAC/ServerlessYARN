@@ -913,8 +913,10 @@ def processStartApp(request, url, app_name):
         error = "There is no space left for app {0}".format(app_name)
         return error
 
-    if app_files['app_jar'] != "":
-        ## ResourceManager/Namenode resources
+    is_hadoop_app = app_files['app_jar'] != ""
+
+    if is_hadoop_app:
+        ## ResourceManager/NameNode resources
         rm_maximum_cpu = 100
         rm_minimum_cpu = 50
         rm_cpu_boundary = 10
@@ -929,9 +931,9 @@ def processStartApp(request, url, app_name):
     ## Containers to create
     number_of_containers = int(request.POST['number_of_containers'])
     benevolence = int(request.POST['benevolence'])
-    container_resources = getContainerResourcesForApp(number_of_containers, app_resources, benevolence)
+    container_resources = getContainerResourcesForApp(number_of_containers, app_resources, benevolence, is_hadoop_app)
 
-    if app_files['app_jar'] != "":
+    if is_hadoop_app:
         container_resources['rm-nn'] = {}
         container_resources['rm-nn']['cpu_max'] = rm_maximum_cpu
         container_resources['rm-nn']['cpu_min'] = rm_minimum_cpu
@@ -952,11 +954,7 @@ def processStartApp(request, url, app_name):
     if "smaller" in container_resources: container_resources["irregular"] = {x:str(y) for x,y in container_resources["smaller"].items()}
     if "rm-nn" in container_resources: container_resources["rm-nn"] = {x:str(y) for x,y in container_resources["rm-nn"].items()}
 
-    # print(container_resources)
-    # print(new_containers)
-    # return error
-
-    if app_files['app_jar'] != "":
+    if is_hadoop_app:
         start_hadoop_app(url, headers, app_name, app_files, new_containers, container_resources)
     else:
         start_app(url, headers, app_name, app_files, new_containers, container_resources)
@@ -964,7 +962,7 @@ def processStartApp(request, url, app_name):
     return error
 
 
-def getContainerResourcesForApp(number_of_containers, app_resources, benevolence):
+def getContainerResourcesForApp(number_of_containers, app_resources, benevolence, is_hadoop_app):
 
     container_resources = {}
     container_resources['regular'] = {}
@@ -974,8 +972,9 @@ def getContainerResourcesForApp(number_of_containers, app_resources, benevolence
     # We will try to allocate shares in multiples of 100
     correctly_allocated = False
     cpu_modulo = container_resources['regular']['cpu_max'] % 100
-    if  cpu_modulo == 0:
+    if  cpu_modulo == 0 or is_hadoop_app:
         # we don't have to do anything
+        # Workaround to avoid underusing resources in hadoop clusters: don't create smaller or bigger containers, since the whole cluster would be limited by the smaller container's resources
         correctly_allocated = True
     else:
         # Case 1: we create a bigger container

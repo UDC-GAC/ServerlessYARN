@@ -191,24 +191,72 @@ def start_app(url, headers, app, app_files, new_containers, container_resources)
         task = chain(*start_containers_tasks).delay()
         register_task(task.id,"setup_containers_network_task")
 
-def start_hadoop_app(url, headers, app, app_files, new_containers, container_resources):
+def get_node_reserved_memory(node_memory):
+    reserved_memory = 0
 
-    # TODO: setup network before starting app on containers -> first start containers (without starting app) then setup network and start app on the same task
+    # It will be probably interesting to lower the reserved_memory since the containers do not need that many extra resources
+
+    # < 8 GB
+    if node_memory < 8192:
+        #reserved_memory = 1024
+        reserved_memory = 512
+    # 8 GB - 16 GB
+    elif node_memory <= 16384:
+        reserved_memory = 2048
+    # 24 GB
+    elif node_memory <= 24576:
+        reserved_memory = 4096
+    # 48 GB
+    elif node_memory <= 49152:
+        reserved_memory = 6144
+    # 64 GB - 72 GB
+    elif node_memory <= 73728:
+        reserved_memory = 8192
+    # 96 GB
+    elif node_memory <= 98304:
+        reserved_memory = 12288
+    # 128 GB
+    elif node_memory <= 131072:
+        reserved_memory = 24576
+    # > 128 GB
+    else:
+        reserved_memory = int(node_memory/8)
+
+    return reserved_memory
+
+def get_min_container_size(node_memory):
+    min_container_size = 0
+
+    # < 4 GB
+    if node_memory < 4096:
+        min_container_size = 256
+    # 4 GB - 8 GB
+    elif node_memory <= 8192:
+        min_container_size = 512
+    # 8 GB - 24 GB
+    elif node_memory <= 24576:
+        min_container_size = 1024
+    # > 24 GB
+    else:
+        min_container_size = 2048
+
+    return min_container_size
+
+def start_hadoop_app(url, headers, app, app_files, new_containers, container_resources):
 
     # Calculate resources for Hadoop cluster
     hadoop_resources = {}
-    # TODO: avoid underusing resources (example: an irregular container with low resources limiting the whole hadoop cluster) -> it seems a Hadoop problem
-    # Workaround: always use a 'bigger' container instead of 'smaller' to only underuse resources on the bigger one
     for container_type in ["regular","irregular"]:
+        # NOTE: 'irregular' container won't be created due to a previous workaround
         if container_type in container_resources:
             hadoop_resources[container_type] = {}
 
             total_cores = int(container_resources[container_type]["cpu_max"])//100
             total_memory = int(container_resources[container_type]["mem_max"])
             total_disks = 1
-            reserved_memory = 512 # take value from table
+            reserved_memory = get_node_reserved_memory(total_memory)
             available_memory = total_memory - reserved_memory
-            min_container_size = 512 # take value from table
+            min_container_size = get_min_container_size(total_memory)
 
             number_of_hadoop_containers = int(min(2*total_cores, 1.8*total_disks, available_memory/min_container_size))
             mem_per_container = max(min_container_size, available_memory/number_of_hadoop_containers)
@@ -246,7 +294,6 @@ def start_hadoop_app(url, headers, app, app_files, new_containers, container_res
             hadoop_resources[container_type]["reduce_memory_java_opts"] = str(reduce_memory_java_opts)
             hadoop_resources[container_type]["mapreduce_am_memory"] = str(mapreduce_am_memory)
             hadoop_resources[container_type]["mapreduce_am_memory_java_opts"] = str(mapreduce_am_memory_java_opts)
-            print(hadoop_resources[container_type])
 
     setup_network_task = setup_containers_hadoop_network_task.s(url, headers, app, app_files, hadoop_resources, new_containers)
     start_containers_tasks = []
@@ -257,6 +304,7 @@ def start_hadoop_app(url, headers, app, app_files, new_containers, container_res
         start_host_containers_taks = []
 
         for container_type in ["rm-nn", "irregular", "regular"]:
+            # NOTE: 'irregular' container won't be created due to a previous workaround
             if container_type in new_containers[host]:
                 if i == 0:
                     start_host_containers_taks.append(start_containers_with_app_task.s({}, url, headers, host, new_containers[host][container_type], app, app_files, container_resources[container_type]))
@@ -318,7 +366,7 @@ def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_
     hosts = ','.join(list(app_containers.keys()))
     app_containers_dict = json.dumps(app_containers).replace(" ","")
 
-    # TODO: adapt for irregular containers also
+    # NOTE: 'irregular' container won't be created due to a previous workaround
     vcores = hadoop_resources["regular"]["vcores"]
     scheduler_maximum_memory = hadoop_resources["regular"]["scheduler_maximum_memory"]
     scheduler_minimum_memory = hadoop_resources["regular"]["scheduler_minimum_memory"]
@@ -347,72 +395,44 @@ def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_
         for container in app_containers[host]:
             if container != rm_container:
                 full_url = url + "container/{0}/{1}".format(container,app)
-                add_container_to_hadoop_app_task(full_url, headers, host, container, app, app_files, rm_container)
+                add_container_to_app_in_db(full_url, headers, container, app)
                 # Workaround to keep all updates to State DB
                 time.sleep(0.5)
 
     # Lastly, start app on RM container
     full_url = url + "container/{0}/{1}".format(rm_container,app)
-    add_container_to_hadoop_app_task(full_url, headers, rm_host, rm_container, app, app_files, rm_container)
+    add_container_to_app_task(full_url, headers, rm_host, rm_container, app, app_files)
+
+def add_container_to_app_in_db(full_url, headers, container, app):
+
+    r = requests.put(full_url, headers=headers)
+
+    error = ""
+    if (r != "" and r.status_code != requests.codes.ok):
+        soup = BeautifulSoup(r.text, features="html.parser")
+        error = "Error adding container " + container + " to app " + app + ": " + soup.get_text().strip()
+
+    if error != "": raise Exception(error)
 
 @shared_task
 def add_container_to_app_task(full_url, headers, host, container, app, app_files):
 
-    r = requests.put(full_url, headers=headers)
+    add_container_to_app_in_db(full_url, headers, container, app)
 
-    error = ""
-    if (r != "" and r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error adding container " + container + " to app " + app + ": " + soup.get_text().strip()
+    files_dir = app_files['files_dir']
+    install_script = app_files['install_script']
+    start_script = app_files['start_script']
+    stop_script = app_files['stop_script']
 
-    if (error == ""):
+    rc = subprocess.Popen(["./ui/scripts/start_app_on_container.sh", host, container, app, files_dir, install_script, start_script, stop_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = rc.communicate()
 
-        files_dir = app_files['files_dir']
-        install_script = app_files['install_script']
-        start_script = app_files['start_script']
-        stop_script = app_files['stop_script']
+    # Log ansible output
+    print(out.decode("utf-8") )
 
-        rc = subprocess.Popen(["./ui/scripts/start_app_on_container.sh", host, container, app, files_dir, install_script, start_script, stop_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = rc.communicate()
-
-        # Log ansible output
-        print(out.decode("utf-8") )
-
-        if rc.returncode != 0:
-            error = "Error starting app {0} on container {1}: {2}".format(app, container, err.decode("utf-8"))
-            raise Exception(error)
-    else:
+    if rc.returncode != 0:
+        error = "Error starting app {0} on container {1}: {2}".format(app, container, err.decode("utf-8"))
         raise Exception(error)
-
-@shared_task
-def add_container_to_hadoop_app_task(full_url, headers, host, container, app, app_files, rm_container):
-
-    r = requests.put(full_url, headers=headers)
-
-    error = ""
-    if (r != "" and r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error adding container " + container + " to app " + app + ": " + soup.get_text().strip()
-
-    if (error == ""):
-        if (container == rm_container):
-            files_dir = app_files['files_dir']
-            install_script = app_files['install_script']
-            start_script = app_files['start_script']
-            stop_script = app_files['stop_script']
-
-            rc = subprocess.Popen(["./ui/scripts/start_app_on_container.sh", host, container, app, files_dir, install_script, start_script, stop_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            out, err = rc.communicate()
-
-            # Log ansible output
-            print(out.decode("utf-8") )
-
-            if rc.returncode != 0:
-                error = "Error starting app {0} on container {1}: {2}".format(app, container, err.decode("utf-8"))
-                raise Exception(error)
-    else:
-        raise Exception(error)
-
 
 def mergeDictionary(dict_1, dict_2):
    dict_3 = {**dict_2, **dict_1}
