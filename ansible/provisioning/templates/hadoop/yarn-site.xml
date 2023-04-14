@@ -60,6 +60,16 @@
 	</property>
 
 	<property>
+		<name>yarn.scheduler.minimum-allocation-vcores</name>
+		<value>{{ min_vcores }}</value>
+	</property>
+
+	<property>
+		<name>yarn.scheduler.maximum-allocation-vcores</name>
+		<value>{{ vcores }}</value>
+	</property>
+
+	<property>
 		<name>yarn.nodemanager.vmem-check-enabled</name>
 		<value>false</value>
 	</property>

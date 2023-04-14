@@ -1106,7 +1106,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
         hosts_without_space = 0
         while containers_to_allocate + irregular_container_to_allocate + hadoop_container_to_allocate > 0 and hosts_without_space < len(hosts):
             for host in hosts:
-                if containers_to_allocate + irregular_container_to_allocate <= 0 or hosts_without_space >= len(hosts):
+                if containers_to_allocate + irregular_container_to_allocate + hadoop_container_to_allocate <= 0 or hosts_without_space >= len(hosts):
                     break
 
                 # First we try to assign the bigger container if it exists

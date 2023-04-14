@@ -252,6 +252,7 @@ def start_hadoop_app(url, headers, app, app_files, new_containers, container_res
             hadoop_resources[container_type] = {}
 
             total_cores = int(container_resources[container_type]["cpu_max"])//100
+            min_cores = int(container_resources[container_type]["cpu_min"])//100
             total_memory = int(container_resources[container_type]["mem_max"])
             total_disks = 1
             reserved_memory = get_node_reserved_memory(total_memory)
@@ -285,6 +286,7 @@ def start_hadoop_app(url, headers, app, app_files, new_containers, container_res
             mapreduce_am_memory_java_opts = int(0.8* mapreduce_am_memory)
 
             hadoop_resources[container_type]["vcores"] = str(total_cores)
+            hadoop_resources[container_type]["min_vcores"] = str(min_cores)
             hadoop_resources[container_type]["scheduler_maximum_memory"] = str(scheduler_maximum_memory)
             hadoop_resources[container_type]["scheduler_minimum_memory"] = str(scheduler_minimum_memory)
             hadoop_resources[container_type]["nodemanager_memory"] = str(nodemanager_memory)
@@ -368,6 +370,7 @@ def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_
 
     # NOTE: 'irregular' container won't be created due to a previous workaround
     vcores = hadoop_resources["regular"]["vcores"]
+    min_vcores = hadoop_resources["regular"]["min_vcores"]
     scheduler_maximum_memory = hadoop_resources["regular"]["scheduler_maximum_memory"]
     scheduler_minimum_memory = hadoop_resources["regular"]["scheduler_minimum_memory"]
     nodemanager_memory = hadoop_resources["regular"]["nodemanager_memory"]
@@ -379,7 +382,7 @@ def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_
     mapreduce_am_memory_java_opts = hadoop_resources["regular"]["mapreduce_am_memory_java_opts"]
 
     rc = subprocess.Popen([
-        "./ui/scripts/setup_hadoop_network_on_container.sh", hosts, app, app_containers_dict, rm_host, rm_container, vcores, scheduler_maximum_memory, scheduler_minimum_memory, nodemanager_memory, map_memory, map_memory_java_opts, reduce_memory, reduce_memory_java_opts, mapreduce_am_memory, map_memory_java_opts
+        "./ui/scripts/setup_hadoop_network_on_container.sh", hosts, app, app_containers_dict, rm_host, rm_container, vcores, min_vcores, scheduler_maximum_memory, scheduler_minimum_memory, nodemanager_memory, map_memory, map_memory_java_opts, reduce_memory, reduce_memory_java_opts, mapreduce_am_memory, map_memory_java_opts
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = rc.communicate()
 

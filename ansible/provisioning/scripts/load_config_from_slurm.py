@@ -27,9 +27,11 @@ def getNodesCpus():
             cpus_per_node = int(cpus_per_node_string)
         except ValueError:
             # We assume that it has format: 16(x2)
-            formatted_cpus = cpus_per_node_string.replace('x','*').replace("(","").replace(")","")
-            cpus_per_node = eval(formatted_cpus)
-    else:
+            #formatted_cpus = cpus_per_node_string.replace('x','*').replace("(","").replace(")","")
+            #cpus_per_node = eval(formatted_cpus)
+            formatted_cpus = re.sub("[\(\[].*?[\)\]]", "", cpus_per_node_string)
+            cpus_per_node = int(formatted_cpus)
+    else
         raise Exception("Can't get node CPUs")
 
     return cpus_per_node
