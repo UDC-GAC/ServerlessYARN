@@ -1135,7 +1135,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                 else:
                     hosts_without_space += 1
 
-    if containers_to_allocate > 0:
+    if containers_to_allocate + irregular_container_to_allocate + hadoop_container_to_allocate > 0:
         error = "Could not allocate containers for app {0}".format(app_name)
         return new_containers, error
 

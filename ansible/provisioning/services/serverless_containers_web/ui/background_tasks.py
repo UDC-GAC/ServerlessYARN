@@ -7,6 +7,7 @@ from celery.result import AsyncResult
 from bs4 import BeautifulSoup
 import redis
 import json
+import timeit
 
 r = redis.Redis()
 redis_prefix = "pending_tasks"
@@ -15,7 +16,12 @@ lock = r.lock("celery")
 
 def register_task(task_id, task_name):
     key = "{0}:{1}".format(redis_prefix,task_id)
-    r.mset({key: task_name})
+    #r.mset({key: task_name})
+    r.hset(key, "task_name", task_name)
+
+def update_task_runtime(task_id, runtime):
+    key = "{0}:{1}".format(redis_prefix,task_id)
+    r.hset(key, "runtime", runtime)
 
 def get_pending_tasks():
     still_pending_tasks = []
@@ -23,7 +29,8 @@ def get_pending_tasks():
     failed_tasks = []
 
     for key in r.scan_iter("{0}:*".format(redis_prefix)):
-        task_name = r.get(key).decode("utf-8")
+        #task_name = r.get(key).decode("utf-8")
+        task_name = r.hget(key, "task_name").decode("utf-8")
         task_id = key.decode("utf-8")[len(redis_prefix) + 1:]
         task_result = AsyncResult(task_id)
         status = task_result.status
@@ -31,12 +38,14 @@ def get_pending_tasks():
         if status != "SUCCESS" and status != "FAILURE":
             still_pending_tasks.append((task_id,task_name))
         elif status == "SUCCESS":
-            successful_tasks.append((task_id,task_name))
+            if r.hexists(key, "runtime"): runtime = r.hget(key, "runtime").decode("utf-8")
+            else: runtime = None
+            successful_tasks.append((task_id,task_name,runtime))
         else:
             failed_tasks.append((task_id,task_name,task_result.result))
 
     # remove completed or failed tasks
-    for task_id, task_name in successful_tasks:
+    for task_id, task_name, runtime in successful_tasks:
         r.delete("{0}:{1}".format(redis_prefix, task_id))
 
     for task_id, task_name, task_error in failed_tasks:
@@ -57,8 +66,10 @@ def get_pendings_tasks_to_string():
         info = "Task with ID {0} and name {1} is pending".format(task_id,task_name)
         still_pending_tasks_string.append(info)
 
-    for task_id, task_name in successful_tasks:
-        success = "Task with ID {0} and name {1} has completed successfully".format(task_id,task_name)
+    for task_id, task_name, runtime in successful_tasks:
+        if runtime != None: runtime_str = " in {0} seconds".format(runtime)
+        else: runtime_str = ""
+        success = "Task with ID {0} and name {1} has completed successfully{2}".format(task_id,task_name,runtime_str)
         successful_tasks_string.append(success)
 
     for task_id, task_name, task_error in failed_tasks:
@@ -251,8 +262,8 @@ def start_hadoop_app(url, headers, app, app_files, new_containers, container_res
         if container_type in container_resources:
             hadoop_resources[container_type] = {}
 
-            total_cores = int(container_resources[container_type]["cpu_max"])//100
-            min_cores = int(container_resources[container_type]["cpu_min"])//100
+            total_cores = max(int(container_resources[container_type]["cpu_max"])//100,1)
+            min_cores = max(int(container_resources[container_type]["cpu_min"])//100,1)
             total_memory = int(container_resources[container_type]["mem_max"])
             total_disks = 1
             reserved_memory = get_node_reserved_memory(total_memory)
@@ -297,7 +308,8 @@ def start_hadoop_app(url, headers, app, app_files, new_containers, container_res
             hadoop_resources[container_type]["mapreduce_am_memory"] = str(mapreduce_am_memory)
             hadoop_resources[container_type]["mapreduce_am_memory_java_opts"] = str(mapreduce_am_memory_java_opts)
 
-    setup_network_task = setup_containers_hadoop_network_task.s(url, headers, app, app_files, hadoop_resources, new_containers)
+    start_time = timeit.default_timer()
+    setup_network_task = setup_containers_hadoop_network_task.s(url, headers, app, app_files, hadoop_resources, new_containers, start_time)
     start_containers_tasks = []
 
     # Start containers with app
@@ -354,8 +366,8 @@ def setup_containers_network_task(app_containers, url, headers, app, app_files):
             # Workaround to keep all updates to State DB
             time.sleep(0.5)
 
-@shared_task
-def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_files, hadoop_resources, new_containers):
+@shared_task(bind=True)
+def setup_containers_hadoop_network_task(self,app_containers, url, headers, app, app_files, hadoop_resources, new_containers, start_time):
 
     # Get rm-nn container (it is the first container from the host that got that container)
     for host in new_containers:
@@ -406,6 +418,21 @@ def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_
     full_url = url + "container/{0}/{1}".format(rm_container,app)
     add_container_to_app_task(full_url, headers, rm_host, rm_container, app, app_files)
 
+    end_time = timeit.default_timer()
+    runtime = "{:.2f}".format(end_time-start_time)
+    update_task_runtime(self.request.id, runtime)
+
+    # Once app has finished, stop Hadoop cluster
+    for host in app_containers:
+        for container in app_containers[host]:
+            full_url = url + "container/{0}/{1}".format(container,app)
+            task = remove_container_from_app_task.delay(full_url, headers, host, container, app, app_files)
+            print("Starting task with id {0}".format(task.id))
+            register_task(task.id,"remove_container_from_app_task")
+            # Workaround to keep all updates to State DB
+            time.sleep(0.5)
+
+
 def add_container_to_app_in_db(full_url, headers, container, app):
 
     r = requests.put(full_url, headers=headers)
@@ -426,8 +453,9 @@ def add_container_to_app_task(full_url, headers, host, container, app, app_files
     install_script = app_files['install_script']
     start_script = app_files['start_script']
     stop_script = app_files['stop_script']
+    app_jar = app_files['app_jar']
 
-    rc = subprocess.Popen(["./ui/scripts/start_app_on_container.sh", host, container, app, files_dir, install_script, start_script, stop_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    rc = subprocess.Popen(["./ui/scripts/start_app_on_container.sh", host, container, app, files_dir, install_script, start_script, stop_script, app_jar], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = rc.communicate()
 
     # Log ansible output

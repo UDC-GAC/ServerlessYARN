@@ -7,6 +7,7 @@ FILES_DIR=$4
 INSTALL_SCRIPT=$5
 START_SCRIPT=$6
 STOP_SCRIPT=$7
+APP_JAR=$8
 
 cd ../../
 INVENTORY=../ansible.inventory
@@ -18,4 +19,5 @@ unbuffer ansible-playbook manage_app_on_container.yml -i $INVENTORY -t start_app
         files_dir=$FILES_DIR \
         install_script=$INSTALL_SCRIPT \
         start_script=$START_SCRIPT \
-        stop_script=$STOP_SCRIPT"
+        stop_script=$STOP_SCRIPT \
+        app_jar=$APP_JAR"

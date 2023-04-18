@@ -222,6 +222,19 @@
           mode: preserve
         tags: stop_app
 
+      - name: Copy app jar
+        when: "app_jar != ''"
+        copy:
+          src: "apps/{{ app_jar }}"
+          dest: "{{ container_bind_dir }}/{{ app_jar | basename }}"
+
+      - name: Move app jar to container home
+        when: "app_jar != ''"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
+          'mv -f {{ bind_dir_on_container }}/{{ app_jar | basename }} ~/'"
+        args:
+          executable: /bin/bash
+
       - name: Execute start script on container
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null"
         #when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"

@@ -77,3 +77,11 @@
     state: directory
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
     recurse: yes
+
+- name: Copy service aliases and port configuration to BDWatchdog dir
+  template:
+    src: templates/bdw_services_config.yml
+    dest: "{{ item }}/services_config.yml"
+  with_items:
+    - "{{ bdwatchdog_path }}"
+    - "{{ bdwatchdog_source_path }}"

@@ -20,7 +20,7 @@
 
     - import_tasks: tasks/install/bdwatchdog_setup.yml
     - import_tasks: tasks/install/serverless_containers_setup.yml
-    - import_tasks: tasks/install/hosts_setup.yml
+    #- import_tasks: tasks/install/hosts_setup.yml
     - import_tasks: tasks/install/autoserverlessweb_services_setup.yml
     - import_tasks: tasks/install/apptainer_setup.yml
       when: "virtual_mode and container_engine == 'apptainer'"
@@ -45,7 +45,7 @@
     - import_tasks: tasks/install/metrics_feeder_setup.yml # can be removed if an LXC container image is created
       when: "container_engine == 'lxc'"
 
-    - import_tasks: tasks/install/hosts_setup.yml
+    #- import_tasks: tasks/install/hosts_setup.yml
 
     - import_tasks: tasks/install/lxd_setup.yml
       when: "virtual_mode and container_engine == 'lxc'"

@@ -28,7 +28,7 @@
     src: ServerlessContainers/
     dest: "{{ serverless_containers_path }}"
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
-    
+
 - name: Install specified python requirements
   pip:
     requirements: "{{ serverless_containers_path }}/requirements.txt"
@@ -39,3 +39,8 @@
   package:
     name: gunicorn
     state: latest
+
+- name: Copy service aliases and port configuration to ServerlessContainers dir
+  template:
+    src: templates/sc_services_config.yml
+    dest: "{{ serverless_containers_path }}/services_config.yml"
