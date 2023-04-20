@@ -27,6 +27,10 @@ opentsdb_port: 4242
 number_of_client_nodes: 1
 cpus_per_client_node: 4
 memory_per_client_node: 4096
+hdd_disks_per_client_node: 1
+hdd_disks_path_list: $HOME/hdd
+ssd_disks_per_client_node: 1
+ssd_disks_path_list: $HOME/ssd
 
 ## Containers initial values
 number_of_containers_per_node: 2

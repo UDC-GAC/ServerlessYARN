@@ -726,11 +726,20 @@ def processAddHost(request, url, structure_name, structure_type, resources):
     error = ""
 
     new_containers = int(request.POST['number_of_containers'])
-    cpu = request.POST['cpu_max']
-    mem = request.POST['mem_max']
+    cpu = int(request.POST['cpu_max'])
+    mem = int(request.POST['mem_max'])
+
+    # disks
+    disk_info = {}
+    disk_info['hdd_disks'] = int(request.POST['hdd_disks'])
+    disk_info['ssd_disks'] = int(request.POST['ssd_disks'])
+    if 'hdd_disks_path_list' in request.POST: disk_info['hdd_disks_path_list'] = request.POST['hdd_disks_path_list'].split(',')
+    else: disk_info['hdd_disks_path_list']=[]
+    if 'ssd_disks_path_list' in request.POST: disk_info['ssd_disks_path_list'] = request.POST['ssd_disks_path_list'].split(',')
+    else: disk_info['ssd_disks_path_list']=[]
 
     # provision host and start its containers from playbook
-    task = add_host_task(structure_name,cpu,mem,new_containers)
+    task = add_host_task(structure_name,cpu,mem,disk_info,new_containers)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"add_host_task")
 
@@ -1226,6 +1235,7 @@ def processRemoves(request, url, structure_type):
             app_files['install_script'] = request.POST['install_script']
             app_files['start_script'] = request.POST['start_script']
             app_files['stop_script'] = request.POST['stop_script']
+            app_files['app_jar'] = request.POST['app_jar']
 
             for container in containers_to_remove:
                 error = processRemoveContainerFromApp(url, container, app, app_files)
@@ -1462,6 +1472,7 @@ def getContainersFromApp(url, app_name):
     app_files['install_script'] = ""
     app_files['start_script'] = ""
     app_files['stop_script'] = ""
+    app_files['app_jar'] = ""
 
     for item in data:
         if (item['subtype'] == 'application' and item['name'] == app_name):
@@ -1470,6 +1481,7 @@ def getContainersFromApp(url, app_name):
             app_files['install_script'] = item['install_script']
             app_files['start_script'] = item['start_script']
             app_files['stop_script'] = item['stop_script']
+            app_files['app_jar'] = item['app_jar']
 
     for item in data:
         if (item['subtype'] == 'container' and item['name'] in containerNamesList):

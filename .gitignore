@@ -5,3 +5,4 @@ ServerlessContainers/
 bdwatchdog/
 artifacts/
 *.log
+*.jar

@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+cd "{{ bind_dir_on_container }}"
+# Remove previous output from local file system if exists
+rm -rf output
+
 # Store data in HDFS
 start=`date +%s.%N`
 $HADOOP_HOME/bin/hdfs dfs -mkdir -p input
@@ -24,5 +28,5 @@ echo JAR runtime: $jar_runtime >> runtime
 echo Total time: $(echo $hdfs_put_time + $jar_runtime | bc -l) >> runtime
 
 # Move results to bind dir
-cp -r output /opt/bind/
-mv -f runtime /opt/bind/
+# cp -r output /opt/bind/
+# mv -f runtime /opt/bind/

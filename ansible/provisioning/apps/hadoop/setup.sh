@@ -33,6 +33,6 @@ echo never > /sys/kernel/mm/transparent_hugepage/enabled
 echo never > /sys/kernel/mm/transparent_hugepage/defrag
 
 ## Run hadoop services
-cd $HADOOP_HOME
+#cd $HADOOP_HOME
 #bash format_filesystem.sh
 #sbin/start-dfs.sh

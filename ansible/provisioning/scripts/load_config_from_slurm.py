@@ -6,7 +6,7 @@ from ruamel.yaml import YAML
 import os
 import subprocess
 import re
-from load_inventory_from_conf import write_container_list
+from load_inventory_from_conf import write_container_list, get_disks_dict
 
 def getHostList():
     rc = subprocess.Popen(["scontrol", "show", "hostnames"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -73,6 +73,18 @@ def getNodesMemory():
 
     return allocMem
 
+def getDisksFromConfig(config_file):
+
+    with open(config_file, "r") as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+
+    hdd_disks_per_client_node = config['hdd_disks_per_client_node']
+    hdd_disks_path_list = config['hdd_disks_path_list'].split(",")
+    ssd_disks_per_client_node = config['ssd_disks_per_client_node']
+    ssd_disks_path_list = config['ssd_disks_path_list'].split(",")
+
+    return get_disks_dict(hdd_disks_per_client_node, hdd_disks_path_list, ssd_disks_per_client_node, ssd_disks_path_list)
+
 def update_config_file(config_file, server, client_nodes, cpus_per_node, memory_per_node):
     server_ip = server
     cpus_server_node = cpus_per_node
@@ -116,7 +128,7 @@ def update_config_file(config_file, server, client_nodes, cpus_per_node, memory_
     yaml.dump(data, out)
     #yaml.dump(data, sys.stdout)
 
-def update_inventory_file(inventory_file, server, client_nodes, cpus_per_node, memory_per_node):
+def update_inventory_file(inventory_file, server, client_nodes, cpus_per_node, memory_per_node, disks_dict):
 
     # Server
     with open(inventory_file, 'w') as f:
@@ -125,7 +137,7 @@ def update_inventory_file(inventory_file, server, client_nodes, cpus_per_node, m
 
     # Nodes
     for host in client_nodes:
-        write_container_list([],host,cpus_per_node,memory_per_node)
+        write_container_list([],host,cpus_per_node,memory_per_node,disks_dict)
 
 if __name__ == "__main__":
 
@@ -137,9 +149,10 @@ if __name__ == "__main__":
     server, client_nodes = getHostList()
     cpus_per_node = getNodesCpus()
     memory_per_node = getNodesMemory()
+    disks_dict = getDisksFromConfig(config_file)
 
     # Change config
     update_config_file(config_file, server, client_nodes, cpus_per_node, memory_per_node)
 
     # Update ansible inventory file
-    update_inventory_file(inventory_file, server, client_nodes, cpus_per_node, memory_per_node)
+    update_inventory_file(inventory_file, server, client_nodes, cpus_per_node, memory_per_node, disks_dict)

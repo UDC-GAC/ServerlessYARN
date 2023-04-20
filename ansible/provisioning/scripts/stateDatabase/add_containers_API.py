@@ -38,30 +38,32 @@ base_host_to_API = dict(
     host_rescaler_port = rescaler_port,
     resources = dict(
         cpu = dict(),
-        mem = dict()
+        mem = dict(),
+        disks = []
     )
 )
 
-# usage example: add_containers.py host0 4 4096 cont0,cont1 200 100 50 2048 1024 512 config/config.yml
+# usage example: add_containers.py host0 4 4096 {'ssd_0':'$HOME/ssd','hdd_0':'$HOME/hdd'} cont0,cont1 200 100 50 2048 1024 512 config/config.yml
 
 if __name__ == "__main__":
 
-    if (len(sys.argv) > 11):
+    if (len(sys.argv) > 12):
         new_host = sys.argv[1]
         host_cpu = int(sys.argv[2])
         host_mem = int(sys.argv[3])
-        containers = sys.argv[4]
+        disks = json.loads(sys.argv[4].replace('\'','"'))
+        containers = sys.argv[5]
         if containers != "None": containers = containers.split(',')
         else: containers = []
-        max_cpu_percentage_per_container = int(sys.argv[5])
-        min_cpu_percentage_per_container = int(sys.argv[6])
-        cpu_boundary = int(sys.argv[7])
+        max_cpu_percentage_per_container = int(sys.argv[6])
+        min_cpu_percentage_per_container = int(sys.argv[7])
+        cpu_boundary = int(sys.argv[8])
         if cpu_boundary == 0: cpu_boundary = cpu_default_boundary
-        max_memory_per_container = int(sys.argv[8])
-        min_memory_per_container = int(sys.argv[9])
-        mem_boundary = int(sys.argv[10])
+        max_memory_per_container = int(sys.argv[9])
+        min_memory_per_container = int(sys.argv[10])
+        mem_boundary = int(sys.argv[11])
         if mem_boundary == 0: mem_boundary = mem_default_boundary
-        with open(sys.argv[11], "r") as f:
+        with open(sys.argv[12], "r") as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
         host_shares = host_cpu * 100
@@ -81,6 +83,15 @@ if __name__ == "__main__":
 
         put_field_data['resources']["mem"]["max"] = host_mem
         put_field_data['resources']["mem"]["free"] = host_mem
+
+        for disk in disks:
+            new_disk = {}
+            new_disk['name'] = disk
+            new_disk['path'] = disks[disk]
+            new_disk['load'] = 0
+            if "ssd" in disk: new_disk['type'] = "SSD"
+            else: new_disk['type'] = "HDD"
+            put_field_data['resources']["disks"].append(new_disk)
 
         r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
 

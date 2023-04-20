@@ -7,3 +7,7 @@ opentsdb_log_path: "{{ bdwatchdog_path }}/opentsdb/log"
 apptainer_repo_path: "{{ installation_path }}/apptainer"
 web_interface_path: services/serverless_containers_web
 singularity_cgroups_group: singularity
+#bind_path: "{{ installation_path }}"
+bind_path: /home/vagrant/hdd
+bind_dir: "{{ bind_path }}/singularity_binds"
+bind_dir_on_container: /opt/bind

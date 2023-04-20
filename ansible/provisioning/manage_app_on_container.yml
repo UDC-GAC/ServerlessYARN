@@ -8,9 +8,7 @@
     - config/config.yml
 
   vars:
-    - bind_dir: "{{ installation_path }}/singularity_binds"
     - container_bind_dir: "{{ bind_dir }}/{{ container }}"
-    - bind_dir_on_container: /opt/bind
 
   environment:
     BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
@@ -94,7 +92,7 @@
       - name: Copy app files already on containers
         when: item[0].key == inventory_hostname
         #shell: "sudo {{ singularity_command_alias }} exec instance://{{ item }} bash -c 'cp -pr /opt/files_dir {{ bind_dir_on_container }} && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/*'"
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[1] }} bash -c 'cp -pr /opt/files_dir ~/ && chown -R {{ userid_on_the_host.stdout }} ~/*'"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[1] }} bash -c 'cp -pr /opt/files_dir {{ bind_dir_on_container }}/ && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/*'"
         args:
           executable: /bin/bash
         loop: "{{ container_loop }}"
@@ -160,7 +158,8 @@
       - name: Append RM/NN container ssh public key to authorized keys of containers
         when: item[0].key == inventory_hostname and item[1] != rm_container
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[1] }} bash -c \
-          'cat {{ bind_dir_on_container }}/{{ rm_container}}.pub >> ~/.ssh/authorized_keys'"
+          'cat {{ bind_dir_on_container }}/{{ rm_container}}.pub >> ~/.ssh/authorized_keys
+          && rm {{ bind_dir_on_container }}/{{ rm_container}}.pub'"
         args:
           executable: /bin/bash
         loop: "{{ container_loop }}"
@@ -210,13 +209,15 @@
         tags: stop_app
 
       - name: Copy app start script
-        copy:
+        #copy:
+        template:
           src: "apps/{{ start_script }}"
           dest: "{{ container_bind_dir }}/{{ start_script | basename }}"
           mode: preserve
 
       - name: Copy app stop script
-        copy:
+        #copy:
+        template:
           src: "apps/{{ stop_script }}"
           dest: "{{ container_bind_dir }}/{{ stop_script | basename }}"
           mode: preserve
@@ -228,12 +229,12 @@
           src: "apps/{{ app_jar }}"
           dest: "{{ container_bind_dir }}/{{ app_jar | basename }}"
 
-      - name: Move app jar to container home
-        when: "app_jar != ''"
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
-          'mv -f {{ bind_dir_on_container }}/{{ app_jar | basename }} ~/'"
-        args:
-          executable: /bin/bash
+      # - name: Move app jar to container home
+      #   when: "app_jar != ''"
+      #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
+      #     'mv -f {{ bind_dir_on_container }}/{{ app_jar | basename }} ~/'"
+      #   args:
+      #     executable: /bin/bash
 
       - name: Execute start script on container
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null"
@@ -246,17 +247,16 @@
   ## Stop
   - name: Stop app on container
     block:
+      - name: get the username id running the deploy
+        become: no
+        local_action: command id -u
+        register: userid_on_the_host
+
       - name: Execute stop script on container
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script | basename }} </dev/null"
         #when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"
         args:
           executable: /bin/bash
-
-      - name: Remove app files directory
-        when: "files_dir != ''"
-        file:
-          path: "{{ container_bind_dir }}/{{ files_dir | basename }}"
-          state: absent
 
       - name: Remove app install script
         when: "install_script != ''"
@@ -272,6 +272,49 @@
       - name: Remove app stop script
         file:
           path: "{{ container_bind_dir }}/{{ stop_script | basename }}"
+          state: absent
+
+      - name: Remove app jar
+        when: "app_jar != ''"
+        file:
+          path: "{{ container_bind_dir }}/{{ app_jar | basename }}"
+          state: absent
+
+      - name: Remove hadoop config files
+        file:
+          path: "{{ container_bind_dir }}/{{ item }}"
+          state: absent
+        vars:
+          file_list: ["core-site.xml", "hdfs-site.xml", "yarn-site.xml", "mapred-site.xml"]
+        loop: "{{ file_list }}"
+
+      - name: Remove container own ssh key
+        file:
+          path: "{{ container_bind_dir }}/{{ container }}.pub"
+          state: absent
+
+      - name: Remove hadoop files directory in container
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
+          'rm -r {{ bind_dir_on_container}}/files_dir'"
+        args:
+          executable: /bin/bash
+
+      # Workaround to avoid having result files root-owned
+      # TODO: move results to another directory accesible for the user
+      - name: Change remaining files permissions
+        when: "app_jar != ''"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
+          'cd {{ bind_dir_on_container }} \
+          && chown -R {{ userid_on_the_host.stdout }} output | : \
+          && chown {{ userid_on_the_host.stdout }} runtime | : \
+          && chown -R {{ userid_on_the_host.stdout }} hadoop_logs'"
+        args:
+          executable: /bin/bash
+
+      - name: Remove app files directory
+        when: "files_dir != ''"
+        file:
+          path: "{{ container_bind_dir }}/{{ files_dir | basename }}"
           state: absent
 
     tags: never, stop_app

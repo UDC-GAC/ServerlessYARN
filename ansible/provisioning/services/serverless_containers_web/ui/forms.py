@@ -182,6 +182,20 @@ class AddHostForm(forms.Form):
     mem_max = forms.IntegerField(label= "Memory",
             required=True
             )
+    hdd_disks = forms.IntegerField(label= "HDD disks",
+            initial = 0,
+            required=True
+            )
+    hdd_disks_path_list = forms.CharField(label= "HDD disks path list",
+            required=False
+            )
+    ssd_disks = forms.IntegerField(label= "SDD disks",
+            initial = 0,
+            required=True
+            )
+    ssd_disks_path_list = forms.CharField(label= "SSD disks path list",
+            required=False
+            )
     number_of_containers = forms.IntegerField(label= "Number of containers",
             initial = 0,
             required=True
@@ -199,6 +213,10 @@ class AddHostForm(forms.Form):
             Field('name'),
             Field('cpu_max'),
             Field('mem_max'),
+            Field('hdd_disks'),
+            Field('hdd_disks_path_list'),
+            Field('ssd_disks'),
+            Field('ssd_disks_path_list'),
             Field('number_of_containers'),
             FormActions(
                 Submit('save', 'Add host', css_class='caja'),

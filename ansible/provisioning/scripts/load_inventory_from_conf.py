@@ -12,7 +12,7 @@ inventory_file = scriptDir + "/../../ansible.inventory"
 host_container_separator = "-"
 
 sys.path.append(scriptDir + "/../services/serverless_containers_web/ui")
-from update_inventory_file import write_container_list
+from update_inventory_file import write_container_list, get_disks_dict
 
 def update_server_ip(server_ip):
 
@@ -50,14 +50,14 @@ def update_server_ip(server_ip):
             file.writelines( server_info )
 
 
-def write_inventory_from_conf(number_of_hosts,number_of_containers_per_node,cpu_per_node,mem_per_node):
+def write_inventory_from_conf(number_of_hosts,number_of_containers_per_node,cpu_per_node,mem_per_node,disks_dict):
 
     structures = {}
 
     for i in range(0,number_of_hosts,1):
         host_name = 'host' + str(i)
         host_containers = create_container_list(host_name,number_of_containers_per_node)    
-        structures[host_name] = {'containers': host_containers, 'cpu': str(cpu_per_node), 'mem': str(mem_per_node)}
+        structures[host_name] = {'containers': host_containers, 'cpu': str(cpu_per_node), 'mem': str(mem_per_node), 'disks': disks_dict}
 
     print(structures)
 
@@ -77,9 +77,9 @@ def write_inventory_from_conf(number_of_hosts,number_of_containers_per_node,cpu_
             file.write(data[i])
 
     for host in structures:
-        write_container_list(structures[host]['containers'],host,structures[host]['cpu'],structures[host]['mem'])
+        write_container_list(structures[host]['containers'],host,structures[host]['cpu'],structures[host]['mem'],structures[host]['disks'])
 
-def update_inventory_hosts_containers(number_of_containers_per_node):
+def update_inventory_hosts_containers(number_of_containers_per_node,disks_dict):
 
     loader = DataLoader()
     ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
@@ -91,12 +91,12 @@ def update_inventory_hosts_containers(number_of_containers_per_node):
     for host in hostsList:
         host_name = host.name
         host_containers = create_container_list(host_name,number_of_containers_per_node)
-        structures[host_name] = {'containers': host_containers, 'cpu': host.vars['cpu'], 'mem': host.vars['mem']}
+        structures[host_name] = {'containers': host_containers, 'cpu': host.vars['cpu'], 'mem': host.vars['mem'], 'disks': disks_dict}
 
     print(structures)
 
     for host in structures:
-        write_container_list(structures[host]['containers'],host,structures[host]['cpu'],structures[host]['mem'])
+        write_container_list(structures[host]['containers'],host,structures[host]['cpu'],structures[host]['mem'],structures[host]['disks'])
 
 def create_container_list(host_name,number_of_containers_per_node):
 
@@ -121,6 +121,13 @@ if __name__ == "__main__":
     cpu_per_node = config['cpus_per_client_node']
     mem_per_node = config['memory_per_client_node']
 
+    # disks
+    hdd_disks_per_client_node = config['hdd_disks_per_client_node']
+    hdd_disks_path_list = config['hdd_disks_path_list'].split(",")
+    ssd_disks_per_client_node = config['ssd_disks_per_client_node']
+    ssd_disks_path_list = config['ssd_disks_path_list'].split(",")
+    disks_dict = get_disks_dict(hdd_disks_per_client_node, hdd_disks_path_list, ssd_disks_per_client_node, ssd_disks_path_list)
+
     virtual_mode = config['virtual_mode']
 
     server_ip = config['server_ip']
@@ -128,6 +135,6 @@ if __name__ == "__main__":
     update_server_ip(server_ip)
 
     if (virtual_mode): 
-        write_inventory_from_conf(number_of_hosts,number_of_containers_per_node,cpu_per_node,mem_per_node)
+        write_inventory_from_conf(number_of_hosts,number_of_containers_per_node,cpu_per_node,mem_per_node,disks_dict)
     else: 
-        update_inventory_hosts_containers(number_of_containers_per_node)
+        update_inventory_hosts_containers(number_of_containers_per_node,disks_dict)

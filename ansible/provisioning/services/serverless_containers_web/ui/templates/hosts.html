@@ -66,7 +66,7 @@
 				</tr>
 				<!-- rows -->
 				{% for resource,values in item.resources.items %}
-					{% if resource != "cpu_cores" %}
+					{% if resource != "cpu_cores" and resource != "disks" %}
 					<tr>
 						<th>{{ resource }}</th>
 						{% for key, value in values.items %}
@@ -77,7 +77,33 @@
 				{% endfor %}
 			</table>
 			<p></p>
-
+			<!-- Another table for disks -->
+			{% for resource,values in item.resources.items %}
+			{% if resource == "disks" %}
+			  <p>Disks</p>
+			  <p></p>
+			  <table class="data_table">
+				  <!-- header -->
+				  <tr>
+					  <th>Name</th>
+					  <th>Type</th>
+					  <th>Path</th>
+					  <th>Load</th>
+				  </tr>
+				  <!-- rows -->
+				  {% for disk in values %}
+				  <tr>
+					<td>{{ disk.name }}</td>
+					<td style="text-transform:uppercase">{{ disk.type }}</td>
+					<td>{{ disk.path }}</td>
+					<td>{{ disk.load }}</td>
+				  </tr>
+				  {% endfor %}
+			  </table>
+			  <p></p>
+				  <HR>
+			{% endif %}
+			{% endfor %}
 			<!-- Another table for cpu_cores -->
   			{% for resource,values in item.resources.items %}
   			{% if resource == "cpu_cores" %}

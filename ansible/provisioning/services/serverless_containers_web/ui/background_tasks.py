@@ -115,11 +115,11 @@ def start_containers_task(host, new_containers, container_resources):
         raise Exception(error)
 
 @shared_task
-def add_host_task(host,cpu,mem,new_containers):
+def add_host_task(host,cpu,mem,disk_info,new_containers):
 
     # update_inventory_file
     with lock:
-        add_host(structure_name,cpu,mem,new_containers)
+        add_host(structure_name,cpu,mem,disk_info,new_containers)
 
     rc = subprocess.Popen(["./ui/scripts/configure_host.sh",host], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = rc.communicate()
@@ -625,8 +625,9 @@ def remove_container_from_app_task(full_url, headers, host, container, app, app_
         install_script = app_files['install_script']
         start_script = app_files['start_script']
         stop_script = app_files['stop_script']
+        app_jar = app_files['app_jar']
 
-        rc = subprocess.Popen(["./ui/scripts/stop_app_on_container.sh", host, container, app, files_dir, install_script, start_script, stop_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        rc = subprocess.Popen(["./ui/scripts/stop_app_on_container.sh", host, container, app, files_dir, install_script, start_script, stop_script, app_jar], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = rc.communicate()
 
         # Log ansible output

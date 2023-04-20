@@ -35,7 +35,6 @@
         - app_base_image_file: "ubuntu_container.sif"
         - image_file: "{{ app_base_image_file }}"
         - cgroups_file: "apptainer_containers_cgroup.toml"
-        - bind_dir_on_container: /opt/bind
 
     - import_tasks: tasks/containers_setup/node_rescaler_launch.yml
       become: "{{ 'no' if container_engine == 'apptainer' else 'yes' }}"

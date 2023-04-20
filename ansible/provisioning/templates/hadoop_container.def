@@ -32,8 +32,7 @@ From: apps/base/{{ app_base_image_file }}
 
     # Setup hadoop
     export HADOOP_CONF_DIR=/opt/files_dir/hadoop_conf
-    #export DATA_DIR=/opt/bind/files_dir/data_dir
-    export DATA_DIR=$HOME/files_dir/data_dir
+    export DATA_DIR="{{ bind_dir_on_container }}/files_dir/data_dir"
     cd /opt
     mkdir -p files_dir/data_dir
     #wget https://archive.apache.org/dist/hadoop/core/hadoop-2.9.2/hadoop-2.9.2.tar.gz
@@ -54,13 +53,12 @@ From: apps/base/{{ app_base_image_file }}
 
 %environment
     export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-    #export DATA_DIR=/opt/bind/files_dir/data_dir
-    export DATA_DIR=$HOME/files_dir/data_dir
+    export DATA_DIR="{{ bind_dir_on_container }}/files_dir/data_dir"
     export HADOOP_HOME=/opt/hadoop/
-    export HADOOP_CONF_DIR=$HOME/files_dir/hadoop_conf
+    export HADOOP_CONF_DIR="{{ bind_dir_on_container }}/files_dir/hadoop_conf"
     export YARN_CONF_DIR=$HADOOP_CONF_DIR
-    export HADOOP_LOG_DIR=$HOME/hadoop_logs
-    export YARN_LOG_DIR=$HOME/yarn_logs
+    export HADOOP_LOG_DIR="{{ bind_dir_on_container }}/hadoop_logs"
+    export YARN_LOG_DIR=$HADOOP_LOG_DIR
     ## Hadoop users (hadoop 3.3.4)
     #export HDFS_NAMENODE_USER=$(whoami)
     #export HDFS_DATANODE_USER=$(whoami)

@@ -25,7 +25,7 @@ def remove_host(host_name):
                 if (words[0] != host_name):
                     file.write(line)
 
-def add_host(hostname,cpu,mem,new_containers):
+def add_host(hostname,cpu,mem,disk_info,new_containers):
 
     containers = []
 
@@ -33,7 +33,9 @@ def add_host(hostname,cpu,mem,new_containers):
         cont_name = 'cont' + str(i)
         containers.append(hostname + host_container_separator + cont_name)
 
-    write_container_list(containers,hostname,cpu,mem)
+    disks = get_disks_dict(disk_info['hdd_disks'],disk_info['hdd_disks_path_list'], disk_info['ssd_disks'], disk_info['ssd_disks_path_list'])
+
+    write_container_list(containers,hostname,cpu,mem,disks)
 
 def remove_container_from_host(container,hostname):
 
@@ -48,11 +50,12 @@ def remove_container_from_host(container,hostname):
 
             cpu = host.vars['cpu']
             mem = host.vars['mem']
+            disks = host.vars['disks']
             containers = host.vars['containers'] 
 
             if (container in containers): 
                 containers.remove(container)
-                write_container_list(containers,host.name,cpu,mem)
+                write_container_list(containers,host.name,cpu,mem,disks)
                 
             break
 
@@ -72,6 +75,7 @@ def add_containers_to_hosts(new_containers):
             
             cpu = host.vars['cpu']
             mem = host.vars['mem']
+            disks = host.vars['disks']
             containers = host.vars['containers']
             addedContainers[host.name] = []
 
@@ -94,12 +98,13 @@ def add_containers_to_hosts(new_containers):
                 containers.append(full_cont_name)
                 addedContainers[host.name].append(full_cont_name)
 
-            write_container_list(containers,host.name,cpu,mem)
+            write_container_list(containers,host.name,cpu,mem,disks)
 
     return addedContainers
 
-def write_container_list(container_list,host,cpu,mem):
+def write_container_list(container_list,host,cpu,mem,disks):
 
+    # format container list
     i = 0
     containers_formatted = "\'["
 
@@ -117,6 +122,8 @@ def write_container_list(container_list,host,cpu,mem):
         # read a list of lines into data
         data = file.readlines()
 
+    # format disk dict
+    disks_formatted = "\'{0}\'".format(str(disks).replace(" ", "").replace('\'','"'))
 
     i = 0
 
@@ -130,7 +137,7 @@ def write_container_list(container_list,host,cpu,mem):
     while (i < len(data) and host not in data[i]):
         i+=1
 
-    host_info = host + " cpu=" + str(cpu) + " mem=" + str(mem) + " containers=" + containers_formatted + "\n"
+    host_info = "{0} cpu={1} mem={2} disks={3} containers={4}\n".format(host, str(cpu), str(mem), disks_formatted, containers_formatted)
 
     if (i < len(data)):
         data[i] = host_info
@@ -140,3 +147,17 @@ def write_container_list(container_list,host,cpu,mem):
         new_line = host_info
         with open(inventory_file, 'a') as file:
             file.writelines( host_info )
+
+def get_disks_dict(hdd_disks, hdd_disks_path_list, ssd_disks, ssd_disks_path_list):
+
+    disks_dict = {}
+
+    for i in range(ssd_disks):
+        disk_name = "ssd_{0}".format(i)
+        disks_dict[disk_name] = ssd_disks_path_list[i]
+
+    for i in range(hdd_disks):
+        disk_name = "hdd_{0}".format(i)
+        disks_dict[disk_name] = hdd_disks_path_list[i]
+
+    return disks_dict
