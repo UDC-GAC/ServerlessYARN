@@ -24,17 +24,17 @@
     block:
 
       - name: Get containers IP addresses
-        when: item[0].key == inventory_hostname
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[1] }} hostname -I | awk '{print $1}'"
+        when: item.host == inventory_hostname
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} hostname -I | awk '{print $1}'"
         args:
           executable: /bin/bash
-        loop: "{{ container_loop }}"
+        loop: "{{ containers_info }}"
         register: ip_addresses
 
       - name: Update hostname resolution in containers
-        #when: item[0][0].key == inventory_hostname and item[0][1] != item[1].item[1]
-        when: item[0][0].key == inventory_hostname
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0][1] }} bash -c \
+        #when: item[0].host == inventory_hostname and item[0].container_name != item[1].item.container_name
+        when: item[0].host == inventory_hostname
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0].container_name }} bash -c \
           'cp /etc/hosts {{ bind_dir_on_container }} \
           && {{ sed_command }} {{ bind_dir_on_container }}/hosts \
           && cat {{ bind_dir_on_container }}/hosts > /etc/hosts \
@@ -43,13 +43,13 @@
           executable: /bin/bash
         vars:
           iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'ip_addresses') | map(attribute='results') }}"
-          sed_command: sed -i '\''1s/^/{{ item[1].stdout | trim }} {{ item[1].item[1] }}\n/'\''
-        loop: "{{ container_loop | product(iface_ip_list | flatten(levels=1) | reject('search','skip_reason'))|list }}"
+          sed_command: sed -i '\''1s/^/{{ item[1].stdout | trim }} {{ item[1].item.container_name }}\n/'\''
+        loop: "{{ containers_info | product(iface_ip_list | flatten(levels=1) | reject('search','skip_reason'))|list }}"
 
       # Iptables setup ready, but i'll leave it commented in case it interferes with hadoop/yarn tests
       # - name: Setup Iptables (1)
-      #   when: item[0].key == inventory_hostname
-      #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[1] }} bash -c \
+      #   when: item.host == inventory_hostname
+      #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
       #     'iptables-nft -P FORWARD DROP \
       #     && iptables-nft -P INPUT DROP \
       #     && iptables-nft -A INPUT -m state --state INVALID -j DROP \
@@ -57,31 +57,31 @@
       #     && iptables-nft -A INPUT -i lo -j ACCEPT'"
       #   args:
       #     executable: /bin/bash
-      #   loop: "{{ container_loop }}"
+      #   loop: "{{ containers_info }}"
 
       # - name: Setup Iptables (2)
-      #   when: item[0][0].key == inventory_hostname
-      #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0][1] }} bash -c \
+      #   when: item[0].host == inventory_hostname
+      #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0].container_name }} bash -c \
       #     'iptables-nft -A INPUT -s {{ item[1].stdout | trim }} -j ACCEPT'"
       #   args:
       #     executable: /bin/bash
       #   vars:
       #     iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'ip_addresses') | map(attribute='results') }}"
-      #   loop: "{{ container_loop | product(iface_ip_list | flatten(levels=1) | reject('search','skip_reason'))|list }}"
+      #   loop: "{{ containers_info | product(iface_ip_list | flatten(levels=1) | reject('search','skip_reason'))|list }}"
 
     vars:
-      - container_dict: "{{ app_containers }}"
-      - container_loop: "{{ container_dict | dict2items | subelements('value') }}"
+      - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
+
     tags: never, setup_network
 
   - name: Setup hadoop on containers
     block:
       - name: Get containers IP addresses
-        when: item[0].key == inventory_hostname
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[1] }} hostname -I | awk '{print $1}'"
+        when: item.host == inventory_hostname
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} hostname -I | awk '{print $1}'"
         args:
           executable: /bin/bash
-        loop: "{{ container_loop }}"
+        loop: "{{ containers_info }}"
         register: ip_addresses
 
       - name: get the username id running the deploy
@@ -90,41 +90,41 @@
         register: userid_on_the_host
 
       - name: Copy app files already on containers
-        when: item[0].key == inventory_hostname
-        #shell: "sudo {{ singularity_command_alias }} exec instance://{{ item }} bash -c 'cp -pr /opt/files_dir {{ bind_dir_on_container }} && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/*'"
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[1] }} bash -c 'cp -pr /opt/files_dir {{ bind_dir_on_container }}/ && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/*'"
+        when: item.host == inventory_hostname
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c 'cp -pr /opt/files_dir {{ bind_dir_on_container }}/ && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/*'"
         args:
           executable: /bin/bash
-        loop: "{{ container_loop }}"
+        loop: "{{ containers_info }}"
 
       - name: Update slaves file on containers
-        when: item[0][0].key == inventory_hostname and item[1].item[1] != rm_container
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0][1] }} bash -c \
-          'echo {{ item[1].item[1] }} >> $HADOOP_CONF_DIR/slaves'"
+        when: item[0].host == inventory_hostname and item[1].item.container_name != rm_container
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0].container_name }} bash -c \
+          'echo {{ item[1].item.container_name }} >> $HADOOP_CONF_DIR/slaves'"
         args:
           executable: /bin/bash
         vars:
           iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'ip_addresses') | map(attribute='results') }}"
-        loop: "{{ container_loop | product(iface_ip_list | flatten(levels=1) | reject('search','skip_reason'))|list }}"
+        loop: "{{ containers_info | product(iface_ip_list | flatten(levels=1) | reject('search','skip_reason'))|list }}"
 
       - name: Copy hadoop config files to containers
-        when: item[0][0].key == inventory_hostname
+        when: item[0].host == inventory_hostname
         template:
           src: "templates/hadoop/{{ item[1] }}"
-          dest: "{{ bind_dir }}/{{ item[0][1] }}/{{ item[1] }}"
+          dest: "{{ bind_dir }}/{{ item[0].container_name }}/{{ item[1] }}"
         vars:
           file_list: ["core-site.xml", "yarn-site.xml", "mapred-site.xml"]
-        loop: "{{ container_loop | product(file_list) | list }}"
+          bind_path: "{{ item[0].disk_path if item[0].disk_path is defined else default_bind_path }}"
+        loop: "{{ containers_info | product(file_list) | list }}"
 
       - name: Update hadoop config files in containers
-        when: item[0][0].key == inventory_hostname
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0][1] }} bash -c \
+        when: item[0].host == inventory_hostname
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0].container_name }} bash -c \
           'cp {{ bind_dir_on_container }}/{{ item[1] }} $HADOOP_CONF_DIR/{{ item[1] }}'"
         args:
           executable: /bin/bash
         vars:
           file_list: ["core-site.xml", "yarn-site.xml", "mapred-site.xml"]
-        loop: "{{ container_loop | product(file_list) | list }}"
+        loop: "{{ containers_info | product(file_list) | list }}"
 
       - name: Update ssh known_hosts on ResourceManager/Namenode container
         when: rm_host == inventory_hostname
@@ -141,28 +141,39 @@
         args:
           executable: /bin/bash
 
+      - name: Prepare RM/NN container bind path variable
+        set_fact:
+          rm_container_bind_path: "{{ item.disk_path if item.disk_path is defined else default_bind_path }}"
+        when: "item.container_name == rm_container"
+        with_items:
+        - "{{ containers_info }}"
+
       - name: Fetch RM/NN container ssh public key
         when: rm_host == inventory_hostname
         fetch:
           src: "{{ bind_dir }}/{{ rm_container }}/{{ rm_container}}.pub"
           dest: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container}}.pub"
           flat: yes
+        vars:
+          bind_path: "{{ rm_container_bind_path }}"
 
       - name: Copy RM/NN container ssh public key to the other containers
-        when: item[0].key == inventory_hostname and item[1] != rm_container
+        when: item.host == inventory_hostname and item.container_name != rm_container
         copy:
           src: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container}}.pub"
-          dest: "{{ bind_dir }}/{{ item[1] }}/{{ rm_container}}.pub"
-        loop: "{{ container_loop }}"
+          dest: "{{ bind_dir }}/{{ item.container_name }}/{{ rm_container}}.pub"
+        vars:
+          bind_path: "{{ item.disk_path if item.disk_path is defined else default_bind_path }}"
+        loop: "{{ containers_info }}"
 
       - name: Append RM/NN container ssh public key to authorized keys of containers
-        when: item[0].key == inventory_hostname and item[1] != rm_container
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[1] }} bash -c \
+        when: item.host == inventory_hostname and item.container_name != rm_container
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
           'cat {{ bind_dir_on_container }}/{{ rm_container}}.pub >> ~/.ssh/authorized_keys
           && rm {{ bind_dir_on_container }}/{{ rm_container}}.pub'"
         args:
           executable: /bin/bash
-        loop: "{{ container_loop }}"
+        loop: "{{ containers_info }}"
 
       - name: Format filesystem, start HDFS and YARN
         when: rm_host == inventory_hostname
@@ -175,8 +186,7 @@
           executable: /bin/bash
 
     vars:
-      - container_dict: "{{ app_containers }}"
-      - container_loop: "{{ container_dict | dict2items | subelements('value') }}"
+      - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
     tags: never, setup_hadoop
 
   ## Start

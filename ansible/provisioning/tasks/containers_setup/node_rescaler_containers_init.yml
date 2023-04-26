@@ -1,17 +1,13 @@
 
 ## Initialize container limits on Node Recaler
 - name: Initializing State Database - container cpu limit on Node Scaler
-  shell: "python3 scripts/stateDatabase/init_host_node_rescaler.py {{ item }} cpu {{ hostvars[item].cpu }} {{ container_list }} {{ max_cpu_percentage_per_container }} {{ min_cpu_percentage_per_container }} config/config.yml"
+  shell: "python3 scripts/stateDatabase/init_host_node_rescaler_v2.py {{ item }} cpu {{ containers_info | replace(' ','') | quote }} config/config.yml"
   args:
     executable: /bin/bash
-  vars:
-    container_list: "{{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }}"
   with_items: "{{ nodes }}"
 
 - name: Initializing State Database - container mem limit on Node Scaler
-  shell: "python3 scripts/stateDatabase/init_host_node_rescaler.py {{ item }} mem {{ hostvars[item].mem }} {{ container_list }} {{ max_memory_per_container }} {{ min_memory_per_container }} config/config.yml"
+  shell: "python3 scripts/stateDatabase/init_host_node_rescaler_v2.py {{ item }} mem {{ containers_info | replace(' ','') | quote }} config/config.yml"
   args:
     executable: /bin/bash
-  vars:
-    container_list: "{{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') }}"
   with_items: "{{ nodes }}"

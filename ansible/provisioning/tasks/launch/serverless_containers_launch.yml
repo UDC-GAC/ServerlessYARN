@@ -53,14 +53,11 @@
 
 ## Structures Using new script
 - name: Initializing State Database - structures
-  shell: "python3 scripts/stateDatabase/add_containers_API.py {{ item }} {{ hostvars[item].cpu }} {{ hostvars[item].mem }} {{ disks }} {{ container_list }} {{ max_cpu_percentage_per_container }} {{ min_cpu_percentage_per_container }} {{ cpu_boundary }} {{ max_memory_per_container }} {{ min_memory_per_container }} {{ mem_boundary }} config/config.yml"
+  shell: "python3 scripts/stateDatabase/add_containers_API_v2.py {{ item }} {{ hostvars[item].cpu }} {{ hostvars[item].mem }} {{ disks }} {{ containers_info | replace(' ','') | quote }} config/config.yml"
   args:
     executable: /bin/bash
   vars:
-    container_list: "{{ hostvars[item].containers | replace('[','') | replace(']','') | replace(', ',',') if hostvars[item].containers | length > 0 else 'None' }}"
     disks: "{{ hostvars[item].disks | replace(' ','') | quote }}"
-    cpu_boundary: 20
-    mem_boundary: 256
   with_items: "{{ nodes }}"
   tags: start_containers
 

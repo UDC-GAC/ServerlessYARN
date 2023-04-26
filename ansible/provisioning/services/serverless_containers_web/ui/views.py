@@ -14,8 +14,8 @@ import re
 import functools
 from bs4 import BeautifulSoup
 
-from ui.background_tasks import start_containers_task, add_host_task, add_app_task, add_container_to_app_task, start_containers_with_app_task
-from ui.background_tasks import remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task, start_app, start_hadoop_app
+from ui.background_tasks import start_containers_task_v2, add_host_task, add_app_task, add_container_to_app_task
+from ui.background_tasks import remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task, start_app_task, start_hadoop_app_task
 from ui.background_tasks import register_task, get_pendings_tasks_to_string
 
 config_path = "../../config/config.yml"
@@ -23,6 +23,10 @@ with open(config_path, "r") as config_file:
     config = yaml.load(config_file, Loader=yaml.FullLoader)
 
 base_url = "http://{0}:{1}".format(config['server_ip'],config['orchestrator_port'])
+
+# TODO: set and get values from config
+max_load_ssd_disk = 4
+max_load_hdd_disk = 1
 
 ## Auxiliary general methods
 def redirect_with_errors(redirect_url, errors):
@@ -549,7 +553,10 @@ def setRemoveContainersFromAppForm(app, containers, form_action):
     editable_data = 0
     for container in containers:
         editable_data += 1
-        removeContainersFromAppForm.fields['containers_removed'].choices.append(((container['name'],container['host']),container['name']))
+        disk_path = ""
+        if 'disk' in container['resources']:
+            disk_path = container['resources']['disk']['path']
+        removeContainersFromAppForm.fields['containers_removed'].choices.append(((container['name'],container['host'],disk_path),container['name']))
 
     app['remove_containers_from_app_form'] = removeContainersFromAppForm
     app['remove_containers_from_app_editable_data'] = editable_data
@@ -792,11 +799,19 @@ def processAddContainers(request, url, structure_type, resources, host_list):
                 container_resources[resource + "_boundary"] = boundary
 
     # start containers from playbook
+    # for host in host_list:
+    #     new_containers = {host: host_list[host]}
+    #     task = start_containers_task.delay(host, new_containers, container_resources)
+    #     print("Starting task with id {0}".format(task.id))
+    #     register_task(task.id,"start_containers_task")
+
+    new_containers = {}
     for host in host_list:
-        new_containers = {host: host_list[host]}
-        task = start_containers_task.delay(host, new_containers, container_resources)
-        print("Starting task with id {0}".format(task.id))
-        register_task(task.id,"start_containers_task")
+        new_containers[host] = host_list[host]
+
+    task = start_containers_task_v2.delay(new_containers, container_resources)
+    print("Starting task with id {0}".format(task.id))
+    register_task(task.id,"start_containers_task")
 
     return error
 
@@ -905,6 +920,10 @@ def processStartApp(request, url, app_name):
         app_resources[resource]['current'] = app['resources'][resource]['current']
         app_resources[resource]['min'] = app['resources'][resource]['min']
 
+    ## Containers to create
+    number_of_containers = int(request.POST['number_of_containers'])
+    benevolence = int(request.POST['benevolence'])
+
     # Check if there is space for app
     free_resources = {}
     for resource in app_resources:
@@ -916,6 +935,14 @@ def processStartApp(request, url, app_name):
     for resource in free_resources:
         if free_resources[resource] < app_resources[resource]['max'] - app_resources[resource]['current']:
             space_left_for_app = False
+
+    # Check if there is enough free disk load (specially important for Hadoop apps)
+    disk_load = number_of_containers
+    free_disk_load = 0
+    for host in hosts:
+        free_disk_load += getHostFreeDiskLoad(host)
+
+    if free_disk_load < disk_load: space_left_for_app = False
 
     error = ""
     if not space_left_for_app:
@@ -937,9 +964,7 @@ def processStartApp(request, url, app_name):
         app_resources['mem']['max'] -= rm_maximum_mem
         app_resources['mem']['min'] -= rm_minimum_mem
 
-    ## Containers to create
-    number_of_containers = int(request.POST['number_of_containers'])
-    benevolence = int(request.POST['benevolence'])
+    # Get resources for containers
     container_resources = getContainerResourcesForApp(number_of_containers, app_resources, benevolence, is_hadoop_app)
 
     if is_hadoop_app:
@@ -955,7 +980,7 @@ def processStartApp(request, url, app_name):
 
     ## Container assignation to hosts
     assignation_policy = request.POST['assignation_policy']
-    new_containers, error = getContainerAssignationForApp(assignation_policy, hosts, number_of_containers, container_resources, app_name)
+    new_containers, disk_assignation, error = getContainerAssignationForApp(assignation_policy, hosts, number_of_containers, container_resources, app_name)
     if error != "": return error
 
     container_resources["regular"] = {x:str(y) for x,y in container_resources["regular"].items()}
@@ -964,9 +989,12 @@ def processStartApp(request, url, app_name):
     if "rm-nn" in container_resources: container_resources["rm-nn"] = {x:str(y) for x,y in container_resources["rm-nn"].items()}
 
     if is_hadoop_app:
-        start_hadoop_app(url, headers, app_name, app_files, new_containers, container_resources)
+        task = start_hadoop_app_task.delay(url, headers, app_name, app_files, new_containers, container_resources, disk_assignation)
     else:
-        start_app(url, headers, app_name, app_files, new_containers, container_resources)
+        task = start_app_task.delay(url, headers, app_name, app_files, new_containers, container_resources, disk_assignation)
+
+    print("Starting task with id {0}".format(task.id))
+    register_task(task.id,"{0}_app_task".format(app_name))
 
     return error
 
@@ -1063,10 +1091,50 @@ def getContainerResourcesForApp(number_of_containers, app_resources, benevolence
 
     return container_resources
 
+def getHostFreeDiskLoad(host):
+
+    free_disk_load = 0
+
+    if 'disks' in host['resources']:
+        for disk in host['resources']['disks']:
+            if disk['type'] == 'SSD':
+                free_disk_load += max_load_ssd_disk - disk['load']
+            elif disk['type'] == 'HDD':
+                free_disk_load += max_load_hdd_disk - disk['load']
+
+    return free_disk_load
+
+def getFreestDisk(host):
+
+    current_min_load = -1
+    freest_disk = None
+
+    ssd_hdd_load_ratio = max_load_ssd_disk/max_load_hdd_disk
+
+    if 'disks' in host['resources']:
+        for disk in host['resources']['disks']:
+
+            if disk['load'] == 0:
+                freest_disk = disk['name']
+                break
+
+            if (disk['type'] == 'SSD' and disk['load'] == max_load_ssd_disk) or (disk['type'] == 'HDD' and disk['load'] == max_load_hdd_disk):
+                continue
+
+            if disk['type'] == 'HDD': adjusted_load = disk['load'] * ssd_hdd_load_ratio
+            elif disk['type'] == 'SSD': adjusted_load = disk['load']
+
+            if current_min_load == -1 or adjusted_load < current_min_load:
+                current_min_load = adjusted_load
+                freest_disk = disk['name']
+
+    return freest_disk
+
 def getContainerAssignationForApp(assignation_policy, hosts, number_of_containers, container_resources, app_name):
 
     error = ""
     new_containers = {}
+    disk_assignation = {}
 
     irregular_container_to_allocate = 0
     hadoop_container_to_allocate = 0
@@ -1075,35 +1143,66 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
     if "rm-nn" in container_resources:
         hadoop_container_to_allocate = 1
     containers_to_allocate = number_of_containers - irregular_container_to_allocate - hadoop_container_to_allocate
+
     assignation = {}
     for host in hosts:
         assignation[host['name']] = {}
         assignation[host['name']]["regular"] = 0
+        disk_assignation[host['name']] = {}
+        if 'disks' in host['resources']:
+            for disk in host['resources']['disks']:
+                disk_assignation[host['name']][disk['name']] = {}
+                disk_assignation[host['name']][disk['name']]['new_containers'] = 0
+                disk_assignation[host['name']][disk['name']]['disk_path'] = disk['path']
+                if disk['type'] == 'SSD': disk_assignation[host['name']][disk['name']]['max_load'] = max_load_ssd_disk
+                elif disk['type'] == 'HDD': disk_assignation[host['name']][disk['name']]['max_load'] = max_load_hdd_disk
 
-    # TODO: check mem as well as cpu
     if assignation_policy == "Fill-up":
         for host in hosts:
             free_cpu = host['resources']['cpu']['free']
             free_mem = host['resources']['mem']['free']
+            free_disk_load = getHostFreeDiskLoad(host)
+
             if containers_to_allocate + irregular_container_to_allocate + hadoop_container_to_allocate <= 0:
                 break
             # First we try to assign the bigger container if it exists
-            if irregular_container_to_allocate > 0 and "bigger" in container_resources and free_cpu >= container_resources["bigger"]['cpu_max'] and free_mem >= container_resources["bigger"]['mem_max']:
+            if irregular_container_to_allocate > 0 and "bigger" in container_resources and free_cpu >= container_resources["bigger"]['cpu_max'] and free_mem >= container_resources["bigger"]['mem_max'] and free_disk_load > 0:
                 assignation[host['name']]["irregular"] = 1
                 irregular_container_to_allocate = 0
                 free_cpu -= container_resources["bigger"]['cpu_max']
                 free_mem -= container_resources["bigger"]['mem_max']
-            while containers_to_allocate > 0 and free_cpu >= container_resources["regular"]['cpu_max'] and free_mem >= container_resources["regular"]['mem_max']:
+                free_disk_load -= 1
+                for disk in disk_assignation[host['name']]:
+                    if disk_assignation[host['name']][disk]['max_load'] > 0:
+                        disk_assignation[host['name']][disk]['max_load'] -= 1
+                        disk_assignation[host['name']][disk]['new_containers'] += 1
+                        break
+
+            while containers_to_allocate > 0 and free_cpu >= container_resources["regular"]['cpu_max'] and free_mem >= container_resources["regular"]['mem_max'] and free_disk_load > 0:
                 assignation[host['name']]["regular"] += 1
                 containers_to_allocate -= 1
                 free_cpu -= container_resources['regular']['cpu_max']
                 free_mem -= container_resources['regular']['mem_max']
+                free_disk_load -= 1
+                for disk in disk_assignation[host['name']]:
+                    if disk_assignation[host['name']][disk]['max_load'] > 0:
+                        disk_assignation[host['name']][disk]['max_load'] -= 1
+                        disk_assignation[host['name']][disk]['new_containers'] += 1
+                        break
+
             # We try to assign the smaller container if it exists
-            if irregular_container_to_allocate > 0 and "smaller" in container_resources and free_cpu >= container_resources["smaller"]['cpu_max'] and free_mem >= container_resources["smaller"]['mem_max']:
+            if irregular_container_to_allocate > 0 and "smaller" in container_resources and free_cpu >= container_resources["smaller"]['cpu_max'] and free_mem >= container_resources["smaller"]['mem_max'] and free_disk_load > 0:
                 assignation[host['name']]["irregular"] = 1
                 irregular_container_to_allocate = 0
                 free_cpu -= container_resources["smaller"]['cpu_max']
                 free_mem -= container_resources["smaller"]['mem_max']
+                free_disk_load -= 1
+                for disk in disk_assignation[host['name']]:
+                    if disk_assignation[host['name']][disk]['max_load'] > 0:
+                        disk_assignation[host['name']][disk]['max_load'] -= 1
+                        disk_assignation[host['name']][disk]['new_containers'] += 1
+                        break
+
             # Lastly we try to assign the resourcemanager/namenode container if it exists
             if hadoop_container_to_allocate > 0 and "rm-nn" in container_resources and free_cpu >= container_resources["rm-nn"]['cpu_max'] and free_mem >= container_resources["rm-nn"]['mem_max']:
                 assignation[host['name']]["rm-nn"] = 1
@@ -1118,23 +1217,61 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                 if containers_to_allocate + irregular_container_to_allocate + hadoop_container_to_allocate <= 0 or hosts_without_space >= len(hosts):
                     break
 
+                free_disk_load = getHostFreeDiskLoad(host)
+
                 # First we try to assign the bigger container if it exists
-                if irregular_container_to_allocate > 0 and "bigger" in container_resources and host['resources']['cpu']['free'] >= container_resources["bigger"]['cpu_max'] and host['resources']['mem']['free'] >= container_resources["bigger"]['mem_max']:
+                if irregular_container_to_allocate > 0 and "bigger" in container_resources and host['resources']['cpu']['free'] >= container_resources["bigger"]['cpu_max'] and host['resources']['mem']['free'] >= container_resources["bigger"]['mem_max'] and free_disk_load > 0:
                     assignation[host['name']]["irregular"] = 1
                     irregular_container_to_allocate = 0
                     host['resources']['cpu']['free'] -= container_resources["bigger"]['cpu_max']
                     host['resources']['mem']['free'] -= container_resources["bigger"]['mem_max']
-                elif containers_to_allocate > 0 and host['resources']['cpu']['free'] >= container_resources['regular']['cpu_max'] and host['resources']['mem']['free'] >= container_resources['regular']['mem_max']:
+
+                    host_disk = getFreestDisk(host)
+                    if host_disk == None: break
+
+                    if disk_assignation[host['name']][host_disk]['max_load'] > 0:
+                        disk_assignation[host['name']][host_disk]['max_load'] -= 1
+                        disk_assignation[host['name']][host_disk]['new_containers'] += 1
+                        for disk in host['resources']['disks']:
+                            if disk['name'] == host_disk:
+                                disk['load'] += 1
+                                break
+
+                elif containers_to_allocate > 0 and host['resources']['cpu']['free'] >= container_resources['regular']['cpu_max'] and host['resources']['mem']['free'] >= container_resources['regular']['mem_max'] and free_disk_load > 0:
                     assignation[host['name']]['regular'] += 1
                     containers_to_allocate -= 1
                     host['resources']['cpu']['free'] -= container_resources['regular']['cpu_max']
                     host['resources']['mem']['free'] -= container_resources['regular']['mem_max']
+
+                    host_disk = getFreestDisk(host)
+                    if host_disk == None: break
+
+                    if disk_assignation[host['name']][host_disk]['max_load'] > 0:
+                        disk_assignation[host['name']][host_disk]['max_load'] -= 1
+                        disk_assignation[host['name']][host_disk]['new_containers'] += 1
+                        for disk in host['resources']['disks']:
+                            if disk['name'] == host_disk:
+                                disk['load'] += 1
+                                break
+
                 # We try to assign the smaller container if it exists
-                elif irregular_container_to_allocate > 0 and "smaller" in container_resources and host['resources']['cpu']['free'] >= container_resources["smaller"]['cpu_max'] and host['resources']['mem']['free'] >= container_resources["smaller"]['mem_max']:
+                elif irregular_container_to_allocate > 0 and "smaller" in container_resources and host['resources']['cpu']['free'] >= container_resources["smaller"]['cpu_max'] and host['resources']['mem']['free'] >= container_resources["smaller"]['mem_max'] and free_disk_load > 0:
                     assignation[host['name']]["irregular"] = 1
                     irregular_container_to_allocate = 0
                     host['resources']['cpu']['free'] -= container_resources["smaller"]['cpu_max']
                     host['resources']['mem']['free'] -= container_resources["smaller"]['mem_max']
+
+                    host_disk = getFreestDisk(host)
+                    if host_disk == None: break
+
+                    if disk_assignation[host['name']][host_disk]['max_load'] > 0:
+                        disk_assignation[host['name']][host_disk]['max_load'] -= 1
+                        disk_assignation[host['name']][host_disk]['new_containers'] += 1
+                        for disk in host['resources']['disks']:
+                            if disk['name'] == host_disk:
+                                disk['load'] += 1
+                                break
+
                 # Lastly we try to assign the resourcemanager/namenode container if it exists
                 elif hadoop_container_to_allocate > 0 and "rm-nn" in container_resources and host['resources']['cpu']['free'] >= container_resources["rm-nn"]['cpu_max'] and host['resources']['mem']['free'] >= container_resources["rm-nn"]['mem_max']:
                     assignation[host['name']]["rm-nn"] = 1
@@ -1146,11 +1283,11 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
 
     if containers_to_allocate + irregular_container_to_allocate + hadoop_container_to_allocate > 0:
         error = "Could not allocate containers for app {0}".format(app_name)
-        return new_containers, error
+        return new_containers, disk_assignation, error
 
     new_containers = {x:y for x,y in assignation.items() if y['regular'] > 0 or "irregular" in y or "rm-nn" in y}
 
-    return new_containers, error
+    return new_containers, disk_assignation, error
 
 def apps_stop_switch(request, structure_name):
 
@@ -1160,7 +1297,10 @@ def apps_stop_switch(request, structure_name):
     containerList, app_files = getContainersFromApp(url, structure_name)
 
     for container in containerList:
-        container_host_duple = "({0},{1})".format(container['name'],container['host'])
+        disk_path = ""
+        if 'disk' in container['resources']:
+            disk_path = container['resources']['disk']['path']
+        container_host_duple = "({0},{1},{2})".format(container['name'],container['host'],disk_path)
         processRemoveContainerFromApp(url, container_host_duple, structure_name, app_files)
         # Workaround to keep all updates to State DB
         time.sleep(0.5)
@@ -1244,7 +1384,7 @@ def processRemoves(request, url, structure_type):
                 time.sleep(0.5)
 
     return errors    
-   
+
 def processRemoveStructure(request, url, structure_name, structure_type):
 
     structure_type_url = ""
@@ -1289,11 +1429,18 @@ def processRemoveStructure(request, url, structure_name, structure_type):
 def processRemoveContainerFromApp(url, container_host_duple, app, app_files):
 
     cont_host = container_host_duple.strip("(").strip(")").split(',')
-    container = cont_host[0].strip().strip("'")
+    container_name = cont_host[0].strip().strip("'")
     host = cont_host[1].strip().strip("'")
+    disk_path = cont_host[2].strip().strip("'")
 
-    full_url = url + "container/{0}/{1}".format(container, app)
+    full_url = url + "container/{0}/{1}".format(container_name, app)
     headers = {'Content-Type': 'application/json'}
+
+    container = {}
+    container['container_name'] = container_name
+    container['host'] = host
+    if disk_path != "":
+        container['disk_path'] = disk_path
 
     task = remove_container_from_app_task.delay(full_url, headers, host, container, app, app_files)
     print("Starting task with id {0}".format(task.id))

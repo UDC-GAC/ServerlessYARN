@@ -2,7 +2,7 @@
 set -e
 HOST_NAMES=$1
 APP_NAME=$2
-APP_CONTAINERS=$3
+CONTAINERS_INFO=$3
 RM_HOST=$4
 RM_CONTAINER=$5
 VCORES=$6
@@ -22,7 +22,7 @@ INVENTORY=../ansible.inventory
 
 unbuffer ansible-playbook manage_app_on_container.yml -i $INVENTORY -t setup_network,setup_hadoop -l $HOST_NAMES \
     --extra-vars \
-        "app_containers=$APP_CONTAINERS \
+        "containers_info_str=$CONTAINERS_INFO \
         rm_host=$RM_HOST \
         rm_container=$RM_CONTAINER \
         app_name=$APP_NAME \
