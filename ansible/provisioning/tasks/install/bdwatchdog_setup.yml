@@ -39,6 +39,14 @@
     executable: /bin/bash
     creates: metrics/opentsdb/build/tsdb
 
+# Workaround: the installation of BDWatchdog may create some ssh files with root as owner
+- name: Change ssh files permissions
+  when: "virtual_mode"
+  file:
+    path: "{{ lookup('env', 'HOME') }}/.ssh/{{ item }}"
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+  with_items: ['known_hosts','id_rsa','id_rsa.pub']
+
 - name: Install just OpenTSDB
   shell: bash prepare.sh ssh_setup && cd metrics/ && bash install.sh
   when: "not virtual_mode"
@@ -66,10 +74,13 @@
 
 - name: Change BDWatchdog dir owner
   file:
-    path: "{{ bdwatchdog_path }}"
+    path: "{{ item }}"
     state: directory
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
     recurse: yes
+  with_items:
+    - "{{ bdwatchdog_path }}"
+    - "{{ bdwatchdog_source_path }}"
 
 - name: Change BDWatchdog data dir owner
   file:
