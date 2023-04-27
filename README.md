@@ -16,10 +16,10 @@ This platform provides an automatic way of deploying ServerlessContainers throug
 > vagrant-reload plugin is only necessary when deploying nodes with cgroups V2
 
 You may install the vagrant plugins with the following commands:
-    ```
-    vagrant plugin install vagrant-hostmanager
-    vagrant plugin install vagrant-reload
-    ```
+```
+vagrant plugin install vagrant-hostmanager
+vagrant plugin install vagrant-reload
+```
 
 ### Quickstart
 - You can clone this repository with
