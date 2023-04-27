@@ -390,6 +390,7 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
                                 disk_assignation[host][disk]['new_containers'] -= 1
                                 container_info['disk'] = disk
                                 container_info['disk_path'] = disk_assignation[host][disk]['disk_path']
+                                break
 
                     containers_info.append(container_info)
 

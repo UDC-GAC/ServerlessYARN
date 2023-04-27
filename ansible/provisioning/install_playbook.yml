@@ -9,9 +9,9 @@
     - config/config.yml
 
   environment:
-    HOME: "{{ lookup('env', 'HOME' )}}"
+    HOME: "{{ lookup('env', 'HOME') }}"
     INSTALLATION_PATH: "{{ installation_path }}"
-    OPENTSDB_LOG_PATH: "{{ opentsdb_log_path | quote}}"
+    OPENTSDB_LOG_PATH: "{{ opentsdb_log_path | quote }}"
 
   tasks:
     - import_tasks: tasks/install/create_installation_dir.yml
@@ -36,7 +36,7 @@
     - config/config.yml
 
   environment:
-    HOME: "{{ lookup('env', 'HOME' )}}"
+    HOME: "{{ lookup('env', 'HOME') }}"
     INSTALLATION_PATH: "{{ installation_path }}"
 
   tasks:

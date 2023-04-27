@@ -291,6 +291,7 @@
           state: absent
 
       - name: Remove hadoop config files
+        when: "app_jar != ''"
         file:
           path: "{{ container_bind_dir }}/{{ item }}"
           state: absent
@@ -304,6 +305,8 @@
           state: absent
 
       - name: Remove hadoop files directory in container
+        # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
+        when: "' ' not in bind_dir_on_container"
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
           'rm -r {{ bind_dir_on_container}}/files_dir'"
         args:
@@ -312,7 +315,8 @@
       # Workaround to avoid having result files root-owned
       # TODO: move results to another directory accesible for the user
       - name: Change remaining files permissions
-        when: "app_jar != ''"
+        # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
+        when: "app_jar != '' and ' ' not in userid_on_the_host.stdout"
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
           'cd {{ bind_dir_on_container }} \
           && chown -R {{ userid_on_the_host.stdout }} output | : \
