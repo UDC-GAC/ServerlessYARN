@@ -332,3 +332,16 @@
           state: absent
 
     tags: never, stop_app
+
+  ## Stop hadoop
+  - name: Stop hadoop cluster
+    block:
+      - name: Stop hadoop cluster
+        when: rm_host == inventory_hostname
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \
+          'cd $HADOOP_HOME \
+          && sbin/stop-yarn.sh \
+          && sbin/stop-dfs.sh'"
+        args:
+          executable: /bin/bash
+    tags: never, stop_hadoop_cluster

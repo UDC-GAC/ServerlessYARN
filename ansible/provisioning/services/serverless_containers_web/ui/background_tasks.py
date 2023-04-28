@@ -623,13 +623,26 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
     start_time = timeit.default_timer()
 
     app_containers = start_containers_with_app_task_v2(url, headers, new_containers, app, app_files, container_resources, disk_assignation)
-    setup_containers_hadoop_network_task(app_containers, url, headers, app, app_files, hadoop_resources, new_containers)
+    rm_host, rm_container = setup_containers_hadoop_network_task(app_containers, url, headers, app, app_files, hadoop_resources, new_containers)
 
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)
     update_task_runtime(self.request.id, runtime)
 
     # Stop hadoop cluster
+    rc = subprocess.Popen([
+        "./ui/scripts/stop_hadoop_cluster.sh", rm_host, rm_container
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = rc.communicate()
+
+    # Log ansible output
+    print(out.decode("utf-8") )
+
+    if rc.returncode != 0:
+        error = "Error stopping hadoop cluster for app {0}: {1}".format(app,err.decode("utf-8"))
+        raise Exception(error)
+
+    # Stop and remove containers
     for container in app_containers:
         full_url = url + "container/{0}/{1}".format(container['container_name'],app)
         task = remove_container_from_app_task.delay(full_url, headers, container['host'], container, app, app_files)
@@ -720,6 +733,7 @@ def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_
     full_url = url + "container/{0}/{1}".format(rm_container['container_name'],app)
     add_container_to_app_task(full_url, headers, rm_host, rm_container, app, app_files)
 
+    return rm_host, rm_container['container_name']
 
 ## Removes
 @shared_task
