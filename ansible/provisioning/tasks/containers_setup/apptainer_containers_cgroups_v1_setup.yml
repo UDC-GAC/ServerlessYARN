@@ -37,12 +37,15 @@
     dest: "{{ installation_path }}/apps/{{ app_base_name }}/{{ install_script | basename }}"
   tags: never, create_app
 
-- name: Copy hadoop app setup script
+- name: Copy necessary files for hadoop apps
   delegate_to: localhost
   when: "app_jar != ''"
   copy:
-    src: "apps/hadoop/setup.sh"
-    dest: "{{ installation_path }}/apps/hadoop/setup.sh"
+    src: "apps/hadoop/{{ item }}"
+    dest: "{{ installation_path }}/apps/hadoop/"
+  with_items:
+    - setup.sh
+    - files_dir
   tags: never, create_app
 
 - name: Build image

@@ -32,6 +32,10 @@ if __name__ == "__main__":
         base_url = "http://" + host + ":" + str(node_recaler_port) + "/container/"
         headers = {'Content-Type': 'application/json'}
 
+        ## No containers requested
+        if len(containers) == 0:
+            sys.exit(0)
+
         new_containers = containers
         host_found = False
         if handler.database_exists(database):

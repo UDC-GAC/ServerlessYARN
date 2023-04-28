@@ -6,6 +6,7 @@ from ruamel.yaml import YAML
 import os
 import subprocess
 import re
+import yaml
 from load_inventory_from_conf import write_container_list, get_disks_dict
 
 def getHostList():
@@ -31,7 +32,7 @@ def getNodesCpus():
             #cpus_per_node = eval(formatted_cpus)
             formatted_cpus = re.sub("[\(\[].*?[\)\]]", "", cpus_per_node_string)
             cpus_per_node = int(formatted_cpus)
-    else
+    else:
         raise Exception("Can't get node CPUs")
 
     return cpus_per_node
@@ -94,11 +95,11 @@ def update_config_file(config_file, server, client_nodes, cpus_per_node, memory_
     memory_per_client_node = memory_per_node
 
     ## Change config file
-    yaml = YAML()
-    yaml.default_flow_style = False
-    yaml.preserve_quotes = True
+    yaml_utils = YAML()
+    yaml_utils.default_flow_style = False
+    yaml_utils.preserve_quotes = True
     out = Path(config_file)
-    data = yaml.load(out)
+    data = yaml_utils.load(out)
 
     for elem in data:
         # General
@@ -125,8 +126,8 @@ def update_config_file(config_file, server, client_nodes, cpus_per_node, memory_
         elif elem == 'memory_per_client_node':
             data[elem] = memory_per_client_node
 
-    yaml.dump(data, out)
-    #yaml.dump(data, sys.stdout)
+    yaml_utils.dump(data, out)
+    #yaml_utils.dump(data, sys.stdout)
 
 def update_inventory_file(inventory_file, server, client_nodes, cpus_per_node, memory_per_node, disks_dict):
 
