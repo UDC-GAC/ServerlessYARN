@@ -154,10 +154,36 @@ def get_disks_dict(hdd_disks, hdd_disks_path_list, ssd_disks, ssd_disks_path_lis
 
     for i in range(ssd_disks):
         disk_name = "ssd_{0}".format(i)
-        disks_dict[disk_name] = ssd_disks_path_list[i]
+        disk_path = resolve_disk_path(ssd_disks_path_list[i])
+        if disk_path != "":
+            disks_dict[disk_name] = disk_path
+        else:
+            raise Exception("Disk path can't be empty")
 
     for i in range(hdd_disks):
         disk_name = "hdd_{0}".format(i)
-        disks_dict[disk_name] = hdd_disks_path_list[i]
+        disk_path = resolve_disk_path(hdd_disks_path_list[i])
+        if disk_path != "":
+            disks_dict[disk_name] = disk_path
+        else:
+            raise Exception("Disk path can't be empty")
 
     return disks_dict
+
+def resolve_disk_path(disk_path):
+
+    path_parts = disk_path.split("/")
+    new_parts = []
+
+    for part in path_parts:
+        if '$' in part:
+            path_expanded = os.path.expandvars(part)
+            if '$' in path_expanded or ' ' in path_expanded:
+                # Variable could not be expanded
+                return ""
+            else:
+                new_parts.append(path_expanded)
+        else:
+            new_parts.append(part)
+
+    return "/".join(new_parts)
