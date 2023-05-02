@@ -429,10 +429,11 @@ class StartAppForm(forms.Form):
             )
     assignation_policy = forms.ChoiceField(label= "Assignation policy",
             choices = (
+                ("Best-effort", "Best effort"),
                 ("Fill-up", "Fill up"),
                 ("Cyclic", "Cyclic"),
                 ),
-            required=True
+            required=False
             )
     benevolence = forms.ChoiceField(label= "Scaling benevolence",
             choices = (
