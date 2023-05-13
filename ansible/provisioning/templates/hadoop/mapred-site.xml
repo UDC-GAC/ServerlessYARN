@@ -23,7 +23,7 @@
 		<name>mapreduce.framework.name</name>
 		<value>yarn</value>
 	</property>
-<!--
+
 	<property>
 	 	<name>yarn.app.mapreduce.am.env</name>
 		<value>HADOOP_MAPRED_HOME=${HADOOP_HOME}</value>
@@ -38,7 +38,7 @@
 		<name>mapreduce.reduce.env</name>
 		<value>HADOOP_MAPRED_HOME=${HADOOP_HOME}</value>
 	</property>
--->
+
 	<!-- YARN APPLICATION MASTER -->
 	<property>
 	 	<name>yarn.app.mapreduce.am.resource.vcores</name>

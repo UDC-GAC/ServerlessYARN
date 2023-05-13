@@ -7,12 +7,14 @@ rm -rf output
 start=`date +%s.%N`
 $HADOOP_HOME/bin/hdfs dfs -mkdir -p input
 $HADOOP_HOME/bin/hdfs dfs -put $HADOOP_HOME/etc/hadoop/* input
+$HADOOP_HOME/bin/hdfs dfs -rm -r input/shellprofile.d
 end=`date +%s.%N`
 hdfs_put_time=$( echo "$end - $start" | bc -l )
 
 # Run JAR
 start=`date +%s.%N`
-$HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-2.9.2.jar grep input output 'dfs[a-z.]+'
+#$HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-2.9.2.jar grep input output 'dfs[a-z.]+'
+$HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-3.3.5.jar grep input output 'dfs[a-z.]+'
 end=`date +%s.%N`
 jar_runtime=$( echo "$end - $start" | bc -l )
 

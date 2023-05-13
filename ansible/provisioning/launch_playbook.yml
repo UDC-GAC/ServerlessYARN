@@ -23,6 +23,8 @@
   tasks:
     - import_tasks: tasks/launch/couchdb_launch.yml
     - import_tasks: tasks/launch/opentsdb_launch.yml
+      tags: start_opentsdb
+
     - import_tasks: tasks/launch/serverless_containers_launch.yml
       vars:
         - cpu_boundary: 20

@@ -25,6 +25,11 @@
 	</property>
 
 	<property>
+		<name>yarn.resourcemanager.scheduler.class</name>
+		<value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.fifo.FifoScheduler</value>
+	</property>
+
+	<property>
 		<name>yarn.nodemanager.aux-services</name>
 		<value>mapreduce_shuffle</value>
 	</property>
@@ -48,7 +53,7 @@
 		<name>yarn.nodemanager.resource.cpu-vcores</name>
 		<value>{{ vcores }}</value>
 	</property>
-	
+
 	<property>
 		<name>yarn.scheduler.minimum-allocation-mb</name>
 		<value>{{ scheduler_minimum_memory }}</value>
@@ -72,6 +77,17 @@
 	<property>
 		<name>yarn.nodemanager.vmem-check-enabled</name>
 		<value>false</value>
+	</property>
+
+	<!-- Logs -->
+	<property>
+	    <name>yarn.log-aggregation-enable</name>
+	    <value>true</value>
+	</property>
+
+	<property>
+	    <name>yarn.nodemanager.log-aggregation.roll-monitoring-interval-seconds</name>
+	    <value>3600</value>
 	</property>
 
 

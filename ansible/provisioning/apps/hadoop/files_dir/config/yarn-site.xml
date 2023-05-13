@@ -25,6 +25,11 @@
 	</property>
 
 	<property>
+		<name>yarn.resourcemanager.scheduler.class</name>
+		<value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.fifo.FifoScheduler</value>
+	</property>
+
+	<property>
 		<name>yarn.nodemanager.aux-services</name>
 		<value>mapreduce_shuffle</value>
 	</property>

@@ -96,10 +96,10 @@
           executable: /bin/bash
         loop: "{{ containers_info }}"
 
-      - name: Update slaves file on containers
+      - name: Update workers file on containers
         when: item[0].host == inventory_hostname and item[1].item.container_name != rm_container
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0].container_name }} bash -c \
-          'echo {{ item[1].item.container_name }} >> $HADOOP_CONF_DIR/slaves'"
+          'echo {{ item[1].item.container_name }} >> $HADOOP_CONF_DIR/workers'"
         args:
           executable: /bin/bash
         vars:
@@ -126,11 +126,31 @@
           file_list: ["core-site.xml", "yarn-site.xml", "mapred-site.xml"]
         loop: "{{ containers_info | product(file_list) | list }}"
 
+      - name: Copy spark config files to containers
+        when: item[0].host == inventory_hostname
+        template:
+          src: "templates/spark/{{ item[1] }}"
+          dest: "{{ bind_dir }}/{{ item[0].container_name }}/{{ item[1] }}"
+        vars:
+          file_list: ["spark-defaults.conf"]
+          bind_path: "{{ item[0].disk_path if item[0].disk_path is defined else default_bind_path }}"
+        loop: "{{ containers_info | product(file_list) | list }}"
+
+      - name: Update spark config files in containers
+        when: item[0].host == inventory_hostname
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0].container_name }} bash -c \
+          'cp {{ bind_dir_on_container }}/{{ item[1] }} $SPARK_CONF_DIR/{{ item[1] }}'"
+        args:
+          executable: /bin/bash
+        vars:
+          file_list: ["spark-defaults.conf"]
+        loop: "{{ containers_info | product(file_list) | list }}"
+
       - name: Update ssh known_hosts on ResourceManager/Namenode container
         when: rm_host == inventory_hostname
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \
           'ssh-keyscan -t rsa `hostname` >> ~/.ssh/known_hosts \
-          && ssh-keyscan -t rsa -f $HADOOP_CONF_DIR/slaves >> ~/.ssh/known_hosts'"
+          && ssh-keyscan -t rsa -f $HADOOP_CONF_DIR/workers >> ~/.ssh/known_hosts'"
         args:
           executable: /bin/bash
 
@@ -181,9 +201,13 @@
           'cd $HADOOP_HOME \
           && bash format_filesystem.sh \
           && sbin/start-dfs.sh \
-          && sbin/start-yarn.sh'"
+          && nohup sbin/start-yarn.sh'"
         args:
           executable: /bin/bash
+
+      - name: Wait some seconds for Namenode to exit safe mode
+        pause:
+          seconds: 10
 
     vars:
       - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
@@ -296,7 +320,7 @@
           path: "{{ container_bind_dir }}/{{ item }}"
           state: absent
         vars:
-          file_list: ["core-site.xml", "hdfs-site.xml", "yarn-site.xml", "mapred-site.xml"]
+          file_list: ["core-site.xml", "hdfs-site.xml", "yarn-site.xml", "mapred-site.xml", "spark-defaults.conf"]
         loop: "{{ file_list }}"
 
       - name: Remove container own ssh key
