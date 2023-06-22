@@ -2,7 +2,7 @@
 
 This project provides a platform for the execution of Big Data workloads through Hadoop YARN in container-based clusters.
 
-The platform provides a serverless environment that support Singularity/Apptainer containers, scaling their allocated resources to fit them according to the usage in real time.
+The platform provides a serverless environment that supports Singularity/Apptainer containers, scaling their allocated resources to fit them according to the usage in real time.
 
 It is provided an automatic way of deploying the platform through IaC tools such as Ansible, as well as a web interface to easily manage the platform and execute Big Data workloads. The serverless platform may be deployed on an existing cluster or a virtual Vagrant cluster for testing purposes.
 
@@ -52,9 +52,8 @@ The platform need to be installed and deployed on a master node (or "server" nod
 
 **NOTE**: You must ensure **"id_rsa.pub"** doesn't exist when executing "vagrant up" the first time (or after a "vagrant destroy")
 
-- Inside the server node (you may use "vagrant ssh" to log in if using a virtual cluster) execute the script to install and set up all the necessary requirements for the platform and start its services:
+- Inside the server node (you may use "vagrant ssh" to log in if using a virtual cluster) go to the **"ansible/provisioning/scripts"** directory inside the platform root directory (accessible from **"/vagrant"** on the virtual cluster). Then execute the script to install and set up all the necessary requirements for the platform and start its services:
     ```
-    cd /vagrant/ansible/provisioning/scripts
     python3 load_inventory_from_conf.py
     bash start_all.sh
     ```
@@ -74,7 +73,7 @@ The platform need to be installed and deployed on a master node (or "server" nod
 
 ### Web Interface
 
-Once done with the installation and launch, you can visit the web interface in your browser in (http://127.0.0.1:9000/ui/) (or the port specified in the config file instead of 9000 if modified).
+Once done with the installation and launch, you can visit the web interface in your browser in (<server-ip>:9000/ui/) (or the port specified in the config file instead of 9000 if modified).
 
 You will see a Home page with 5 subpages:
 - **Containers**: here you can see and manage all the deployed containers
