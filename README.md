@@ -52,7 +52,7 @@ The platform need to be installed and deployed on a master node (or "server" nod
 
 **NOTE**: You must ensure **"id_rsa.pub"** doesn't exist when executing "vagrant up" the first time (or after a "vagrant destroy")
 
-- Inside the server node (you may use "vagrant ssh" to log in if using a virtual cluster) go to the **"ansible/provisioning/scripts"** directory inside the platform root directory (accessible from **"/vagrant"** on the virtual cluster). Then execute the script to install and set up all the necessary requirements for the platform and start its services:
+- Inside the server node (you may use "vagrant ssh" to log in if using a virtual cluster) go to the **"ansible/provisioning/scripts"** directory inside the platform root directory (accessible from **"/vagrant"** on the virtual cluster). Then execute the scripts to install and set up all the necessary requirements for the platform and start its services:
     ```
     python3 load_inventory_from_conf.py
     bash start_all.sh
@@ -73,7 +73,7 @@ The platform need to be installed and deployed on a master node (or "server" nod
 
 ### Web Interface
 
-Once done with the installation and launch, you can visit the web interface in your browser in (<server-ip>:9000/ui/) (or the port specified in the config file instead of 9000 if modified).
+Once done with the installation and launch, you can visit the web interface in your browser in *{server-ip}*:9000/ui (or the port specified in the config file instead of 9000 if modified).
 
 You will see a Home page with 5 subpages:
 - **Containers**: here you can see and manage all the deployed containers
