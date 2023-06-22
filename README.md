@@ -9,7 +9,10 @@ It is provided an automatic way of deploying the platform through IaC tools such
 
 ## Getting Started
 
-### Prerequisites (for the Vagrant virtual cluster deployment)
+### Prerequisites
+
+#### For the Vagrant virtual cluster deployment
+
 - Vagrant
 - VirtualBox
 - Vagrant plugins: vagrant-hostmanager, vagrant-reload
@@ -21,6 +24,14 @@ You may install the vagrant plugins with the following commands:
 vagrant plugin install vagrant-hostmanager
 vagrant plugin install vagrant-reload
 ```
+
+#### For the existing cluster deployment
+
+- Python
+- Ansible
+- Passwordless SSH login between nodes
+
+> Only one node (master node) needs to have Ansible installed and a passwordless SSH login to the remaining ones
 
 ### Quickstart
 The platform need to be installed and deployed on a master node (or "server" node), while the containers will be deployed on the remaining nodes of the cluster.
@@ -52,7 +63,7 @@ The platform need to be installed and deployed on a master node (or "server" nod
 
 **NOTE**: You must ensure **"id_rsa.pub"** doesn't exist when executing "vagrant up" the first time (or after a "vagrant destroy")
 
-- Inside the server node (you may use "vagrant ssh" to log in if using a virtual cluster) go to the **"ansible/provisioning/scripts"** directory inside the platform root directory (accessible from **"/vagrant"** on the virtual cluster). Then execute the scripts to install and set up all the necessary requirements for the platform and start its services:
+- Inside the server node (you may use "vagrant ssh" to log in if using a virtual cluster) go to the **"ansible/provisioning/scripts"** directory within the platform root directory (accessible from **"/vagrant"** on the virtual cluster). Then execute the scripts to install and set up all the necessary requirements for the platform and start its services:
     ```
     python3 load_inventory_from_conf.py
     bash start_all.sh
