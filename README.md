@@ -38,12 +38,12 @@ The platform need to be installed and deployed on a master node (or "server" nod
 
 - You can clone this repository with
     ```
-    git clone https://github.com/UDC-GAC/AutoServerlessWeb.git
+    git clone https://github.com/UDC-GAC/ServerlessYARN.git
     ```
 
 - Once cloned, change directory to ansible/provisioning 
     ```
-    cd AutoServerlessWeb/ansible/provisioning
+    cd ServerlessYARN/ansible/provisioning
     ```
 
 - And clone both BDWatchdog (with name "bdwatchdog") and ServerlessContainers (with name "ServerlessContainers") in that directory
