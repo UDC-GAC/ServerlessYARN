@@ -1,4 +1,4 @@
-# AutoServerlessWeb
+# ServerlessYARN
 
 This project provides a platform for the execution of Big Data workloads through Hadoop YARN in container-based clusters.
 
