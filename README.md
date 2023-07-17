@@ -106,7 +106,7 @@ You will see a Home page with 5 subpages:
 
 ## Authors
 
-* **&Oacute;scar Castellanos-Rodr&iacute;guez** (https://orcid.org/0000-0001-8630-6665)
+* **&Oacute;scar Castellanos-Rodr&iacute;guez** (https://gac.udc.es/~oscar.castellanos/)
 * **Roberto R. Exp&oacute;sito** (https://gac.udc.es/~rober/)
 * **Jonatan Enes** (https://gac.udc.es/~jonatan/)
 * **Guillermo L. Taboada** (https://gac.udc.es/~gltaboada/)
