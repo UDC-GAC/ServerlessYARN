@@ -112,7 +112,7 @@
           src: "templates/hadoop/{{ item[1] }}"
           dest: "{{ bind_dir }}/{{ item[0].container_name }}/{{ item[1] }}"
         vars:
-          file_list: ["core-site.xml", "yarn-site.xml", "mapred-site.xml"]
+          file_list: ["core-site.xml", "hdfs-site.xml", "yarn-site.xml", "mapred-site.xml", "hadoop-env.sh"]
           bind_path: "{{ item[0].disk_path if item[0].disk_path is defined else default_bind_path }}"
         loop: "{{ containers_info | product(file_list) | list }}"
 
@@ -123,7 +123,7 @@
         args:
           executable: /bin/bash
         vars:
-          file_list: ["core-site.xml", "yarn-site.xml", "mapred-site.xml"]
+          file_list: ["core-site.xml", "hdfs-site.xml", "yarn-site.xml", "mapred-site.xml", "hadoop-env.sh"]
         loop: "{{ containers_info | product(file_list) | list }}"
 
       - name: Copy spark config files to containers
@@ -201,6 +201,7 @@
           'cd $HADOOP_HOME \
           && bash format_filesystem.sh \
           && sbin/start-dfs.sh \
+          && sbin/hadoop-daemon.sh stop secondarynamenode \
           && nohup sbin/start-yarn.sh'"
         args:
           executable: /bin/bash
@@ -320,7 +321,7 @@
           path: "{{ container_bind_dir }}/{{ item }}"
           state: absent
         vars:
-          file_list: ["core-site.xml", "hdfs-site.xml", "yarn-site.xml", "mapred-site.xml", "spark-defaults.conf"]
+          file_list: ["core-site.xml", "hdfs-site.xml", "yarn-site.xml", "mapred-site.xml", "hadoop-env.sh", "spark-defaults.conf"]
         loop: "{{ file_list }}"
 
       - name: Remove container own ssh key
@@ -343,8 +344,8 @@
         when: "app_jar != '' and ' ' not in userid_on_the_host.stdout"
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
           'cd {{ bind_dir_on_container }} \
-          && chown -R {{ userid_on_the_host.stdout }} output | : \
-          && chown {{ userid_on_the_host.stdout }} runtime | : \
+          && chown -R {{ userid_on_the_host.stdout }} output_* | : \
+          && chown {{ userid_on_the_host.stdout }} runtime_* | : \
           && chown -R {{ userid_on_the_host.stdout }} hadoop_logs'"
         args:
           executable: /bin/bash
