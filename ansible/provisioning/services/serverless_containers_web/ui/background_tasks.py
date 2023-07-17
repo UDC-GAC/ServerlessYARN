@@ -578,19 +578,52 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
             min_cores = max(int(container_resources[container_type]["cpu_min"])//100,1)
             total_memory = int(container_resources[container_type]["mem_max"])
             total_disks = 1
-            reserved_memory = get_node_reserved_memory(total_memory)
-            available_memory = total_memory - reserved_memory
-            min_container_size = get_min_container_size(total_memory)
+            heapsize_factor = 0.9
 
-            number_of_hadoop_containers = int(min(2*total_cores, 1.8*total_disks, available_memory/min_container_size))
-            mem_per_container = max(min_container_size, available_memory/number_of_hadoop_containers)
+            ## 'Classic' way of calculating resources:
+            #reserved_memory = get_node_reserved_memory(total_memory)
+            #available_memory = total_memory - reserved_memory
+            #min_container_size = get_min_container_size(total_memory)
 
-            scheduler_maximum_memory = int(number_of_hadoop_containers * mem_per_container)
-            scheduler_minimum_memory = int(mem_per_container)
-            nodemanager_memory = scheduler_maximum_memory
-            map_memory = scheduler_minimum_memory
-            reduce_memory = int(min(2*mem_per_container, available_memory))
-            mapreduce_am_memory = reduce_memory
+            #number_of_hadoop_containers = int(min(2*total_cores, 1.8*total_disks, available_memory/min_container_size))
+            # mem_per_container = max(min_container_size, available_memory/number_of_hadoop_containers)
+
+            # scheduler_maximum_memory = int(number_of_hadoop_containers * mem_per_container)
+            # scheduler_minimum_memory = int(mem_per_container)
+            # nodemanager_memory = scheduler_maximum_memory
+            # map_memory = scheduler_minimum_memory
+            # reduce_memory = int(min(2*mem_per_container, available_memory))
+            # mapreduce_am_memory = reduce_memory
+
+
+            ## 'BDEv' way of calculating resources:
+            #number_of_hadoop_containers = int(min(2*total_cores, available_memory/min_container_size))
+
+            ## adjust total_cores to hyperthreading system
+            total_cores = total_cores // 2
+
+            app_master_heapsize = 1024
+            app_master_memory_overhead = int(app_master_heapsize * 0.1)
+            if app_master_memory_overhead < 384:
+                app_master_memory_overhead = 384
+            mapreduce_am_memory = app_master_heapsize + app_master_memory_overhead
+
+            nodemanager_d_heapsize = 1024
+            datanode_d_heapsize = 1024
+            memory_per_container_factor = 0.95
+            available_memory = int(total_memory * memory_per_container_factor)
+            nodemanager_memory = available_memory - nodemanager_d_heapsize - datanode_d_heapsize
+
+            mem_per_container = int((nodemanager_memory - mapreduce_am_memory) / total_cores)
+
+            map_memory_ratio = 1
+            reduce_memory_ratio = 1
+            map_memory = int(min(mem_per_container * map_memory_ratio, available_memory))
+            reduce_memory = int(min(mem_per_container * reduce_memory_ratio, available_memory))
+
+            scheduler_maximum_memory = nodemanager_memory
+            #scheduler_minimum_memory = int(mem_per_container)
+            scheduler_minimum_memory = 256
 
             total_available_memory = 0
             for host in new_containers:
@@ -604,9 +637,10 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
                 reduce_memory = scheduler_minimum_memory
                 mapreduce_am_memory = int(1.5 * memory_slice)
 
-            map_memory_java_opts = int(0.8 * map_memory)
-            reduce_memory_java_opts = int(0.8 * reduce_memory)
-            mapreduce_am_memory_java_opts = int(0.8* mapreduce_am_memory)
+            map_memory_java_opts = int(heapsize_factor * map_memory)
+            reduce_memory_java_opts = int(heapsize_factor * reduce_memory)
+            #mapreduce_am_memory_java_opts = int(heapsize_factor * mapreduce_am_memory)
+            mapreduce_am_memory_java_opts = app_master_heapsize
 
             hadoop_resources[container_type]["vcores"] = str(total_cores)
             hadoop_resources[container_type]["min_vcores"] = str(min_cores)
@@ -710,7 +744,7 @@ def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_
     mapreduce_am_memory_java_opts = hadoop_resources["regular"]["mapreduce_am_memory_java_opts"]
 
     rc = subprocess.Popen([
-        "./ui/scripts/setup_hadoop_network_on_containers.sh", hosts, app, formatted_app_containers, rm_host, rm_container['container_name'], vcores, min_vcores, scheduler_maximum_memory, scheduler_minimum_memory, nodemanager_memory, map_memory, map_memory_java_opts, reduce_memory, reduce_memory_java_opts, mapreduce_am_memory, map_memory_java_opts
+        "./ui/scripts/setup_hadoop_network_on_containers.sh", hosts, app, formatted_app_containers, rm_host, rm_container['container_name'], vcores, min_vcores, scheduler_maximum_memory, scheduler_minimum_memory, nodemanager_memory, map_memory, map_memory_java_opts, reduce_memory, reduce_memory_java_opts, mapreduce_am_memory, mapreduce_am_memory_java_opts
         ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = rc.communicate()
 

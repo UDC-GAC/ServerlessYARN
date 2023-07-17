@@ -951,11 +951,12 @@ def processStartApp(request, url, app_name):
     if is_hadoop_app:
         ## ResourceManager/NameNode resources
         rm_maximum_cpu = 100
-        rm_minimum_cpu = 50
-        rm_cpu_boundary = 10
-        rm_maximum_mem = 1024
-        rm_minimum_mem = 512
-        rm_mem_boundary = 128
+        rm_minimum_cpu = 100
+        rm_cpu_boundary = 25
+        rm_maximum_mem = 3072
+        #rm_maximum_mem = 1024
+        rm_minimum_mem = 1024
+        rm_mem_boundary = 256
         app_resources['cpu']['max'] -= rm_maximum_cpu
         app_resources['cpu']['min'] -= rm_minimum_cpu
         app_resources['mem']['max'] -= rm_maximum_mem
@@ -1134,8 +1135,9 @@ def GetFreestHost(hosts, container_resources, check_disks):
 
     for host in hosts:
 
+        # Cyclic and Best-effort will now use allocate containers based on min resources instead of max to allow executing multiple containers that try to request all the availables resources from a host
         # Check cpu and mem space
-        if host['resources']['cpu']['free'] < container_resources['cpu_max'] or host['resources']['mem']['free'] < container_resources['mem_max']:
+        if host['resources']['cpu']['free'] < container_resources['cpu_min'] or host['resources']['mem']['free'] < container_resources['mem_min']:
             continue
 
         if not check_disks:
@@ -1248,6 +1250,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                 free_cpu -= container_resources["rm-nn"]['cpu_max']
                 free_mem -= container_resources["rm-nn"]['mem_max']
 
+    # Cyclic and Best-effort will now use allocate containers based on min resources instead of max to allow executing multiple containers that try to request all the availables resources from a host
     elif assignation_policy == "Cyclic":
         hosts_without_space = 0
         while containers_to_allocate + irregular_container_to_allocate + hadoop_container_to_allocate > 0 and hosts_without_space < len(hosts):
@@ -1266,7 +1269,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     elif container_type == 'regular':
                         containers_to_check = containers_to_allocate
 
-                    if containers_to_check > 0 and container_type in container_resources and host['resources']['cpu']['free'] >= container_resources[container_type]['cpu_max'] and host['resources']['mem']['free'] >= container_resources[container_type]['mem_max']:
+                    if containers_to_check > 0 and container_type in container_resources and host['resources']['cpu']['free'] >= container_resources[container_type]['cpu_min'] and host['resources']['mem']['free'] >= container_resources[container_type]['mem_min']:
                         if container_type == "rm-nn" or free_disk_load > 0:
                             if container_type == 'bigger' or container_type == 'smaller':
                                 assignation[host['name']]["irregular"] = 1
@@ -1278,8 +1281,8 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                                 assignation[host['name']]['regular'] += 1
                                 containers_to_allocate -= 1
 
-                            host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_max']
-                            host['resources']['mem']['free'] -= container_resources[container_type]['mem_max']
+                            host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
+                            host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
 
                             if container_type != "rm-nn":
                                 host_disk = getFreestDisk(host)
@@ -1332,8 +1335,8 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                         assignation[freest_host['name']]['regular'] += 1
                         containers_to_allocate -= 1
 
-                    freest_host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_max']
-                    freest_host['resources']['mem']['free'] -= container_resources[container_type]['mem_max']
+                    freest_host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
+                    freest_host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
 
                     if container_type != "rm-nn":
                         host_disk = getFreestDisk(freest_host)

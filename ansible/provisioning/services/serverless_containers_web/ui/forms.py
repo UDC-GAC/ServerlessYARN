@@ -427,7 +427,7 @@ class StartAppForm(forms.Form):
     number_of_containers = forms.IntegerField(label= "Number of instances",
             required=True
             )
-    assignation_policy = forms.ChoiceField(label= "Assignation policy",
+    assignation_policy = forms.ChoiceField(label= "Allocation policy",
             choices = (
                 ("Best-effort", "Best effort"),
                 ("Fill-up", "Fill up"),
