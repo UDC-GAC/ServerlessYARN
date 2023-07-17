@@ -1,5 +1,5 @@
 # Setup nodes
-- name: Start containers in client nodes
+- name: Start containers in hosts
   hosts: nodes
   become: no
   gather_facts: no

@@ -12,10 +12,10 @@ CPU_SERVER_NODE = configs['cpus_server_node']
 MEMORY_SERVER_NODE = configs['memory_server_node']
 WEB_INTERFACE_PORT = configs['web_interface_port']
 
-## Client Nodes
-N = configs['number_of_client_nodes']
-CPUS_PER_NODE = configs['cpus_per_client_node']
-MEMORY_PER_NODE = configs['memory_per_client_node']
+## Hosts
+N = configs['number_of_hosts']
+CPUS_PER_NODE = configs['cpus_per_host']
+MEMORY_PER_NODE = configs['memory_per_host']
 
 CGROUPS_VERSION = configs['cgroups_version']
 
@@ -36,7 +36,7 @@ Vagrant.configure("2") do |config|
   	server.vm.network "private_network", ip: SERVER_IP	
   	server.vm.network "forwarded_port", guest: WEB_INTERFACE_PORT, host: WEB_INTERFACE_PORT, host_ip: "127.0.0.1"
   	server.vm.provider "virtualbox" do |vb|
-		vb.name = "Server - AutoServerlessWeb"
+		vb.name = "Server - ServerlessYARN"
   		vb.cpus = CPU_SERVER_NODE
   		vb.memory = MEMORY_SERVER_NODE
   	end
@@ -45,7 +45,7 @@ Vagrant.configure("2") do |config|
 
   server_ip_to_number = SERVER_IP.split(".").map(&:to_i).pack('CCCC').unpack('N')[0]
 
-  ## N Client Nodes
+  ## N Hosts
   (0..N-1).each do |i|
     config.vm.define "node#{i}" do |node|
 	node.vm.hostname = "host#{i}"
@@ -60,7 +60,7 @@ Vagrant.configure("2") do |config|
 	node.vm.network :private_network, ip: number_to_ip
 
 	node.vm.provider "virtualbox" do |vb|
-		vb.name = "Node#{i} - AutoServerlessWeb"
+		vb.name = "Node#{i} - ServerlessYARN"
   		vb.cpus = CPUS_PER_NODE
   		vb.memory = MEMORY_PER_NODE
   	end

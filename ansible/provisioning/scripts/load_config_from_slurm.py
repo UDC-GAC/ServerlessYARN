@@ -100,20 +100,20 @@ def getDisksFromConfig(config_file):
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
-    hdd_disks_per_client_node = config['hdd_disks_per_client_node']
+    hdd_disks_per_host = config['hdd_disks_per_host']
     hdd_disks_path_list = config['hdd_disks_path_list'].split(",")
-    ssd_disks_per_client_node = config['ssd_disks_per_client_node']
+    ssd_disks_per_host = config['ssd_disks_per_host']
     ssd_disks_path_list = config['ssd_disks_path_list'].split(",")
 
-    return get_disks_dict(hdd_disks_per_client_node, hdd_disks_path_list, ssd_disks_per_client_node, ssd_disks_path_list)
+    return get_disks_dict(hdd_disks_per_host, hdd_disks_path_list, ssd_disks_per_host, ssd_disks_path_list)
 
-def update_config_file(config_file, server, server_ip, client_nodes, cpus_per_node, memory_per_node):
+def update_config_file(config_file, server, server_ip, hosts, cpus_per_node, memory_per_node):
     #server_ip = server
     cpus_server_node = cpus_per_node
     memory_server_node = memory_per_node
-    number_of_client_nodes = len(client_nodes)
-    cpus_per_client_node = cpus_per_node
-    memory_per_client_node = memory_per_node
+    number_of_hosts = len(hosts)
+    cpus_per_host = cpus_per_node
+    memory_per_host = memory_per_node
 
     ## Change config file
     yaml_utils = YAML()
@@ -140,17 +140,17 @@ def update_config_file(config_file, server, server_ip, client_nodes, cpus_per_no
             data[elem] = memory_server_node
 
         # Client nodes
-        elif elem == 'number_of_client_nodes':
-            data[elem] = number_of_client_nodes
-        elif elem == 'cpus_per_client_node':
-            data[elem] = cpus_per_client_node
-        elif elem == 'memory_per_client_node':
-            data[elem] = memory_per_client_node
+        elif elem == 'number_of_hosts':
+            data[elem] = number_of_hosts
+        elif elem == 'cpus_per_host':
+            data[elem] = cpus_per_host
+        elif elem == 'memory_per_host':
+            data[elem] = memory_per_host
 
     yaml_utils.dump(data, out)
     #yaml_utils.dump(data, sys.stdout)
 
-def update_inventory_file(inventory_file, server, client_nodes, cpus_per_node, memory_per_node, disks_dict):
+def update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_per_node, disks_dict):
 
     # Server
     with open(inventory_file, 'w') as f:
@@ -158,7 +158,7 @@ def update_inventory_file(inventory_file, server, client_nodes, cpus_per_node, m
         f.write("\n".join(content))
 
     # Nodes
-    for host in client_nodes:
+    for host in hosts:
         write_container_list([],host,cpus_per_node,memory_per_node,disks_dict)
 
 if __name__ == "__main__":
@@ -168,13 +168,13 @@ if __name__ == "__main__":
     inventory_file = scriptDir + "/../../ansible.inventory"
 
     # Get config values
-    server, server_ip, client_nodes = getHostList()
+    server, server_ip, hosts = getHostList()
     cpus_per_node = getNodesCpus()
     memory_per_node = getNodesMemory()
     disks_dict = getDisksFromConfig(config_file)
 
     # Change config
-    update_config_file(config_file, server, server_ip, client_nodes, cpus_per_node, memory_per_node)
+    update_config_file(config_file, server, server_ip, hosts, cpus_per_node, memory_per_node)
 
     # Update ansible inventory file
-    update_inventory_file(inventory_file, server, client_nodes, cpus_per_node, memory_per_node, disks_dict)
+    update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_per_node, disks_dict)

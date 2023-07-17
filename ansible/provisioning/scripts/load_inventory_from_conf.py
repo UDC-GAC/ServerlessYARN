@@ -115,18 +115,18 @@ if __name__ == "__main__":
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
-    number_of_hosts = config['number_of_client_nodes']
+    number_of_hosts = config['number_of_hosts']
     number_of_containers_per_node = config['number_of_containers_per_node']
 
-    cpu_per_node = config['cpus_per_client_node']
-    mem_per_node = config['memory_per_client_node']
+    cpu_per_node = config['cpus_per_host']
+    mem_per_node = config['memory_per_host']
 
     # disks
-    hdd_disks_per_client_node = config['hdd_disks_per_client_node']
+    hdd_disks_per_host = config['hdd_disks_per_host']
     hdd_disks_path_list = config['hdd_disks_path_list'].split(",")
-    ssd_disks_per_client_node = config['ssd_disks_per_client_node']
+    ssd_disks_per_host = config['ssd_disks_per_host']
     ssd_disks_path_list = config['ssd_disks_path_list'].split(",")
-    disks_dict = get_disks_dict(hdd_disks_per_client_node, hdd_disks_path_list, ssd_disks_per_client_node, ssd_disks_path_list)
+    disks_dict = get_disks_dict(hdd_disks_per_host, hdd_disks_path_list, ssd_disks_per_host, ssd_disks_path_list)
 
     virtual_mode = config['virtual_mode']
 

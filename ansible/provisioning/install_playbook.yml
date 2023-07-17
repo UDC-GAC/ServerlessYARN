@@ -26,7 +26,7 @@
       when: "virtual_mode and container_engine == 'apptainer'"
 
 # Setup nodes
-- name: Install requisites in client nodes
+- name: Install requisites in hosts
   hosts: nodes
   become: "{{ virtual_mode }}"
   gather_facts: yes

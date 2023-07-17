@@ -23,13 +23,13 @@ couchdb_port: 5984
 opentsdb_url: "{{ server_ip }}"
 opentsdb_port: 4242
 
-## Client Nodes
-number_of_client_nodes: 1
-cpus_per_client_node: 4
-memory_per_client_node: 4096
-hdd_disks_per_client_node: 1
+## Hosts
+number_of_hosts: 1
+cpus_per_host: 4
+memory_per_host: 4096
+hdd_disks_per_host: 1
 hdd_disks_path_list: $HOME/hdd
-ssd_disks_per_client_node: 1
+ssd_disks_per_host: 1
 ssd_disks_path_list: $HOME/ssd
 
 ## Containers initial values
