@@ -95,4 +95,4 @@
     dest: "{{ item }}/services_config.yml"
   with_items:
     - "{{ bdwatchdog_path }}"
-    - "{{ bdwatchdog_source_path }}"
+    #- "{{ bdwatchdog_source_path }}"

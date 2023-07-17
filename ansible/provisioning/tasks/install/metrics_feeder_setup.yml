@@ -17,7 +17,7 @@
     dest: "{{ bdwatchdog_source_path }}"
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
 
-- name: Copy service aliases and port configuration to BDWatchdog dir
-  template:
-    src: templates/bdw_services_config.yml
-    dest: "{{ bdwatchdog_source_path }}/services_config.yml"
+# - name: Copy service aliases and port configuration to BDWatchdog dir
+#   template:
+#     src: templates/bdw_services_config.yml
+#     dest: "{{ bdwatchdog_source_path }}/services_config.yml"
