@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 cd "{{ bind_dir_on_container }}"
-# Remove previous output from local file system if exists
-rm -rf output
+set -e
 
 # Store data in HDFS
 start=`date +%s.%N`
@@ -13,21 +12,24 @@ hdfs_put_time=$( echo "$end - $start" | bc -l )
 
 # Run JAR
 start=`date +%s.%N`
-#$HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-2.9.2.jar grep input output 'dfs[a-z.]+'
 $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-3.3.5.jar grep input output 'dfs[a-z.]+'
 end=`date +%s.%N`
 jar_runtime=$( echo "$end - $start" | bc -l )
 
+output_file="output_hadoop_app_`date +%H-%M-%S`"
+runtime_file="runtime_hadoop_app_`date +%H-%M-%S`"
+
 # Get output from HDFS
 start=`date +%s.%N`
 $HADOOP_HOME/bin/hdfs dfs -get output
+mv output $output_file
 end=`date +%s.%N`
 hdfs_put_time=$(echo $hdfs_put_time + $( echo "$end - $start" | bc -l ) | bc -l)
 
 # Store runtimes
-echo HDFS time: $hdfs_put_time > runtime
-echo JAR runtime: $jar_runtime >> runtime
-echo Total time: $(echo $hdfs_put_time + $jar_runtime | bc -l) >> runtime
+echo HDFS time: $hdfs_put_time > $runtime_file
+echo JAR runtime: $jar_runtime >> $runtime_file
+echo Total time: $(echo $hdfs_put_time + $jar_runtime | bc -l) >> $runtime_file
 
 # Move results to bind dir
 # cp -r output /opt/bind/

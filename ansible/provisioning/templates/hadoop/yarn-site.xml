@@ -26,7 +26,7 @@
 
 	<property>
 		<name>yarn.resourcemanager.scheduler.class</name>
-		<value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.fifo.FifoScheduler</value>
+		<value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler</value>
 	</property>
 
 	<property>
@@ -38,12 +38,7 @@
 		<name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
 		<value>org.apache.hadoop.mapred.ShuffleHandler</value>
 	</property>
-<!--
-	<property>
-		<name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
-		<value>org.apache.hadoop.mapred.ShuffleHandler</value>
-	</property>
--->
+
 	<property>
 		<name>yarn.nodemanager.resource.memory-mb</name>
 		<value>{{ nodemanager_memory }}</value>
@@ -66,7 +61,7 @@
 
 	<property>
 		<name>yarn.scheduler.minimum-allocation-vcores</name>
-		<value>{{ min_vcores }}</value>
+		<value>1</value>
 	</property>
 
 	<property>
@@ -91,5 +86,74 @@
 	</property>
 
 
+
+<!--
+  <property>
+    <name>yarn.nodemanager.hostname</name>
+    <value>${HOSTNAME}</value>
+  </property>
+-->
+  <property>
+    <name>yarn.scheduler.increment-allocation-mb</name>
+    <value>128</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.local-dirs</name>
+    <value>{{ bind_dir_on_container }}/files_dir/yarn/local</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.pmem-check-enabled</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.vmem-pmem-ratio</name>
+    <value>2.1</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.disk-health-checker.enable</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.disk-health-checker.max-disk-utilization-per-disk-percentage</name>
+    <value>95.0</value>
+  </property>
+
+  <property>
+    <name>yarn.resourcemanager.nodemanagers.heartbeat-interval-ms</name>
+    <value>5000</value>
+  </property>
+
+  <property>
+    <name>yarn.scheduler.fair.assignmultiple</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>yarn.scheduler.fair.dynamic.max.assign</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>yarn.scheduler.fair.max.assign</name>
+    <value>-1</value>
+  </property>
+
+  <property>
+    <name>yarn.scheduler.fair.continuous-scheduling-enabled</name>
+    <value>false</value>
+  </property>
+
+
+<!--
+  <property>
+    <name>yarn.resourcemanager.container.liveness-monitor.interval-ms</name>
+    <value>30000</value>
+  </property>
+-->
 </configuration>
 

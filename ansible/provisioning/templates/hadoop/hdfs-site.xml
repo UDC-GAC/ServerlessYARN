@@ -31,13 +31,99 @@
 
 	<property>
 		<name>dfs.namenode.name.dir</name>
-		<value>${DATA_DIR}/hdfs/namenode</value>
+		<value>{{ bind_dir_on_container }}/files_dir/data_dir/hdfs/namenode</value>
 	</property>
 
 	<property>
 		<name>dfs.datanode.data.dir</name>
-		<value>${DATA_DIR}/hdfs/datanode</value>
+		<value>{{ bind_dir_on_container }}/files_dir/data_dir/hdfs/datanode</value>
 	</property>
+<!--
+  <property>
+    <name>dfs.datanode.hostname</name>
+    <value>${HOSTNAME}</value>
+  </property>
+-->
+  <property>
+    <name>dfs.blocksize</name>
+    <value>134217728</value>
+  </property>
+
+  <property>
+    <name>dfs.namenode.handler.count</name>
+    <value>80</value>
+  </property>
+  <property>
+    <name>dfs.datanode.handler.count</name>
+    <value>20</value>
+  </property>
+  <property>
+    <name>dfs.namenode.service.handler.count</name>
+    <value>40</value>
+  </property>
+  <property>
+    <name>dfs.namenode.accesstime.precision</name>
+    <value>0</value>
+  </property>
+
+  <property>
+    <name>dfs.client.read.shortcircuit</name>
+    <value>false</value>
+  </property>
+<!-- 
+  <property>
+    <name>dfs.domain.socket.path</name>
+    <value>/var/lib/hdfs/oscar.castellanos/dn_socket</value>
+  </property>
+
+  <property>
+    <name>dfs.namenode.checkpoint.dir</name>
+    <value>/scratch/slurm/oscar.castellanos/24194/dfs/namesecondary,/scratch/ssd/slurm/oscar.castellanos/24194/dfs/namesecondary</value>
+  </property>
+
+  <property>
+    <name>dfs.datanode.dns.interface</name>
+    <value>eth0</value>
+  </property>
+-->
+  <property>
+    <name>dfs.client.local.interfaces</name>
+    <value>eth0</value>
+  </property>
+  <property>
+    <name>dfs.datanode.use.datanode.hostname</name>
+    <!-- <value>true</value> -->
+    <value>false</value>
+  </property>
+  <property>
+    <name>dfs.client.use.datanode.hostname</name>
+    <!-- <value>true</value> -->
+    <value>false</value>
+  </property>
+  <property>
+    <name>dfs.client-write-packet-size</name>
+    <value>65536</value>
+  </property>
+  <property>
+    <name>dfs.client.socket-timeout</name>
+    <value>60000</value>
+  </property>
+  <property>
+    <name>dfs.datanode.socket.write.timeout</name>
+    <value>60000</value>
+  </property>
+  <property>
+    <name>dfs.client.block.write.retries</name>
+    <value>5</value>
+  </property>
+  <property>
+    <name>dfs.client.block.write.locateFollowingBlock.retries</name>
+    <value>10</value>
+  </property>
+  <property>
+    <name>dfs.heartbeat.interval</name>
+    <value>5</value>
+  </property>
 
 </configuration>
 

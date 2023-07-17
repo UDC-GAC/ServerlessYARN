@@ -5,10 +5,9 @@ From: apps/base/{{ app_base_image_file }}
     "{{ installation_path }}/apps/hadoop/files_dir" /opt/files_dir
     "{{ installation_path }}/apps/hadoop/setup.sh" /opt/setup.sh
     # To avoid repeating hadoop download
-    #"{{ installation_path }}/apps/hadoop/hadoop-2.9.2.tar.gz" /opt/hadoop-2.9.2.tar.gz
-    "{{ installation_path }}/apps/hadoop/hadoop-3.3.5.tar.gz" /opt/hadoop-3.3.5.tar.gz
+    #"{{ installation_path }}/apps/hadoop/hadoop-3.3.5.tar.gz" /opt/hadoop-3.3.5.tar.gz
     # To avoid repeating spark download
-    "{{ installation_path }}/apps/hadoop/spark-3.4.0-bin-without-hadoop.tgz" /opt/spark-3.4.0-bin-without-hadoop.tgz
+    #"{{ installation_path }}/apps/hadoop/spark-3.4.0-bin-without-hadoop.tgz" /opt/spark-3.4.0-bin-without-hadoop.tgz
 
 %post
     # Install basic software and Java
@@ -38,9 +37,7 @@ From: apps/base/{{ app_base_image_file }}
     export HADOOP_CONF_DIR=/opt/files_dir/hadoop_conf
     export DATA_DIR="{{ bind_dir_on_container }}/files_dir/data_dir"
     mkdir -p files_dir/data_dir
-    #wget https://archive.apache.org/dist/hadoop/core/hadoop-2.9.2/hadoop-2.9.2.tar.gz
-    #wget https://archive.apache.org/dist/hadoop/core/hadoop-3.3.5/hadoop-3.3.5.tar.gz
-    #mkdir hadoop && tar xf hadoop-2.9.2.tar.gz -C hadoop --strip-components 1
+    wget https://archive.apache.org/dist/hadoop/core/hadoop-3.3.5/hadoop-3.3.5.tar.gz
     mkdir hadoop && tar xf hadoop-3.3.5.tar.gz -C hadoop --strip-components 1
     chown -R $(whoami):$(whoami) hadoop
     cp files_dir/config/format_filesystem.sh hadoop
@@ -51,12 +48,9 @@ From: apps/base/{{ app_base_image_file }}
     cp files_dir/config/yarn-site.xml $HADOOP_CONF_DIR/yarn-site.xml
     cp files_dir/config/workers $HADOOP_CONF_DIR/workers
 
-    # Increase hadoop performance
-    sysctl vm.swappiness=1
-
     # Setup Spark
     export SPARK_CONF_DIR=/opt/files_dir/spark_conf
-    #wget https://dlcdn.apache.org/spark/spark-3.4.0/spark-3.4.0-bin-without-hadoop.tgz
+    wget https://dlcdn.apache.org/spark/spark-3.4.0/spark-3.4.0-bin-without-hadoop.tgz
     mkdir spark && tar xf spark-3.4.0-bin-without-hadoop.tgz -C spark --strip-components 1
     chown -R $(whoami):$(whoami) spark
     mkdir -p $SPARK_CONF_DIR && cp -r spark/conf/* $SPARK_CONF_DIR/

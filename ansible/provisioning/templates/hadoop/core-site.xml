@@ -21,4 +21,22 @@
 		<name>fs.defaultFS</name>
 		<value>hdfs://{{ rm_container }}:8020</value>
 	</property>
+<!--
+	<property>
+		<name>hadoop.tmp.dir</name>
+		<value>/tmp/oscar.castellanos/BDEv/hadoop</value>
+	</property>
+-->
+	<property>
+		<name>io.file.buffer.size</name>
+		<value>8192</value>
+	</property>
+	<property>
+		<name>ipc.client.rpc-timeout.ms</name>
+		<value>120000</value>
+	</property>
+	<property>
+		<name>ipc.ping.interval</name>
+		<value>90000</value>
+	</property>
 </configuration>

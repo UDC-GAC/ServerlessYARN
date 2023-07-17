@@ -33,12 +33,3 @@ cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
 chmod 0600 ~/.ssh/authorized_keys
 ssh-keyscan -t rsa localhost >> ~/.ssh/known_hosts
 ssh-keyscan -t rsa 0.0.0.0 >> ~/.ssh/known_hosts
-
-## Increase hadoop performance
-echo never > /sys/kernel/mm/transparent_hugepage/enabled
-echo never > /sys/kernel/mm/transparent_hugepage/defrag
-
-## Run hadoop services
-#cd $HADOOP_HOME
-#bash format_filesystem.sh
-#sbin/start-dfs.sh

@@ -42,7 +42,7 @@
 	<!-- YARN APPLICATION MASTER -->
 	<property>
 	 	<name>yarn.app.mapreduce.am.resource.vcores</name>
-		<value>{{ vcores }}</value>
+		<value>1</value>
 	</property>
 	<property>
 	 	<name>yarn.app.mapreduce.am.resource.mb</name>
@@ -56,7 +56,7 @@
 	<!-- MAP -->
 	<property>
 	 	<name>mapreduce.map.cpu.vcores</name>
-		<value>{{ vcores }}</value>
+		<value>1</value>
 	</property>
 	<property>
 	 	<name>mapreduce.map.memory.mb</name>
@@ -71,7 +71,7 @@
 	<!-- REDUCE -->
 	<property>
 	 	<name>mapreduce.reduce.cpu.vcores</name>
-		<value>{{ vcores }}</value>
+		<value>1</value>
 	</property>
 	<property>
 	 	<name>mapreduce.reduce.memory.mb</name>
@@ -82,6 +82,54 @@
 	 	<name>mapreduce.reduce.java.opts</name>
 		<value>-Xmx{{ reduce_memory_java_opts }}m</value>
 	</property>
+
+  <property>
+    <name>mapreduce.cluster.local.dir</name>
+    <value>{{ bind_dir_on_container }}/files_dir/mapred/local</value>
+  </property>
+
+  <property>
+    <name>mapreduce.jobhistory.address</name>
+    <value>{{ rm_container }}:10020</value>
+  </property>
+
+  <property>   
+    <name>mapreduce.tasktracker.map.tasks.maximum</name>   
+    <value>{{ vcores | int // 2 }}</value>
+  </property> 
+  <property>   
+   <name>mapreduce.tasktracker.reduce.tasks.maximum</name>   
+   <value>{{ vcores | int // 2 }}</value>
+  </property>
+
+
+  <property>
+    <name>mapreduce.task.io.sort.factor</name>
+    <value>{{ (map_memory_java_opts | int // 4) // 10}}</value>
+  </property>
+  <property>
+    <name>mapreduce.task.io.sort.mb</name>
+    <value>{{ map_memory_java_opts | int // 4}}</value>
+  </property>
+  <property>
+    <name>mapreduce.map.sort.spill.percent</name>
+    <value>0.80</value>
+  </property>
+  <property>
+    <name>mapreduce.job.reduce.slowstart.completedmaps</name>
+    <value>0.75</value>  
+  </property>
+  <property>
+    <name>mapreduce.reduce.shuffle.parallelcopies</name>   
+    <value>10</value>  
+  </property>
+  
+<!--
+  <property>
+    <name>mapreduce.tasktracker.dns.interface</name>
+    <value>eth0</value>
+  </property>
+-->
 
 </configuration>
 
