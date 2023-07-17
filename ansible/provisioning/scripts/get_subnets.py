@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import sys
 import ipaddress
-from math import sqrt
+from math import log
 
 # usage example: get_subnets.py 10.22.0.0/16 host0,host1,host2 192.168.56.100,192.168.56.102,192.168.56.103
 
@@ -15,7 +15,7 @@ if __name__ == "__main__":
         iface_ip_list = sys.argv[3].split(',')
 
         number_of_subnets = 1<<(len(hosts)-1).bit_length()
-        subnets = list(subnet.subnets(prefixlen_diff=int(sqrt(number_of_subnets))))
+        subnets = list(subnet.subnets(prefixlen_diff=int(log(number_of_subnets,2))))
 
         host_dict = {}
 
