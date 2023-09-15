@@ -1,21 +1,18 @@
 
-- name: Install pip3
+- name: Install prerequisites for ServerlessYARN services
   when: "virtual_mode"
-  package:
-    name: python3-pip
+  apt:
+    name:
+     - python3-pip
+     - expect-dev
     state: latest
+    update_cache: yes
 
 - name: Install yq
   when: "virtual_mode"
   snap:
     name: yq
     state: present
-
-- name: Install expect-dev
-  when: "virtual_mode"
-  package:
-    name: python3-pip
-    state: latest
 
 - name: Install pip dependencies
   pip:

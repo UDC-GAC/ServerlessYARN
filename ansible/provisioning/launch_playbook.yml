@@ -14,6 +14,7 @@
     - couchdb_admin_pass: admin
 
   environment:
+    INSTALLATION_PATH: "{{ installation_path }}"
     BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
     SERVERLESS_PATH: "{{ serverless_containers_path }}"
     PYTHONPATH: "{{ bdwatchdog_path }}:{{ serverless_containers_path }}"
@@ -46,4 +47,4 @@
               {{ containers_info }}
         - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
 
-    - import_tasks: tasks/launch/autoserverlessweb_services_launch.yml
+    - import_tasks: tasks/launch/serverlessyarn_services_launch.yml

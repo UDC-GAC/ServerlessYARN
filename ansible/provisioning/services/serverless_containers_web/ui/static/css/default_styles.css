@@ -189,6 +189,10 @@ ul#tabs li {
 transition: opacity 400ms ease-in;
 }
 
+.form-control, .custom-select {
+  width: auto;
+}
+
 .close{
 	background: #606061;
 	color: #FFFFFF;

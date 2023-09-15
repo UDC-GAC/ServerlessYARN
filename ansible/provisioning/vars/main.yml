@@ -1,4 +1,4 @@
-installation_path: /home/vagrant/AutoServerlessWeb_install
+installation_path: /home/vagrant/ServerlessYARN_install
 bdwatchdog_path: "{{ installation_path }}/BDWatchdog"
 bdwatchdog_source_path: "{{ installation_path }}/BDWatchdog_source"
 serverless_containers_path: "{{ installation_path }}/ServerlessContainers"

@@ -1,9 +1,13 @@
 
-- name: Install pip3
+- name: Install prerequisites for Serverless Containers
   when: "virtual_mode"
-  package:
-    name: python3-pip
+  apt:
+    name:
+     - python3-pip
+     - gunicorn
+     - jq
     state: latest
+    update_cache: yes
 
 - name: Install yq
   when: "virtual_mode"
@@ -33,12 +37,6 @@
   pip:
     requirements: "{{ serverless_containers_path }}/requirements.txt"
     executable: pip3
-
-- name: Install gunicorn
-  when: "virtual_mode"
-  package:
-    name: gunicorn
-    state: latest
 
 - name: Copy service aliases and port configuration to ServerlessContainers dir
   template:

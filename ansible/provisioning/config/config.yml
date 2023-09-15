@@ -10,7 +10,7 @@ singularity_command_alias: apptainer # singularity or apptainer (only relevant w
 cgroups_version: v1
 
 ## Server Node
-server_ip: 192.168.56.100
+server_ip: 192.168.56.200
 cpus_server_node: 2
 memory_server_node: 4096
 web_interface_port: 9000
@@ -24,7 +24,7 @@ opentsdb_url: "{{ server_ip }}"
 opentsdb_port: 4242
 
 ## Hosts
-number_of_hosts: 1
+number_of_hosts: 2
 cpus_per_host: 4
 memory_per_host: 4096
 hdd_disks_per_host: 1
@@ -33,11 +33,11 @@ ssd_disks_per_host: 1
 ssd_disks_path_list: $HOME/ssd
 
 ## Containers initial values
-number_of_containers_per_node: 2
+number_of_containers_per_node: 0
 max_cpu_percentage_per_container: 200
 min_cpu_percentage_per_container: 50
 max_memory_per_container: 2048
-min_memory_per_container: 1024
+min_memory_per_container: 512
 
 ## Container network configuration
 # host interface through which the containers of different nodes communicate with each other
