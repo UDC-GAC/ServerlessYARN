@@ -687,15 +687,41 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
         error = "Error stopping hadoop cluster for app {0}: {1}".format(app,err.decode("utf-8"))
         raise Exception(error)
 
+    # Remove master container first
+    for container in app_containers:
+        if container['container_name'] == rm_container:
+            full_url = url + "container/{0}/{1}".format(rm_container,app)
+            remove_container_from_app_task(full_url, headers, rm_host, container, app, app_files, rm_container)
+            # Workaround to keep all updates to State DB
+            time.sleep(0.5)
+            break
+
     # Stop and remove containers
     for container in app_containers:
-        full_url = url + "container/{0}/{1}".format(container['container_name'],app)
-        task = remove_container_from_app_task.delay(full_url, headers, container['host'], container, app, app_files)
-        print("Starting task with id {0}".format(task.id))
-        register_task(task.id,"remove_container_from_app_task")
-        # Workaround to keep all updates to State DB
-        time.sleep(0.5)
+        if container['container_name'] != rm_container:
+            full_url = url + "container/{0}/{1}".format(container['container_name'],app)
+            # task = remove_container_from_app_task.delay(full_url, headers, container['host'], container, app, app_files, rm_container)
+            # print("Starting task with id {0}".format(task.id))
+            # register_task(task.id,"remove_container_from_app_task")
+            remove_container_from_app_task(full_url, headers, container['host'], container, app, app_files, rm_container)
+            # Workaround to keep all updates to State DB
+            time.sleep(0.5)
 
+    set_hadoop_logs_timestamp(app, app_files, rm_host, rm_container)
+
+def set_hadoop_logs_timestamp(app, app_files, rm_host, rm_container):
+
+    rc = subprocess.Popen([
+        "./ui/scripts/set_hadoop_logs_timestamp.sh", app_files['app_jar'], rm_host, rm_container
+        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = rc.communicate()
+
+    # Log ansible output
+    print(out.decode("utf-8") )
+
+    if rc.returncode != 0:
+        error = "Error setting timestamp for hadoop logs for app {0}: {1}".format(app,err.decode("utf-8"))
+        raise Exception(error)
 
 ## Setup network for apps
 @shared_task
@@ -846,7 +872,7 @@ def remove_app_task(url, structure_type_url, headers, app_name, container_list, 
     # first, remove all containers from app
     for container in container_list:
         full_url = url + "container/{0}/{1}".format(container['name'], app_name)
-        remove_container_from_app_task(full_url, headers, container['host'], container['name'], app_name, app_files)
+        remove_container_from_app_task(full_url, headers, container['host'], container['name'], app_name, app_files, "")
 
     # then, actually remove app
     full_url = url + structure_type_url + "/" + app_name
@@ -863,7 +889,7 @@ def remove_app_task(url, structure_type_url, headers, app_name, container_list, 
         raise Exception(error)
 
 @shared_task
-def remove_container_from_app_task(full_url, headers, host, container, app, app_files):
+def remove_container_from_app_task(full_url, headers, host, container, app, app_files, rm_container):
 
     r = requests.delete(full_url, headers=headers)
 
@@ -884,7 +910,7 @@ def remove_container_from_app_task(full_url, headers, host, container, app, app_
         if 'disk_path' in container:
             bind_path = container['disk_path']
 
-        rc = subprocess.Popen(["./ui/scripts/stop_app_on_container.sh", host, container['container_name'], app, files_dir, install_script, start_script, stop_script, app_jar, bind_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        rc = subprocess.Popen(["./ui/scripts/stop_app_on_container.sh", host, container['container_name'], app, files_dir, install_script, start_script, stop_script, app_jar, bind_path, rm_container], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = rc.communicate()
 
         # Log ansible output

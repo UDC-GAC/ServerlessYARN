@@ -9,6 +9,7 @@ START_SCRIPT=$6
 STOP_SCRIPT=$7
 APP_JAR=$8
 BIND_PATH=$9
+RM_CONTAINER=${10}
 
 if [ -z "$BIND_PATH" ]
 then
@@ -27,4 +28,5 @@ unbuffer ansible-playbook manage_app_on_container.yml -i $INVENTORY -t stop_app 
         start_script=$START_SCRIPT \
         stop_script=$STOP_SCRIPT \
         app_jar=$APP_JAR \
-        bind_path=$BIND_PATH"
+        bind_path=$BIND_PATH \
+        rm_container=$RM_CONTAINER"

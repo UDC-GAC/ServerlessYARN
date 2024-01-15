@@ -953,8 +953,8 @@ def processStartApp(request, url, app_name):
         rm_maximum_cpu = 100
         rm_minimum_cpu = 100
         rm_cpu_boundary = 25
-        rm_maximum_mem = 3072
-        #rm_maximum_mem = 1024
+        #rm_maximum_mem = 3072
+        rm_maximum_mem = 1024
         rm_minimum_mem = 1024
         rm_mem_boundary = 256
         app_resources['cpu']['max'] -= rm_maximum_cpu
@@ -1517,7 +1517,7 @@ def processRemoveContainerFromApp(url, container_host_duple, app, app_files):
     if disk_path != "":
         container['disk_path'] = disk_path
 
-    task = remove_container_from_app_task.delay(full_url, headers, host, container, app, app_files)
+    task = remove_container_from_app_task.delay(full_url, headers, host, container, app, app_files, "")
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"remove_container_from_app_task")
 
