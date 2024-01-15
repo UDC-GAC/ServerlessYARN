@@ -32,6 +32,7 @@
         dest: "{{ installation_path }}/apps/hadoop/"
       with_items:
         - setup.sh
+        - java_snitch.sh
         - files_dir
       tags: never, create_app
 

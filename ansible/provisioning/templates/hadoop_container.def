@@ -4,6 +4,7 @@ From: apps/base/{{ app_base_image_file }}
 %files
     "{{ installation_path }}/apps/hadoop/files_dir" /opt/files_dir
     "{{ installation_path }}/apps/hadoop/setup.sh" /opt/setup.sh
+    "{{ installation_path }}/apps/hadoop/java_snitch.sh" /opt/java_snitch.sh
     # To avoid repeating hadoop download
     #"{{ installation_path }}/apps/hadoop/hadoop-3.3.5.tar.gz" /opt/hadoop-3.3.5.tar.gz
     # To avoid repeating spark download
@@ -76,5 +77,6 @@ From: apps/base/{{ app_base_image_file }}
     export SPARK_CONF_DIR="{{ bind_dir_on_container }}/files_dir/spark_conf"
 
 %startscript
-    cd /opt/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream_tmux.sh && \
+    #cd /opt/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream_tmux.sh && \
+    cd /opt/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream_with_java_translation.sh && bash /opt/java_snitch.sh && \
     bash /opt/setup.sh
