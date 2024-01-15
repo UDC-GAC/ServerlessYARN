@@ -22,29 +22,31 @@
   ## TODO: setup iptables
   - name: Setup network on containers
     block:
-
       - name: Get containers IP addresses
-        when: item.host == inventory_hostname
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} hostname -I | awk '{print $1}'"
+        shell: "{% for item in containers_info %}
+          {% if item.host == inventory_hostname %}
+          sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\" && 
+          {% endif  %}
+          {% endfor %}true"
         args:
           executable: /bin/bash
-        loop: "{{ containers_info }}"
         register: ip_addresses
 
       - name: Update hostname resolution in containers
-        #when: item[0].host == inventory_hostname and item[0].container_name != item[1].item.container_name
-        when: item[0].host == inventory_hostname
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0].container_name }} bash -c \
+        shell: "{% for item in containers_info %}
+          {% if item.host == inventory_hostname %}
+          sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
           'cp /etc/hosts {{ bind_dir_on_container }} \
-          && {{ sed_command }} {{ bind_dir_on_container }}/hosts \
+          && {% for host_ip in resolution_list.split('\n') | select() %}sed -i '\\''1s/^/{{ host_ip }}\\n/'\\'' {{ bind_dir_on_container }}/hosts && {% endfor %}true \
           && cat {{ bind_dir_on_container }}/hosts > /etc/hosts \
-          && rm {{ bind_dir_on_container }}/hosts'"
+          && rm {{ bind_dir_on_container }}/hosts' && 
+          {% endif  %}
+          {% endfor %}true"
         args:
           executable: /bin/bash
         vars:
-          iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'ip_addresses') | map(attribute='results') }}"
-          sed_command: sed -i '\''1s/^/{{ item[1].stdout | trim }} {{ item[1].item.container_name }}\n/'\''
-        loop: "{{ containers_info | product(iface_ip_list | flatten(levels=1) | reject('search','skip_reason'))|list }}"
+          iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'ip_addresses') | list }}"
+          resolution_list: "{% for result in iface_ip_list | flatten(levels=1) %}{{ result.stdout }}\n{% endfor %}"
 
       # Iptables setup ready, but i'll leave it commented in case it interferes with hadoop/yarn tests
       # - name: Setup Iptables (1)
@@ -76,133 +78,142 @@
 
   - name: Setup hadoop on containers
     block:
-      - name: Get containers IP addresses
-        when: item.host == inventory_hostname
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} hostname -I | awk '{print $1}'"
-        args:
-          executable: /bin/bash
-        loop: "{{ containers_info }}"
-        register: ip_addresses
-
       - name: get the username id running the deploy
         become: no
         local_action: command id -u
         register: userid_on_the_host
 
-      - name: Copy app files already on containers
-        when: item.host == inventory_hostname
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c 'cp -pr /opt/files_dir {{ bind_dir_on_container }}/ && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/*'"
-        args:
-          executable: /bin/bash
-        loop: "{{ containers_info }}"
-
-      - name: Update workers file on containers
-        when: item[0].host == inventory_hostname and item[1].item.container_name != rm_container
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0].container_name }} bash -c \
-          'echo {{ item[1].item.container_name }} >> $HADOOP_CONF_DIR/workers'"
+      - name: Copy app files already on containers & Update workers file on containers
+        shell: "{% for item in containers_info %}
+          {% if item.host == inventory_hostname %}
+          sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \ 
+          'cp -pr /opt/files_dir {{ bind_dir_on_container }}/ && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/* \
+          && {% for item in worker_list %}echo {{ item }} >> $HADOOP_CONF_DIR/workers && {% endfor %}true' && 
+          {% endif  %}
+          {% endfor %}true"
         args:
           executable: /bin/bash
         vars:
-          iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'ip_addresses') | map(attribute='results') }}"
-        loop: "{{ containers_info | product(iface_ip_list | flatten(levels=1) | reject('search','skip_reason'))|list }}"
+          worker_list: "{{ containers_info | 
+                  map(attribute='container_name') |
+                  reject('search', rm_container) | list}}"
 
-      - name: Copy hadoop config files to containers
-        when: item[0].host == inventory_hostname
-        template:
-          src: "templates/hadoop/{{ item[1] }}"
-          dest: "{{ bind_dir }}/{{ item[0].container_name }}/{{ item[1] }}"
+      - name: Prepare and copy all config files to containers
+        block:
+          - name: Copy hadoop config files to master
+            delegate_to: localhost
+            run_once: yes
+            template:
+              src: "templates/hadoop/{{ item }}"
+              dest: "{{ installation_path }}/tmpdir/{{ item }}"
+            loop: "{{ hadoop_file_list }}"
+
+          - name: Copy spark config files to master
+            delegate_to: localhost
+            run_once: yes
+            template:
+              src: "templates/spark/{{ item }}"
+              dest: "{{ installation_path }}/tmpdir/{{ item }}"
+            loop: "{{ spark_file_list }}"
+
+          - name: Copy config files to hosts
+            synchronize:
+              src: "{{ installation_path }}/tmpdir/"
+              dest: "{{ installation_path }}/tmpdir/"
+
+          - name: Copy and update hadoop config files to containers
+            shell: "{% for item in containers_info %}
+              {% if item.host == inventory_hostname %}
+              {% for file in hadoop_file_list %}
+              {% set bind_dir = item.disk_path + '/singularity_binds' if item.disk_path is defined else default_bind_path + '/singularity_binds' %}
+              cp {{ installation_path }}/tmpdir/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
+              {% endfor %}
+              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+              '{% for file in hadoop_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $HADOOP_CONF_DIR/{{ file }} && {% endfor %}true' && 
+              {% endif  %}
+              {% endfor %}true"
+            args:
+              executable: /bin/bash
+
+          - name: Copy and update spark config files to containers
+            shell: "{% for item in containers_info %}
+              {% if item.host == inventory_hostname %}
+              {% for file in spark_file_list %}
+              {% set bind_dir = item.disk_path + '/singularity_binds' if item.disk_path is defined else default_bind_path + '/singularity_binds' %}
+              cp {{ installation_path }}/tmpdir/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
+              {% endfor %}
+              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+              '{% for file in spark_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $SPARK_CONF_DIR/{{ file }} && {% endfor %}true' && 
+              {% endif  %}
+              {% endfor %}true"
+            args:
+              executable: /bin/bash
+
         vars:
-          file_list: ["core-site.xml", "hdfs-site.xml", "yarn-site.xml", "mapred-site.xml", "hadoop-env.sh"]
-          bind_path: "{{ item[0].disk_path if item[0].disk_path is defined else default_bind_path }}"
-        loop: "{{ containers_info | product(file_list) | list }}"
+          hadoop_file_list: ["core-site.xml", "hdfs-site.xml", "yarn-site.xml", "mapred-site.xml", "hadoop-env.sh", "yarn-env.sh"]
+          spark_file_list: ["spark-defaults.conf"]
 
-      - name: Update hadoop config files in containers
-        when: item[0].host == inventory_hostname
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0].container_name }} bash -c \
-          'cp {{ bind_dir_on_container }}/{{ item[1] }} $HADOOP_CONF_DIR/{{ item[1] }}'"
-        args:
-          executable: /bin/bash
-        vars:
-          file_list: ["core-site.xml", "hdfs-site.xml", "yarn-site.xml", "mapred-site.xml", "hadoop-env.sh"]
-        loop: "{{ containers_info | product(file_list) | list }}"
-
-      - name: Copy spark config files to containers
-        when: item[0].host == inventory_hostname
-        template:
-          src: "templates/spark/{{ item[1] }}"
-          dest: "{{ bind_dir }}/{{ item[0].container_name }}/{{ item[1] }}"
-        vars:
-          file_list: ["spark-defaults.conf"]
-          bind_path: "{{ item[0].disk_path if item[0].disk_path is defined else default_bind_path }}"
-        loop: "{{ containers_info | product(file_list) | list }}"
-
-      - name: Update spark config files in containers
-        when: item[0].host == inventory_hostname
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item[0].container_name }} bash -c \
-          'cp {{ bind_dir_on_container }}/{{ item[1] }} $SPARK_CONF_DIR/{{ item[1] }}'"
-        args:
-          executable: /bin/bash
-        vars:
-          file_list: ["spark-defaults.conf"]
-        loop: "{{ containers_info | product(file_list) | list }}"
-
-      - name: Update ssh known_hosts on ResourceManager/Namenode container
+      - name: Update ssh known_hosts on ResourceManager/Namenode container & Move RM/NN container ssh public key
         when: rm_host == inventory_hostname
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \
           'ssh-keyscan -t rsa `hostname` >> ~/.ssh/known_hosts \
-          && ssh-keyscan -t rsa -f $HADOOP_CONF_DIR/workers >> ~/.ssh/known_hosts'"
-        args:
-          executable: /bin/bash
-
-      - name: Move RM/NN container ssh public key
-        when: rm_host == inventory_hostname
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \
-          'cp ~/.ssh/id_rsa.pub {{ bind_dir_on_container }}/{{ rm_container }}.pub'"
+          && ssh-keyscan -t rsa -f $HADOOP_CONF_DIR/workers >> ~/.ssh/known_hosts \
+          && cp ~/.ssh/id_rsa.pub {{ bind_dir_on_container }}/{{ rm_container }}.pub'"
         args:
           executable: /bin/bash
 
       - name: Prepare RM/NN container bind path variable
+        when: "item.container_name == rm_container"
         set_fact:
           rm_container_bind_path: "{{ item.disk_path if item.disk_path is defined else default_bind_path }}"
-        when: "item.container_name == rm_container"
         with_items:
         - "{{ containers_info }}"
 
       - name: Fetch RM/NN container ssh public key
         when: rm_host == inventory_hostname
-        fetch:
+        synchronize:
           src: "{{ bind_dir }}/{{ rm_container }}/{{ rm_container}}.pub"
           dest: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container}}.pub"
-          flat: yes
+          mode: pull
         vars:
           bind_path: "{{ rm_container_bind_path }}"
 
-      - name: Copy RM/NN container ssh public key to the other containers
-        when: item.host == inventory_hostname and item.container_name != rm_container
-        copy:
+      - name: Copy RM/NN container ssh public key to hosts
+        synchronize:
           src: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container}}.pub"
-          dest: "{{ bind_dir }}/{{ item.container_name }}/{{ rm_container}}.pub"
-        vars:
-          bind_path: "{{ item.disk_path if item.disk_path is defined else default_bind_path }}"
-        loop: "{{ containers_info }}"
+          dest: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container}}.pub"
 
-      - name: Append RM/NN container ssh public key to authorized keys of containers
-        when: item.host == inventory_hostname and item.container_name != rm_container
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
-          'cat {{ bind_dir_on_container }}/{{ rm_container}}.pub >> ~/.ssh/authorized_keys
-          && rm {{ bind_dir_on_container }}/{{ rm_container}}.pub'"
+      - name: Copy and append RM/NN container ssh public key to the other containers
+        shell: "{% for item in containers_info %}
+          {% if item.host == inventory_hostname and item.container_name != rm_container %}
+          {% set bind_dir = item.disk_path + '/singularity_binds' if item.disk_path is defined else default_bind_path + '/singularity_binds' %}
+          cp {{ installation_path }}/apps/{{ app_name }}/{{ rm_container}}.pub {{ bind_dir }}/{{ item.container_name }}/{{ rm_container}}.pub && \
+          sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+          'cat {{ bind_dir_on_container }}/{{ rm_container}}.pub >> ~/.ssh/authorized_keys \
+          && rm {{ bind_dir_on_container }}/{{ rm_container}}.pub' && 
+          {% endif  %}
+          {% endfor %}true"
         args:
           executable: /bin/bash
-        loop: "{{ containers_info }}"
 
-      - name: Format filesystem, start HDFS and YARN
+      - name: Format filesystem, start HDFS and YARN (Master)
         when: rm_host == inventory_hostname
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \
-          'cd $HADOOP_HOME \
-          && bash format_filesystem.sh \
-          && sbin/start-dfs.sh \
-          && sbin/hadoop-daemon.sh stop secondarynamenode \
-          && nohup sbin/start-yarn.sh'"
+          '(cd $HADOOP_HOME \
+          && bash format_filesystem.sh) \
+          && (nohup $HADOOP_HOME/bin/hdfs --daemon start namenode & \
+          nohup $HADOOP_HOME/bin/yarn --daemon start resourcemanager &)'"
+        args:
+          executable: /bin/bash
+
+      - name: Start HDFS and YARN (Worker)
+        shell: "{% for item in containers_info %}
+          {% if item.host == inventory_hostname and item.container_name != rm_container %}
+          sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+          'nohup $HADOOP_HOME/bin/hdfs --daemon start datanode & \
+          nohup $HADOOP_HOME/bin/yarn --daemon start nodemanager &' && 
+          {% endif  %}
+          {% endfor %}true"
         args:
           executable: /bin/bash
 
@@ -321,13 +332,21 @@
           path: "{{ container_bind_dir }}/{{ item }}"
           state: absent
         vars:
-          file_list: ["core-site.xml", "hdfs-site.xml", "yarn-site.xml", "mapred-site.xml", "hadoop-env.sh", "spark-defaults.conf"]
+          file_list: ["core-site.xml", "hdfs-site.xml", "yarn-site.xml", "mapred-site.xml", "hadoop-env.sh", "yarn-env.sh", "spark-defaults.conf"]
         loop: "{{ file_list }}"
 
       - name: Remove container own ssh key
         file:
           path: "{{ container_bind_dir }}/{{ container }}.pub"
           state: absent
+
+      # Stop java snitcher
+      - name: Stop java snitcher
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
+          'tmux kill-session -t JAVA_SNITCH'"
+        args:
+          executable: /bin/bash
+        ignore_errors: yes
 
       - name: Remove hadoop files directory in container
         # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
@@ -345,10 +364,30 @@
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
           'cd {{ bind_dir_on_container }} \
           && chown -R {{ userid_on_the_host.stdout }} output_* | : \
-          && chown {{ userid_on_the_host.stdout }} runtime_* | : \
+          && chown {{ userid_on_the_host.stdout }} runtime_* app_log_* datagen_log_* | : \
           && chown -R {{ userid_on_the_host.stdout }} hadoop_logs'"
         args:
           executable: /bin/bash
+
+      # TODO: actually transfer files from nodes to server, instead of relying on shared folders (NFS and such)
+      - name: Copy hadoop logs to server node
+        when: "app_jar != '' and input_dir != output_dir"
+        copy:
+          src: "{{ input_dir }}"
+          dest: "{{ output_dir }}"
+          remote_src: yes
+        vars:
+          input_dir: "{{ container_bind_dir }}/hadoop_logs/"
+          output_dir: "{{ default_bind_path }}/singularity_binds/{{ rm_container }}/hadoop_logs/"
+
+      - name: Remove hadoop local logs
+        when: "app_jar != '' and input_dir != output_dir"
+        file:
+          path: "{{ input_dir }}"
+          state: absent
+        vars:
+          input_dir: "{{ container_bind_dir }}/hadoop_logs"
+          output_dir: "{{ default_bind_path }}/singularity_binds/{{ rm_container }}/hadoop_logs"
 
       - name: Remove app files directory
         when: "files_dir != ''"
@@ -370,3 +409,13 @@
         args:
           executable: /bin/bash
     tags: never, stop_hadoop_cluster
+
+  ## Set hadoop logs timestamp
+  - name: Set hadoop logs timestamp
+    delegate_to: localhost
+    when: "app_jar != ''"
+    shell: "mv hadoop_logs hadoop_logs_`date +%d-%m-%y--%H-%M-%S`"
+    args:
+      chdir: "{{ default_bind_path }}/singularity_binds/{{ rm_container }}"
+      executable: /bin/bash
+    tags: never, set_hadoop_logs_timestamp

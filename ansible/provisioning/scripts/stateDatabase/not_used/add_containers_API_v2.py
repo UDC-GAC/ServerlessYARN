@@ -5,6 +5,13 @@ import requests
 import json
 from bs4 import BeautifulSoup
 
+# import urllib.request
+# from urllib.parse import urlencode
+# import urllib.error
+
+# import pycurl
+# from io import StringIO
+
 rescaler_port = "8000"
 cpu_default_boundary = 20
 mem_default_boundary = 256
@@ -57,11 +64,18 @@ if __name__ == "__main__":
             config = yaml.load(f, Loader=yaml.FullLoader)
 
         host_shares = host_cpu * 100
-        orchestrator_url = "http://{0}:{1}".format(config['server_ip'],config['orchestrator_port'])
-        headers = {'Content-Type': 'application/json'}
+        orchestrator_url = "http://{0}:{1}".format("127.0.0.1",config['orchestrator_port'])
+        headers = {'Content-Type': 'application/json', 'Transfer-Encoding': 'chunked', 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:62.0) Gecko/20100101 Firefox/62.0'}
+
+        session = requests.Session()
+
+        # c = pycurl.Curl()
+        # c.setopt(c.HTTPHEADER, headers)
 
         ## Add host
         full_url = "{0}/structure/host/{1}".format(orchestrator_url, new_host)
+
+        #c.setopt(c.URL, full_url)
 
         put_field_data = base_host_to_API
         put_field_data['name'] = new_host
@@ -83,7 +97,7 @@ if __name__ == "__main__":
             else: new_disk['type'] = "HDD"
             put_field_data['resources']["disks"].append(new_disk)
 
-        r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+        r = session.put(full_url, data=json.dumps(put_field_data), headers=headers, verify=False)
 
         if (r != "" and r.status_code != requests.codes.ok):
             soup = BeautifulSoup(r.text, features="html.parser")
@@ -92,6 +106,32 @@ if __name__ == "__main__":
                 print("Host {0} already exists".format(new_host))
             else:
                 raise Exception("Error adding host {0}: {1}".format(new_host, soup.get_text().strip()))
+
+        # req = urllib.request.Request(full_url, headers=headers, method='PUT', data=json.dumps(put_field_data).encode('utf-8'))
+        # try:
+        #     response = urllib.request.urlopen(req)
+        # except urllib.error.HTTPError as e:
+        #     text = e.read().decode('utf-8')
+        #     if e.status == 400 and "already exists" in text:
+        #         # Host already exists
+        #         print("Host {0} already exists".format(new_host))
+        #     else:
+        #         raise Exception("Error adding host {0}: {1}".format(new_host, text))
+
+        # buffer = StringIO()
+        # c.setopt(c.UPLOAD, 1)
+        # c.setopt(c.READDATA, json.dumps(put_field_data))
+        # c.setopt(c.WRITEFUNCTION, buffer.write)
+        # c.perform()
+
+        # status_code = c.getinfo(c.RESPONSE_CODE)
+        # if (status_code != requests.codes.ok):
+        #     soup = BeautifulSoup(buffer.getvalue(), features="html.parser")
+        #     if status_code == 400 and "already exists" in soup.get_text().strip():
+        #         # Host already exists
+        #         print("Host {0} already exists".format(new_host))
+        #     else:
+        #         raise Exception("Error adding host {0}: {1}".format(new_host, soup.get_text().strip()))
 
         ## Add containers
         for cont in containers:
@@ -128,7 +168,7 @@ if __name__ == "__main__":
                 put_field_data['container']['resources']["disk"]["name"] = cont['disk']
                 put_field_data['container']['resources']["disk"]["path"] = cont['disk_path']
 
-            r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+            r = session.put(full_url, data=json.dumps(put_field_data), headers=headers, verify=False)
 
             if (r != "" and r.status_code != requests.codes.ok):
                 soup = BeautifulSoup(r.text, features="html.parser")
@@ -137,3 +177,32 @@ if __name__ == "__main__":
                     print("Container {0} already exists".format(cont['container_name']))
                 else:
                     raise Exception("Error adding container {0}: {1}".format(cont['container_name'], soup.get_text().strip()))
+
+            #raise Exception("TESTING")
+
+            # req = urllib.request.Request(full_url, headers=headers, method='PUT', data=json.dumps(put_field_data).encode('utf-8'))
+            # try:
+            #     response = urllib.request.urlopen(req)
+            # except urllib.error.HTTPError as e:
+            #     text = e.read().decode('utf-8')
+            #     if e.status == 400 and "already exists" in text:
+            #         # Container already exists
+            #         print("Container {0} already exists".format(cont['container_name']))
+            #     else:
+            #         raise Exception("Error adding container {0}: {1}".format(cont['container_name'], text))
+
+            # buffer = StringIO()
+            # c.setopt(c.UPLOAD, 1)
+            # c.setopt(c.READDATA, json.dumps(put_field_data))
+            # c.setopt(c.WRITEFUNCTION, buffer.write)
+            # c.perform()
+
+            # status_code = c.getinfo(c.RESPONSE_CODE)
+
+            # if (status_code != requests.codes.ok):
+            #     soup = BeautifulSoup(buffer.getvalue(), features="html.parser")
+            #     if status_code == 400 and "already exists" in soup.get_text().strip():
+            #         # Container already exists
+            #         print("Container {0} already exists".format(cont['container_name']))
+            #     else:
+            #         raise Exception("Error adding container {0}: {1}".format(cont['container_name'], soup.get_text().strip()))

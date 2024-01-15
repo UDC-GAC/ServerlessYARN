@@ -2,6 +2,9 @@
 - name: Check if BDWatchdog directory is already there
   stat:
     path: "{{ bdwatchdog_source_path }}"
+    get_checksum: false
+    get_mime: false
+    get_attributes: false
   register: stat_output
   
 ## get the user executing the playbook

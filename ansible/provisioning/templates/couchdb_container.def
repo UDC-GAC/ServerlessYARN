@@ -10,6 +10,9 @@ From: ubuntu:20.04
     curl https://couchdb.apache.org/repo/keys.asc | gpg --dearmor | tee /usr/share/keyrings/couchdb-archive-keyring.gpg >/dev/null 2>&1 
     source /etc/os-release 
     echo "deb [signed-by=/usr/share/keyrings/couchdb-archive-keyring.gpg] https://apache.jfrog.io/artifactory/couchdb-deb/ focal main" | tee /etc/apt/sources.list.d/couchdb.list >/dev/null
+    apt-get -y update
+    debconf-copydb importmedb configdb --config=Name:importmedb --config=Driver:File --config=Filename:/opt/debian_couchdb_conf.dat
+    apt-get install -y couchdb
 
 %startscript
-    apt-get -y update && debconf-copydb importmedb configdb --config=Name:importmedb --config=Driver:File --config=Filename:/opt/debian_couchdb_conf.dat && apt-get install -y couchdb && /opt/couchdb/bin/couchdb
+    /opt/couchdb/bin/couchdb

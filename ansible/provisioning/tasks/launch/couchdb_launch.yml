@@ -40,11 +40,6 @@
             chdir: "{{ installation_path }}"
             executable: /bin/bash
 
-        - name: Wait some seconds for CouchDB to start
-          when: "'\"instance\": \"{{ container_name }}\",' not in apptainer_list_output.stdout"
-          pause:
-            seconds: 30
-
       when: "container_engine == 'apptainer'"
       vars:
         - definition_file: "couchdb_container.def"

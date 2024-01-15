@@ -18,6 +18,9 @@
 - name: Check if ServerlessContainers directory is already there
   stat:
     path: "{{ serverless_containers_path }}"
+    get_checksum: false
+    get_mime: false
+    get_attributes: false
   register: stat_output
 
 ## get the user executing the playbook

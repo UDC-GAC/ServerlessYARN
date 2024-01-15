@@ -2,6 +2,9 @@
 - name: Check if BDWatchdog directory is already there
   stat:
     path: "{{ item }}"
+    get_checksum: false
+    get_mime: false
+    get_attributes: false
   with_items:
     - "{{ bdwatchdog_path }}"
     - "{{ bdwatchdog_source_path }}"

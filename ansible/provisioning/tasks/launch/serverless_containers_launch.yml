@@ -31,7 +31,7 @@
   shell: tmux ls
   register: tmux_output
   ignore_errors: yes
-  tags: start_containers, restart_services
+  tags: restart_services
 
 # Starting Services
 - name: Starting Services
@@ -51,15 +51,42 @@
     - rebalancer
   tags: restart_services
 
-## Structures Using new script
-- name: Initializing State Database - structures
-  shell: "python3 scripts/stateDatabase/add_containers_API_v2.py {{ item }} {{ hostvars[item].cpu }} {{ hostvars[item].mem }} {{ disks }} {{ containers_info | replace(' ','') | quote }} config/config.yml"
+## Hosts
+- name: Initializing State Database - hosts
+  shell: "python3 scripts/stateDatabase/add_hosts_API.py {{ item }} {{ hostvars[item].cpu }} {{ hostvars[item].mem }} {{ disks }} config/config.yml"
   args:
     executable: /bin/bash
   vars:
     disks: "{{ hostvars[item].disks | replace(' ','') | quote }}"
   with_items: "{{ nodes }}"
+
+## Disable scaler service before adding containers
+- name: Disabling Scaler service
+  shell: "bash scripts/orchestrator/Scaler/deactivate.sh"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+  tags: never, start_containers
+
+## Containers
+- name: Initializing State Database - containers
+  shell: "python3 scripts/stateDatabase/add_containers_API_v3.py {{ containers_info | replace(' ','') | quote }} config/config.yml"
+  args:
+    executable: /bin/bash
   tags: start_containers
+
+## Reactivate Scaler after adding containers
+- name: Activating Scaler service
+  shell: "bash scripts/orchestrator/Scaler/activate.sh"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+  tags: never, start_containers
+
+- name: fail
+  fail:
+    msg: fail
+  tags: never, start_containers
 
 ## Activate Services
 - name: Activating Services
@@ -74,4 +101,4 @@
     - Scaler
     - Refeeder
     - Rebalancer
-  tags: start_containers, restart_services
+  tags: restart_services

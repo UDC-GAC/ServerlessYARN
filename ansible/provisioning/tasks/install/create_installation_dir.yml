@@ -9,3 +9,9 @@
     path: "{{ installation_path }}"
     state: directory
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
+
+- name: Create tmp directory
+  file:
+    path: "{{ installation_path }}/tmpdir"
+    state: directory
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"

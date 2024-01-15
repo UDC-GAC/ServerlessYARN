@@ -34,6 +34,9 @@
 - name: Check for redis installation
   stat:
     path: "{{ installation_path }}/redis/src/redis-server"
+    get_checksum: false
+    get_mime: false
+    get_attributes: false
   register: stat_output
 
 - name: Create redis directory
