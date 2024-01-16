@@ -5,6 +5,9 @@ scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 
 INVENTORY=${scriptDir}/../../ansible.inventory
 
+## Copy ansible.cfg to $HOME
+cp ${scriptDir}/../../ansible.cfg ~/.ansible.cfg
+
 if [ ! -z ${SLURM_JOB_ID} ]
 then
     echo "Loading config from SLURM"

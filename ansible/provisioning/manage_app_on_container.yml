@@ -105,7 +105,7 @@
             run_once: yes
             template:
               src: "templates/hadoop/{{ item }}"
-              dest: "{{ installation_path }}/tmpdir/{{ item }}"
+              dest: "{{ tmpdir }}/{{ item }}"
             loop: "{{ hadoop_file_list }}"
 
           - name: Copy spark config files to master
@@ -113,20 +113,20 @@
             run_once: yes
             template:
               src: "templates/spark/{{ item }}"
-              dest: "{{ installation_path }}/tmpdir/{{ item }}"
+              dest: "{{ tmpdir }}/{{ item }}"
             loop: "{{ spark_file_list }}"
 
           - name: Copy config files to hosts
             synchronize:
-              src: "{{ installation_path }}/tmpdir/"
-              dest: "{{ installation_path }}/tmpdir/"
+              src: "{{ tmpdir }}/"
+              dest: "{{ tmpdir }}/"
 
           - name: Copy and update hadoop config files to containers
             shell: "{% for item in containers_info %}
               {% if item.host == inventory_hostname %}
               {% for file in hadoop_file_list %}
-              {% set bind_dir = item.disk_path + '/singularity_binds' if item.disk_path is defined else default_bind_path + '/singularity_binds' %}
-              cp {{ installation_path }}/tmpdir/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
+              {% set bind_dir = item.disk_path + '/' + {{ bind_dir_name }} if item.disk_path is defined else default_bind_path + '/' + {{ bind_dir_name }} %}
+              cp {{ tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
               {% endfor %}
               sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
               '{% for file in hadoop_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $HADOOP_CONF_DIR/{{ file }} && {% endfor %}true' && 
@@ -139,8 +139,8 @@
             shell: "{% for item in containers_info %}
               {% if item.host == inventory_hostname %}
               {% for file in spark_file_list %}
-              {% set bind_dir = item.disk_path + '/singularity_binds' if item.disk_path is defined else default_bind_path + '/singularity_binds' %}
-              cp {{ installation_path }}/tmpdir/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
+              {% set bind_dir = item.disk_path + '/' + {{ bind_dir_name }} if item.disk_path is defined else default_bind_path + '/' + {{ bind_dir_name }} %}
+              cp {{ tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
               {% endfor %}
               sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
               '{% for file in spark_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $SPARK_CONF_DIR/{{ file }} && {% endfor %}true' && 
@@ -162,6 +162,7 @@
         args:
           executable: /bin/bash
 
+      ## TODO: fusion with fetch below
       - name: Prepare RM/NN container bind path variable
         when: "item.container_name == rm_container"
         set_fact:
@@ -172,25 +173,25 @@
       - name: Fetch RM/NN container ssh public key
         when: rm_host == inventory_hostname
         synchronize:
-          src: "{{ bind_dir }}/{{ rm_container }}/{{ rm_container}}.pub"
-          dest: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container}}.pub"
+          src: "{{ bind_dir }}/{{ rm_container }}/{{ rm_container }}.pub"
+          dest: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container }}.pub"
           mode: pull
         vars:
           bind_path: "{{ rm_container_bind_path }}"
 
       - name: Copy RM/NN container ssh public key to hosts
         synchronize:
-          src: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container}}.pub"
-          dest: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container}}.pub"
+          src: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container }}.pub"
+          dest: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container }}.pub"
 
       - name: Copy and append RM/NN container ssh public key to the other containers
         shell: "{% for item in containers_info %}
           {% if item.host == inventory_hostname and item.container_name != rm_container %}
-          {% set bind_dir = item.disk_path + '/singularity_binds' if item.disk_path is defined else default_bind_path + '/singularity_binds' %}
-          cp {{ installation_path }}/apps/{{ app_name }}/{{ rm_container}}.pub {{ bind_dir }}/{{ item.container_name }}/{{ rm_container}}.pub && \
+          {% set bind_dir = item.disk_path + '/' + {{ bind_dir_name }} if item.disk_path is defined else default_bind_path + '/' + {{ bind_dir_name }} %}
+          cp {{ installation_path }}/apps/{{ app_name }}/{{ rm_container }}.pub {{ bind_dir }}/{{ item.container_name }}/{{ rm_container }}.pub && \
           sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
-          'cat {{ bind_dir_on_container }}/{{ rm_container}}.pub >> ~/.ssh/authorized_keys \
-          && rm {{ bind_dir_on_container }}/{{ rm_container}}.pub' && 
+          'cat {{ bind_dir_on_container }}/{{ rm_container }}.pub >> ~/.ssh/authorized_keys \
+          && rm {{ bind_dir_on_container }}/{{ rm_container }}.pub' && 
           {% endif  %}
           {% endfor %}true"
         args:
@@ -378,7 +379,7 @@
           remote_src: yes
         vars:
           input_dir: "{{ container_bind_dir }}/hadoop_logs/"
-          output_dir: "{{ default_bind_path }}/singularity_binds/{{ rm_container }}/hadoop_logs/"
+          output_dir: "{{ default_bind_path }}/{{ bind_dir_name }}/{{ rm_container }}/hadoop_logs/"
 
       - name: Remove hadoop local logs
         when: "app_jar != '' and input_dir != output_dir"
@@ -387,7 +388,7 @@
           state: absent
         vars:
           input_dir: "{{ container_bind_dir }}/hadoop_logs"
-          output_dir: "{{ default_bind_path }}/singularity_binds/{{ rm_container }}/hadoop_logs"
+          output_dir: "{{ default_bind_path }}/{{ bind_dir_name }}/{{ rm_container }}/hadoop_logs"
 
       - name: Remove app files directory
         when: "files_dir != ''"
@@ -416,6 +417,6 @@
     when: "app_jar != ''"
     shell: "mv hadoop_logs hadoop_logs_`date +%d-%m-%y--%H-%M-%S`"
     args:
-      chdir: "{{ default_bind_path }}/singularity_binds/{{ rm_container }}"
+      chdir: "{{ default_bind_path }}/{{ bind_dir_name }}/{{ rm_container }}"
       executable: /bin/bash
     tags: never, set_hadoop_logs_timestamp

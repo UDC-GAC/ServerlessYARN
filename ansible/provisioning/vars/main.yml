@@ -1,13 +1,20 @@
+## Installation path variables
 installation_path: /home/vagrant/ServerlessYARN_install
 bdwatchdog_path: "{{ installation_path }}/BDWatchdog"
 bdwatchdog_source_path: "{{ installation_path }}/BDWatchdog_source"
 serverless_containers_path: "{{ installation_path }}/ServerlessContainers"
-lxd_key_path: "{{ serverless_containers_path }}"
-opentsdb_log_path: "{{ bdwatchdog_path }}/opentsdb/log"
 apptainer_repo_path: "{{ installation_path }}/apptainer"
-web_interface_path: services/serverless_containers_web
-singularity_cgroups_group: singularity
+lxd_key_path: "{{ serverless_containers_path }}"
+tmpdir: "{{ installation_path }}/tmpdir"
+
+## Container bind directories variables
 default_bind_path: "{{ installation_path }}"
 bind_path: "{{ default_bind_path }}"
-bind_dir: "{{ bind_path }}/singularity_binds"
+bind_dir_name: "{{ singularity_binds }}"
+bind_dir: "{{ bind_path }}/{{ bind_dir_name }}"
 bind_dir_on_container: /opt/bind
+
+## Other
+opentsdb_log_path: "{{ bdwatchdog_path }}/opentsdb/log"
+web_interface_path: services/serverless_containers_web
+singularity_cgroups_group: singularity

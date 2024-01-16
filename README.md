@@ -69,7 +69,7 @@ The platform need to be installed and deployed on a master node (or "server" nod
     bash start_all.sh
     ```
 
-**NOTE**: When deploying on an existing cluster through SLURM, you may skip the execution of the **"load_inventory_from_conf.py"** script. The inventory will be automatically generated considering the available nodes.
+**NOTE**: When deploying on an existing cluster through SLURM, you may skip the execution of the **"load_inventory_from_conf.py"** script. The inventory will be automatically generated considering the available nodes. A sample script for sbatch is provided on the **"slurm"** directory.
 
 
 - Once you are done, you can shutdown the virtual cluster (if applicable) exiting the server node and executing:

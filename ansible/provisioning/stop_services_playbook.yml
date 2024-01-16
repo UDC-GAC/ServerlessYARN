@@ -27,7 +27,7 @@
       executable: /bin/bash
     tags: never, stop_node_scaler
 
-# Stop opentsdb from server
+# Stop services from server
 - hosts: localhost
   become: no
   gather_facts: no
@@ -41,7 +41,7 @@
     shell: tmux ls
     register: tmux_output
     ignore_errors: yes
-    tags: never, stop_opentsdb
+    tags: never, stop_opentsdb, stop_services
 
   - name: Stop OPENTSDB
     shell: bash stop.sh
@@ -50,3 +50,32 @@
       chdir: "{{ bdwatchdog_path }}/deployment/metrics"
       executable: /bin/bash
     tags: never, stop_opentsdb
+
+  - name: Stop Redis DB
+    when: "'redis_server' in tmux_output.stdout"
+    shell: ./redis-cli shutdown
+    args:
+      chdir: "{{ installation_path }}/redis/src"
+      executable: /bin/bash
+    tags: never, stop_services
+
+  - name: Stop other services
+    when: "item in tmux_output.stdout"
+    shell: "tmux kill-session -t {{ item }}"
+    args:
+      executable: /bin/bash
+    loop:
+      - rebooter
+      - celery
+      - web_interface
+      - rebalancer
+      - sanity_checker
+      - refeeder
+      - scaler
+      - guardian
+      - structure_snapshoter
+      - database_snapshoter
+      - orchestrator
+    tags: never, stop_services
+
+    ## Stop all other services

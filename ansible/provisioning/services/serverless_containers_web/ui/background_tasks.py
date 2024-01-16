@@ -599,22 +599,25 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
             ## 'BDEv' way of calculating resources:
             #number_of_hadoop_containers = int(min(2*total_cores, available_memory/min_container_size))
 
+            virtual_cluster = True
+
+            if virtual_cluster:
+                ## Virtual cluster config (test environment with low resources)
+                hyperthreading = False
+                app_master_heapsize = 128
+                nodemanager_d_heapsize = 0
+                datanode_d_heapsize = 0
+            else:
+                ## Physical cluster config (real environment with (presumably) high resources)
+                hyperthreading = True
+                app_master_heapsize = 1024
+                nodemanager_d_heapsize = 1024
+                datanode_d_heapsize = 1024
+
             ## adjust total_cores to hyperthreading system
-            ## TODO: check if system has hyperthreading
-            hyperthreading = False
+            ## TODO: check if system actually has hyperthreading
             if hyperthreading:
                 total_cores = total_cores // 2
-
-            ## Virtual cluster config (test environment with low resources)
-            app_master_heapsize = 128
-            nodemanager_d_heapsize = 0
-            datanode_d_heapsize = 0
-
-            ## Physical cluster config (real environment with (presumably) high resources)
-            # app_master_heapsize = 1024
-            # nodemanager_d_heapsize = 1024
-            # datanode_d_heapsize = 1024
-
 
             app_master_memory_overhead = int(app_master_heapsize * 0.1)
             if app_master_memory_overhead < 384:

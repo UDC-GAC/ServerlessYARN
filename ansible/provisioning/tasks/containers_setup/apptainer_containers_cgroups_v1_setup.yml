@@ -137,7 +137,7 @@
     - name: Create directories to bind to containers
       shell: "{% for item in containers_info %}
         {% if item.host == inventory_hostname %}
-        {% set bind_dir = item.disk_path + '/singularity_binds' if item.disk_path is defined else default_bind_path + '/singularity_binds' %}
+        {% set bind_dir = item.disk_path + '/' + {{ bind_dir_name }} if item.disk_path is defined else default_bind_path + '/' + {{ bind_dir_name }} %}
         mkdir -p {{ bind_dir }}/{{ item.container_name }} && 
         {% endif  %}
         {% endfor %}true"
@@ -147,7 +147,7 @@
     - name: Start apptainer containers
       shell: "{% for item in containers_info %}
         {% if item.host == inventory_hostname and '\"instance\": \"{{ item.container_name }}\",' not in apptainer_list_output.stdout %}
-        {% set bind_dir = item.disk_path + '/singularity_binds' if item.disk_path is defined else default_bind_path + '/singularity_binds' %}
+        {% set bind_dir = item.disk_path + '/' + {{ bind_dir_name }} if item.disk_path is defined else default_bind_path + '/' + {{ bind_dir_name }} %}
         sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --hostname {{ item.container_name }} --apply-cgroups {{ cgroups_file }} --bind {{ bind_dir }}/{{ item.container_name }}:{{ bind_dir_on_container }} images/{{ image_file }} {{ item.container_name }} && 
         {% endif  %}
         {% endfor %}true"
@@ -160,7 +160,7 @@
     - name: Setup host resolution in containers and change cgroups v1 permissions
       shell: "{% for item in containers_info %}
         {% if item.host == inventory_hostname %}
-        {% set bind_dir = item.disk_path + '/singularity_binds' if item.disk_path is defined else default_bind_path + '/singularity_binds' %}
+        {% set bind_dir = item.disk_path + '/' + {{ bind_dir_name }} if item.disk_path is defined else default_bind_path + '/' + {{ bind_dir_name }} %}
         cp /etc/hosts {{ bind_dir }}/{{ item.container_name }}/hosts \
         && sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
           'echo {{ server_ip }} opentsdb >> /etc/hosts \
