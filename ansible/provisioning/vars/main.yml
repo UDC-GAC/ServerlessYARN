@@ -10,7 +10,7 @@ tmpdir: "{{ installation_path }}/tmpdir"
 ## Container bind directories variables
 default_bind_path: "{{ installation_path }}"
 bind_path: "{{ default_bind_path }}"
-bind_dir_name: "{{ singularity_binds }}"
+bind_dir_name: singularity_binds
 bind_dir: "{{ bind_path }}/{{ bind_dir_name }}"
 bind_dir_on_container: /opt/bind
 

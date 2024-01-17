@@ -83,11 +83,6 @@
     executable: /bin/bash
   tags: never, start_containers
 
-- name: fail
-  fail:
-    msg: fail
-  tags: never, start_containers
-
 ## Activate Services
 - name: Activating Services
   shell: "bash scripts/orchestrator/{{ item }}/activate.sh"
