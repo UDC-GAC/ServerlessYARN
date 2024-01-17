@@ -10,6 +10,8 @@ cp ${scriptDir}/../../ansible.cfg ~/.ansible.cfg
 
 if [ ! -z ${SLURM_JOB_ID} ]
 then
+    echo "Downloading required packages for scripts"
+    pip3 install -r ${scriptDir}/requirements.txt
     echo "Loading config from SLURM"
     python3 ${scriptDir}/load_config_from_slurm.py
     echo ""

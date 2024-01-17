@@ -78,7 +78,8 @@ def test_opentsdb_connection(opentsdb_server):
         stop_opentsdb()
 
 def check_services():
-    logging.basicConfig(filename=SERVICE_NAME + '.log', level=logging.INFO)
+    date_file = str(time.strftime("%d-%m-%y", time.localtime()))
+    logging.basicConfig(filename="{0}_{1}.log".format(SERVICE_NAME, date_file), level=logging.INFO)
     global debug
     global SERVICES
 
@@ -112,7 +113,6 @@ def check_services():
         sessions_missing = 0
 
         try:
-
             ## OpenTSBD test
             test_opentsdb_connection(opentsdb_server)
 
@@ -129,13 +129,13 @@ def check_services():
         if sessions_missing:
             ## restart services
             r.run()
-            log_info("{}: {}".format(r.status, r.rc),debug)
+            log_info("{},{}: {}".format(r.status, r.rc, r.stderr),debug)
 
         else:
             log_info("All services started", debug)
 
-
         log_info("Services checked", debug)
+        log_info("-------------------------------------", debug)
 
         delay = 300
         time_waited = 0

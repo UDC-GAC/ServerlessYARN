@@ -125,7 +125,7 @@
             shell: "{% for item in containers_info %}
               {% if item.host == inventory_hostname %}
               {% for file in hadoop_file_list %}
-              {% set bind_dir = item.disk_path + '/' + {{ bind_dir_name }} if item.disk_path is defined else default_bind_path + '/' + {{ bind_dir_name }} %}
+              {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
               cp {{ tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
               {% endfor %}
               sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
@@ -139,7 +139,7 @@
             shell: "{% for item in containers_info %}
               {% if item.host == inventory_hostname %}
               {% for file in spark_file_list %}
-              {% set bind_dir = item.disk_path + '/' + {{ bind_dir_name }} if item.disk_path is defined else default_bind_path + '/' + {{ bind_dir_name }} %}
+              {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
               cp {{ tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
               {% endfor %}
               sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
@@ -187,7 +187,7 @@
       - name: Copy and append RM/NN container ssh public key to the other containers
         shell: "{% for item in containers_info %}
           {% if item.host == inventory_hostname and item.container_name != rm_container %}
-          {% set bind_dir = item.disk_path + '/' + {{ bind_dir_name }} if item.disk_path is defined else default_bind_path + '/' + {{ bind_dir_name }} %}
+          {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
           cp {{ installation_path }}/apps/{{ app_name }}/{{ rm_container }}.pub {{ bind_dir }}/{{ item.container_name }}/{{ rm_container }}.pub && \
           sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
           'cat {{ bind_dir_on_container }}/{{ rm_container }}.pub >> ~/.ssh/authorized_keys \
