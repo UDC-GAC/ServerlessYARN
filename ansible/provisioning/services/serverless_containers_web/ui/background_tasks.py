@@ -9,29 +9,27 @@ import redis
 import json
 import timeit
 
-r = redis.Redis()
+redis_server = redis.StrictRedis()
 redis_prefix = "pending_tasks"
 # TODO: check if lock is actually working
-lock = r.lock("celery")
+lock_key = "ansible_inventory_access_lock"
 
 ## Celery tasks managing
 def register_task(task_id, task_name):
     key = "{0}:{1}".format(redis_prefix,task_id)
-    #r.mset({key: task_name})
-    r.hset(key, "task_name", task_name)
+    redis_server.hset(key, "task_name", task_name)
 
 def update_task_runtime(task_id, runtime):
     key = "{0}:{1}".format(redis_prefix,task_id)
-    r.hset(key, "runtime", runtime)
+    redis_server.hset(key, "runtime", runtime)
 
 def get_pending_tasks():
     still_pending_tasks = []
     successful_tasks = []
     failed_tasks = []
 
-    for key in r.scan_iter("{0}:*".format(redis_prefix)):
-        #task_name = r.get(key).decode("utf-8")
-        task_name = r.hget(key, "task_name").decode("utf-8")
+    for key in redis_server.scan_iter("{0}:*".format(redis_prefix)):
+        task_name = redis_server.hget(key, "task_name").decode("utf-8")
         task_id = key.decode("utf-8")[len(redis_prefix) + 1:]
         task_result = AsyncResult(task_id)
         status = task_result.status
@@ -39,7 +37,7 @@ def get_pending_tasks():
         if status != "SUCCESS" and status != "FAILURE":
             still_pending_tasks.append((task_id,task_name))
         elif status == "SUCCESS":
-            if r.hexists(key, "runtime"): runtime = r.hget(key, "runtime").decode("utf-8")
+            if redis_server.hexists(key, "runtime"): runtime = redis_server.hget(key, "runtime").decode("utf-8")
             else: runtime = None
             successful_tasks.append((task_id,task_name,runtime))
         else:
@@ -47,12 +45,10 @@ def get_pending_tasks():
 
     # remove completed or failed tasks
     for task_id, task_name, runtime in successful_tasks:
-        r.delete("{0}:{1}".format(redis_prefix, task_id))
+        redis_server.delete("{0}:{1}".format(redis_prefix, task_id))
 
     for task_id, task_name, task_error in failed_tasks:
-        r.delete("{0}:{1}".format(redis_prefix, task_id))
-
-    # TODO: remove pending tasks after a timeout
+        redis_server.delete("{0}:{1}".format(redis_prefix, task_id))
 
     return still_pending_tasks, successful_tasks, failed_tasks
 
@@ -148,7 +144,7 @@ def get_min_container_size(node_memory):
 def add_host_task(host,cpu,mem,disk_info,new_containers):
 
     # update_inventory_file
-    with lock:
+    with redis_server.lock(lock_key):
         add_host(structure_name,cpu,mem,disk_info,new_containers)
 
     rc = subprocess.Popen(["./ui/scripts/configure_host.sh",host], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -236,7 +232,7 @@ def add_container_to_app_task(full_url, headers, host, container, app, app_files
 def start_containers_task(host, new_containers, container_resources):
 
     # update inventory file
-    with lock:
+    with redis_server.lock(lock_key):
         added_containers = add_containers_to_hosts(new_containers)
 
     added_formatted_containers = container_list_to_formatted_str(added_containers[host])
@@ -274,7 +270,7 @@ def start_containers_with_app_task(already_added_containers, url, headers, host,
         return already_added_containers
 
     # update inventory file
-    with lock:
+    with redis_server.lock(lock_key):
         added_containers = add_containers_to_hosts({host: new_containers})
 
     added_formatted_containers = container_list_to_formatted_str(added_containers[host])
@@ -318,7 +314,7 @@ def start_containers_with_app_task(already_added_containers, url, headers, host,
 def start_containers_task_v2(new_containers, container_resources):
 
     # update inventory file
-    with lock:
+    with redis_server.lock(lock_key):
         added_containers = add_containers_to_hosts(new_containers)
 
     containers_info = []
@@ -364,7 +360,7 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
     added_containers = {}
 
     # update inventory file
-    with lock:
+    with redis_server.lock(lock_key):
         for host in new_containers:
             added_containers[host] = {}
             for container_type in ['rm-nn','irregular','regular']:
@@ -464,7 +460,6 @@ def start_app(url, headers, app, app_files, new_containers, container_resources,
         i += 1
 
     if len(start_containers_tasks) > 0:
-        # Celery chords may be the best solution, but they seem to be somewhat bugged
         #task = chord(start_containers_tasks)(setup_network_task)
 
         start_containers_tasks.append(setup_network_task)
@@ -700,18 +695,18 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
             break
 
     # Stop and remove containers
+    stop_containers_task = []
     for container in app_containers:
         if container['container_name'] != rm_container:
             full_url = url + "container/{0}/{1}".format(container['container_name'],app)
-            # task = remove_container_from_app_task.delay(full_url, headers, container['host'], container, app, app_files, rm_container)
-            # print("Starting task with id {0}".format(task.id))
-            # register_task(task.id,"remove_container_from_app_task")
-            remove_container_from_app_task(full_url, headers, container['host'], container, app, app_files, rm_container)
-            # Workaround to keep all updates to State DB
-            time.sleep(0.5)
+            stop_task = remove_container_from_app_task.si(full_url, headers, container['host'], container, app, app_files, rm_container)
+            stop_containers_task.append(stop_task)
 
-    set_hadoop_logs_timestamp(app, app_files, rm_host, rm_container)
+    set_hadoop_logs_timestamp_task = set_hadoop_logs_timestamp.si(app, app_files, rm_host, rm_container)
+    log_task = chord(stop_containers_task)(set_hadoop_logs_timestamp_task)
+    register_task(log_task.id,"stop_containers_task")
 
+@shared_task
 def set_hadoop_logs_timestamp(app, app_files, rm_host, rm_container):
 
     rc = subprocess.Popen([
@@ -834,7 +829,7 @@ def remove_container_task(full_url, headers, host_name, cont_name):
             raise Exception(error)
 
         # update inventory file
-        with lock:
+        with redis_server.lock(lock_key):
             remove_container_from_host(cont_name,host_name)
     else:
         raise Exception(error)
@@ -864,7 +859,7 @@ def remove_host_task(full_url, headers, host_name):
             raise Exception(error)
 
         # update inventory file
-        with lock:         
+        with redis_server.lock(lock_key):
             remove_host(host_name)
     else:
         raise Exception(error)
