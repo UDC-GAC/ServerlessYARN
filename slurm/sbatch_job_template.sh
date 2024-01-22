@@ -44,4 +44,3 @@ TIME_LIMIT=`squeue -j $SLURM_JOB_ID --Format=timelimit -h`
 SLEEP_TIME=`date -d "1970-01-01 ${TIME_LIMIT} Z" +%s`
 sleep ${SLEEP_TIME} &
 wait
-

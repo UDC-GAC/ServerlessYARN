@@ -11,7 +11,6 @@ import timeit
 
 redis_server = redis.StrictRedis()
 redis_prefix = "pending_tasks"
-# TODO: check if lock is actually working
 lock_key = "ansible_inventory_access_lock"
 
 ## Celery tasks managing
@@ -138,6 +137,17 @@ def get_min_container_size(node_memory):
 
     return min_container_size
 
+def process_script(script_name, argument_list, error_message):
+
+    rc = subprocess.Popen(["./ui/scripts/{0}.sh".format(script_name), *argument_list], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = rc.communicate()
+
+    # Log ansible output
+    print(out.decode("utf-8"))
+
+    if rc.returncode != 0:
+        error = "{0}: {1}".format(error_message, err.decode("utf-8"))
+        raise Exception(error)
 
 ## Adds
 @shared_task
@@ -147,15 +157,9 @@ def add_host_task(host,cpu,mem,disk_info,new_containers):
     with redis_server.lock(lock_key):
         add_host(structure_name,cpu,mem,disk_info,new_containers)
 
-    rc = subprocess.Popen(["./ui/scripts/configure_host.sh",host], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = rc.communicate()
-
-    # Log ansible output
-    print(out.decode("utf-8") )
-
-    if rc.returncode != 0:
-        error = "Error adding host {0}: {1}".format(host, err.decode("utf-8"))
-        raise Exception(error)
+    argument_list = [host]
+    error_message = "Error adding host {0}".format(host)
+    process_script("configure_host", argument_list, error_message)
 
 @shared_task
 def add_app_task(full_url, headers, put_field_data, app, app_files):
@@ -176,29 +180,34 @@ def add_app_task(full_url, headers, put_field_data, app, app_files):
             files_dir = app_files['files_dir']
             install_script = app_files['install_script']
 
-            rc = subprocess.Popen(["./ui/scripts/create_app.sh",definition_file, image_file, app, files_dir, install_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            out, err = rc.communicate()
-
-            # Log ansible output
-            print(out.decode("utf-8") )
-
-            if rc.returncode != 0:
-                error = "Error creating app {0}: {1}".format(app, err.decode("utf-8"))
-                raise Exception(error)
+            argument_list = [definition_file, image_file, app, files_dir, install_script]
+            error_message = "Error creating app {0}".format(app)
+            process_script("create_app", argument_list, error_message)
 
     else:
         raise Exception(error)
 
 def add_container_to_app_in_db(full_url, headers, container, app):
 
-    r = requests.put(full_url, headers=headers)
-
+    max_retries = 10
+    actual_try = 0
     error = ""
-    if (r != "" and r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error adding container " + container + " to app " + app + ": " + soup.get_text().strip()
 
-    if error != "": raise Exception(error)
+    while actual_try < max_retries:
+
+        r = requests.put(full_url, headers=headers)
+
+        if (r != "" and not r.ok):
+            response_text = BeautifulSoup(r.text, features="html.parser").get_text().strip()
+            if r.status_code == 400 and "already subscribed" in response_text:
+                break
+            else:
+                error = "Error adding container {0} to app {1}: {2}".format(container, app, response_text)
+                raise Exception(error)
+
+        actual_try += 1
+
+    if actual_try >= max_retries: raise Exception("Reached max tries when adding {0} to app {1}".format(container, app))
 
 @shared_task
 def add_container_to_app_task(full_url, headers, host, container, app, app_files):
@@ -215,101 +224,11 @@ def add_container_to_app_task(full_url, headers, host, container, app, app_files
     if 'disk_path' in container:
         bind_path = container['disk_path']
 
-    rc = subprocess.Popen(["./ui/scripts/start_app_on_container.sh", host, container['container_name'], app, files_dir, install_script, start_script, stop_script, app_jar, bind_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = rc.communicate()
-
-    # Log ansible output
-    print(out.decode("utf-8") )
-
-    if rc.returncode != 0:
-        error = "Error starting app {0} on container {1}: {2}".format(app, container['container_name'], err.decode("utf-8"))
-        raise Exception(error)
-
+    argument_list = [host, container['container_name'], app, files_dir, install_script, start_script, stop_script, app_jar, bind_path]
+    error_message = "Error starting app {0} on container {1}".format(app, container['container_name'])
+    process_script("start_app_on_container", argument_list, error_message)
 
 ## Start containers
-# Not used ATM
-@shared_task
-def start_containers_task(host, new_containers, container_resources):
-
-    # update inventory file
-    with redis_server.lock(lock_key):
-        added_containers = add_containers_to_hosts(new_containers)
-
-    added_formatted_containers = container_list_to_formatted_str(added_containers[host])
-
-    if added_formatted_containers == "":
-        # Nothing to do
-        return
-
-    max_cpu_percentage_per_container = container_resources["cpu_max"]
-    min_cpu_percentage_per_container = container_resources["cpu_min"]
-    cpu_boundary = container_resources["cpu_boundary"]
-    max_memory_per_container = container_resources["mem_max"]
-    min_memory_per_container = container_resources["mem_min"]
-    mem_boundary = container_resources["mem_boundary"]
-
-    rc = subprocess.Popen([
-        "./ui/scripts/start_containers.sh",host,added_formatted_containers, max_cpu_percentage_per_container, min_cpu_percentage_per_container, cpu_boundary, max_memory_per_container, min_memory_per_container, mem_boundary
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = rc.communicate()
-
-    # Log ansible output
-    print(out.decode("utf-8") )
-
-    if rc.returncode != 0:
-        error = "Error starting containers {0}: {1}".format(added_formatted_containers,err.decode("utf-8"))
-        raise Exception(error)
-
-# Not used ATM
-@shared_task
-def start_containers_with_app_task(already_added_containers, url, headers, host, new_containers, app, app_files, container_resources):
-    #TODO: merge function with start_containers_task
-
-    if new_containers == 0:
-        # Nothing to do
-        return already_added_containers
-
-    # update inventory file
-    with redis_server.lock(lock_key):
-        added_containers = add_containers_to_hosts({host: new_containers})
-
-    added_formatted_containers = container_list_to_formatted_str(added_containers[host])
-
-    # Start containers
-    if app_files['install_script'] and app_files['install_script'] != "":
-        template_definition_file="app_container.def"
-        definition_file = "{0}_container.def".format(app.replace(" ", "_"))
-        image_file = "{0}_container.sif".format(app.replace(" ", "_"))
-    elif app_files['app_jar'] and app_files['app_jar'] != "":
-        template_definition_file="hadoop_container.def"
-        definition_file = "hadoop_container.def"
-        image_file = "hadoop_container.sif"
-    else:
-        template_definition_file="ubuntu_container.def"
-        definition_file = "ubuntu_container.def"
-        image_file = "ubuntu_container.sif"
-
-    max_cpu_percentage_per_container = container_resources["cpu_max"]
-    min_cpu_percentage_per_container = container_resources["cpu_min"]
-    cpu_boundary = container_resources["cpu_boundary"]
-    max_memory_per_container = container_resources["mem_max"]
-    min_memory_per_container = container_resources["mem_min"]
-    mem_boundary = container_resources["mem_boundary"]
-
-    rc = subprocess.Popen([
-        "./ui/scripts/start_containers_with_app.sh", host, app, template_definition_file, definition_file, image_file, app_files['files_dir'], app_files['install_script'], app_files['app_jar'], added_formatted_containers, max_cpu_percentage_per_container, min_cpu_percentage_per_container, cpu_boundary, max_memory_per_container, min_memory_per_container, mem_boundary
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = rc.communicate()
-
-    # Log ansible output
-    print(out.decode("utf-8") )
-
-    if rc.returncode != 0:
-        error = "Error starting containers {0}: {1}".format(added_formatted_containers,err.decode("utf-8"))
-        raise Exception(error)
-
-    return mergeDictionary(already_added_containers,added_containers)
-
 @shared_task
 def start_containers_task_v2(new_containers, container_resources):
 
@@ -343,17 +262,9 @@ def start_containers_task_v2(new_containers, container_resources):
     hosts = ','.join(list(added_containers.keys()))
     formatted_containers_info = str(containers_info).replace(' ','')
 
-    rc = subprocess.Popen([
-        "./ui/scripts/start_containers.sh",hosts,formatted_containers_info
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = rc.communicate()
-
-    # Log ansible output
-    print(out.decode("utf-8") )
-
-    if rc.returncode != 0:
-        error = "Error starting containers {0}: {1}".format(formatted_containers_info,err.decode("utf-8"))
-        raise Exception(error)
+    argument_list = [hosts,formatted_containers_info]
+    error_message = "Error starting containers {0}".format(formatted_containers_info)
+    process_script("start_containers", argument_list, error_message)
 
 def start_containers_with_app_task_v2(url, headers, new_containers, app, app_files, container_resources, disk_assignation):
 
@@ -411,142 +322,14 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
         definition_file = "ubuntu_container.def"
         image_file = "ubuntu_container.sif"
 
-    rc = subprocess.Popen([
-        "./ui/scripts/start_containers_with_app.sh", hosts, formatted_containers_info, app, template_definition_file, definition_file, image_file, app_files['files_dir'], app_files['install_script'], app_files['app_jar']
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = rc.communicate()
-
-    # Log ansible output
-    print(out.decode("utf-8") )
-
-    if rc.returncode != 0:
-        error = "Error starting containers {0}: {1}".format(formatted_containers_info,err.decode("utf-8"))
-        raise Exception(error)
+    argument_list = [hosts, formatted_containers_info, app, template_definition_file, definition_file, image_file, app_files['files_dir'], app_files['install_script'], app_files['app_jar']]
+    error_message = "Error starting containers {0}".format(formatted_containers_info)
+    process_script("start_containers_with_app", argument_list, error_message)
 
     return containers_info
 
 
 ## Start Apps
-# Not used ATM
-def start_app(url, headers, app, app_files, new_containers, container_resources, disk_assignation):
-
-    # TODO: setup network before starting app on containers -> first start containers (without starting app) then setup network and start app on the same task
-
-    setup_network_task = setup_containers_network_task.s(url, headers, app, app_files)
-    start_containers_tasks = []
-
-    # Start containers with app
-    i = 0
-    for host in new_containers:
-        if "irregular" in new_containers[host]:
-            # Start a chain of tasks so that containers of same host are started sequentially
-            # tasks = chain(start_containers_with_app_task.si(url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.si(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])).apply_async()
-            # register_task(tasks.id,"start_containers_with_app_task")
-            # start_containers_tasks.append(chain(start_containers_with_app_task.si({},url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
-            if i == 0:
-                start_containers_tasks.append(chain(start_containers_with_app_task.s({},url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
-            else:
-                start_containers_tasks.append(chain(start_containers_with_app_task.s(url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
-
-        else:
-            # task = start_containers_with_app_task.delay(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])
-            # register_task(task.id,"start_containers_with_app_task")
-            # start_containers_tasks.append(start_containers_with_app_task.si({},url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
-            if i == 0:
-                start_containers_tasks.append(start_containers_with_app_task.s({},url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
-            else:
-                start_containers_tasks.append(start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
-
-        i += 1
-
-    if len(start_containers_tasks) > 0:
-        #task = chord(start_containers_tasks)(setup_network_task)
-
-        start_containers_tasks.append(setup_network_task)
-        task = chain(*start_containers_tasks).delay()
-        register_task(task.id,"setup_containers_network_task")
-
-# Not used ATM
-def start_hadoop_app(url, headers, app, app_files, new_containers, container_resources, disk_assignation):
-
-    # Calculate resources for Hadoop cluster
-    hadoop_resources = {}
-    for container_type in ["regular","irregular"]:
-        # NOTE: 'irregular' container won't be created due to a previous workaround
-        if container_type in container_resources:
-            hadoop_resources[container_type] = {}
-
-            total_cores = max(int(container_resources[container_type]["cpu_max"])//100,1)
-            min_cores = max(int(container_resources[container_type]["cpu_min"])//100,1)
-            total_memory = int(container_resources[container_type]["mem_max"])
-            total_disks = 1
-            reserved_memory = get_node_reserved_memory(total_memory)
-            available_memory = total_memory - reserved_memory
-            min_container_size = get_min_container_size(total_memory)
-
-            number_of_hadoop_containers = int(min(2*total_cores, 1.8*total_disks, available_memory/min_container_size))
-            mem_per_container = max(min_container_size, available_memory/number_of_hadoop_containers)
-
-            scheduler_maximum_memory = int(number_of_hadoop_containers * mem_per_container)
-            scheduler_minimum_memory = int(mem_per_container)
-            nodemanager_memory = scheduler_maximum_memory
-            map_memory = scheduler_minimum_memory
-            reduce_memory = int(min(2*mem_per_container, available_memory))
-            mapreduce_am_memory = reduce_memory
-
-            total_available_memory = 0
-            for host in new_containers:
-                if container_type in new_containers[host]:
-                    total_available_memory += available_memory * new_containers[host][container_type]
-
-            if total_available_memory < map_memory + reduce_memory + mapreduce_am_memory:
-                memory_slice = nodemanager_memory/3.5
-                scheduler_minimum_memory = int(memory_slice)
-                map_memory = scheduler_minimum_memory
-                reduce_memory = scheduler_minimum_memory
-                mapreduce_am_memory = int(1.5 * memory_slice)
-
-            map_memory_java_opts = int(0.8 * map_memory)
-            reduce_memory_java_opts = int(0.8 * reduce_memory)
-            mapreduce_am_memory_java_opts = int(0.8* mapreduce_am_memory)
-
-            hadoop_resources[container_type]["vcores"] = str(total_cores)
-            hadoop_resources[container_type]["min_vcores"] = str(min_cores)
-            hadoop_resources[container_type]["scheduler_maximum_memory"] = str(scheduler_maximum_memory)
-            hadoop_resources[container_type]["scheduler_minimum_memory"] = str(scheduler_minimum_memory)
-            hadoop_resources[container_type]["nodemanager_memory"] = str(nodemanager_memory)
-            hadoop_resources[container_type]["map_memory"] = str(map_memory)
-            hadoop_resources[container_type]["map_memory_java_opts"] = str(map_memory_java_opts)
-            hadoop_resources[container_type]["reduce_memory"] = str(reduce_memory)
-            hadoop_resources[container_type]["reduce_memory_java_opts"] = str(reduce_memory_java_opts)
-            hadoop_resources[container_type]["mapreduce_am_memory"] = str(mapreduce_am_memory)
-            hadoop_resources[container_type]["mapreduce_am_memory_java_opts"] = str(mapreduce_am_memory_java_opts)
-
-    start_time = timeit.default_timer()
-    setup_network_task = setup_containers_hadoop_network_task.s(url, headers, app, app_files, hadoop_resources, new_containers, start_time)
-    start_containers_tasks = []
-
-    # Start containers with app
-    i = 0
-    for host in new_containers:
-        start_host_containers_taks = []
-
-        for container_type in ["rm-nn", "irregular", "regular"]:
-            # NOTE: 'irregular' container won't be created due to a previous workaround
-            if container_type in new_containers[host]:
-                if i == 0:
-                    start_host_containers_taks.append(start_containers_with_app_task.s({}, url, headers, host, new_containers[host][container_type], app, app_files, container_resources[container_type]))
-                else:
-                    start_host_containers_taks.append(start_containers_with_app_task.s(url, headers, host, new_containers[host][container_type], app, app_files, container_resources[container_type]))
-                i += 1
-
-        start_containers_tasks.append(chain(*start_host_containers_taks))
-
-    if len(start_containers_tasks) > 0:
-        start_containers_tasks.append(setup_network_task)
-        task = chain(*start_containers_tasks).delay()
-        register_task(task.id,"{0}_app_task".format(app))
-
 @shared_task(bind=True)
 def start_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation):
 
@@ -673,25 +456,33 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
     update_task_runtime(self.request.id, runtime)
 
     # Stop hadoop cluster
-    rc = subprocess.Popen([
-        "./ui/scripts/stop_hadoop_cluster.sh", rm_host, rm_container
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = rc.communicate()
+    argument_list = [rm_host, rm_container]
+    error_message = "Error stopping hadoop cluster for app {0}".format(app)
+    process_script("stop_hadoop_cluster", argument_list, error_message)
 
-    # Log ansible output
-    print(out.decode("utf-8") )
+    ## Disable scaler, remove all containers from StateDB and re-enable scaler
+    argument_list = []
+    error_message = "Error disabling scaler"
+    process_script("disable_scaler", argument_list, error_message)
 
-    if rc.returncode != 0:
-        error = "Error stopping hadoop cluster for app {0}: {1}".format(app,err.decode("utf-8"))
-        raise Exception(error)
+    errors = []
+    for container in app_containers:
+        full_url = url + "container/{0}/{1}".format(container['container_name'],app)
+        error = remove_container_from_app_db(full_url, headers, container['container_name'], app)
+        if error != "": errors.append(error)
 
+    argument_list = []
+    error_message = "Error re-enabling scaler"
+    process_script("enable_scaler", argument_list, error_message)
+
+    ## Stop Containers
     # Remove master container first
     for container in app_containers:
         if container['container_name'] == rm_container:
             full_url = url + "container/{0}/{1}".format(rm_container,app)
-            remove_container_from_app_task(full_url, headers, rm_host, container, app, app_files, rm_container)
-            # Workaround to keep all updates to State DB
-            time.sleep(0.5)
+            bind_path = ""
+            if 'disk_path' in container: bind_path = container['disk_path']
+            stop_app_on_container_task(rm_host, rm_container, bind_path, app, app_files, rm_container)
             break
 
     # Stop and remove containers
@@ -699,27 +490,23 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
     for container in app_containers:
         if container['container_name'] != rm_container:
             full_url = url + "container/{0}/{1}".format(container['container_name'],app)
-            stop_task = remove_container_from_app_task.si(full_url, headers, container['host'], container, app, app_files, rm_container)
+            bind_path = ""
+            if 'disk_path' in container: bind_path = container['disk_path']
+            stop_task = stop_app_on_container_task.si(container['host'], container['container_name'], bind_path, app, app_files, rm_container)
             stop_containers_task.append(stop_task)
 
     set_hadoop_logs_timestamp_task = set_hadoop_logs_timestamp.si(app, app_files, rm_host, rm_container)
     log_task = chord(stop_containers_task)(set_hadoop_logs_timestamp_task)
     register_task(log_task.id,"stop_containers_task")
 
+    if len(errors) > 0: raise Exception(str(errors))
+
 @shared_task
 def set_hadoop_logs_timestamp(app, app_files, rm_host, rm_container):
 
-    rc = subprocess.Popen([
-        "./ui/scripts/set_hadoop_logs_timestamp.sh", app_files['app_jar'], rm_host, rm_container
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = rc.communicate()
-
-    # Log ansible output
-    print(out.decode("utf-8") )
-
-    if rc.returncode != 0:
-        error = "Error setting timestamp for hadoop logs for app {0}: {1}".format(app,err.decode("utf-8"))
-        raise Exception(error)
+    argument_list = [app_files['app_jar'], rm_host, rm_container]
+    error_message = "Error setting timestamp for hadoop logs for app {0}".format(app)
+    process_script("set_hadoop_logs_timestamp", argument_list, error_message)
 
 ## Setup network for apps
 @shared_task
@@ -729,24 +516,14 @@ def setup_containers_network_task(app_containers, url, headers, app, app_files, 
     hosts = ','.join(list(new_containers.keys()))
     formatted_app_containers = str(app_containers).replace(' ','')
 
-    rc = subprocess.Popen([
-        "./ui/scripts/setup_network_on_containers.sh", hosts, formatted_app_containers
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = rc.communicate()
-
-    # Log ansible output
-    print(out.decode("utf-8") )
-
-    if rc.returncode != 0:
-        error = "Error setting network for app {0}: {1}".format(app,err.decode("utf-8"))
-        raise Exception(error)
+    argument_list = [hosts, formatted_app_containers]
+    error_message = "Error setting network for app {0}".format(app)
+    process_script("setup_network_on_containers", argument_list, error_message)
 
     # Start app on containers
     for container in app_containers:
         full_url = url + "container/{0}/{1}".format(container['container_name'],app)
         add_container_to_app_task(full_url, headers, container['host'], container, app, app_files)
-        # Workaround to keep all updates to State DB
-        time.sleep(0.5)
 
 @shared_task
 def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_files, hadoop_resources, new_containers):
@@ -778,25 +555,17 @@ def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_
     mapreduce_am_memory = hadoop_resources["regular"]["mapreduce_am_memory"]
     mapreduce_am_memory_java_opts = hadoop_resources["regular"]["mapreduce_am_memory_java_opts"]
 
-    rc = subprocess.Popen([
-        "./ui/scripts/setup_hadoop_network_on_containers.sh", hosts, app, formatted_app_containers, rm_host, rm_container['container_name'], vcores, min_vcores, scheduler_maximum_memory, scheduler_minimum_memory, nodemanager_memory, map_memory, map_memory_java_opts, reduce_memory, reduce_memory_java_opts, mapreduce_am_memory, mapreduce_am_memory_java_opts
-        ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    out, err = rc.communicate()
-
-    # Log ansible output
-    print(out.decode("utf-8") )
-
-    if rc.returncode != 0:
-        error = "Error setting network for app {0}: {1}".format(app,err.decode("utf-8"))
-        raise Exception(error)
+    argument_list = [hosts, app, formatted_app_containers, rm_host, rm_container['container_name'], 
+        vcores, min_vcores, scheduler_maximum_memory, scheduler_minimum_memory, nodemanager_memory, 
+        map_memory, map_memory_java_opts, reduce_memory, reduce_memory_java_opts, mapreduce_am_memory, mapreduce_am_memory_java_opts]
+    error_message = "Error setting network for app {0}".format(app)
+    process_script("setup_hadoop_network_on_containers", argument_list, error_message)
 
     # Add NM containers to app
     for container in app_containers:
         if container['container_name'] != rm_container['container_name']:
             full_url = url + "container/{0}/{1}".format(container['container_name'],app)
             add_container_to_app_in_db(full_url, headers, container['container_name'], app)
-            # Workaround to keep all updates to State DB
-            time.sleep(0.5)
 
     # Lastly, start app on RM container
     full_url = url + "container/{0}/{1}".format(rm_container['container_name'],app)
@@ -818,15 +587,9 @@ def remove_container_task(full_url, headers, host_name, cont_name):
     ## stop container
     if (error == ""):
 
-        rc = subprocess.Popen(["./ui/scripts/stop_container.sh", host_name, cont_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = rc.communicate()
-
-        # Log ansible output
-        print(out.decode("utf-8") )
-
-        if rc.returncode != 0:
-            error = "Error stopping container {0}: {1}".format(cont_name,err.decode("utf-8"))
-            raise Exception(error)
+        argument_list = [host_name, cont_name]
+        error_message = "Error stopping container {0}".format(cont_name)
+        process_script("stop_container", argument_list, error_message)
 
         # update inventory file
         with redis_server.lock(lock_key):
@@ -848,15 +611,9 @@ def remove_host_task(full_url, headers, host_name):
     if (error == ""):
             
         # stop node scaler service in host
-        rc = subprocess.Popen(["./ui/scripts/stop_host_scaler.sh", host_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = rc.communicate()
-
-        # Log ansible output
-        print(out.decode("utf-8") )
-
-        if rc.returncode != 0:
-            error = "Error stopping host {0} scaler service: {1}".format(host_name,err.decode("utf-8"))
-            raise Exception(error)
+        argument_list = [host_name]
+        error_message = "Error stopping host {0} scaler service".format(host_name)
+        process_script("stop_host_scaler", argument_list, error_message)
 
         # update inventory file
         with redis_server.lock(lock_key):
@@ -868,9 +625,27 @@ def remove_host_task(full_url, headers, host_name):
 def remove_app_task(url, structure_type_url, headers, app_name, container_list, app_files):
 
     # first, remove all containers from app
-    for container in container_list:
-        full_url = url + "container/{0}/{1}".format(container['name'], app_name)
-        remove_container_from_app_task(full_url, headers, container['host'], container['name'], app_name, app_files, "")
+    if len(container_list) > 0:
+        argument_list = []
+        error_message = "Error disabling scaler"
+        process_script("disable_scaler", argument_list, error_message)
+
+        errors = []
+        for container in container_list:
+            full_url = url + "container/{0}/{1}".format(container['name'], app_name)
+            error = remove_container_from_app_db(full_url, headers, container['name'], app_name)
+            if error != "": errors.append(error)
+
+        argument_list = []
+        error_message = "Error re-enabling scaler"
+        process_script("enable_scaler", argument_list, error_message)
+
+        for container in container_list:
+            full_url = url + "container/{0}/{1}".format(container['name'], app_name)
+            bind_path = ""
+            if 'disk_path' in container: bind_path = container['disk_path']
+            task = stop_app_on_container_task.delay(container['host'], container['name'], bind_path, app_name, app_files, "")
+            register_task(task.id, "stop_app_on_container_task")
 
     # then, actually remove app
     full_url = url + structure_type_url + "/" + app_name
@@ -887,14 +662,14 @@ def remove_app_task(url, structure_type_url, headers, app_name, container_list, 
         raise Exception(error)
 
 @shared_task
-def remove_container_from_app_task(full_url, headers, host, container, app, app_files, rm_container):
+def remove_container_from_app_task(full_url, headers, host, container_name, bind_path, app, app_files, rm_container):
 
     r = requests.delete(full_url, headers=headers)
 
     error = ""
     if (r.status_code != requests.codes.ok):
         soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error removing container " + container['container_name'] + " from app " + app + ": " + soup.get_text().strip()
+        error = "Error removing container " + container_name + " from app " + app + ": " + soup.get_text().strip()
 
     if (error == ""):
 
@@ -904,24 +679,262 @@ def remove_container_from_app_task(full_url, headers, host, container, app, app_
         stop_script = app_files['stop_script']
         app_jar = app_files['app_jar']
 
-        bind_path = ""
-        if 'disk_path' in container:
-            bind_path = container['disk_path']
-
-        rc = subprocess.Popen(["./ui/scripts/stop_app_on_container.sh", host, container['container_name'], app, files_dir, install_script, start_script, stop_script, app_jar, bind_path, rm_container], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = rc.communicate()
-
-        # Log ansible output
-        print(out.decode("utf-8") )
-
-        if rc.returncode != 0:
-            error = "Error stopping app {0} on container {1}: {2}".format(app, container['container_name'], err.decode("utf-8"))
-            raise Exception(error)
+        argument_list = [host, container_name, app, files_dir, install_script, start_script, stop_script, app_jar, bind_path, rm_container]
+        error_message = "Error stopping app {0} on container {1}".format(app, container_name)
+        process_script("stop_app_on_container", argument_list, error_message)
 
         #if install_script != "":
             # remove container if it has been created specifically for this app
             # full_url[:full_url.rfind('/')] removes the last part of url -> .../container/host0-cont0/app1 -> .../container/host0-cont0
-        remove_container_task(full_url[:full_url.rfind('/')], headers, host, container['container_name'])
+        remove_container_task(full_url[:full_url.rfind('/')], headers, host, container_name)
 
     else:
         raise Exception(error)
+
+
+def remove_container_from_app_db(full_url, headers, container_name, app):
+
+    max_retries = 10
+    actual_try = 0
+    error = ""
+
+    ## Ensure that container is deleted from app
+    while actual_try < max_retries:
+
+        # Remove container from app
+        r = requests.delete(full_url, headers=headers)
+
+        if (r != "" and not r.ok):
+            response_text = BeautifulSoup(r.text, features="html.parser").get_text().strip()
+            if r.status_code == 400 and "missing in app" in response_text:
+                break
+            else:
+                error = "Error removing container {0} from app {1}: {2}".format(container_name, app, response_text)
+                break
+
+        actual_try += 1
+
+    if actual_try >= max_retries: error = "Reached max tries when removing {0} from app {1}".format(container_name, app)
+
+    # Remove container from DB
+    r = requests.delete(full_url[:full_url.rfind('/')], headers=headers)
+
+    if (r.status_code != requests.codes.ok):
+        soup = BeautifulSoup(r.text, features="html.parser")
+        error = "Error removing container " + container_name + ": " + soup.get_text().strip()
+
+    return error
+
+
+@shared_task
+def stop_app_on_container_task(host, container_name, bind_path, app, app_files, rm_container):
+
+    ## Stop app on container
+    files_dir = app_files['files_dir']
+    install_script = app_files['install_script']
+    start_script = app_files['start_script']
+    stop_script = app_files['stop_script']
+    app_jar = app_files['app_jar']
+
+    argument_list = [host, container_name, app, files_dir, install_script, start_script, stop_script, app_jar, bind_path, rm_container]
+    error_message = "Error stopping app {0} on container {1}".format(app, container_name)
+    process_script("stop_app_on_container", argument_list, error_message)
+
+    ## Stop container
+    argument_list = [host, container_name]
+    error_message = "Error stopping container {0}".format(container_name)
+    process_script("stop_container", argument_list, error_message)
+
+    # update inventory file
+    with redis_server.lock(lock_key):
+        remove_container_from_host(container_name, host)
+
+
+## Deprecated functions
+# Not used ATM
+#@shared_task
+def start_containers_task(host, new_containers, container_resources):
+
+    # update inventory file
+    with redis_server.lock(lock_key):
+        added_containers = add_containers_to_hosts(new_containers)
+
+    added_formatted_containers = container_list_to_formatted_str(added_containers[host])
+
+    if added_formatted_containers == "":
+        # Nothing to do
+        return
+
+    max_cpu_percentage_per_container = container_resources["cpu_max"]
+    min_cpu_percentage_per_container = container_resources["cpu_min"]
+    cpu_boundary = container_resources["cpu_boundary"]
+    max_memory_per_container = container_resources["mem_max"]
+    min_memory_per_container = container_resources["mem_min"]
+    mem_boundary = container_resources["mem_boundary"]
+
+    argument_list = [host, added_formatted_containers, max_cpu_percentage_per_container, min_cpu_percentage_per_container, cpu_boundary, max_memory_per_container, min_memory_per_container, mem_boundary]
+    error_message = "Error starting containers {0}".format(added_formatted_containers)
+    process_script("start_containers", argument_list, error_message)
+
+# Not used ATM
+#@shared_task
+def start_containers_with_app_task(already_added_containers, url, headers, host, new_containers, app, app_files, container_resources):
+    #TODO: merge function with start_containers_task
+
+    if new_containers == 0:
+        # Nothing to do
+        return already_added_containers
+
+    # update inventory file
+    with redis_server.lock(lock_key):
+        added_containers = add_containers_to_hosts({host: new_containers})
+
+    added_formatted_containers = container_list_to_formatted_str(added_containers[host])
+
+    # Start containers
+    if app_files['install_script'] and app_files['install_script'] != "":
+        template_definition_file="app_container.def"
+        definition_file = "{0}_container.def".format(app.replace(" ", "_"))
+        image_file = "{0}_container.sif".format(app.replace(" ", "_"))
+    elif app_files['app_jar'] and app_files['app_jar'] != "":
+        template_definition_file="hadoop_container.def"
+        definition_file = "hadoop_container.def"
+        image_file = "hadoop_container.sif"
+    else:
+        template_definition_file="ubuntu_container.def"
+        definition_file = "ubuntu_container.def"
+        image_file = "ubuntu_container.sif"
+
+    max_cpu_percentage_per_container = container_resources["cpu_max"]
+    min_cpu_percentage_per_container = container_resources["cpu_min"]
+    cpu_boundary = container_resources["cpu_boundary"]
+    max_memory_per_container = container_resources["mem_max"]
+    min_memory_per_container = container_resources["mem_min"]
+    mem_boundary = container_resources["mem_boundary"]
+
+    argument_list = [host, app, template_definition_file, definition_file, image_file, app_files['files_dir'], app_files['install_script'], app_files['app_jar'], 
+        added_formatted_containers, max_cpu_percentage_per_container, min_cpu_percentage_per_container, cpu_boundary, max_memory_per_container, min_memory_per_container, mem_boundary]
+    error_message = "Error starting containers {0}".format(added_formatted_containers)
+    process_script("start_containers_with_app", argument_list, error_message)
+
+    return mergeDictionary(already_added_containers,added_containers)
+
+# Not used ATM
+def start_app(url, headers, app, app_files, new_containers, container_resources, disk_assignation):
+
+    # TODO: setup network before starting app on containers -> first start containers (without starting app) then setup network and start app on the same task
+
+    setup_network_task = setup_containers_network_task.s(url, headers, app, app_files)
+    start_containers_tasks = []
+
+    # Start containers with app
+    i = 0
+    for host in new_containers:
+        if "irregular" in new_containers[host]:
+            # Start a chain of tasks so that containers of same host are started sequentially
+            # tasks = chain(start_containers_with_app_task.si(url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.si(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])).apply_async()
+            # register_task(tasks.id,"start_containers_with_app_task")
+            # start_containers_tasks.append(chain(start_containers_with_app_task.si({},url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
+            if i == 0:
+                start_containers_tasks.append(chain(start_containers_with_app_task.s({},url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
+            else:
+                start_containers_tasks.append(chain(start_containers_with_app_task.s(url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
+
+        else:
+            # task = start_containers_with_app_task.delay(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])
+            # register_task(task.id,"start_containers_with_app_task")
+            # start_containers_tasks.append(start_containers_with_app_task.si({},url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
+            if i == 0:
+                start_containers_tasks.append(start_containers_with_app_task.s({},url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
+            else:
+                start_containers_tasks.append(start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
+
+        i += 1
+
+    if len(start_containers_tasks) > 0:
+        #task = chord(start_containers_tasks)(setup_network_task)
+
+        start_containers_tasks.append(setup_network_task)
+        task = chain(*start_containers_tasks).delay()
+        register_task(task.id,"setup_containers_network_task")
+
+# Not used ATM
+def start_hadoop_app(url, headers, app, app_files, new_containers, container_resources, disk_assignation):
+
+    # Calculate resources for Hadoop cluster
+    hadoop_resources = {}
+    for container_type in ["regular","irregular"]:
+        # NOTE: 'irregular' container won't be created due to a previous workaround
+        if container_type in container_resources:
+            hadoop_resources[container_type] = {}
+
+            total_cores = max(int(container_resources[container_type]["cpu_max"])//100,1)
+            min_cores = max(int(container_resources[container_type]["cpu_min"])//100,1)
+            total_memory = int(container_resources[container_type]["mem_max"])
+            total_disks = 1
+            reserved_memory = get_node_reserved_memory(total_memory)
+            available_memory = total_memory - reserved_memory
+            min_container_size = get_min_container_size(total_memory)
+
+            number_of_hadoop_containers = int(min(2*total_cores, 1.8*total_disks, available_memory/min_container_size))
+            mem_per_container = max(min_container_size, available_memory/number_of_hadoop_containers)
+
+            scheduler_maximum_memory = int(number_of_hadoop_containers * mem_per_container)
+            scheduler_minimum_memory = int(mem_per_container)
+            nodemanager_memory = scheduler_maximum_memory
+            map_memory = scheduler_minimum_memory
+            reduce_memory = int(min(2*mem_per_container, available_memory))
+            mapreduce_am_memory = reduce_memory
+
+            total_available_memory = 0
+            for host in new_containers:
+                if container_type in new_containers[host]:
+                    total_available_memory += available_memory * new_containers[host][container_type]
+
+            if total_available_memory < map_memory + reduce_memory + mapreduce_am_memory:
+                memory_slice = nodemanager_memory/3.5
+                scheduler_minimum_memory = int(memory_slice)
+                map_memory = scheduler_minimum_memory
+                reduce_memory = scheduler_minimum_memory
+                mapreduce_am_memory = int(1.5 * memory_slice)
+
+            map_memory_java_opts = int(0.8 * map_memory)
+            reduce_memory_java_opts = int(0.8 * reduce_memory)
+            mapreduce_am_memory_java_opts = int(0.8* mapreduce_am_memory)
+
+            hadoop_resources[container_type]["vcores"] = str(total_cores)
+            hadoop_resources[container_type]["min_vcores"] = str(min_cores)
+            hadoop_resources[container_type]["scheduler_maximum_memory"] = str(scheduler_maximum_memory)
+            hadoop_resources[container_type]["scheduler_minimum_memory"] = str(scheduler_minimum_memory)
+            hadoop_resources[container_type]["nodemanager_memory"] = str(nodemanager_memory)
+            hadoop_resources[container_type]["map_memory"] = str(map_memory)
+            hadoop_resources[container_type]["map_memory_java_opts"] = str(map_memory_java_opts)
+            hadoop_resources[container_type]["reduce_memory"] = str(reduce_memory)
+            hadoop_resources[container_type]["reduce_memory_java_opts"] = str(reduce_memory_java_opts)
+            hadoop_resources[container_type]["mapreduce_am_memory"] = str(mapreduce_am_memory)
+            hadoop_resources[container_type]["mapreduce_am_memory_java_opts"] = str(mapreduce_am_memory_java_opts)
+
+    start_time = timeit.default_timer()
+    setup_network_task = setup_containers_hadoop_network_task.s(url, headers, app, app_files, hadoop_resources, new_containers, start_time)
+    start_containers_tasks = []
+
+    # Start containers with app
+    i = 0
+    for host in new_containers:
+        start_host_containers_taks = []
+
+        for container_type in ["rm-nn", "irregular", "regular"]:
+            # NOTE: 'irregular' container won't be created due to a previous workaround
+            if container_type in new_containers[host]:
+                if i == 0:
+                    start_host_containers_taks.append(start_containers_with_app_task.s({}, url, headers, host, new_containers[host][container_type], app, app_files, container_resources[container_type]))
+                else:
+                    start_host_containers_taks.append(start_containers_with_app_task.s(url, headers, host, new_containers[host][container_type], app, app_files, container_resources[container_type]))
+                i += 1
+
+        start_containers_tasks.append(chain(*start_host_containers_taks))
+
+    if len(start_containers_tasks) > 0:
+        start_containers_tasks.append(setup_network_task)
+        task = chain(*start_containers_tasks).delay()
+        register_task(task.id,"{0}_app_task".format(app))
