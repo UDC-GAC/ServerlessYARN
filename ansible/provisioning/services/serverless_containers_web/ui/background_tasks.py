@@ -2,8 +2,8 @@ import time
 import subprocess
 import requests
 from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host
-from celery import shared_task, chain, chord
-from celery.result import AsyncResult
+from celery import shared_task, chain, chord, group
+from celery.result import AsyncResult, allow_join_result
 from bs4 import BeautifulSoup
 import redis
 import json
@@ -212,8 +212,6 @@ def add_container_to_app_in_db(full_url, headers, container, app):
 @shared_task
 def add_container_to_app_task(full_url, headers, host, container, app, app_files):
 
-    add_container_to_app_in_db(full_url, headers, container['container_name'], app)
-
     files_dir = app_files['files_dir']
     install_script = app_files['install_script']
     start_script = app_files['start_script']
@@ -341,6 +339,40 @@ def start_app_task(self, url, headers, app, app_files, new_containers, container
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)
     update_task_runtime(self.request.id, runtime)
+
+    ## Disable scaler, remove all containers from StateDB and re-enable scaler
+    argument_list = []
+    error_message = "Error disabling scaler"
+    process_script("disable_scaler", argument_list, error_message)
+
+    errors = []
+    for container in app_containers:
+        full_url = url + "container/{0}/{1}".format(container['container_name'],app)
+        error = remove_container_from_app_db(full_url, headers, container['container_name'], app)
+        if error != "": errors.append(error)
+
+    argument_list = []
+    error_message = "Error re-enabling scaler"
+    process_script("enable_scaler", argument_list, error_message)
+
+    ## Stop Containers
+    # Stop and remove containers
+    #stop_containers_task = []
+    for container in app_containers:
+        full_url = url + "container/{0}/{1}".format(container['container_name'],app)
+        bind_path = ""
+        if 'disk_path' in container: bind_path = container['disk_path']
+        stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, "")
+        register_task(stop_task.id,"stop_container_task")
+        #stop_task = stop_app_on_container_task.si(container['host'], container['container_name'], bind_path, app, app_files, "")
+        #stop_containers_task.append(stop_task)
+
+    # TODO: Maybe collect some kind of logs...
+    # It would be great to execute tasks on a group, but the group task ID is not trackable
+    #stop_group_task = group(stop_containers_task)()
+    #register_task(stop_group_task.id,"stop_containers_task")
+
+    if len(errors) > 0: raise Exception(str(errors))
 
 @shared_task(bind=True)
 def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation):
@@ -520,10 +552,23 @@ def setup_containers_network_task(app_containers, url, headers, app, app_files, 
     error_message = "Error setting network for app {0}".format(app)
     process_script("setup_network_on_containers", argument_list, error_message)
 
+    # Add containers to app
+    for container in app_containers:
+        full_url = url + "container/{0}/{1}".format(container['container_name'], app)
+        add_container_to_app_in_db(full_url, headers, container['container_name'], app)
+
     # Start app on containers
+    start_containers_task = []
     for container in app_containers:
         full_url = url + "container/{0}/{1}".format(container['container_name'],app)
-        add_container_to_app_task(full_url, headers, container['host'], container, app, app_files)
+        start_task = add_container_to_app_task.si(full_url, headers, container['host'], container, app, app_files)
+        start_containers_task.append(start_task)
+
+    start_group_task = group(start_containers_task)
+
+    with allow_join_result():
+        start_group_task().get()
+
 
 @shared_task
 def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_files, hadoop_resources, new_containers):
@@ -561,11 +606,10 @@ def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_
     error_message = "Error setting network for app {0}".format(app)
     process_script("setup_hadoop_network_on_containers", argument_list, error_message)
 
-    # Add NM containers to app
+    # Add containers to app
     for container in app_containers:
-        if container['container_name'] != rm_container['container_name']:
-            full_url = url + "container/{0}/{1}".format(container['container_name'],app)
-            add_container_to_app_in_db(full_url, headers, container['container_name'], app)
+        full_url = url + "container/{0}/{1}".format(container['container_name'], app)
+        add_container_to_app_in_db(full_url, headers, container['container_name'], app)
 
     # Lastly, start app on RM container
     full_url = url + "container/{0}/{1}".format(rm_container['container_name'],app)
@@ -574,29 +618,6 @@ def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_
     return rm_host, rm_container['container_name']
 
 ## Removes
-@shared_task
-def remove_container_task(full_url, headers, host_name, cont_name):
-
-    r = requests.delete(full_url, headers=headers)
-
-    error = ""
-    if (r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error removing container " + cont_name + ": " + soup.get_text().strip()
-
-    ## stop container
-    if (error == ""):
-
-        argument_list = [host_name, cont_name]
-        error_message = "Error stopping container {0}".format(cont_name)
-        process_script("stop_container", argument_list, error_message)
-
-        # update inventory file
-        with redis_server.lock(lock_key):
-            remove_container_from_host(cont_name,host_name)
-    else:
-        raise Exception(error)
-
 @shared_task
 def remove_host_task(full_url, headers, host_name):
 
@@ -661,36 +682,59 @@ def remove_app_task(url, structure_type_url, headers, app_name, container_list, 
     else:
         raise Exception(error)
 
+## To be deprecated soon
 @shared_task
-def remove_container_from_app_task(full_url, headers, host, container_name, bind_path, app, app_files, rm_container):
+def remove_container_task(full_url, headers, host_name, cont_name):
 
     r = requests.delete(full_url, headers=headers)
 
     error = ""
     if (r.status_code != requests.codes.ok):
         soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error removing container " + container_name + " from app " + app + ": " + soup.get_text().strip()
+        error = "Error removing container " + cont_name + ": " + soup.get_text().strip()
 
+    ## stop container
     if (error == ""):
 
-        files_dir = app_files['files_dir']
-        install_script = app_files['install_script']
-        start_script = app_files['start_script']
-        stop_script = app_files['stop_script']
-        app_jar = app_files['app_jar']
+        argument_list = [host_name, cont_name]
+        error_message = "Error stopping container {0}".format(cont_name)
+        process_script("stop_container", argument_list, error_message)
 
-        argument_list = [host, container_name, app, files_dir, install_script, start_script, stop_script, app_jar, bind_path, rm_container]
-        error_message = "Error stopping app {0} on container {1}".format(app, container_name)
-        process_script("stop_app_on_container", argument_list, error_message)
-
-        #if install_script != "":
-            # remove container if it has been created specifically for this app
-            # full_url[:full_url.rfind('/')] removes the last part of url -> .../container/host0-cont0/app1 -> .../container/host0-cont0
-        remove_container_task(full_url[:full_url.rfind('/')], headers, host, container_name)
-
+        # update inventory file
+        with redis_server.lock(lock_key):
+            remove_container_from_host(cont_name,host_name)
     else:
         raise Exception(error)
 
+## To be deprecated soon
+@shared_task
+def remove_container_from_app_task(full_url, headers, host, container_name, bind_path, app, app_files, rm_container):
+
+    files_dir = app_files['files_dir']
+    install_script = app_files['install_script']
+    start_script = app_files['start_script']
+    stop_script = app_files['stop_script']
+    app_jar = app_files['app_jar']
+
+    argument_list = [host, container_name, app, files_dir, install_script, start_script, stop_script, app_jar, bind_path, rm_container]
+    error_message = "Error stopping app {0} on container {1}".format(app, container_name)
+    process_script("stop_app_on_container", argument_list, error_message)
+
+    # full_url[:full_url.rfind('/')] removes the last part of url -> .../container/host0-cont0/app1 -> .../container/host0-cont0
+    remove_container_task(full_url[:full_url.rfind('/')], headers, host, container_name)
+
+
+def remove_container_from_db(full_url, headers, container_name):
+
+    # Remove container from DB
+    r = requests.delete(full_url, headers=headers)
+
+    error = ""
+    if (r.status_code != requests.codes.ok):
+        soup = BeautifulSoup(r.text, features="html.parser")
+        error = "Error removing container {0}: {1}".format(container_name,soup.get_text().strip())
+
+    return error
 
 def remove_container_from_app_db(full_url, headers, container_name, app):
 
@@ -716,15 +760,22 @@ def remove_container_from_app_db(full_url, headers, container_name, app):
 
     if actual_try >= max_retries: error = "Reached max tries when removing {0} from app {1}".format(container_name, app)
 
-    # Remove container from DB
-    r = requests.delete(full_url[:full_url.rfind('/')], headers=headers)
-
-    if (r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error removing container " + container_name + ": " + soup.get_text().strip()
+    remove_error = remove_container_from_db(full_url[:full_url.rfind('/')], headers, container_name)
+    if remove_error != "": error = remove_error
 
     return error
 
+@shared_task
+def stop_container(host, container_name):
+
+    ## Stop container
+    argument_list = [host, container_name]
+    error_message = "Error stopping container {0}".format(container_name)
+    process_script("stop_container", argument_list, error_message)
+
+    # update inventory file
+    with redis_server.lock(lock_key):
+        remove_container_from_host(container_name, host)
 
 @shared_task
 def stop_app_on_container_task(host, container_name, bind_path, app, app_files, rm_container):
@@ -740,14 +791,7 @@ def stop_app_on_container_task(host, container_name, bind_path, app, app_files, 
     error_message = "Error stopping app {0} on container {1}".format(app, container_name)
     process_script("stop_app_on_container", argument_list, error_message)
 
-    ## Stop container
-    argument_list = [host, container_name]
-    error_message = "Error stopping container {0}".format(container_name)
-    process_script("stop_container", argument_list, error_message)
-
-    # update inventory file
-    with redis_server.lock(lock_key):
-        remove_container_from_host(container_name, host)
+    stop_container(host, container_name)
 
 
 ## Deprecated functions

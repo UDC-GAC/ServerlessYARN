@@ -1511,13 +1511,7 @@ def processRemoveContainerFromApp(url, container_host_duple, app, app_files):
     full_url = url + "container/{0}/{1}".format(container_name, app)
     headers = {'Content-Type': 'application/json'}
 
-    container = {}
-    container['container_name'] = container_name
-    container['host'] = host
-    if disk_path != "":
-        container['disk_path'] = disk_path
-
-    task = remove_container_from_app_task.delay(full_url, headers, host, container, app, app_files, "")
+    task = remove_container_from_app_task.delay(full_url, headers, host, container_name, disk_path , app, app_files, "")
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"remove_container_from_app_task")
 

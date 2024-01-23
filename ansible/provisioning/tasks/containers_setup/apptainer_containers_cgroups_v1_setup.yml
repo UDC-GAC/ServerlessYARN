@@ -17,10 +17,10 @@
         dest: "{{ installation_path }}/change_cgroupsv1_permissions.py"
         mode: preserve
 
-    - name: Create hadoop directory
+    - name: Create app base directory
       delegate_to: localhost
       file:
-        path: "{{ installation_path }}/apps/hadoop"
+        path: "{{ installation_path }}/apps/{{ app_base_name }}"
         state: directory
       tags: create_app
 
@@ -36,49 +36,17 @@
         - files_dir
       tags: never, create_app
 
-    - name: Copy apptainer hadoop containers definition file
-      delegate_to: localhost
-      template:
-        src: "templates/{{ template_definition_file }}"
-        dest: "{{ installation_path }}/apps/hadoop/{{ definition_file }}"
-      tags: never, create_app
-
-    # TODO: allow install script, start script or stop script to be included in files_dir
-    - name: Copy hadoop app files directory
-      delegate_to: localhost
-      when: "files_dir != ''"
-      synchronize:
-        src: "apps/{{ files_dir }}/"
-        dest: "{{ installation_path }}/apps/hadoop/{{ files_dir | basename }}"
-      tags: never, create_app
-
-    - name: Copy hadoop app install script
-      delegate_to: localhost
-      when: "install_script != ''"
-      synchronize:
-        src: "apps/{{ install_script }}"
-        dest: "{{ installation_path }}/apps/hadoop/{{ install_script | basename }}"
-      tags: never, create_app
-
 - name: Containers startup
   block:
-    - name: Create apps (base) directory
-      delegate_to: localhost
-      when: app_base_name != 'hadoop'
-      file:
-        path: "{{ installation_path }}/apps/{{ app_base_name }}"
-        state: directory
-      tags: create_app
 
-    - name: Create apps directory
+    - name: Create app directory
       delegate_to: localhost
       file:
         path: "{{ installation_path }}/apps/{{ app_name }}"
         state: directory
-      tags: create_app
+      tags: never, create_app
 
     - name: Copy apptainer containers definition file
-      when: app_base_name != 'hadoop'
       delegate_to: localhost
       template:
         src: "templates/{{ template_definition_file }}"
@@ -88,7 +56,7 @@
     # TODO: allow install script, start script or stop script to be included in files_dir
     - name: Copy app files directory
       delegate_to: localhost
-      when: "files_dir != '' and app_base_name != 'hadoop'"
+      when: "files_dir != '' and install_script != ''"
       synchronize:
         src: "apps/{{ files_dir }}/"
         dest: "{{ installation_path }}/apps/{{ app_base_name }}/{{ files_dir | basename }}"
@@ -96,16 +64,14 @@
 
     - name: Copy app install script
       delegate_to: localhost
-      when: "install_script != '' and app_base_name != 'hadoop'"
+      when: "install_script != ''"
       synchronize:
         src: "apps/{{ install_script }}"
         dest: "{{ installation_path }}/apps/{{ app_base_name }}/{{ install_script | basename }}"
       tags: never, create_app
 
-
     - name: Build image
       delegate_to: localhost
-      #shell: "{{ singularity_command_alias }} build apps/{{ app_name }}/{{ image_file }} apps/{{ app_name }}/{{ definition_file }}"
       shell: "{{ singularity_command_alias }} build apps/{{ app_base_name }}/{{ image_file }} apps/{{ app_base_name }}/{{ definition_file }}"
       args:
         chdir: "{{ installation_path }}"

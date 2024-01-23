@@ -6,3 +6,10 @@ bdwatchdog/
 artifacts/
 *.log
 *.jar
+
+## Exclude apps directory, but including some specific subdirectories
+ansible/provisioning/apps/*
+!ansible/provisioning/apps/sample_app/
+!ansible/provisioning/apps/hadoop/
+!ansible/provisioning/apps/hadoop_app/
+!ansible/provisioning/apps/spark_app/
