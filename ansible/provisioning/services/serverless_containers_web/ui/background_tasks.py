@@ -340,39 +340,7 @@ def start_app_task(self, url, headers, app, app_files, new_containers, container
     runtime = "{:.2f}".format(end_time-start_time)
     update_task_runtime(self.request.id, runtime)
 
-    ## Disable scaler, remove all containers from StateDB and re-enable scaler
-    argument_list = []
-    error_message = "Error disabling scaler"
-    process_script("disable_scaler", argument_list, error_message)
-
-    errors = []
-    for container in app_containers:
-        full_url = url + "container/{0}/{1}".format(container['container_name'],app)
-        error = remove_container_from_app_db(full_url, headers, container['container_name'], app)
-        if error != "": errors.append(error)
-
-    argument_list = []
-    error_message = "Error re-enabling scaler"
-    process_script("enable_scaler", argument_list, error_message)
-
-    ## Stop Containers
-    # Stop and remove containers
-    #stop_containers_task = []
-    for container in app_containers:
-        full_url = url + "container/{0}/{1}".format(container['container_name'],app)
-        bind_path = ""
-        if 'disk_path' in container: bind_path = container['disk_path']
-        stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, "")
-        register_task(stop_task.id,"stop_container_task")
-        #stop_task = stop_app_on_container_task.si(container['host'], container['container_name'], bind_path, app, app_files, "")
-        #stop_containers_task.append(stop_task)
-
-    # TODO: Maybe collect some kind of logs...
-    # It would be great to execute tasks on a group, but the group task ID is not trackable
-    #stop_group_task = group(stop_containers_task)()
-    #register_task(stop_group_task.id,"stop_containers_task")
-
-    if len(errors) > 0: raise Exception(str(errors))
+    remove_containers_from_app(url, headers, app_containers, app, app_files)
 
 @shared_task(bind=True)
 def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation):
@@ -681,6 +649,72 @@ def remove_app_task(url, structure_type_url, headers, app_name, container_list, 
         pass
     else:
         raise Exception(error)
+
+@shared_task
+def remove_containers(url, headers, container_list):
+
+    ## Disable scaler, remove all containers from StateDB and re-enable scaler
+    argument_list = []
+    error_message = "Error disabling scaler"
+    process_script("disable_scaler", argument_list, error_message)
+
+    errors = []
+    for container in container_list:
+        full_url = url + "container/{0}".format(container['container_name'])
+        error = remove_container_from_db(full_url, headers, container['container_name'])
+        if error != "": errors.append(error)
+
+    argument_list = []
+    error_message = "Error re-enabling scaler"
+    process_script("enable_scaler", argument_list, error_message)
+
+    ## Stop Containers
+    # Stop and remove containers
+    for container in container_list:
+        full_url = url + "container/{0}".format(container['container_name'])
+        stop_task = stop_container.delay(container['host'], container['container_name'])
+        register_task(stop_task.id,"stop_container_task")
+
+    # It would be great to execute tasks on a group, but the group task ID is not trackable
+
+    if len(errors) > 0: raise Exception(str(errors))
+
+@shared_task
+def remove_containers_from_app(url, headers, container_list, app, app_files):
+
+    ## Disable scaler, remove all containers from StateDB and re-enable scaler
+    argument_list = []
+    error_message = "Error disabling scaler"
+    process_script("disable_scaler", argument_list, error_message)
+
+    errors = []
+    for container in container_list:
+        full_url = url + "container/{0}/{1}".format(container['container_name'],app)
+        error = remove_container_from_app_db(full_url, headers, container['container_name'], app)
+        if error != "": errors.append(error)
+
+    argument_list = []
+    error_message = "Error re-enabling scaler"
+    process_script("enable_scaler", argument_list, error_message)
+
+    ## Stop Containers
+    # Stop and remove containers
+    #stop_containers_task = []
+    for container in container_list:
+        full_url = url + "container/{0}/{1}".format(container['container_name'],app)
+        bind_path = ""
+        if 'disk_path' in container: bind_path = container['disk_path']
+        stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, "")
+        register_task(stop_task.id,"stop_container_task")
+        #stop_task = stop_app_on_container_task.si(container['host'], container['container_name'], bind_path, app, app_files, "")
+        #stop_containers_task.append(stop_task)
+
+    # TODO: Maybe collect some kind of logs...
+    # It would be great to execute tasks on a group, but the group task ID is not trackable
+    #stop_group_task = group(stop_containers_task)()
+    #register_task(stop_group_task.id,"stop_containers_task")
+
+    if len(errors) > 0: raise Exception(str(errors))
 
 ## To be deprecated soon
 @shared_task
