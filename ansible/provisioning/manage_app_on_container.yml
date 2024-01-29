@@ -244,29 +244,38 @@
         when: "files_dir != ''"
         stat:
           path: "{{ container_bind_dir }}/{{ files_dir | basename }}"
+          get_checksum: false
+          get_mime: false
+          get_attributes: false
         register: stat_output
+        tags: stop_app
+
+      - name: Create app files directory
+        delegate_to: localhost
+        when: "files_dir != '' and not stat_output.stat.exists"
+        file:
+          path: "{{ container_bind_dir }}/{{ files_dir | basename }}"
+          state: directory
         tags: stop_app
 
       - name: Copy app files directory
         when: "files_dir != '' and not stat_output.stat.exists"
         copy:
-          src: "apps/{{ files_dir }}/"
-          dest: "{{ container_bind_dir }}/{{ files_dir | basename }}"
+          src: "apps/{{ files_dir }}"
+          dest: "{{ container_bind_dir }}/"
           mode: preserve
         tags: stop_app
 
       - name: Copy app start script
-        #copy:
         template:
           src: "apps/{{ start_script }}"
-          dest: "{{ container_bind_dir }}/{{ start_script | basename }}"
+          dest: "{{ container_bind_dir }}/"
           mode: preserve
 
       - name: Copy app stop script
-        #copy:
         template:
           src: "apps/{{ stop_script }}"
-          dest: "{{ container_bind_dir }}/{{ stop_script | basename }}"
+          dest: "{{ container_bind_dir }}/"
           mode: preserve
         tags: stop_app
 
@@ -274,18 +283,10 @@
         when: "app_jar != ''"
         copy:
           src: "apps/{{ app_jar }}"
-          dest: "{{ container_bind_dir }}/{{ app_jar | basename }}"
-
-      # - name: Move app jar to container home
-      #   when: "app_jar != ''"
-      #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
-      #     'mv -f {{ bind_dir_on_container }}/{{ app_jar | basename }} ~/'"
-      #   args:
-      #     executable: /bin/bash
+          dest: "{{ container_bind_dir }}/"
 
       - name: Execute start script on container
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null"
-        #when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"
         args:
           executable: /bin/bash
 
@@ -301,7 +302,6 @@
 
       - name: Execute stop script on container
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script | basename }} </dev/null"
-        #when: "'\"instance\": \"{{ item }}\",' not in apptainer_list_output.stdout"
         args:
           executable: /bin/bash
 
@@ -351,7 +351,7 @@
 
       - name: Remove hadoop files directory in container
         # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
-        when: "' ' not in bind_dir_on_container"
+        when: "app_jar != '' and ' ' not in bind_dir_on_container"
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
           'rm -r {{ bind_dir_on_container}}/files_dir'"
         args:
@@ -361,11 +361,21 @@
       # TODO: move results to another directory accesible for the user
       - name: Change remaining files permissions
         # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
-        when: "app_jar != '' and ' ' not in userid_on_the_host.stdout"
+        when: "' ' not in userid_on_the_host.stdout"
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
           'cd {{ bind_dir_on_container }} \
           && chown -R {{ userid_on_the_host.stdout }} output_* | : \
-          && chown {{ userid_on_the_host.stdout }} runtime_* app_log_* datagen_log_* | : \
+          && chown {{ userid_on_the_host.stdout }} runtime_* | : \
+          && chown {{ userid_on_the_host.stdout }} app_log_* | : \
+          && chown {{ userid_on_the_host.stdout }} datagen_log_* | :'"
+        args:
+          executable: /bin/bash
+
+      - name: Change remaining files permissions (hadoop)
+        # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
+        when: "app_jar != '' and ' ' not in userid_on_the_host.stdout"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
+          'cd {{ bind_dir_on_container }} \
           && chown -R {{ userid_on_the_host.stdout }} hadoop_logs'"
         args:
           executable: /bin/bash

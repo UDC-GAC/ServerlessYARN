@@ -27,7 +27,7 @@
     - name: Copy necessary files for hadoop apps
       delegate_to: localhost
       when: "app_jar != ''"
-      synchronize:
+      copy:
         src: "apps/hadoop/{{ item }}"
         dest: "{{ installation_path }}/apps/hadoop/"
       with_items:
@@ -53,21 +53,29 @@
         dest: "{{ installation_path }}/apps/{{ app_base_name }}/{{ definition_file }}"
       tags: create_app
 
+    - name: Create app files directory
+      delegate_to: localhost
+      when: "files_dir != '' and install_script != ''"
+      file:
+        path: "{{ installation_path }}/apps/{{ app_name }}/{{ files_dir | basename }}"
+        state: directory
+      tags: never, create_app
+
     # TODO: allow install script, start script or stop script to be included in files_dir
     - name: Copy app files directory
       delegate_to: localhost
       when: "files_dir != '' and install_script != ''"
-      synchronize:
-        src: "apps/{{ files_dir }}/"
-        dest: "{{ installation_path }}/apps/{{ app_base_name }}/{{ files_dir | basename }}"
+      copy:
+        src: "apps/{{ files_dir }}"
+        dest: "{{ installation_path }}/apps/{{ app_base_name }}/"
       tags: never, create_app
 
     - name: Copy app install script
       delegate_to: localhost
       when: "install_script != ''"
-      synchronize:
+      copy:
         src: "apps/{{ install_script }}"
-        dest: "{{ installation_path }}/apps/{{ app_base_name }}/{{ install_script | basename }}"
+        dest: "{{ installation_path }}/apps/{{ app_base_name }}/"
       tags: never, create_app
 
     - name: Build image
