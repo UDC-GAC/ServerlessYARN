@@ -25,8 +25,11 @@ with open(config_path, "r") as config_file:
 base_url = "http://{0}:{1}".format(config['server_ip'],config['orchestrator_port'])
 
 # TODO: set and get values from config
-max_load_ssd_disk = 4
-max_load_hdd_disk = 1
+# TODO: set max loads more accurately
+max_load_dict = {}
+max_load_dict["HDD"] = 1
+max_load_dict["SSD"] = 4
+max_load_dict["LVM"] = 20
 
 ## Auxiliary general methods
 def redirect_with_errors(redirect_url, errors):
@@ -671,10 +674,13 @@ def processAddHost(request, url, structure_name, structure_type, resources):
     disk_info = {}
     disk_info['hdd_disks'] = int(request.POST['hdd_disks'])
     disk_info['ssd_disks'] = int(request.POST['ssd_disks'])
+    disk_info['create_lvm'] = eval(request.POST['create_lvm'])
     if 'hdd_disks_path_list' in request.POST: disk_info['hdd_disks_path_list'] = request.POST['hdd_disks_path_list'].split(',')
     else: disk_info['hdd_disks_path_list']=[]
     if 'ssd_disks_path_list' in request.POST: disk_info['ssd_disks_path_list'] = request.POST['ssd_disks_path_list'].split(',')
     else: disk_info['ssd_disks_path_list']=[]
+    if disk_info['create_lvm']: disk_info['lvm_path'] = request.POST['lvm_path']
+    else: disk_info['lvm_path'] = ""
 
     # provision host and start its containers from playbook
     task = add_host_task(structure_name,cpu,mem,disk_info,new_containers)
@@ -984,10 +990,7 @@ def getHostFreeDiskLoad(host):
 
     if 'disks' in host['resources']:
         for disk in host['resources']['disks']:
-            if disk['type'] == 'SSD':
-                free_disk_load += max_load_ssd_disk - disk['load']
-            elif disk['type'] == 'HDD':
-                free_disk_load += max_load_hdd_disk - disk['load']
+            free_disk_load += max_load_dict[disk['type']] - disk['load']
 
     return free_disk_load
 
@@ -996,7 +999,9 @@ def getFreestDisk(host):
     current_min_load = -1
     freest_disk = None
 
-    ssd_hdd_load_ratio = max_load_ssd_disk/max_load_hdd_disk
+    disk_type_load_ratio = {}
+    for disk_type in max_load_dict:
+        disk_type_load_ratio[disk_type] = max_load_dict["LVM"]/max_load_dict[disk_type]
 
     if 'disks' in host['resources']:
         for disk in host['resources']['disks']:
@@ -1005,11 +1010,9 @@ def getFreestDisk(host):
                 freest_disk = disk['name']
                 break
 
-            if (disk['type'] == 'SSD' and disk['load'] == max_load_ssd_disk) or (disk['type'] == 'HDD' and disk['load'] == max_load_hdd_disk):
-                continue
+            if (disk['load'] == max_load_dict[disk['type']]): continue
 
-            if disk['type'] == 'HDD': adjusted_load = disk['load'] * ssd_hdd_load_ratio
-            elif disk['type'] == 'SSD': adjusted_load = disk['load']
+            adjusted_load = disk['load'] * disk_type_load_ratio[disk['type']]
 
             if current_min_load == -1 or adjusted_load < current_min_load:
                 current_min_load = adjusted_load
@@ -1038,10 +1041,7 @@ def GetFreestHost(hosts, container_resources, check_disks):
         max_disk_usage = 0
         if 'disks' in host['resources']:
             for disk in host['resources']['disks']:
-                if disk['type'] == 'HDD':
-                    max_disk_usage += max_load_hdd_disk
-                elif disk['type'] == 'SSD':
-                    max_disk_usage += max_load_ssd_disk
+                max_disk_usage += max_load_dict[disk['type']]
                 disk_usage += disk['load']
 
         if max_disk_usage == 0:
@@ -1083,8 +1083,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                 disk_assignation[host['name']][disk['name']] = {}
                 disk_assignation[host['name']][disk['name']]['new_containers'] = 0
                 disk_assignation[host['name']][disk['name']]['disk_path'] = disk['path']
-                if disk['type'] == 'SSD': disk_assignation[host['name']][disk['name']]['max_load'] = max_load_ssd_disk - disk['load']
-                elif disk['type'] == 'HDD': disk_assignation[host['name']][disk['name']]['max_load'] = max_load_hdd_disk - disk['load']
+                disk_assignation[host['name']][disk['name']]['max_load'] = max_load_dict[disk['type']] - disk['load']
 
     if assignation_policy == "Fill-up":
         for host in hosts:

@@ -196,6 +196,17 @@ class AddHostForm(forms.Form):
     ssd_disks_path_list = forms.CharField(label= "SSD disks path list",
             required=False
             )
+    create_lvm = forms.ChoiceField(label="Create LVM",
+            choices = (
+                ("True", "True"),
+                ("False", "False"),
+                ),
+            initial="False",
+            required=True
+    )
+    lvm_path = forms.CharField(label= "LVM mount path",
+            required=False
+            )
     number_of_containers = forms.IntegerField(label= "Number of containers",
             initial = 0,
             required=True
@@ -217,6 +228,8 @@ class AddHostForm(forms.Form):
             Field('hdd_disks_path_list'),
             Field('ssd_disks'),
             Field('ssd_disks_path_list'),
+            Field('create_lvm'),
+            Field('lvm_path'),
             Field('number_of_containers'),
             FormActions(
                 Submit('save', 'Add host', css_class='caja'),

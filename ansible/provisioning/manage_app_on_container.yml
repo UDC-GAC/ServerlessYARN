@@ -78,7 +78,7 @@
 
   - name: Setup hadoop on containers
     block:
-      - name: get the username id running the deploy
+      - name: get the user id running the deploy
         become: no
         local_action: command id -u
         register: userid_on_the_host
@@ -229,7 +229,7 @@
   ## Start
   - name: Start app on container
     block:
-      - name: get the username id running the deploy
+      - name: get the user id running the deploy
         become: no
         local_action: command id -u
         register: userid_on_the_host
@@ -295,7 +295,7 @@
   ## Stop
   - name: Stop app on container
     block:
-      - name: get the username id running the deploy
+      - name: get the user id running the deploy
         become: no
         local_action: command id -u
         register: userid_on_the_host

@@ -33,7 +33,7 @@ def add_host(hostname,cpu,mem,disk_info,new_containers):
         cont_name = 'cont' + str(i)
         containers.append(hostname + host_container_separator + cont_name)
 
-    disks = get_disks_dict(disk_info['hdd_disks'],disk_info['hdd_disks_path_list'], disk_info['ssd_disks'], disk_info['ssd_disks_path_list'])
+    disks = get_disks_dict(disk_info['hdd_disks'],disk_info['hdd_disks_path_list'], disk_info['ssd_disks'], disk_info['ssd_disks_path_list'], disk_info['create_lvm'], disk_info['lvm_path'])
 
     write_container_list(containers,hostname,cpu,mem,disks)
 
@@ -148,7 +148,7 @@ def write_container_list(container_list,host,cpu,mem,disks):
         with open(inventory_file, 'a') as file:
             file.writelines( host_info )
 
-def get_disks_dict(hdd_disks, hdd_disks_path_list, ssd_disks, ssd_disks_path_list):
+def get_disks_dict(hdd_disks, hdd_disks_path_list, ssd_disks, ssd_disks_path_list, create_lvm, lvm_path):
 
     disks_dict = {}
 
@@ -167,6 +167,13 @@ def get_disks_dict(hdd_disks, hdd_disks_path_list, ssd_disks, ssd_disks_path_lis
             disks_dict[disk_name] = disk_path
         else:
             raise Exception("Disk path can't be empty")
+
+    if create_lvm:
+        lvm_name = "lvm"
+        if lvm_path != "":
+            disks_dict[lvm_name] = lvm_path
+        else:
+            raise Exception("LVM path can't be empty")
 
     return disks_dict
 

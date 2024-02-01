@@ -22,6 +22,9 @@ fi
 # This is useful in case we need to use a newer version of ansible installed in $HOME/.local/bin
 export PATH=$HOME/.local/bin:$PATH
 
+## Install required ansible collections
+ansible-galaxy collection install ansible.posix:==1.5.0
+
 echo ""
 echo "Installing necessary services and programs..."
 ansible-playbook ${scriptDir}/../install_playbook.yml -i $INVENTORY

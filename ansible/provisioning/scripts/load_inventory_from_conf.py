@@ -126,7 +126,9 @@ if __name__ == "__main__":
     hdd_disks_path_list = config['hdd_disks_path_list'].split(",")
     ssd_disks_per_host = config['ssd_disks_per_host']
     ssd_disks_path_list = config['ssd_disks_path_list'].split(",")
-    disks_dict = get_disks_dict(hdd_disks_per_host, hdd_disks_path_list, ssd_disks_per_host, ssd_disks_path_list)
+    create_lvm = config['create_lvm']
+    lvm_path = config['lvm_path']
+    disks_dict = get_disks_dict(hdd_disks_per_host, hdd_disks_path_list, ssd_disks_per_host, ssd_disks_path_list, create_lvm, lvm_path)
 
     virtual_mode = config['virtual_mode']
 

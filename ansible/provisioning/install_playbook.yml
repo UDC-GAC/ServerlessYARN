@@ -40,6 +40,9 @@
 
   tasks:
     - import_tasks: tasks/install/create_installation_dir.yml
+    - import_tasks: tasks/install/lvm_setup.yml
+      when: "create_lvm"
+
     - import_tasks: tasks/install/serverless_containers_setup.yml
     - import_tasks: tasks/install/metrics_feeder_setup.yml # can be removed if an LXC container image is created
       when: "container_engine == 'lxc'"

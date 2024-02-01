@@ -1,0 +1,54 @@
+
+- name: Create and format LVM
+  block:
+    - name: Create pvs and a volume group
+      lvg:
+        vg: "{{ vg_name }}"
+        pvs: "{{ host_disk_list }}"
+        pvresize: true
+      vars:
+        host_disk_list: "{{ (hostvars[inventory_hostname].disks | ansible.utils.remove_keys(target=['lvm'])).values() }}"
+
+    - name: Create a logical volume
+      lvol:
+        vg: "{{ vg_name }}"
+        lv: "{{ lv_name }}"
+        size: 100%VG
+        opts: --type raid0
+
+    - name: Create directory if does not exist
+      file:
+        path: "{{ lv_path }}"
+        state: directory
+
+    - name: Format the ext4 filesystem
+      filesystem:
+        fstype: ext4
+        dev: "/dev/{{ vg_name }}/{{ lv_name }}"
+
+    - name: Unmount the lv (if mounted)
+      mount:
+        path: "{{ lv_path }}"
+        state: unmounted
+  
+    - name: Mount the lv
+      mount:
+        path: "{{ lv_path }}"
+        src: "/dev/{{ vg_name }}/{{ lv_name }}"
+        fstype: ext4
+        state: ephemeral
+
+    - name: get the username running the deploy
+      become: no
+      local_action: command whoami
+      register: username_on_the_host
+
+    - name: Change lv path permissions
+      file:
+        path: "{{ lv_path }}"
+        owner: "{{ username_on_the_host.stdout_lines[0] }}"
+        mode: '0755'
+  vars:
+    vg_name: "vg_{{ inventory_hostname }}"
+    lv_name: "lv_{{ inventory_hostname }}"
+    lv_path: "{{ hostvars[inventory_hostname].disks['lvm'] }}"

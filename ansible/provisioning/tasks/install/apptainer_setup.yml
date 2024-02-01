@@ -28,9 +28,11 @@
 
     - name: Download go
       unarchive:
-        src: https://go.dev/dl/go1.19.3.linux-amd64.tar.gz
+        src: "https://go.dev/dl/go{{ go_version }}.linux-amd64.tar.gz"
         dest: /usr/local
         remote_src: yes
+      vars:
+        go_version: 1.19.3
 
     - name: Create Go executable symlink
       file:
@@ -42,6 +44,7 @@
       git:
         repo: https://github.com/apptainer/apptainer.git
         dest: "{{ apptainer_repo_path }}"
+        version: v1.2.2
 
     - name: Configure Apptainer
       shell: ./mconfig

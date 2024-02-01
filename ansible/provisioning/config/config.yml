@@ -31,6 +31,9 @@ hdd_disks_per_host: 1
 hdd_disks_path_list: $HOME/hdd
 ssd_disks_per_host: 1
 ssd_disks_path_list: $HOME/ssd
+# "yes" to create a LVM using the previous disks. Such disks should be indicated using their /dev path
+create_lvm: yes
+lvm_path: $HOME/lvm
 
 ## Containers initial values
 number_of_containers_per_node: 0

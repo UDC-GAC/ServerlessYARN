@@ -52,14 +52,19 @@ if __name__ == "__main__":
         put_field_data['resources']["mem"]["max"] = int(host_mem)
         put_field_data['resources']["mem"]["free"] = int(host_mem)
 
+        create_lvm = config['create_lvm']
+
         for disk in disks:
-            new_disk = {}
-            new_disk['name'] = disk
-            new_disk['path'] = disks[disk]
-            new_disk['load'] = 0
-            if "ssd" in disk: new_disk['type'] = "SSD"
-            else: new_disk['type'] = "HDD"
-            put_field_data['resources']["disks"].append(new_disk)
+            if not create_lvm or "lvm" in disk:
+                new_disk = {}
+                new_disk['name'] = disk
+                new_disk['path'] = disks[disk]
+                new_disk['load'] = 0
+                if   "ssd" in disk: new_disk['type'] = "SSD"
+                elif "hdd" in disk: new_disk['type'] = "HDD"
+                elif "lvm" in disk: new_disk['type'] = "LVM"
+                else: raise Exception("Disk {0} has an invalid type".format(disk))
+                put_field_data['resources']["disks"].append(new_disk)
 
         r = session.put(full_url, data=json.dumps(put_field_data), headers=headers)
 
