@@ -6,6 +6,8 @@ The platform provides a serverless environment that supports Singularity/Apptain
 
 It is provided an automatic way of deploying the platform through IaC tools such as Ansible, as well as a web interface to easily manage the platform and execute Big Data workloads. The serverless platform may be deployed on an existing cluster or a virtual Vagrant cluster for testing purposes.
 
+### More information
+> &Oacute;scar Castellanos-Rodr&iacute;guez, Roberto R. Exp&oacute;sito, Jonatan Enes, Guillermo L. Taboada, Juan Touriño, [Serverless-like platform for container-based YARN clusters](https://doi.org/10.1016/j.future.2024.02.013). Future Generation Computer Systems, 155:256-271, February 2024.
 
 ## Getting Started
 
