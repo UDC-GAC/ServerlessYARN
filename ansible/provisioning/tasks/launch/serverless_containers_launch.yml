@@ -42,6 +42,7 @@
     executable: /bin/bash
   with_items:
     - orchestrator
+    - watt_wizard
     - database_snapshoter
     - structure_snapshoter
     - guardian

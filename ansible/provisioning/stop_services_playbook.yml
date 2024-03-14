@@ -75,6 +75,7 @@
       - guardian
       - structure_snapshoter
       - database_snapshoter
+      - watt_wizard
       - orchestrator
     tags: never, stop_services
 

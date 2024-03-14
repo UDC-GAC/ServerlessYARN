@@ -45,3 +45,20 @@
   template:
     src: templates/sc_services_config.yml
     dest: "{{ serverless_containers_path }}/services_config.yml"
+
+- name: Copy WattWizard global configuration to ServerlessContainers dir
+  template:
+    src: templates/wattwizard/global_config.sh
+    dest: "{{ serverless_containers_path }}/conf/WattWizard/load-conf.sh"
+
+- name: Copy InfluxDB environment variables for WattWizard to ServerlessContainers dir
+  template:
+    src: templates/wattwizard/influxdb_config.sh
+    dest: "{{ serverless_containers_path }}/src/WattWizard/influxdb/influxdb_env.py"
+
+- name: Verify that the InfluxDB server is reachable
+  wait_for:
+    host: "{{ config.influxdb_host }}"
+    port: 8086
+    timeout: 30
+  delegate_to: localhost
