@@ -175,4 +175,4 @@ if __name__ == "__main__":
                 else:
                     # For some reason, the first initialization always results in an error, but it actually works
                     print("Response from node scaler: " + str(r.content))
-                    print("Error initializing " + resources + " value for " + c['container_name'] + " in host " + host)
+                    print("Error initializing " + ', '.join(resources) + " value for " + c['container_name'] + " in host " + host)
