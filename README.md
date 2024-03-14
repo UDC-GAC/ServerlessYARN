@@ -52,7 +52,7 @@ The platform need to be installed and deployed on a master node (or "server" nod
 
     ```
     git clone https://github.com/UDC-GAC/bdwatchdog.git
-    git clone https://github.com/UDC-GAC/ServerlessContainers.git
+    git clone https://github.com/TomeMD/ServerlessContainers.git
     ```
 
 - Modify **config/config.yml** to customize your environment.
