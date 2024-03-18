@@ -47,6 +47,9 @@
                         {{ container_info.update( {'disk': first_disk, 'disk_path': hostvars[host].disks[first_disk]} ) }}
                       {%- endif -%}
                     {%- endif -%}
+                    {%- if power_budgeting -%}
+                      {{ container_info.update({'energy_max': max_energy_per_container, 'energy_min': min_energy_per_container}) }}                      
+                    {%- endif -%}
                     {{ containers_info.append(container_info) }}
                 {%- endfor -%}
               {%- endfor -%}
@@ -54,7 +57,8 @@
         - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
 
     - import_tasks: tasks/containers_setup/node_rescaler_launch.yml
-      become: "{{ 'no' if container_engine == 'apptainer' else 'yes' }}"
+      become: yes
+      #become: "{{ 'no' if container_engine == 'apptainer' else 'yes' }}"
 
 # Setup server (now that nodes have been initialized)
 - hosts: localhost
@@ -81,8 +85,12 @@
                 {%- for container_name in hostvars[host].containers -%}
                   {%- set container_info = dict() -%}
                     {{ container_info.update({'container_name': container_name, 'host': host, 'cpu_max': max_cpu_percentage_per_container, 'cpu_min': min_cpu_percentage_per_container, 'mem_max': max_memory_per_container, 'mem_min': min_memory_per_container }) }}
+                    {%- if power_budgeting -%}
+                      {{ container_info.update({'energy_max': max_energy_per_container, 'energy_min': min_energy_per_container}) }}                      
+                    {%- endif -%}
                     {{ containers_info.append(container_info) }}
                 {%- endfor -%}
               {%- endfor -%}
               {{ containers_info }}
+        - resources: "{{ ['cpu','mem','energy'] if power_budgeting else ['cpu','mem'] }}"
         - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"

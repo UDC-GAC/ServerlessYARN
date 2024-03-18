@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 rescaler_port = "8000"
 cpu_default_boundary = 20
 mem_default_boundary = 256
+energy_default_boundary = 10
 
 base_container_to_API = dict(
     container = dict(
@@ -30,7 +31,7 @@ base_container_to_API = dict(
     )
 )
 
-# usage example: add_containers_API_v3.py [{'container_name': 'host1-cont1', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'cpu_boundary': 25, 'mem_boundary': 256, 'disk': 'hdd_0', 'disk_path: '$HOME/hdd'}, {'container_name': 'host1-cont1'...}] config/config.yml
+# usage example: add_containers_API_v3.py [{'container_name': 'host1-cont1', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'energy_max': 100, 'energy_min': 30, 'cpu_boundary': 25, 'mem_boundary': 256, 'energy_boundary': 10, 'disk': 'hdd_0', 'disk_path: '$HOME/hdd'}, {'container_name': 'host1-cont1'...}] config/config.yml
 
 if __name__ == "__main__":
 
@@ -39,7 +40,7 @@ if __name__ == "__main__":
         with open(sys.argv[2], "r") as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
-        orchestrator_url = "http://{0}:{1}".format(config['server_ip'],config['orchestrator_port'])
+        orchestrator_url = "http://{0}:{1}".format(config['server_ip'], config['orchestrator_port'])
         headers = {'Content-Type': 'application/json'}
 
         session = requests.Session()
@@ -65,11 +66,28 @@ if __name__ == "__main__":
             put_field_data['container']['resources']["mem"]["min"] = int(cont['mem_min'])
             put_field_data['container']['resources']["mem"]["guard"] = True
 
+            if 'power_budgeting' in config and config['power_budgeting']:
+                put_field_data['container']['resources']["energy"] = dict()
+                put_field_data['container']['resources']["energy"]["max"] = int(cont['energy_max'])
+                put_field_data['container']['resources']["energy"]["current"] = int(cont['energy_min'])
+                put_field_data['container']['resources']["energy"]["min"] = int(cont['energy_min'])
+                put_field_data['container']['resources']["energy"]["guard"] = True
+
             ## Limits
-            if cont['cpu_boundary'] == 0: put_field_data['limits']["resources"]["cpu"]["boundary"] = cpu_default_boundary
-            else: put_field_data['limits']["resources"]["cpu"]["boundary"] = int(cont['cpu_boundary'])
-            if cont['mem_boundary'] == 0: put_field_data['limits']["resources"]["mem"]["boundary"] = mem_default_boundary
-            else: put_field_data['limits']["resources"]["mem"]["boundary"] = int(cont['mem_boundary'])
+            if cont['cpu_boundary'] == 0:
+                put_field_data['limits']["resources"]["cpu"]["boundary"] = cpu_default_boundary
+            else:
+                put_field_data['limits']["resources"]["cpu"]["boundary"] = int(cont['cpu_boundary'])
+            if cont['mem_boundary'] == 0:
+                put_field_data['limits']["resources"]["mem"]["boundary"] = mem_default_boundary
+            else:
+                put_field_data['limits']["resources"]["mem"]["boundary"] = int(cont['mem_boundary'])
+            if 'power_budgeting' in config and config['power_budgeting'] == 'yes':
+                put_field_data['limits']["resources"]["energy"] = dict()
+                if cont['energy_boundary'] == 0:
+                    put_field_data['limits']["resources"]["energy"]["boundary"] = energy_default_boundary
+                else:
+                    put_field_data['limits']["resources"]["energy"]["boundary"] = int(cont['energy_boundary'])
 
             # Disk
             if 'disk' in cont:

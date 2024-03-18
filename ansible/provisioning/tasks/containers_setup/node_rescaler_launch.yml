@@ -7,7 +7,6 @@
 
 - name: Starting Services - Node Scaler
   shell: bash scripts/services/node_scaler/start_tmux.sh
-  become: yes
   when: "'node_scaler' not in tmux_output.stdout"
   args:
     chdir: "{{ serverless_containers_path }}"

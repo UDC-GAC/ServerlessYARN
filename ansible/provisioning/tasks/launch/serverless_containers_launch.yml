@@ -13,6 +13,13 @@
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
 
+- name: Initializing State Database - energy services
+  shell: python3 conf/StateDatabase/energy_services.py
+  when: "'services' not in couchdb_tables.stdout and power_budgeting"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+
 - name: Initializing State Database - create other tables
   shell: python3 conf/StateDatabase/other_tables.py
   when: "'events' not in couchdb_tables.stdout and 'requests' not in couchdb_tables.stdout and 'limits' not in couchdb_tables.stdout and 'structures' not in couchdb_tables.stdout"
@@ -23,6 +30,13 @@
 - name: Initializing State Database - rules
   shell: python3 conf/StateDatabase/rules.py
   when: "'rules' not in couchdb_tables.stdout"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+
+- name: Initializing State Database - energy rules
+  shell: python3 conf/StateDatabase/energy_rules.py
+  when: "'rules' not in couchdb_tables.stdout and power_budgeting"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
@@ -42,7 +56,6 @@
     executable: /bin/bash
   with_items:
     - orchestrator
-    - watt_wizard
     - database_snapshoter
     - structure_snapshoter
     - guardian
@@ -52,13 +65,26 @@
     - rebalancer
   tags: restart_services
 
+# Start WattWizard
+- name: Starting Energy Services
+  shell: "bash scripts/services/{{ item }}/start_tmux.sh"
+  when: "item not in tmux_output.stdout"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+  with_items:
+    - watt_wizard
+    - energy_manager
+  tags: restart_services
+
 ## Hosts
 - name: Initializing State Database - hosts
-  shell: "python3 scripts/stateDatabase/add_hosts_API.py {{ item }} {{ hostvars[item].cpu }} {{ hostvars[item].mem }} {{ disks }} config/config.yml"
+  shell: "python3 scripts/stateDatabase/add_hosts_API.py {{ item }} '{{ resources | to_json | safe }}' {{ disks }} config/config.yml"
   args:
     executable: /bin/bash
   vars:
     disks: "{{ hostvars[item].disks | replace(' ','') | quote }}"
+    resources: "{{ {'cpu': hostvars[item].cpu, 'mem': hostvars[item].mem} | combine(({'energy': hostvars[item].energy} if power_budgeting else {})) }}"
   with_items: "{{ nodes }}"
 
 ## Disable scaler service before adding containers
