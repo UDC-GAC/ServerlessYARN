@@ -82,7 +82,7 @@ if __name__ == "__main__":
                 put_field_data['limits']["resources"]["mem"]["boundary"] = mem_default_boundary
             else:
                 put_field_data['limits']["resources"]["mem"]["boundary"] = int(cont['mem_boundary'])
-            if 'power_budgeting' in config and config['power_budgeting'] == 'yes':
+            if 'power_budgeting' in config and config['power_budgeting']:
                 put_field_data['limits']["resources"]["energy"] = dict()
                 if cont['energy_boundary'] == 0:
                     put_field_data['limits']["resources"]["energy"]["boundary"] = energy_default_boundary

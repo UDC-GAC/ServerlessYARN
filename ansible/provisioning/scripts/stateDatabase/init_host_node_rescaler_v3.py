@@ -6,7 +6,7 @@ import yaml
 import itertools
 import src.StateDatabase.couchdb as couchDB
 
-# usage example: init_host_node_rescaler_v3.py host1 [{'container_name': 'host1-cont0', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'energy_max': 100, 'energy_min': 30}, {'container_name': 'host1-cont1'...}]
+# usage example: init_host_node_rescaler_v3.py host1 [{'container_name': 'host1-cont0', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'energy_max': 100, 'energy_min': 30}, {'container_name': 'host1-cont1'...}] ['cpu', 'mem', 'energy']
 
 node_recaler_port = 8000
 
@@ -149,28 +149,27 @@ if __name__ == "__main__":
 
                     put_field_data["mem"] = {"mem_limit": cont_mem_limit, "unit": "M"}
 
-            if "energy" in resources:
-                try:
-                    not_initialized = int(requested_data['energy']['energy_limit']) == -1
-                except KeyError:
-                    not_initialized = True
-
-                if not_initialized:
-                    not_initialized_resources += 1
-                    if c in new_containers:
-                        cont_energy_limit = int(c['energy_max'])
-                    else:
-                        # Container already added to the StateDatabase (but not initialized)
-                        cont_info = handler.get_structure(c['container_name'])
-                        cont_energy_limit = cont_info['resources']['energy']['current']
-                        if cont_energy_limit == -1:
-                            cont_energy_limit = cont_info['resources']['energy']['max']
-
-                    put_field_data["energy"] = {"energy_limit": cont_energy_limit, "unit": "W"}
+            # if "energy" in resources:
+            #     try:
+            #         not_initialized = int(requested_data['energy']['energy_limit']) == -1
+            #     except KeyError:
+            #         not_initialized = True
+            #
+            #     if not_initialized:
+            #         not_initialized_resources += 1
+            #         if c in new_containers:
+            #             cont_energy_limit = int(c['energy_max'])
+            #         else:
+            #             # Container already added to the StateDatabase (but not initialized)
+            #             cont_info = handler.get_structure(c['container_name'])
+            #             cont_energy_limit = cont_info['resources']['energy']['current']
+            #             if cont_energy_limit == -1:
+            #                 cont_energy_limit = cont_info['resources']['energy']['max']
+            #
+            #         put_field_data["energy"] = {"energy_limit": cont_energy_limit, "unit": "W"}
 
             if not_initialized_resources > 0:
-                print(put_field_data)
-                #r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+                r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
                 if r.ok:
                     print("Container " + c['container_name'] + " updated with: " + str(put_field_data))
                 else:
