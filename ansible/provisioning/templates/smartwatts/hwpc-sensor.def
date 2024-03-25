@@ -1,0 +1,17 @@
+Bootstrap: docker
+From: powerapi/hwpc-sensor:latest
+
+%files
+    {{ hwpc_sensor_path }}/config/hwpc-sensor-entrypoint.sh /entrypoint.sh
+    {{ hwpc_sensor_path }}/config/hwpc-sensor-config.json /hwpc-config.json
+
+#%post
+#    setcap 'cap_sys_admin,cap_perfmon+ep' /usr/bin/hwpc-sensor
+
+%runscript
+    echo "Running HWPC Sensor..."
+    /entrypoint.sh --config-file /hwpc-config.json
+
+%startscript
+    echo "Starting HWPC Sensor..."
+    /entrypoint.sh --config-file /hwpc-config.json

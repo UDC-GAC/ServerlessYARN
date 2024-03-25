@@ -7,6 +7,13 @@ apptainer_repo_path: "{{ installation_path }}/apptainer"
 lxd_key_path: "{{ serverless_containers_path }}"
 tmpdir: "{{ installation_path }}/tmpdir"
 
+# SmartWatts
+mongodb_path: "{{ installation_path }}/mongodb"
+mongodb_data_path: "{{ installation_path }}/mongodb/data"
+hwpc_sensor_path: "{{ installation_path }}/hwpc_sensor"
+smartwatts_path: "{{ installation_path }}/smartwatts"
+
+
 ## Container bind directories variables
 default_bind_path: "{{ installation_path }}"
 bind_path: "{{ default_bind_path }}"

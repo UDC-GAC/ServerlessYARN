@@ -1,0 +1,92 @@
+
+- name: Start SmartWatts inside an apptainer/singularity container
+
+  block:
+    - name: Copy SmartWatts container definition file
+      template:
+        src: "templates/smartwatts/{{ definition_file }}"
+        dest: "{{ smartwatts_path }}/image/{{ definition_file }}"
+
+    - name: Copy SmartWatts configuration files
+      template:
+        src: "templates/smartwatts/config/{{ item }}"
+        dest: "{{ smartwatts_path }}/config/{{ item }}"
+      with_items:
+        - smartwatts-config.json
+
+    - name: Remove any file from SmartWatts output
+      file:
+        path: "{{ smartwatts_output }}"
+        state: "{{ item }}"
+      with_items:
+        - absent
+        - directory
+
+    - name: Create one directory for each SmartWatt target
+      file:
+        path: "{{ smartwatts_output }}/sensor-{{ item }}"
+        state: directory
+      with_items:
+        - "rapl"
+        - "global"
+        - "system"
+
+    - name: Create CSV output files for each SmartWatt target
+      file:
+        path: "{{ smartwatts_output }}/sensor-{{ item }}/PowerReport.csv"
+        state: touch
+      with_items:
+        - "rapl"
+        - "global"
+        - "system"
+
+    - name: Clone SmartWatts git repository
+      git:
+        repo: "https://github.com/powerapi-ng/smartwatts-formula.git"
+        dest: "{{ smartwatts_path }}/smartwatts-formula"
+
+    - name: Build image
+      shell: "{{ singularity_command_alias }} build image/{{ image_file }} image/{{ definition_file }}"
+      args:
+        chdir: "{{ smartwatts_path }}"
+        executable: /bin/bash
+        creates: "image/{{ image_file }}"
+
+    - name: Check containers status
+      shell: "{{ singularity_command_alias }} instance list -j"
+      register: apptainer_list_output
+      args:
+        executable: /bin/bash
+
+    - name: Start SmartWatts apptainer container
+      shell: "{{ singularity_command_alias }} instance start -C --bind {{ smartwatts_output }}:/sensor-output image/{{ image_file }} {{ container_name }}"
+      when: "'\"instance\": \"{{ container_name }}\",' not in apptainer_list_output.stdout"
+      args:
+        chdir: "{{ smartwatts_path }}"
+        executable: /bin/bash
+
+  when: "container_engine == 'apptainer'"
+  vars:
+    - smartwatts_output: "{{ smartwatts_path }}/output"
+    - definition_file: "smartwatts.def"
+    - image_file: "smartwatts.sif"
+    - container_name: "smartwatts"
+
+- name: Start SmartWatts inside a lxc container
+  debug:
+    msg: 'SmartWatts inside a lxc container not yet supported'
+  when: "container_engine == 'lxc'"
+
+- name: Tmux session check
+  shell: tmux ls
+  register: tmux_output
+  ignore_errors: yes
+
+- name: Start tmux session for SmartWatts power sender
+  shell: "bash scripts/SmartWatts/start_sender_tmux.sh {{ smartwatts_output }} {{ targets }} config/config.yml"
+  when: "'smartwatts_sender' not in tmux_output.stdout"
+  args:
+    executable: /bin/bash
+  vars:
+    - smartwatts_output: "{{ smartwatts_path }}/output"
+    - targets: "rapl,global,system"

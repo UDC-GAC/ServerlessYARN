@@ -1,0 +1,46 @@
+
+- name: Start mongodb inside an apptainer/singularity container
+  block:
+    - name: Copy mongodb container definition file
+      template:
+        src: "templates/smartwatts/{{ definition_file }}"
+        dest: "{{ mongodb_path }}/image/{{ definition_file }}"
+
+    - name: Build image
+      shell: "{{ singularity_command_alias }} build {{ image_file }} {{ definition_file }}"
+      args:
+        chdir: "{{ mongodb_path }}/image"
+        executable: /bin/bash
+        creates: "{{ image_file }}"
+
+    - name: Remove any file from MongoDB data directory
+      file:
+        path: "{{ mongodb_path }}/data"
+        state: "{{ item }}"
+      with_items:
+        - absent
+        - directory
+
+    - name: Check containers status
+      shell: "{{ singularity_command_alias }} instance list -j"
+      register: apptainer_list_output
+      args:
+        executable: /bin/bash
+
+    - name: Start mongodb apptainer container
+      shell: "{{ singularity_command_alias }} instance start -C --bind {{ mongodb_data_path }}:/data/db image/{{ image_file }} {{ container_name }}"
+      when: "'\"instance\": \"{{ container_name }}\",' not in apptainer_list_output.stdout"
+      args:
+        chdir: "{{ mongodb_path }}"
+        executable: /bin/bash
+
+  when: "container_engine == 'apptainer'"
+  vars:
+    - definition_file: "mongodb_container.def"
+    - image_file: "mongodb_container.sif"
+    - container_name: "mongodb"
+
+- name: Start mongodb inside a lxc container
+  debug:
+    msg: 'MongoDB inside a lxc container not yet supported'
+  when: "container_engine == 'lxc'"

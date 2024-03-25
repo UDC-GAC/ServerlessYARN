@@ -27,6 +27,8 @@ couchdb_url: "{{ server_ip }}"
 couchdb_port: 5984
 opentsdb_url: "{{ server_ip }}"
 opentsdb_port: 4242
+mongodb_url: "{{ server_ip }}"
+mongodb_port: 27017
 
 ## WattWizard Config
 train_file_name: "train"
@@ -49,6 +51,11 @@ ssd_disks_path_list: $HOME/ssd
 # "yes" to create a LVM using the previous disks. Such disks should be indicated using their /dev path
 create_lvm: no # no
 lvm_path: $HOME/lvm
+
+# Guardable resources: Initial resources to be scaled by Serverless Containers
+# CAUTION! Energy will be automatically added if power_budgeting is activated
+guardable_resources: "cpu"
+
 
 ## Containers initial values
 number_of_containers_per_node: 1

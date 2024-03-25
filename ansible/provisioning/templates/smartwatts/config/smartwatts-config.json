@@ -1,0 +1,23 @@
+{
+  "verbose": true,
+  "stream": true,
+  "input": {
+    "puller": {
+      "model": "HWPCReport",
+      "type": "mongodb",
+      "uri": "mongodb://{{ mongodb_url }}",
+      "db": "cont_metrics",
+      "collection": "collection_0"
+    }
+  },
+  "output": {
+    "pusher_power": {
+      "type": "csv",
+      "directory": "/sensor-output"
+    }
+  },
+  "cpu-base-freq": 1900,
+  "cpu-error-threshold": 2.0,
+  "disable-dram-formula": true,
+  "sensor-reports-frequency": 1000
+}

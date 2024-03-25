@@ -1,0 +1,17 @@
+Bootstrap: docker
+From: mongo:latest
+
+%environment
+    export MONGODB_DATA=/data/db
+
+%runscript
+    mkdir -p ${MONGODB_DATA}
+    rm -rf ${MONGODB_DATA}/*
+    echo "Running MongoDB..."
+    mongod --bind_ip_all
+
+%startscript
+    mkdir -p ${MONGODB_DATA}
+    rm -rf ${MONGODB_DATA}/*
+    echo "Starting MongoDB..."
+    mongod --bind_ip_all

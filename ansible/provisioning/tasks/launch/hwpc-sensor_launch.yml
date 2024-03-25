@@ -1,0 +1,47 @@
+
+- name: Start HWPC Sensor inside an apptainer/singularity container
+  block:
+    - name: Copy HWPC Sensor container definition file
+      template:
+        src: "templates/smartwatts/{{ definition_file }}"
+        dest: "{{ hwpc_sensor_path }}/image/{{ definition_file }}"
+
+    - name: Copy HWPC Sensor configuration files
+      template:
+        src: "templates/smartwatts/config/{{ item }}"
+        dest: "{{ hwpc_sensor_path }}/config/{{ item }}"
+      with_items:
+        - hwpc-sensor-config.json
+        - hwpc-sensor-entrypoint.sh
+
+    - name: Build image
+      shell: "{{ singularity_command_alias }} build image/{{ image_file }} image/{{ definition_file }}"
+      args:
+        chdir: "{{ hwpc_sensor_path }}"
+        executable: /bin/bash
+        creates: "image/{{ image_file }}"
+
+    - name: Check containers status
+      shell: "{{ singularity_command_alias }} instance list -j"
+      register: apptainer_list_output
+      args:
+        executable: /bin/bash
+
+    - name: Start HWPC Sensor apptainer container
+      shell: "{{ singularity_command_alias }} instance start -C --bind /sys:/sys image/{{ image_file }} {{ container_name }}"
+      when: "'\"instance\": \"{{ container_name }}\",' not in apptainer_list_output.stdout"
+      become: yes
+      args:
+        chdir: "{{ hwpc_sensor_path }}"
+        executable: /bin/bash
+
+  when: "container_engine == 'apptainer'"
+  vars:
+    - definition_file: "hwpc-sensor.def"
+    - image_file: "hwpc-sensor.sif"
+    - container_name: "hwpc_sensor"
+
+- name: Start HWPC Sensor inside a lxc container
+  debug:
+    msg: 'HWPC Sensor inside a lxc container not yet supported'
+  when: "container_engine == 'lxc'"

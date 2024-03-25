@@ -1,0 +1,18 @@
+Bootstrap: docker
+From: powerapi/smartwatts-formula:latest
+
+%files
+    {{ smartwatts_path }}/smartwatts-formula /smartwatts
+    {{ smartwatts_path }}/config/smartwatts-config.json /smartwatts-config.json
+
+%post
+    pip install --no-cache-dir "/smartwatts"
+    rm -r /smartwatts
+
+%runscript
+    echo "Starting SmartWatts..."
+    python3 -m smartwatts --config-file /smartwatts-config.json
+
+%startscript
+    echo "Starting SmartWatts..."
+    python3 -m smartwatts  --config-file /smartwatts-config.json
