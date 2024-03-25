@@ -110,6 +110,14 @@
     executable: /bin/bash
   tags: never, start_containers, enable_scaler
 
+- name: Guardian - Setting guardable resources
+  shell: "bash scripts/orchestrator/Guardian/set_guardable_resources.sh {{ resources }}"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+  vars:
+    resources: "{{ guardable_resources + (' energy' if power_budgeting else '') }}"
+
 ## Activate Services
 - name: Activating Services
   shell: "bash scripts/orchestrator/{{ item }}/activate.sh"
@@ -124,3 +132,5 @@
     - Refeeder
     - Rebalancer
   tags: restart_services
+
+
