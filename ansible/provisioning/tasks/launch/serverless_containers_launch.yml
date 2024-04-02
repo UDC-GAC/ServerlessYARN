@@ -110,6 +110,12 @@
     executable: /bin/bash
   tags: never, start_containers, enable_scaler
 
+- name: Copy custom env file in ServerlessContainers to avoid using yq
+  template:
+    src: "templates/sc_set_env.sh"
+    dest: "{{ serverless_containers_path }}/scripts/orchestrator/set_env.sh"
+  when: "not virtual_mode"
+
 - name: Guardian - Setting guardable resources
   shell: "bash scripts/orchestrator/Guardian/set_guardable_resources.sh {{ resources }}"
   args:
