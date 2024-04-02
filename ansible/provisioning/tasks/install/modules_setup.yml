@@ -1,0 +1,17 @@
+
+- name: Check if module is already in .bashrc
+  lineinfile:
+    path: ~/.bashrc
+    regexp: '^module load {{ item }}$'
+    state: absent
+  check_mode: true
+  changed_when: false
+  register: check
+
+- name: Set module as permanent
+  lineinfile:
+    path: ~/.bashrc
+    line: 'module load {{ item }}'
+    insertafter: EOF
+    state: present
+  when: check.found == 0
