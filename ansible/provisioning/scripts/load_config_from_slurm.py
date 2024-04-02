@@ -105,7 +105,7 @@ def getDisksFromConfig(config_file):
     ssd_disks_per_host = config['ssd_disks_per_host']
     ssd_disks_path_list = config['ssd_disks_path_list'].split(",")
 
-    return get_disks_dict(hdd_disks_per_host, hdd_disks_path_list, ssd_disks_per_host, ssd_disks_path_list)
+    return get_disks_dict(hdd_disks_per_host, hdd_disks_path_list, ssd_disks_per_host, ssd_disks_path_list, False, "")
 
 def update_config_file(config_file, server, server_ip, hosts, cpus_per_node, memory_per_node):
     #server_ip = server
@@ -152,6 +152,12 @@ def update_config_file(config_file, server, server_ip, hosts, cpus_per_node, mem
 
 def update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_per_node, disks_dict):
 
+    with open(config_file, "r") as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+
+    # TODO: Get energy value according to node CPUs
+    energy_per_node = config['energy_per_host'] if config['power_budgeting'] else None
+
     # Server
     with open(inventory_file, 'w') as f:
         content = ["[server]", server, "[nodes]",""]
@@ -159,7 +165,7 @@ def update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_p
 
     # Nodes
     for host in hosts:
-        write_container_list([],host,cpus_per_node,memory_per_node,disks_dict)
+        write_container_list([],host,cpus_per_node,memory_per_node,disks_dict, energy_per_node)
 
 if __name__ == "__main__":
 
@@ -175,6 +181,8 @@ if __name__ == "__main__":
 
     # Change config
     update_config_file(config_file, server, server_ip, hosts, cpus_per_node, memory_per_node)
+
+    # TODO: Update vars YAML file to update installation path to cluster user home (not vagrant)
 
     # Update ansible inventory file
     update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_per_node, disks_dict)

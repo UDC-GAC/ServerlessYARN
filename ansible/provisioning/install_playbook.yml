@@ -28,7 +28,7 @@
     - block:
       - import_tasks: tasks/install/mongodb_setup.yml
       - import_tasks: tasks/install/smartwatts_setup.yml
-      when: "virtual_mode and container_engine == 'apptainer' and power_budgeting"
+      when: "container_engine == 'apptainer' and power_budgeting"
       tags: setup_smartwatts
 
 # Setup nodes
@@ -65,5 +65,5 @@
       when: "container_engine == 'apptainer'"
 
     - import_tasks: tasks/install/hwpc-sensor_setup.yml
-      when: "virtual_mode and power_budgeting"
+      when: "container_engine == 'apptainer' and power_budgeting"
       tags: setup_smartwatts
