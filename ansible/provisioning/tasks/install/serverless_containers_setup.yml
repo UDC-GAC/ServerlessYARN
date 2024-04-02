@@ -36,6 +36,14 @@
     dest: "{{ serverless_containers_path }}"
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
 
+- name: Set permanent modules for cluster nodes
+  when: "not virtual_mode and 'nodes' in group_names"
+  include_tasks: tasks/install/modules_setup.yml
+  loop:
+    - gnu8/8.3.0
+    - python/3.8.13
+    - jdk/openjdk/8u382
+
 - name: Install specified python requirements
   pip:
     requirements: "{{ serverless_containers_path }}/requirements.txt"
