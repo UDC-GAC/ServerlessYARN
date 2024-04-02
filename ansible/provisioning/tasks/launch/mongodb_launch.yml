@@ -13,6 +13,12 @@
         executable: /bin/bash
         creates: "{{ image_file }}"
 
+    - name: Check containers status
+      shell: "{{ singularity_command_alias }} instance list -j"
+      register: apptainer_list_output
+      args:
+        executable: /bin/bash
+
     - name: Remove any file from MongoDB data directory
       file:
         path: "{{ mongodb_path }}/data"
@@ -20,12 +26,7 @@
       with_items:
         - absent
         - directory
-
-    - name: Check containers status
-      shell: "{{ singularity_command_alias }} instance list -j"
-      register: apptainer_list_output
-      args:
-        executable: /bin/bash
+      when: "'\"instance\": \"{{ container_name }}\",' not in apptainer_list_output.stdout"
 
     - name: Start mongodb apptainer container
       shell: "{{ singularity_command_alias }} instance start -C --bind {{ mongodb_data_path }}:/data/db image/{{ image_file }} {{ container_name }}"

@@ -28,9 +28,8 @@
         executable: /bin/bash
 
     - name: Start HWPC Sensor apptainer container
-      shell: "{{ singularity_command_alias }} instance start -C --bind /sys:/sys image/{{ image_file }} {{ container_name }}"
+      shell: "sudo {{ singularity_command_alias }} instance start -C --bind /sys:/sys image/{{ image_file }} {{ container_name }}"
       when: "'\"instance\": \"{{ container_name }}\",' not in apptainer_list_output.stdout"
-      become: yes
       args:
         chdir: "{{ hwpc_sensor_path }}"
         executable: /bin/bash
