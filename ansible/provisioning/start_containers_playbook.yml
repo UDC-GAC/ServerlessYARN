@@ -57,7 +57,6 @@
         - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
 
     - import_tasks: tasks/containers_setup/node_rescaler_launch.yml
-      become: yes
       #become: "{{ 'no' if container_engine == 'apptainer' else 'yes' }}"
 
 # Setup server (now that nodes have been initialized)
@@ -75,8 +74,11 @@
     PYTHONPATH: "{{ bdwatchdog_path }}:{{ serverless_containers_path }}"
 
   tasks:
+    - import_tasks: tasks/launch/couchdb_launch.yml
     - import_tasks: tasks/containers_setup/node_rescaler_containers_init.yml
-      tags: start_containers
+      tags: 
+        - start_containers
+        - init_node_rescaler
       vars:
         - nodes: "{{ host_list | split(',') if host_list is defined else groups['nodes'] }}"
         - containers_info_str: >
