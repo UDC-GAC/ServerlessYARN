@@ -2,13 +2,15 @@
 import json
 import requests
 import sys
-import yaml
 import itertools
+import time
 import src.StateDatabase.couchdb as couchDB
 
 # usage example: init_host_node_rescaler_v3.py host1 [{'container_name': 'host1-cont0', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'energy_max': 100, 'energy_min': 30}, {'container_name': 'host1-cont1'...}] ['cpu', 'mem', 'energy']
 
-node_recaler_port = 8000
+NODE_RESCALER_PORT = 8000
+COUCHDB_INIT_TRIES = 10
+COUCHDB_INIT_WAIT = 0.5
 
 
 def get_integer_list_range(list_num):
@@ -28,7 +30,7 @@ if __name__ == "__main__":
         containers = json.loads(sys.argv[2].replace('\'', '"'))
         resources = json.loads(sys.argv[3].replace('\'', '"'))
 
-        base_url = f"http://{host}:{str(node_recaler_port)}/container/"
+        base_url = f"http://{host}:{str(NODE_RESCALER_PORT)}/container/"
         headers = {'Content-Type': 'application/json'}
 
         # No containers requested
@@ -38,6 +40,20 @@ if __name__ == "__main__":
         new_containers = containers
         host_found = False
         host_info = None
+
+        # Wait for couchdb to be up a minimum of 5s
+        couchdb_up = False
+        tries = 0
+        while not couchdb_up and tries < COUCHDB_INIT_TRIES:
+            try:
+                couchdb_up = handler.database_exists(database)
+            except Exception:
+                couchdb_up = False
+            finally:
+                tries += 1
+                time.sleep(COUCHDB_INIT_WAIT)
+                print("StateDatabase is {0}".format("up" if couchdb_up else "down. Retrying..."))
+            
         if handler.database_exists(database):
             try:
                 host_info = handler.get_structure(host)
