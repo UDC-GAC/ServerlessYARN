@@ -14,3 +14,9 @@
     path: "{{ hwpc_sensor_path }}/config"
     state: directory
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
+
+- name: Create HWPC Sensor reporting directory
+  file:
+    path: "{{ hwpc_sensor_reporting_path }}"
+    state: directory
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"

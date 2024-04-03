@@ -28,17 +28,19 @@
         executable: /bin/bash
 
     - name: Start HWPC Sensor apptainer container
-      shell: "sudo {{ singularity_command_alias }} instance start -C --bind /sys:/sys image/{{ image_file }} {{ container_name }}"
+      shell: "sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --bind /sys:/sys --bind {{ hwpc_sensor_reporting_path }}:/reporting image/{{ image_file }} {{ container_name }}"
       when: "'\"instance\": \"{{ container_name }}\",' not in apptainer_list_output.stdout"
       args:
         chdir: "{{ hwpc_sensor_path }}"
         executable: /bin/bash
-
+      vars:
+        extra_connection: "{{ ',ptp' if mode == 'ipvlan' else '' }}"
+        
   when: "container_engine == 'apptainer'"
   vars:
     - definition_file: "hwpc-sensor.def"
     - image_file: "hwpc-sensor.sif"
-    - container_name: "hwpc_sensor"
+    - container_name: "hwpc-sensor"
 
 - name: Start HWPC Sensor inside a lxc container
   debug:
