@@ -3,6 +3,7 @@ import sys
 import time
 import yaml
 import requests
+from datetime import datetime
 
 POLLING_FREQUENCY = 5
 
@@ -33,6 +34,8 @@ if __name__ == "__main__":
         for target in targets:
             with open(output_file[target], 'r') as file:
                 file.seek(last_read_position[target])
+                if last_read_position[target] == 0:
+                    next(file)
                 lines = file.readlines()
                 if len(lines) == 0:
                     print("There aren't new lines to process for target {0}".format(target))
@@ -53,8 +56,9 @@ if __name__ == "__main__":
                         raise Exception("Found metrics from target {0} in a file supposed"
                                         " to store metrics from target {1}".format(str(fields[2]), target))
 
-                    data["timestamp"] = int(fields[0])
+                    data["timestamp"] = int(datetime.now().timestamp() * 1000)
                     data["value"] = float(fields[3])
+
                     r = session.post(opentsdb_url, data=json.dumps(data), headers=headers)
                     if r.status_code != 204:
                         print("Error while sending target {0} metrics to OpenTSDB. Sent data: {1}".format(target, data))
