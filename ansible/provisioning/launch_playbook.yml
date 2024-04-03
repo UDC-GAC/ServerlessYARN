@@ -68,4 +68,6 @@
   tasks:
     - import_tasks: tasks/launch/hwpc-sensor_launch.yml
       when: "power_budgeting"
-      tags: start_smartwatts
+      tags: 
+      - start_smartwatts
+      - start_hwpc_sensor
