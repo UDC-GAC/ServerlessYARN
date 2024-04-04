@@ -11,6 +11,7 @@ tmpdir: "{{ installation_path }}/tmpdir"
 mongodb_path: "{{ installation_path }}/mongodb"
 mongodb_data_path: "{{ installation_path }}/mongodb/data"
 hwpc_sensor_path: "{{ installation_path }}/hwpc_sensor"
+hwpc_sensor_reporting_path : /tmp/powerapi-sensor-reporting
 smartwatts_path: "{{ installation_path }}/smartwatts"
 
 
