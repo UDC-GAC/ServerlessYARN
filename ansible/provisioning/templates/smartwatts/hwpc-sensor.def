@@ -1,12 +1,100 @@
+# libpfm dependency builder image
 Bootstrap: docker
-From: powerapi/hwpc-sensor:1.2.0
+From: ubuntu:22.04
+Stage: libpfm-builder
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    export LIBPFM4_DIR=/var/lib/libpfm4
+
+    mkdir -p "${LIBPFM4_DIR}"
+
+    # Install dependencies
+    apt update && apt install -y build-essential git devscripts debhelper dpatch python3-dev libncurses-dev swig
+    update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+
+    # Get libpfm4 git repository and compile .deb files
+    git clone -b smartwatts https://github.com/gfieni/libpfm4.git "${LIBPFM4_DIR}"
+    cd "${LIBPFM4_DIR}"
+    debian/rules binary
+    mv "${LIBPFM4_DIR}"/../*.deb "${LIBPFM4_DIR}"
+
+# sensor builder image (build tools + development dependencies):
+Bootstrap: docker
+From: ubuntu:22.04
+Stage: sensor-builder
+
+%files from libpfm-builder
+    /var/lib/libpfm4/libpfm4*.deb /
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    export HWPC_SENSOR_REPOSITORY="https://github.com/TomeMD/hwpc-sensor.git"
+    export HWPC_SENSOR_SRC=/usr/src/hwpc-sensor
+    export MONGODB_SUPPORT="ON"
+    export BUILD_TYPE="debug"
+
+    # Install dependencies
+    apt update
+    apt install -y build-essential git clang-tidy cmake pkg-config libczmq-dev libsystemd-dev uuid-dev
+    if [ "${MONGODB_SUPPORT}" = "ON" ]; then
+        apt install -y libmongoc-dev
+    fi
+    dpkg -i /libpfm4_*.deb /libpfm4-dev_*.deb
+    rm /libpfm4*.deb
+
+    # Clone HWPC Sensor repository
+    mkdir -p "${HWPC_SENSOR_SRC}"
+    git clone -b master "${HWPC_SENSOR_REPOSITORY}" "${HWPC_SENSOR_SRC}"
+
+    # Build HWPC Sensor
+    cd "${HWPC_SENSOR_SRC}"
+    GIT_TAG=$(git describe --tags --dirty 2>/dev/null || echo "unknown")
+    GIT_REV=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+    cmake -B build -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" -DCMAKE_C_CLANG_TIDY="clang-tidy" -DWITH_MONGODB="${MONGODB_SUPPORT}"
+    cmake --build build --parallel $(getconf _NPROCESSORS_ONLN)
+
+# sensor runner image (only runtime depedencies):
+Bootstrap: docker
+From: ubuntu:22.04
+Stage: sensor-runner
+
+%files from libpfm-builder
+    /var/lib/libpfm4/libpfm4*.deb /
+
+%files from sensor-builder
+    /usr/src/hwpc-sensor/build/hwpc-sensor /usr/bin/hwpc-sensor
 
 %files
     {{ hwpc_sensor_path }}/config/hwpc-sensor-entrypoint.sh /entrypoint.sh
     {{ hwpc_sensor_path }}/config/hwpc-sensor-config.json /hwpc-config.json
 
 %post
-    setcap 'cap_sys_admin,cap_perfmon+ep' /usr/bin/hwpc-sensor
+    export DEBIAN_FRONTEND=noninteractive
+    export MONGODB_SUPPORT="ON"
+    export BUILD_TYPE="debug"
+    export FILE_CAPABILITY="cap_sys_admin"
+
+    # Add powerapi user
+    useradd -d /opt/powerapi -m powerapi
+
+    # Install runtime dependencies
+    apt update
+    apt install -y libczmq4 libcap2-bin
+    if [ "${MONGODB_SUPPORT}" = "ON" ]; then
+        apt install -y libmongoc-1.0-0
+    fi
+    if [ "${BUILD_TYPE}" = "debug" ]; then
+        apt install -y libasan6 libubsan1
+    fi
+    rm -rf /var/lib/apt/lists/*
+    dpkg -i /libpfm4_*.deb /libpfm4-dev_*.deb
+    rm /libpfm4*.deb
+
+    # Set files capabilities and permissions
+    setcap "${FILE_CAPABILITY}+ep" /usr/bin/hwpc-sensor
+    setcap -v "${FILE_CAPABILITY}+ep" /usr/bin/hwpc-sensor
+    chmod +x /entrypoint.sh
 
 %runscript
     echo "Running HWPC Sensor..."

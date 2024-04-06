@@ -1,6 +1,7 @@
 {
   "name": "sensor",
   "verbose": true,
+  "cgroup_basepath": "/sys/fs/cgroup/perf_event",
   "frequency": 500,
   "output": {
     "type": "mongodb",
