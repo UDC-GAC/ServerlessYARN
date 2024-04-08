@@ -15,8 +15,11 @@
     state: directory
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
 
-- name: Create SmartWatts output directory
+- name: Clean and create SmartWatts output directory
   file:
+    state: "{{ item }}"
     path: "{{ smartwatts_path }}/output"
-    state: directory
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
+  with_items:
+    - absent
+    - directory

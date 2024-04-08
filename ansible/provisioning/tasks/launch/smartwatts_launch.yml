@@ -14,37 +14,6 @@
       with_items:
         - smartwatts-config.json
 
-    - name: Remove any file from SmartWatts output
-      file:
-        path: "{{ smartwatts_output }}"
-        state: "{{ item }}"
-      with_items:
-        - absent
-        - directory
-
-    - name: Create one directory for each SmartWatt target
-      file:
-        path: "{{ smartwatts_output }}/sensor-{{ item }}"
-        state: directory
-      with_items:
-        - "rapl"
-        - "global"
-        - "system"
-
-    - name: Create CSV output files for each SmartWatt target
-      file:
-        path: "{{ smartwatts_output }}/sensor-{{ item }}/PowerReport.csv"
-        state: touch
-      with_items:
-        - "rapl"
-        - "global"
-        - "system"
-
-    - name: Clone SmartWatts git repository
-      git:
-        repo: "https://github.com/powerapi-ng/smartwatts-formula.git"
-        dest: "{{ smartwatts_path }}/smartwatts-formula"
-
     - name: Build image
       shell: "{{ singularity_command_alias }} build image/{{ image_file }} image/{{ definition_file }}"
       args:
@@ -83,10 +52,9 @@
   ignore_errors: yes
 
 - name: Start tmux session for SmartWatts power sender
-  shell: "bash scripts/SmartWatts/start_sender_tmux.sh {{ smartwatts_output }} {{ targets }} config/config.yml"
+  shell: "bash scripts/SmartWatts/start_sender_tmux.sh {{ singularity_command_alias }} {{ smartwatts_output }}"
   when: "'smartwatts_sender' not in tmux_output.stdout"
   args:
     executable: /bin/bash
   vars:
     - smartwatts_output: "{{ smartwatts_path }}/output"
-    - targets: "rapl,global,system"
