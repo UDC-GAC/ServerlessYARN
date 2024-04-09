@@ -18,6 +18,8 @@ From: python:3-slim
     git clone -b master "${SMARTWATTS_REPOSITORY}" "${SMARTWATTS_DIR}"
 
     # Install PowerAPI and SmartWatts
+    cd "${POWERAPI_DIR}" && git checkout 5612a181ed0ed9914d749b658ea03f54742fba3f
+    cd "${SMARTWATTS_REPOSITORY}" && git checkout 5fe8c36ce9f5faae5b1c79dd6b2717539f44a098
     pip3 install --no-cache-dir "${POWERAPI_DIR}[everything]"
     pip3 install --no-cache-dir "${SMARTWATTS_DIR}"
 
