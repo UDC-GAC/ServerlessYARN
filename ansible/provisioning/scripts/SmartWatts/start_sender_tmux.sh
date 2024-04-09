@@ -10,8 +10,9 @@ then
       exit 1
 fi
 
-SMARTWATTS_OUTPUT=$1
-COMMAND="python3 ${scriptDir}/send_power_opentsdb.py ${SMARTWATTS_OUTPUT}"
+SINGULARITY_COMMAND_ALIAS=${1}
+SMARTWATTS_OUTPUT=${2}
+COMMAND="python3 ${scriptDir}/send_power_opentsdb.py ${SINGULARITY_COMMAND_ALIAS} ${SMARTWATTS_OUTPUT}"
 echo "${COMMAND}"
 
-tmux new -d -s "smartwatts_sender" "${COMMAND}"
+tmux new -d -s "power_sender" "${COMMAND}"

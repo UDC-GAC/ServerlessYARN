@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-tmux kill-session -t "smartwatts_sender"
+tmux kill-session -t "power_sender"
