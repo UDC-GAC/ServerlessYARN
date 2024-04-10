@@ -7,6 +7,8 @@ From: python:3-slim
 %post
     export POWERAPI_REPOSITORY="https://github.com/powerapi-ng/powerapi.git"
     export SMARTWATTS_REPOSITORY="https://github.com/powerapi-ng/smartwatts-formula.git"
+    export POWERAPI_COMMIT="5612a181ed0ed9914d749b658ea03f54742fba3f"
+    export SMARTWATTS_COMMIT="5fe8c36ce9f5faae5b1c79dd6b2717539f44a098"
     export POWERAPI_DIR=/powerapi 
     export SMARTWATTS_DIR=/smartwatts
 
@@ -17,9 +19,11 @@ From: python:3-slim
     git clone -b master "${POWERAPI_REPOSITORY}" "${POWERAPI_DIR}"
     git clone -b master "${SMARTWATTS_REPOSITORY}" "${SMARTWATTS_DIR}"
 
+    # Set specific PowerAPI and SmartWatts version (commit)
+    cd "${POWERAPI_DIR}" && git checkout "${POWERAPI_COMMIT}"
+    cd "${SMARTWATTS_REPOSITORY}" && git checkout "${SMARTWATTS_COMMIT}"
+
     # Install PowerAPI and SmartWatts
-    cd "${POWERAPI_DIR}" && git checkout 5612a181ed0ed9914d749b658ea03f54742fba3f
-    cd "${SMARTWATTS_REPOSITORY}" && git checkout 5fe8c36ce9f5faae5b1c79dd6b2717539f44a098
     pip3 install --no-cache-dir "${POWERAPI_DIR}[everything]"
     pip3 install --no-cache-dir "${SMARTWATTS_DIR}"
 

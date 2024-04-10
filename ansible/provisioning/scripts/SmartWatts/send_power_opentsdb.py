@@ -5,7 +5,8 @@ import time
 import yaml
 import requests
 import subprocess
-from datetime import datetime, timedelta
+import pandas as pd
+from datetime import datetime, timezone, timedelta
 from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 
@@ -58,6 +59,9 @@ if __name__ == "__main__":
     containers_by_pid = set_container_names_by_pid(nodes, containers, {})
     print(containers_by_pid)
 
+    # Get current timestamp UTC
+    start_timestamp = datetime.now(timezone.utc)
+
     # Get session to OpenTSDB
     opentsdb_url = "http://{0}:{1}/api/put".format(config['server_ip'], config['opentsdb_port'])
     headers = {'Content-Type': 'application/json'}
@@ -100,8 +104,7 @@ if __name__ == "__main__":
 
                 print("Processing {0} lines for target {1}".format(len(lines), target_name))
                 last_read_position[target_name] = file.tell()
-                data = {"metric": "structure.energy.usage", "tags": {"host": target_name}}
-
+                bulk_data = []
                 # line example: <timestamp> <sensor> <target> <value> ...
                 for line in lines:
                     fields = line.strip().split(',')
@@ -111,14 +114,33 @@ if __name__ == "__main__":
                         raise Exception("Missing some fields in SmartWatts output for "
                                         "target {0} ({1} out of 4 expected fields)".format(target_name, num_fields))
 
-                    # Add 2 hours to the timestamp
-                    # For some reason SmartWatts timestamps are set two hours ahead (even taking into account the timezone)
-                    timestamp = datetime.fromtimestamp(int(fields[0]) / 1000) + timedelta(hours=2)
-                    data["timestamp"] = int(timestamp.timestamp() * 1000)
-                    data["value"] = float(fields[3])
+                    # SmartWatts timestamps are 2 hours ahead from UTC (UTC-02:00)
+                    # Normalize timestamps to UTC (actually UTC-02:00) and add 2 hours to get real UTC
+                    data = {
+                        "timestamp": datetime.fromtimestamp(int(fields[0]) / 1000, timezone.utc) + timedelta(hours=2),
+                        "value": float(fields[3]),
+                        "cpu": int(fields[4])
+                    }
 
+                    # Only data obtained after the start of this program are sent -> If data is older than start time then ignore 
+                    if data["timestamp"] < start_timestamp:
+                        continue
+
+                    bulk_data.append(data)
+                
+                # Aggregate data by cpu (mean) and timestamp (sum)
+                if len(bulk_data) > 0:
                     
-                    r = session.post(opentsdb_url, data=json.dumps(data), headers=headers)
+                    agg_data = pd.DataFrame(bulk_data).groupby(['timestamp', 'cpu']).agg({'value': 'mean'}).reset_index().groupby('timestamp').agg({'value': 'sum'}).reset_index()
+                    
+                    # Format data into a dict to dump into a JSON
+                    target_metrics = [
+                        {"metric": "structure.energy.usage", "tags": {"host": target_name}, "timestamp": int(row['timestamp'].timestamp() * 1000), "value": row['value']}
+                        for _, row in agg_data .iterrows()
+                    ]
+
+                    # Send data to OpenTSDB
+                    r = session.post(opentsdb_url, data=json.dumps(target_metrics), headers=headers)
                     if r.status_code != 204:
                         print("Error while sending target {0} metrics to OpenTSDB. Sent data: {1}".format(target_name, data))
                         r.raise_for_status()

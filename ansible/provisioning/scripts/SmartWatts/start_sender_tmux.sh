@@ -3,10 +3,11 @@ set -e
 
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 
-if [ -z "${1}" ]
+if [ -z "${2}" ]
 then
-      echo "1 argument is needed"
-      echo "1 -> SmartWatts output directory"
+      echo "2 arguments are needed"
+      echo "1 -> Singularity command alias"
+      echo "2 -> SmartWatts output directory"
       exit 1
 fi
 
