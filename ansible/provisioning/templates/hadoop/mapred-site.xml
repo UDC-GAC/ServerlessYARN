@@ -41,7 +41,7 @@
 
 	<!-- YARN APPLICATION MASTER -->
 	<property>
-	 	<name>yarn.app.mapreduce.am.resource.vcores</name>
+		<name>yarn.app.mapreduce.am.resource.cpu-vcores</name>
 		<value>1</value>
 	</property>
 	<property>
@@ -55,7 +55,7 @@
 
 	<!-- MAP -->
 	<property>
-	 	<name>mapreduce.map.cpu.vcores</name>
+		<name>mapreduce.map.cpu.vcores</name>
 		<value>1</value>
 	</property>
 	<property>
@@ -70,7 +70,7 @@
 
 	<!-- REDUCE -->
 	<property>
-	 	<name>mapreduce.reduce.cpu.vcores</name>
+		<name>mapreduce.reduce.cpu.vcores</name>
 		<value>1</value>
 	</property>
 	<property>

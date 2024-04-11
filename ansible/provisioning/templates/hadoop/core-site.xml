@@ -21,12 +21,12 @@
 		<name>fs.defaultFS</name>
 		<value>hdfs://{{ rm_container }}:8020</value>
 	</property>
-<!--
-	<property>
+
+	<!-- <property>
 		<name>hadoop.tmp.dir</name>
-		<value>/tmp/oscar.castellanos/BDEv/hadoop</value>
-	</property>
--->
+		<value>{{ bind_dir_on_container }}/tmp/hadoop</value>
+	</property> -->
+
 	<property>
 		<name>io.file.buffer.size</name>
 		<value>8192</value>

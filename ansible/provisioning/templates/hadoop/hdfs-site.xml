@@ -25,7 +25,7 @@
 	</property>
 
 	<property>
-		<name>dfs.permissions</name>
+		<name>dfs.permissions.enable</name>
 		<value>false</value>
 	</property>
 
@@ -66,10 +66,6 @@
     <value>0</value>
   </property>
 
-  <property>
-    <name>dfs.client.read.shortcircuit</name>
-    <value>false</value>
-  </property>
 <!-- 
   <property>
     <name>dfs.domain.socket.path</name>
@@ -86,18 +82,20 @@
     <value>eth0</value>
   </property>
 -->
-  <property>
-    <name>dfs.client.local.interfaces</name>
+  <!-- <property>
+    <name>dfs.datanode.dns.interface</name>
     <value>eth0</value>
   </property>
   <property>
+    <name>dfs.client.local.interfaces</name>
+    <value>eth0</value>
+  </property> -->
+  <property>
     <name>dfs.datanode.use.datanode.hostname</name>
-    <!-- <value>true</value> -->
     <value>false</value>
   </property>
   <property>
     <name>dfs.client.use.datanode.hostname</name>
-    <!-- <value>true</value> -->
     <value>false</value>
   </property>
   <property>

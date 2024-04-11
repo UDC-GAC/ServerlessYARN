@@ -383,14 +383,14 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
                 ## Virtual cluster config (test environment with low resources)
                 hyperthreading = False
                 app_master_heapsize = 128
-                nodemanager_d_heapsize = 0
-                datanode_d_heapsize = 0
+                datanode_d_heapsize = 128
+                nodemanager_d_heapsize = 128
             else:
                 ## Physical cluster config (real environment with (presumably) high resources)
                 hyperthreading = True
                 app_master_heapsize = 1024
-                nodemanager_d_heapsize = 1024
                 datanode_d_heapsize = 1024
+                nodemanager_d_heapsize = 1024
 
             ## adjust total_cores to hyperthreading system
             ## TODO: check if system actually has hyperthreading
@@ -445,6 +445,8 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
             hadoop_resources[container_type]["reduce_memory_java_opts"] = str(reduce_memory_java_opts)
             hadoop_resources[container_type]["mapreduce_am_memory"] = str(mapreduce_am_memory)
             hadoop_resources[container_type]["mapreduce_am_memory_java_opts"] = str(mapreduce_am_memory_java_opts)
+            hadoop_resources[container_type]["datanode_d_heapsize"] = str(datanode_d_heapsize)
+            hadoop_resources[container_type]["nodemanager_d_heapsize"] = str(nodemanager_d_heapsize)
 
     start_time = timeit.default_timer()
 
@@ -567,10 +569,14 @@ def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_
     reduce_memory_java_opts = hadoop_resources["regular"]["reduce_memory_java_opts"]
     mapreduce_am_memory = hadoop_resources["regular"]["mapreduce_am_memory"]
     mapreduce_am_memory_java_opts = hadoop_resources["regular"]["mapreduce_am_memory_java_opts"]
+    datanode_d_heapsize = hadoop_resources["regular"]["datanode_d_heapsize"]
+    nodemanager_d_heapsize =  hadoop_resources["regular"]["nodemanager_d_heapsize"]
 
-    argument_list = [hosts, app, formatted_app_containers, rm_host, rm_container['container_name'], 
-        vcores, min_vcores, scheduler_maximum_memory, scheduler_minimum_memory, nodemanager_memory, 
-        map_memory, map_memory_java_opts, reduce_memory, reduce_memory_java_opts, mapreduce_am_memory, mapreduce_am_memory_java_opts]
+    argument_list = [hosts, app, formatted_app_containers, rm_host, rm_container['container_name'],
+        vcores, min_vcores, scheduler_maximum_memory, scheduler_minimum_memory, nodemanager_memory,
+        map_memory, map_memory_java_opts, reduce_memory, reduce_memory_java_opts, mapreduce_am_memory,
+        mapreduce_am_memory_java_opts, datanode_d_heapsize, nodemanager_d_heapsize]
+
     error_message = "Error setting network for app {0}".format(app)
     process_script("setup_hadoop_network_on_containers", argument_list, error_message)
 

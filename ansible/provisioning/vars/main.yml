@@ -14,6 +14,10 @@ bind_dir_name: singularity_binds
 bind_dir: "{{ bind_path }}/{{ bind_dir_name }}"
 bind_dir_on_container: /opt/bind
 
+## Framework versions
+hadoop_version: 3.3.6
+spark_version: 3.4.2
+
 ## Other
 opentsdb_log_path: "{{ bdwatchdog_path }}/opentsdb/log"
 web_interface_path: services/serverless_containers_web
