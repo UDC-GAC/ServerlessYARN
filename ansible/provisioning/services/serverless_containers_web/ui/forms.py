@@ -261,10 +261,19 @@ class AddContainersForm(forms.Form):
     mem_min = forms.IntegerField(label= "Mem Min",
             required=True
             )
+    disk_max = forms.IntegerField(label= "Disk I/O Bandwidth Max",
+            required=False
+            )
+    disk_min = forms.IntegerField(label= "Disk I/O Bandwidth Min",
+            required=False
+            )
     cpu_boundary = forms.IntegerField(label= "CPU boundary",
             required=False
             )
     mem_boundary = forms.IntegerField(label= "Mem boundary",
+            required=False
+            )
+    disk_boundary = forms.IntegerField(label= "Disk boundary",
             required=False
             )
     def __init__(self, *args, **kwargs):
@@ -282,8 +291,11 @@ class AddContainersForm(forms.Form):
             Field('cpu_min'),  
             Field('mem_max'),
             Field('mem_min'),
+            Field('disk_max'),
+            Field('disk_min'),
             Field('cpu_boundary'),
             Field('mem_boundary'),
+            Field('disk_boundary'),
             FormActions(
                 Submit('save', 'Add container', css_class='caja'),
             )
@@ -350,10 +362,19 @@ class AddAppForm(forms.Form):
     mem_min = forms.IntegerField(label= "Mem Min",
             required=True
             )
+    disk_max = forms.IntegerField(label= "Disk I/O Bandwidth Max",
+            required=True
+            )
+    disk_min = forms.IntegerField(label= "Disk I/O Bandwidth Min",
+            required=True
+            )
     cpu_boundary = forms.IntegerField(label= "CPU boundary",
             required=True
             )
     mem_boundary = forms.IntegerField(label= "Mem boundary",
+            required=True
+            )
+    disk_boundary = forms.IntegerField(label= "Disk boundary",
             required=True
             )
     files_dir = forms.CharField(label= "Files directory",
@@ -383,8 +404,11 @@ class AddAppForm(forms.Form):
             Field('cpu_min'),
             Field('mem_max'),
             Field('mem_min'),
+            Field('disk_max'),
+            Field('disk_min'),
             Field('cpu_boundary'),
             Field('mem_boundary'),
+            Field('disk_boundary'),
             Field('files_dir'),
             Field('install_script'),
             Field('start_script'),
@@ -413,8 +437,11 @@ class AddHadoopAppForm(AddAppForm):
             Field('cpu_min'),
             Field('mem_max'),
             Field('mem_min'),
+            Field('disk_max'),
+            Field('disk_min'),
             Field('cpu_boundary'),
             Field('mem_boundary'),
+            Field('disk_boundary'),
             Field('files_dir'),
             Field('install_script'),
             Field('start_script'),
@@ -827,7 +854,7 @@ class RefeederForm(forms.Form):
             choices = (
                 ("cpu", "CPU"),
                 ("mem", "Memory"),
-                #("disk", "Disk"),
+                ("disk", "Disk"),
                 #("net", "Network"),
                 ("energy", "Energy"),
                 ),

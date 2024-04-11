@@ -41,6 +41,8 @@ max_cpu_percentage_per_container: 200
 min_cpu_percentage_per_container: 50
 max_memory_per_container: 2048
 min_memory_per_container: 512
+max_diskbw_per_container: 100
+min_diskbw_per_container: 50
 
 ## Container network configuration
 # host interface through which the containers of different nodes communicate with each other

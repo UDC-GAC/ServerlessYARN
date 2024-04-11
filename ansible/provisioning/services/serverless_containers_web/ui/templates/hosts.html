@@ -89,14 +89,18 @@
 					  <th>Type</th>
 					  <th>Path</th>
 					  <th>Load</th>
+					  <th>Max BW</th>
+					  <th>Free BW</th>
 				  </tr>
 				  <!-- rows -->
-				  {% for disk in values %}
+				  {% for disk, disk_info in values.items %}
 				  <tr>
-					<td>{{ disk.name }}</td>
-					<td style="text-transform:uppercase">{{ disk.type }}</td>
-					<td>{{ disk.path }}</td>
-					<td>{{ disk.load }}</td>
+					<td>{{ disk }}</td>
+					<td style="text-transform:uppercase">{{ disk_info.type }}</td>
+					<td>{{ disk_info.path }}</td>
+					<td>{{ disk_info.load }}</td>
+					<td>{{ disk_info.max }}</td>
+					<td>{{ disk_info.free }}</td>
 				  </tr>
 				  {% endfor %}
 			  </table>
@@ -205,17 +209,32 @@
 			  <p>Disk</p>
 			  <p></p>
 			  <table class="data_table">
-				  <!-- header -->
-				  <tr>
-					  <th>Name</th>
-					  <th>Path</th>
-				  </tr>
-				  <!-- rows -->
-				  <tr>
-					<td>{{ disk.name }}</td>
-					<td>{{ disk.path }}</td>
-				  </tr>
-			  </table>
+				<!-- rows -->
+				<tr>
+				  <th>Name</th>
+				  <td>{{ disk.name }}</td>
+				</tr>
+				<tr>
+				  <th>Path</th>
+				  <td>{{ disk.path }}</td>
+				</tr>
+				<tr>
+				  <th>Current bandwidth</th>
+				  <td>{{ disk.current }}</td>
+				</tr>
+				<tr>
+				  <th>Guard</th>
+				  <td>{{ disk.guard }}</td>
+				</tr>
+				<tr>
+				  <th>Max bandwidth</th>
+				  <td>{{ disk.max }}</td>
+				</tr>
+				<tr>
+				  <th>Min bandwidth</th>
+				  <td>{{ disk.min }}</td>
+				</tr>
+			</table>
 			  <p></p>
 				  <HR>
 			{% endif %}

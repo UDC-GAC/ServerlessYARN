@@ -41,11 +41,12 @@
                     {{ container_info.update({'container_name': container_name, 'host': host, 'cpu_max': max_cpu_percentage_per_container, 'cpu_min': min_cpu_percentage_per_container, 'mem_max': max_memory_per_container, 'mem_min': min_memory_per_container }) }}
                     {%- if hostvars[host].disks|length > 0 -%}
                       {%- if create_lvm -%}
-                        {{ container_info.update( {'disk': 'lvm', 'disk_path': hostvars[host].disks['lvm']} ) }}
+                        {{ container_info.update( {'disk': 'lvm', 'disk_path': hostvars[host].disks['lvm']['path']} ) }}
                       {%- else -%}
                         {%- set first_disk = hostvars[host].disks | first -%}
-                        {{ container_info.update( {'disk': first_disk, 'disk_path': hostvars[host].disks[first_disk]} ) }}
+                        {{ container_info.update( {'disk': first_disk, 'disk_path': hostvars[host].disks[first_disk]['path']} ) }}
                       {%- endif -%}
+                      {{ container_info.update( {'disk_max': max_diskbw_per_container, 'disk_min': min_diskbw_per_container}) }}
                     {%- endif -%}
                     {{ containers_info.append(container_info) }}
                 {%- endfor -%}
@@ -81,6 +82,9 @@
                 {%- for container_name in hostvars[host].containers -%}
                   {%- set container_info = dict() -%}
                     {{ container_info.update({'container_name': container_name, 'host': host, 'cpu_max': max_cpu_percentage_per_container, 'cpu_min': min_cpu_percentage_per_container, 'mem_max': max_memory_per_container, 'mem_min': min_memory_per_container }) }}
+                    {%- if hostvars[host].disks|length > 0 -%}
+                      {{ container_info.update( {'disk_max': max_diskbw_per_container, 'disk_min': min_diskbw_per_container}) }}
+                    {%- endif -%}
                     {{ containers_info.append(container_info) }}
                 {%- endfor -%}
               {%- endfor -%}

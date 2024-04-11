@@ -7,7 +7,7 @@
         pvs: "{{ host_disk_list }}"
         pvresize: true
       vars:
-        host_disk_list: "{{ (hostvars[inventory_hostname].disks | ansible.utils.remove_keys(target=['lvm'])).values() }}"
+        host_disk_list: "{{ (hostvars[inventory_hostname].disks | ansible.utils.remove_keys(target=['lvm'])) | dict2items | map(attribute='value.path') }}"
 
     - name: Create a logical volume
       lvol:
@@ -51,4 +51,4 @@
   vars:
     vg_name: "vg_{{ inventory_hostname }}"
     lv_name: "lv_{{ inventory_hostname }}"
-    lv_path: "{{ hostvars[inventory_hostname].disks['lvm'] }}"
+    lv_path: "{{ hostvars[inventory_hostname].disks['lvm']['path'] }}"

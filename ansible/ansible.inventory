@@ -1,4 +1,4 @@
 [server]
 sc-server host_ip=192.168.56.200
 [nodes]
-host0 cpu=4 mem=4096 disks='{"ssd_0":"/home/vagrant/ssd","hdd_0":"/home/vagrant/hdd"}' containers='["host0-cont0","host0-cont1"]'
+host0 cpu=4 mem=4096 disks='{"ssd_0":{"path":"/home/vagrant/ssd"},"hdd_0":{"path":"/home/vagrant/hdd"},"lvm":{"path":"/home/vagrant/lvm"}}' containers='["host0-cont0","host0-cont1"]'

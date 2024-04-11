@@ -4,10 +4,12 @@ import yaml
 import requests
 import json
 from bs4 import BeautifulSoup
+from copy import deepcopy
 
 rescaler_port = "8000"
 cpu_default_boundary = 20
 mem_default_boundary = 256
+disk_default_boundary = 10
 
 base_container_to_API = dict(
     container = dict(
@@ -30,7 +32,7 @@ base_container_to_API = dict(
     )
 )
 
-# usage example: add_containers_API_v3.py [{'container_name': 'host1-cont1', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'cpu_boundary': 25, 'mem_boundary': 256, 'disk': 'hdd_0', 'disk_path: '$HOME/hdd'}, {'container_name': 'host1-cont1'...}] config/config.yml
+# usage example: add_containers_API_v3.py [{'container_name': 'host1-cont1', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'cpu_boundary': 25, 'mem_boundary': 256, 'disk': 'hdd_0', 'disk_path: '$HOME/hdd', 'disk_max': 200, 'disk_min': 50}, {'container_name': 'host1-cont1'...}] config/config.yml
 
 if __name__ == "__main__":
 
@@ -49,7 +51,8 @@ if __name__ == "__main__":
 
             full_url = "{0}/structure/container/{1}".format(orchestrator_url, cont['container_name'])
 
-            put_field_data = base_container_to_API
+            put_field_data = deepcopy(base_container_to_API)
+
             ## Container info
             put_field_data['container']["name"] = cont['container_name']
             put_field_data['container']['host_rescaler_ip'] = cont['host']
@@ -76,6 +79,13 @@ if __name__ == "__main__":
                 put_field_data['container']['resources']["disk"] = {}
                 put_field_data['container']['resources']["disk"]["name"] = cont['disk']
                 put_field_data['container']['resources']["disk"]["path"] = cont['disk_path']
+                put_field_data['container']['resources']["disk"]["max"] = int(cont['disk_max'])
+                put_field_data['container']['resources']["disk"]["current"] = int(cont['disk_min'])
+                put_field_data['container']['resources']["disk"]["min"] = int(cont['disk_min'])
+                put_field_data['container']['resources']["disk"]["guard"] = True
+                put_field_data['limits']["resources"]["disk"] = {}
+                if cont['disk_boundary'] == 0: put_field_data['limits']["resources"]["disk"]["boundary"] = disk_default_boundary
+                else: put_field_data['limits']["resources"]["disk"]["boundary"] = int(cont['disk_boundary'])
 
             r = session.put(full_url, data=json.dumps(put_field_data), headers=headers)
 

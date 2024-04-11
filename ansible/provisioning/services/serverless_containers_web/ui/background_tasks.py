@@ -228,7 +228,7 @@ def add_container_to_app_task(full_url, headers, host, container, app, app_files
 
 ## Start containers
 @shared_task
-def start_containers_task_v2(new_containers, container_resources):
+def start_containers_task_v2(new_containers, container_resources, disks):
 
     # update inventory file
     with redis_server.lock(lock_key):
@@ -242,8 +242,12 @@ def start_containers_task_v2(new_containers, container_resources):
             container_info['container_name'] = container
             container_info['host'] = host
             # Resources
-            for resource in ['cpu_max', 'cpu_min', 'cpu_boundary', 'mem_max', 'mem_min', 'mem_boundary']:
+            for resource in ['cpu_max', 'cpu_min', 'cpu_boundary', 'mem_max', 'mem_min', 'mem_boundary', 'disk_max', 'disk_min', 'disk_boundary']:
                 container_info[resource] = container_resources[resource]
+
+            if len(disks) > 0:
+                container_info['disk'] = disks[host]['name']
+                container_info['disk_path'] = disks[host]['path']
             # # Disks
             # for disk in disk_assignation[host]:
             #     if disk_assignation[host][disk]['new_containers'] > 0:
@@ -295,6 +299,9 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
                                 disk_assignation[host][disk]['new_containers'] -= 1
                                 container_info['disk'] = disk
                                 container_info['disk_path'] = disk_assignation[host][disk]['disk_path']
+                                container_info['disk_max'] = container_resources[container_type]['disk_max']
+                                container_info['disk_min'] = container_resources[container_type]['disk_min']
+                                container_info['disk_boundary'] = container_resources[container_type]['disk_boundary']
                                 break
 
                     containers_info.append(container_info)

@@ -56,7 +56,7 @@ def write_inventory_from_conf(number_of_hosts,number_of_containers_per_node,cpu_
 
     for i in range(0,number_of_hosts,1):
         host_name = 'host' + str(i)
-        host_containers = create_container_list(host_name,number_of_containers_per_node)    
+        host_containers = create_container_list(host_name,number_of_containers_per_node)
         structures[host_name] = {'containers': host_containers, 'cpu': str(cpu_per_node), 'mem': str(mem_per_node), 'disks': disks_dict}
 
     print(structures)
@@ -108,7 +108,7 @@ def create_container_list(host_name,number_of_containers_per_node):
 
     return host_containers
 
-if __name__ == "__main__":   
+if __name__ == "__main__":
 
     config_file = scriptDir + "/../config/config.yml"
 
@@ -136,7 +136,7 @@ if __name__ == "__main__":
 
     update_server_ip(server_ip)
 
-    if (virtual_mode): 
+    if (virtual_mode):
         write_inventory_from_conf(number_of_hosts,number_of_containers_per_node,cpu_per_node,mem_per_node,disks_dict)
-    else: 
+    else:
         update_inventory_hosts_containers(number_of_containers_per_node,disks_dict)

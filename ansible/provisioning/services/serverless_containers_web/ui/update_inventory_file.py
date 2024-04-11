@@ -156,7 +156,8 @@ def get_disks_dict(hdd_disks, hdd_disks_path_list, ssd_disks, ssd_disks_path_lis
         disk_name = "ssd_{0}".format(i)
         disk_path = resolve_disk_path(ssd_disks_path_list[i])
         if disk_path != "":
-            disks_dict[disk_name] = disk_path
+            disks_dict[disk_name] = {}
+            disks_dict[disk_name]["path"] = disk_path
         else:
             raise Exception("Disk path can't be empty")
 
@@ -164,18 +165,45 @@ def get_disks_dict(hdd_disks, hdd_disks_path_list, ssd_disks, ssd_disks_path_lis
         disk_name = "hdd_{0}".format(i)
         disk_path = resolve_disk_path(hdd_disks_path_list[i])
         if disk_path != "":
-            disks_dict[disk_name] = disk_path
+            disks_dict[disk_name] = {}
+            disks_dict[disk_name]["path"] = disk_path
         else:
             raise Exception("Disk path can't be empty")
 
     if create_lvm:
         lvm_name = "lvm"
         if lvm_path != "":
-            disks_dict[lvm_name] = lvm_path
+            disks_dict[lvm_name] = {}
+            disks_dict[lvm_name]["path"] = resolve_disk_path(lvm_path)
         else:
             raise Exception("LVM path can't be empty")
 
     return disks_dict
+
+def update_inventory_disks(hostname, disk, bandwidth_MB):
+    loader = DataLoader()
+    ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
+
+    hostsList = ansible_inventory.groups['nodes'].get_hosts()
+
+    host = None
+    for h in hostsList:
+        if h.name == hostname:
+            host = h
+            break
+
+    if host == None:
+        raise Exception("Host {0} is not on the inventory".format(hostname))
+
+    cpu = host.vars['cpu']
+    mem = host.vars['mem']
+    disks = host.vars['disks']
+    containers = host.vars['containers']
+
+    disks[disk]["bw"] = bandwidth_MB
+
+    write_container_list(containers,host.name,cpu,mem,disks)
+
 
 def resolve_disk_path(disk_path):
 

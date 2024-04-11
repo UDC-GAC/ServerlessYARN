@@ -101,15 +101,30 @@
 			  <p>Disk</p>
 			  <p></p>
 			  <table class="data_table">
-				  <!-- header -->
-				  <tr>
-					  <th>Name</th>
-					  <th>Path</th>
-				  </tr>
 				  <!-- rows -->
 				  <tr>
+					<th>Name</th>
 					<td>{{ disk.name }}</td>
+				  </tr>
+				  <tr>
+					<th>Path</th>
 					<td>{{ disk.path }}</td>
+				  </tr>
+				  <tr>
+					<th>Current bandwidth</th>
+					<td>{{ disk.current }}</td>
+				  </tr>
+				  <tr>
+					<th>Guard</th>
+					<td>{{ disk.guard }}</td>
+				  </tr>
+				  <tr>
+					<th>Max bandwidth</th>
+					<td>{{ disk.max }}</td>
+				  </tr>
+				  <tr>
+					<th>Min bandwidth</th>
+					<td>{{ disk.min }}</td>
 				  </tr>
 			  </table>
 			  <p></p>

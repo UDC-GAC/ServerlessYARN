@@ -6,7 +6,7 @@ import yaml
 import itertools
 import src.StateDatabase.couchdb as couchDB
 
-# usage example: init_host_node_rescaler_v3.py host1 [{'container_name': 'host1-cont1', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024}, {'container_name': 'host1-cont1'...}]
+# usage example: init_host_node_rescaler_v3.py host1 [{'container_name': 'host1-cont1', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'disk': 'ssd_0', 'disk_path': '$HOME/ssd', 'disk_max': 200, 'disk_min': 50}, {'container_name': 'host1-cont1'...}]
 
 node_recaler_port = 8000
 
@@ -26,7 +26,7 @@ if __name__ == "__main__":
         host = sys.argv[1]
         containers = json.loads(sys.argv[2].replace('\'','"'))
 
-        resources = ['cpu','mem']
+        resources = ['cpu','mem','disk']
 
         base_url = "http://" + host + ":" + str(node_recaler_port) + "/container/"
         headers = {'Content-Type': 'application/json'}
@@ -166,6 +166,25 @@ if __name__ == "__main__":
 
                     put_field_data["mem"] = {"mem_limit": cont_mem_limit, "unit": "M"}
 
+            if ("disk" in resources and "disk" in c):
+
+                not_initialized = int(requested_data['disk']['disk_write_limit']) == -1
+
+                if not_initialized:
+
+                    not_initialized_resources += 1
+
+                    if c in new_containers:
+                        cont_disk_limit = int(int(c['disk_max']))
+                    else:
+                        # Container already added to the StateDatabase (but not initialized)
+                        cont_info = handler.get_structure(c['container_name'])
+                        cont_disk_limit = cont_info['resources']['disk']['current']
+                        if cont_disk_limit == -1: cont_disk_limit = cont_info['resources']['disk']['max']
+
+                    put_field_data["disk"] = {"disk_write_limit": cont_disk_limit, "disk_read_limit": cont_disk_limit, "unit": "Mbit"}
+
+
             if (not_initialized_resources > 0):
 
                 r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
@@ -175,4 +194,4 @@ if __name__ == "__main__":
                 else:
                     # For some reason, the first initialization always results in an error, but it actually works
                     print("Response from node scaler: " + str(r.content))
-                    print("Error initializing " + resources + " value for " + c['container_name'] + " in host " + host)
+                    print("Error initializing " + str(resources) + " value for " + c['container_name'] + " in host " + host)
