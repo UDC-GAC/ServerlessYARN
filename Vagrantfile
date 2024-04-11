@@ -29,6 +29,8 @@ Vagrant.configure("2") do |config|
   config.hostmanager.manage_guest = true
   config.hostmanager.ignore_private_ip = false
 
+  config.ssh.insert_key = false
+
   # Server Node
   config.vm.define "server", primary: true do |server|
   	server.vm.host_name = "sc-server"
@@ -49,23 +51,23 @@ Vagrant.configure("2") do |config|
   ## N Hosts
   (0..N-1).each do |i|
     config.vm.define "node#{i}" do |node|
-	node.vm.hostname = "host#{i}"
-	node.vm.provision "shell", path: "provision/nodes.sh"
+		node.vm.hostname = "host#{i}"
+		node.vm.provision "shell", path: "provision/nodes.sh"
 
-	if CGROUPS_VERSION == "v2" then
-		node.vm.provision "shell", path: "provision/cgroupsv2.sh"
-		node.vm.provision :reload
-	end
+		if CGROUPS_VERSION == "v2" then
+			node.vm.provision "shell", path: "provision/cgroupsv2.sh"
+			node.vm.provision :reload
+		end
 
-	number_to_ip = [server_ip_to_number + 1 + i].pack('N').unpack('CCCC').join('.')
-	node.vm.network :private_network, ip: number_to_ip
+		number_to_ip = [server_ip_to_number + 1 + i].pack('N').unpack('CCCC').join('.')
+		node.vm.network :private_network, ip: number_to_ip
 
-	node.vm.provider "virtualbox" do |vb|
-		vb.name = "Node#{i} - ServerlessYARN"
-		vb.customize ["modifyvm", :id, "--groups", "/ServerlessYARN"]
-  		vb.cpus = CPUS_PER_NODE
-  		vb.memory = MEMORY_PER_NODE
-  	end
+		node.vm.provider "virtualbox" do |vb|
+			vb.name = "Node#{i} - ServerlessYARN"
+			vb.customize ["modifyvm", :id, "--groups", "/ServerlessYARN"]
+			vb.cpus = CPUS_PER_NODE
+			vb.memory = MEMORY_PER_NODE
+		end
     end
   end
 

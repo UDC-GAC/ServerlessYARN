@@ -26,7 +26,6 @@
 
     - name: Copy necessary files for hadoop apps
       delegate_to: localhost
-      when: "app_jar != ''"
       copy:
         src: "apps/hadoop/{{ item }}"
         dest: "{{ installation_path }}/apps/hadoop/"
@@ -34,7 +33,7 @@
         - setup.sh
         - java_snitch.sh
         - files_dir
-      tags: never, create_app
+      tags: create_app
 
 - name: Containers startup
   block:
@@ -120,7 +119,7 @@
 
     - name: Start apptainer containers
       shell: "{% for item in containers_info %}
-        {% if item.host == inventory_hostname and '\"instance\": \"{{ item.container_name }}\",' not in apptainer_list_output.stdout %}
+        {% if item.host == inventory_hostname and item.container_name not in apptainer_list_output.stdout %}
         {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
         sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --hostname {{ item.container_name }} --apply-cgroups {{ cgroups_file }} --bind {{ bind_dir }}/{{ item.container_name }}:{{ bind_dir_on_container }} images/{{ image_file }} {{ item.container_name }} && 
         {% endif  %}

@@ -179,6 +179,11 @@
         vars:
           bind_path: "{{ rm_container_bind_path }}"
 
+      - name: Create app directory on hosts for ssh public key
+        file:
+          path: "{{ installation_path }}/apps/{{ app_name }}/"
+          state: directory
+
       - name: Copy RM/NN container ssh public key to hosts
         synchronize:
           src: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container }}.pub"
