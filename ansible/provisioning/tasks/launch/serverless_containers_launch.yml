@@ -116,6 +116,34 @@
     dest: "{{ serverless_containers_path }}/scripts/orchestrator/set_env.sh"
   when: "not virtual_mode"
 
+- name: Guardian - Deactivating cpu and mem rules (Power Budgeting)
+  shell: bash scripts/orchestrator/Rules/deactivate_rule.sh {{ item }}
+  when: "power_budgeting"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+  with_items:
+    - cpu_dropped_lower
+    - cpu_exceeded_upper
+    - CpuRescaleDown
+    - CpuRescaleUp
+    - mem_dropped_lower
+    - mem_exceeded_upper
+    - MemRescaleDown
+    - MemRescaleUp
+
+- name: Guardian - Ensuring that the energy rules are active
+  shell: bash scripts/orchestrator/Rules/activate_rule.sh {{ item }}
+  when: "power_budgeting"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+  with_items:
+    - energy_dropped_lower
+    - energy_exceeded_upper
+    - EnergyRescaleDown
+    - EnergyRescaleUp
+
 - name: Guardian - Setting guardable resources
   shell: "bash scripts/orchestrator/Guardian/set_guardable_resources.sh {{ resources }}"
   args:
