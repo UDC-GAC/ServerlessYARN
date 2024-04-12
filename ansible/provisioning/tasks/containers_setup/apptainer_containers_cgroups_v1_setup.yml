@@ -102,29 +102,31 @@
         dest: "{{ installation_path }}/images/{{ image_file }}"
         perms: true
 
+    - name: Create directories to bind to containers
+      shell: "
+      {% for item in containers_info %}
+        {% if item.host == inventory_hostname %}
+          {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
+          mkdir -p {{ bind_dir }}/{{ item.container_name }} && 
+        {% endif  %}
+      {% endfor %}true"
+      args:
+        executable: /bin/bash
+
     - name: Check containers status
       shell: "sudo {{ singularity_command_alias }} instance list -j"
       args:
         executable: /bin/bash
       register: apptainer_list_output
 
-    - name: Create directories to bind to containers
-      shell: "{% for item in containers_info %}
-        {% if item.host == inventory_hostname %}
-        {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-        mkdir -p {{ bind_dir }}/{{ item.container_name }} && 
-        {% endif  %}
-        {% endfor %}true"
-      args:
-        executable: /bin/bash
-
     - name: Start apptainer containers
-      shell: "{% for item in containers_info %}
-        {% if item.host == inventory_hostname and '\"instance\": \"{{ item.container_name }}\",' not in apptainer_list_output.stdout %}
-        {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-        sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --hostname {{ item.container_name }} --apply-cgroups {{ cgroups_file }} --bind {{ bind_dir }}/{{ item.container_name }}:{{ bind_dir_on_container }} images/{{ image_file }} {{ item.container_name }} && 
+      shell: "
+      {% for item in containers_info %}
+        {% if item.host == inventory_hostname and '\"instance\": \"' + item.container_name + '\",' not in apptainer_list_output.stdout %}
+          {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
+          sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --hostname {{ item.container_name }} --apply-cgroups {{ cgroups_file }} --bind {{ bind_dir }}/{{ item.container_name }}:{{ bind_dir_on_container }} images/{{ image_file }} {{ item.container_name }} && 
         {% endif  %}
-        {% endfor %}true"
+      {% endfor %}true"
       args:
         chdir: "{{ installation_path }}"
         executable: /bin/bash
@@ -132,17 +134,18 @@
         extra_connection: "{{ ',ptp' if mode == 'ipvlan' else '' }}"
 
     - name: Setup host resolution in containers and change cgroups v1 permissions
-      shell: "{% for item in containers_info %}
+      shell: "
+      {% for item in containers_info %}
         {% if item.host == inventory_hostname %}
-        {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-        cp /etc/hosts {{ bind_dir }}/{{ item.container_name }}/hosts \
-        && sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+          {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
+          cp /etc/hosts {{ bind_dir }}/{{ item.container_name }}/hosts \
+          && sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
           'echo {{ server_ip }} opentsdb >> /etc/hosts \
           && cat {{ bind_dir_on_container }}/hosts >> /etc/hosts \
           && rm {{ bind_dir_on_container }}/hosts' \
-        && python3 change_cgroupsv1_permissions.py {{ singularity_command_alias }} {{ singularity_cgroups_group }} {{ item.container_name }} && 
+          && python3 change_cgroupsv1_permissions.py {{ singularity_command_alias }} {{ singularity_cgroups_group }} {{ item.container_name }} && 
         {% endif  %}
-        {% endfor %}true"
+      {% endfor %}true"
       args:
         chdir: "{{ installation_path }}"
         executable: /bin/bash
