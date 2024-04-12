@@ -22,7 +22,7 @@
         creates: "image/{{ image_file }}"
 
     - name: Check containers status
-      shell: "{{ singularity_command_alias }} instance list -j"
+      shell: "sudo {{ singularity_command_alias }} instance list -j"
       register: apptainer_list_output
       args:
         executable: /bin/bash

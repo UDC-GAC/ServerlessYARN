@@ -6,9 +6,7 @@ import json
 from bs4 import BeautifulSoup
 
 rescaler_port = "8000"
-cpu_default_boundary = 20
-mem_default_boundary = 256
-energy_default_boundary = 10
+
 
 base_container_to_API = dict(
     container = dict(
@@ -75,17 +73,19 @@ if __name__ == "__main__":
 
             ## Limits
             if cont['cpu_boundary'] == 0:
-                put_field_data['limits']["resources"]["cpu"]["boundary"] = cpu_default_boundary
+                put_field_data['limits']["resources"]["cpu"]["boundary"] = int(config['cpu_boundary'])
             else:
                 put_field_data['limits']["resources"]["cpu"]["boundary"] = int(cont['cpu_boundary'])
+
             if cont['mem_boundary'] == 0:
-                put_field_data['limits']["resources"]["mem"]["boundary"] = mem_default_boundary
+                put_field_data['limits']["resources"]["mem"]["boundary"] = int(config['mem_boundary'])
             else:
                 put_field_data['limits']["resources"]["mem"]["boundary"] = int(cont['mem_boundary'])
+                
             if 'power_budgeting' in config and config['power_budgeting']:
                 put_field_data['limits']["resources"]["energy"] = dict()
                 if cont['energy_boundary'] == 0:
-                    put_field_data['limits']["resources"]["energy"]["boundary"] = energy_default_boundary
+                    put_field_data['limits']["resources"]["energy"]["boundary"] = int(config['energy_boundary'])
                 else:
                     put_field_data['limits']["resources"]["energy"]["boundary"] = int(cont['energy_boundary'])
 

@@ -27,9 +27,6 @@
 
     - import_tasks: tasks/launch/serverless_containers_launch.yml
       vars:
-        - cpu_boundary: 20
-        - mem_boundary: 256
-        - energy_boundary: 10
         - nodes: "{{ host_list | split(',') if host_list is defined else groups['nodes'] }}"
         - containers_info_str: >
               {%- set containers_info=[] -%}
@@ -69,5 +66,4 @@
     - import_tasks: tasks/launch/hwpc-sensor_launch.yml
       when: "power_budgeting"
       tags: 
-      - start_smartwatts
       - start_hwpc_sensor
