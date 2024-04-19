@@ -16,7 +16,7 @@
 - name: Copy BDWatchdog
   when: not stat_output.stat.exists
   copy:
-    src: bdwatchdog/
+    src: BDWatchdog/
     dest: "{{ bdwatchdog_source_path }}"
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
 

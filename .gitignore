@@ -1,8 +1,6 @@
 __pycache__/
 .vagrant/
 id_rsa.pub
-ServerlessContainers/
-bdwatchdog/
 artifacts/
 *.log
 *.jar
