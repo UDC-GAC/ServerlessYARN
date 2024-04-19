@@ -38,28 +38,20 @@ vagrant plugin install vagrant-reload
 ### Quickstart
 The platform need to be installed and deployed on a master node (or "server" node), while the containers will be deployed on the remaining nodes of the cluster.
 
-- You can clone this repository with
+- You can clone this repository and the required frameworks with
     ```
-    git clone https://github.com/UDC-GAC/ServerlessYARN.git
-    ```
-
-- Once cloned, change directory to ansible/provisioning 
-    ```
-    cd ServerlessYARN/ansible/provisioning
+    git clone --recurse-submodules https://github.com/UDC-GAC/ServerlessYARN.git
     ```
 
-- And clone both BDWatchdog (with name "bdwatchdog") and ServerlessContainers (with name "ServerlessContainers") in that directory
-
+- Once cloned, change directory to the root directory
     ```
-    git clone https://github.com/UDC-GAC/bdwatchdog.git
-    git clone https://github.com/UDC-GAC/ServerlessContainers.git
+    cd ServerlessYARN
     ```
 
-- Modify **config/config.yml** to customize your environment.
+- Modify **ansible/provisioning/config/config.yml** to customize your environment.
 
-- Go back to the root directory of the repository and you may deploy the virtual cluster with Vagrant (if needed):
+- You may deploy the virtual cluster with Vagrant (if needed):
     ```
-    cd ../../
     vagrant up
     ```
 
