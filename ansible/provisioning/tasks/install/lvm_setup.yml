@@ -14,7 +14,9 @@
         vg: "{{ vg_name }}"
         lv: "{{ lv_name }}"
         size: 100%VG
-        opts: --type raid0
+        opts: "{{ '--type raid0 --stripes ' + (host_disk_list | length)|string if (host_disk_list | length) > 1 else '--type linear' }}"
+      vars:
+        host_disk_list: "{{ (hostvars[inventory_hostname].disks | ansible.utils.remove_keys(target=['lvm'])) | dict2items | map(attribute='value.path') }}"
 
     - name: Create directory if does not exist
       file:
