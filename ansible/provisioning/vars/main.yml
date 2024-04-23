@@ -14,6 +14,9 @@ hwpc_sensor_path: "{{ installation_path }}/hwpc_sensor"
 hwpc_sensor_reporting_path : /tmp/powerapi-sensor-reporting
 smartwatts_path: "{{ installation_path }}/smartwatts"
 
+# WattWizard
+host_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/host"
+container_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/container"
 
 ## Container bind directories variables
 default_bind_path: "{{ installation_path }}"

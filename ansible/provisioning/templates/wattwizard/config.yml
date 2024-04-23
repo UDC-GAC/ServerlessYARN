@@ -1,0 +1,14 @@
+verbose: no
+
+influxdb_host: "{{ influxdb_host }}"
+influxdb_bucket: "{{ influxdb_bucket }}"
+influxdb_token: "{{ influxdb_token }}"
+influxdb_org: "{{ influxdb_org }}"
+
+prediction_methods: "{{ prediction_methods }}"
+model_variables: "{{ model_variables }}"
+
+host_timestamps_dir: "{{ host_timestamps_dir }}"
+container_timestamps_dir: "{{ container_timestamps_dir }}"
+host_train_files: "General"
+container_train_files: "General"
