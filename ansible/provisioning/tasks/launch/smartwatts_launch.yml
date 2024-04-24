@@ -52,7 +52,7 @@
   ignore_errors: yes
 
 - name: Start tmux session for SmartWatts power sender
-  shell: "bash scripts/SmartWatts/start_sender_tmux.sh {{ singularity_command_alias }} {{ smartwatts_output }}"
+  shell: "bash scripts/SmartWatts/start_power_sender_tmux.sh {{ singularity_command_alias }} {{ smartwatts_output }}"
   when: "'power_sender' not in tmux_output.stdout"
   args:
     executable: /bin/bash
