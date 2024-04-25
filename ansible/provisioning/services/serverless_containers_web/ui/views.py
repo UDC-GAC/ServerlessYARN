@@ -344,6 +344,20 @@ def getAppInfo(data, app_name):
 
     return app
 
+def getScalerPollFreq():
+
+    scaler_polling_freq = 5
+
+    url = base_url + "/service/scaler"
+
+    response = urllib.request.urlopen(url)
+    data_json = json.loads(response.read())
+
+    if 'config' in data_json and 'POLLING_FREQUENCY' in data_json['config']:
+        scaler_polling_freq = data_json['config']['POLLING_FREQUENCY']
+
+    return scaler_polling_freq
+
 def getStructuresValuesLabels(item, field):
 
     values_labels = []
@@ -870,7 +884,6 @@ def processStartApp(request, url, app_name):
         rm_maximum_cpu = 100
         rm_minimum_cpu = 100
         rm_cpu_boundary = 25
-        #rm_maximum_mem = 3072
         rm_maximum_mem = 1024
         rm_minimum_mem = 1024
         rm_mem_boundary = 256
@@ -903,10 +916,15 @@ def processStartApp(request, url, app_name):
     if "smaller" in container_resources: container_resources["irregular"] = {x:str(y) for x,y in container_resources["smaller"].items()}
     if "rm-nn" in container_resources: container_resources["rm-nn"] = {x:str(y) for x,y in container_resources["rm-nn"].items()}
 
+    ## Get scaler polling frequency
+    scaler_polling_freq = getScalerPollFreq()
+
+    virtual_cluster = config['virtual_mode']
+
     if is_hadoop_app:
-        task = start_hadoop_app_task.delay(url, headers, app_name, app_files, new_containers, container_resources, disk_assignation)
+        task = start_hadoop_app_task.delay(url, headers, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster)
     else:
-        task = start_app_task.delay(url, headers, app_name, app_files, new_containers, container_resources, disk_assignation)
+        task = start_app_task.delay(url, headers, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq)
 
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"{0}_app_task".format(app_name))
@@ -1451,7 +1469,9 @@ def processRemoveContainersFromApp(url, container_host_duples, app, app_files):
 
     headers = {'Content-Type': 'application/json'}
 
-    task = remove_containers_from_app.delay(url, headers, container_list, app, app_files)
+    scaler_polling_freq = getScalerPollFreq()
+
+    task = remove_containers_from_app.delay(url, headers, container_list, app, app_files, scaler_polling_freq)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"remove_containers_from_app")
 
@@ -1868,11 +1888,11 @@ def processRulesPost(request, url, rule_name, field, field_put_url):
 def checkInvalidConfig():
     error_lines = []
 
-    config_path = "../../vars/main.yml"
-    with open(config_path, "r") as config_file:
-        config = yaml.load(config_file, Loader=yaml.FullLoader)
+    vars_path = "../../vars/main.yml"
+    with open(vars_path, "r") as vars_file:
+        vars_config = yaml.load(vars_file, Loader=yaml.FullLoader)
 
-    serverless_containers_path = config['installation_path'] + "/ServerlessContainers"
+    serverless_containers_path = vars_config['installation_path'] + "/ServerlessContainers"
 
     full_path = serverless_containers_path + "/sanity_checker.log"
 

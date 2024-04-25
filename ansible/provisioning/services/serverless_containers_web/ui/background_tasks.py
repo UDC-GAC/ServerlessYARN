@@ -336,7 +336,7 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
 
 ## Start Apps
 @shared_task(bind=True)
-def start_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation):
+def start_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq):
 
     start_time = timeit.default_timer()
 
@@ -347,10 +347,10 @@ def start_app_task(self, url, headers, app, app_files, new_containers, container
     runtime = "{:.2f}".format(end_time-start_time)
     update_task_runtime(self.request.id, runtime)
 
-    remove_containers_from_app(url, headers, app_containers, app, app_files)
+    remove_containers_from_app(url, headers, app_containers, app, app_files, scaler_polling_freq)
 
 @shared_task(bind=True)
-def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation):
+def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster):
 
     # Calculate resources for Hadoop cluster
     hadoop_resources = {}
@@ -383,8 +383,6 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
 
             ## 'BDEv' way of calculating resources:
             #number_of_hadoop_containers = int(min(2*total_cores, available_memory/min_container_size))
-
-            virtual_cluster = True
 
             if virtual_cluster:
                 ## Virtual cluster config (test environment with low resources)
@@ -474,11 +472,16 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
     error_message = "Error disabling scaler"
     process_script("disable_scaler", argument_list, error_message)
 
+    start_time = timeit.default_timer()
     errors = []
     for container in app_containers:
         full_url = url + "container/{0}/{1}".format(container['container_name'],app)
         error = remove_container_from_app_db(full_url, headers, container['container_name'], app)
         if error != "": errors.append(error)
+    end_time = timeit.default_timer()
+
+    ## Wait at least for the scaler polling frequency time before re-enabling it
+    time.sleep(scaler_polling_freq - (end_time - start_time))
 
     argument_list = []
     error_message = "Error re-enabling scaler"
@@ -693,18 +696,23 @@ def remove_containers(url, headers, container_list):
     if len(errors) > 0: raise Exception(str(errors))
 
 @shared_task
-def remove_containers_from_app(url, headers, container_list, app, app_files):
+def remove_containers_from_app(url, headers, container_list, app, app_files, scaler_polling_freq):
 
     ## Disable scaler, remove all containers from StateDB and re-enable scaler
     argument_list = []
     error_message = "Error disabling scaler"
     process_script("disable_scaler", argument_list, error_message)
 
+    start_time = timeit.default_timer()
     errors = []
     for container in container_list:
         full_url = url + "container/{0}/{1}".format(container['container_name'],app)
         error = remove_container_from_app_db(full_url, headers, container['container_name'], app)
         if error != "": errors.append(error)
+    end_time = timeit.default_timer()
+
+    ## Wait at least for the scaler polling frequency time before re-enabling it
+    time.sleep(scaler_polling_freq - (end_time - start_time))
 
     argument_list = []
     error_message = "Error re-enabling scaler"
