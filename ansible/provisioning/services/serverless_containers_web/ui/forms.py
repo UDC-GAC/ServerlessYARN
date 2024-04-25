@@ -920,6 +920,102 @@ class ReBalancerForm(forms.Form):
         )
 
 
+# CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 10, "DEBUG": True, "ACTIVE": True}
+class EnergyManagerForm(forms.Form):
+    name = forms.CharField(label="Name",
+            required=True
+            ) 
+    debug = forms.ChoiceField(label="Debug",
+            choices = (
+                ("True", "True"),
+                ("False", "False"),
+                ),
+            required=True
+            )
+    polling_frequency = forms.IntegerField(label="Polling Frequency (seconds)",
+            required=True
+            )         
+
+    def __init__(self, *args, **kwargs):
+        super(EnergyManagerForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()            
+        self.helper.form_id = 'id-energyManagerForm'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'services'
+        self.helper.layout = Layout(
+            Field('name', type="hidden", readonly=True),
+            Field('debug'),
+            Field('polling_frequency'),
+            FormActions(
+                Submit('save', 'Save changes', css_class='caja'),
+            )    
+        )
+
+
+# CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 10, "WINDOW_DELAY": 10, "GENERATED_METRICS": ["cpu_user", "cpu_kernel", "energy"], "MODELS_TO_TRAIN": ["sgdregressor_General"], "DEBUG": True, "ACTIVE": True}
+class WattTrainerForm(forms.Form):
+    name = forms.CharField(label="Name",
+            required=True
+            ) 
+    debug = forms.ChoiceField(label="Debug",
+            choices = (
+                ("True", "True"),
+                ("False", "False"),
+                ),
+            required=True
+            )
+#     generated_metrics = forms.MultipleChoiceField(label="Generated Metrics",
+#             choices = (
+#                 ("cpu", "CPU"),
+#                 ("cpu_user", "CPU User"),
+#                 ("cpu_kernel", "CPU System"),
+#                 ("mem", "Memory"),
+#                 ("energy", "Energy"),
+#                 ),
+#             widget=forms.CheckboxSelectMultiple,
+#             required=True
+#             )
+    models_to_train = forms.MultipleChoiceField(label="Models to train",
+            choices = (
+                ("sgdregessor_General", "SGDRegressor - General"),
+                ("sgdregressor_General", "SGDRegressor - General"),
+                ("sgdregressor_Group_P", "SGDRegressor - Group_P"),
+                ("sgdregressor_Spread_P", "SGDRegressor - Spread_P"),
+                ("sgdregressor_Group_P_and_L", "SGDRegressor - Group_P&L"),
+                ("sgdregressor_Spread_P_and_L", "SGDRegressor - Spread_P&L"),
+                ("sgdregressor_Group_1P_2_L", "SGDRegressor - Group_1P_2L"),
+                ("sgdregressor_Group_PP_LL", "SGDRegressor - Group_PP_LL"),
+                ),
+            widget=forms.CheckboxSelectMultiple,
+            required=True
+            )
+    window_delay = forms.IntegerField(label="Window Delay (seconds)",
+            required=True
+            )
+    window_timelapse = forms.IntegerField(label="Window Timelapse (seconds)",
+            required=True
+            ) 
+
+    def __init__(self, *args, **kwargs):
+        super(WattTrainerForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()            
+        self.helper.form_id = 'id-wattTrainerForm'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'services'
+        self.helper.layout = Layout(
+            Field('name', type="hidden", readonly=True),
+            Field('debug', readonly=True),
+            #Field('generated_metrics'),
+            Field('models_to_train'),
+            Field('window_delay'),
+            Field('window_timelapse'),
+            FormActions(
+                Submit('save', 'Save changes', css_class='caja'),
+            )    
+        )
+
 ### Rules
 class RuleForm(forms.Form):
     name = forms.CharField(label="Name",

@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect
-from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm
+from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm, EnergyManagerForm, WattTrainerForm
 from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper, HostResourcesForm, HostResourcesFormSetHelper
 from ui.forms import RemoveStructureForm, AddHostForm, AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddAppForm, AddHadoopAppForm, AddContainersToAppForm, RemoveContainersFromAppForm, StartAppForm
 from django.forms import formset_factory
@@ -1422,12 +1422,14 @@ def services(request):
     url = base_url + "/service/"
 
     database_snapshoter_options = ["debug","documents_persisted","polling_frequency"]
-    guardian_options = ["cpu_shares_per_watt", "debug", "event_timeout","guardable_resources","structure_guarded","window_delay","window_timelapse"]
+    guardian_options = ["cpu_shares_per_watt", "debug", "event_timeout","guardable_resources","structure_guarded","window_delay","window_timelapse","energy_model_name","use_energy_model"]
     scaler_options = ["check_core_map","debug","polling_frequency","request_timeout"]
     structures_snapshoter_options = ["polling_frequency","debug","persist_apps","resources_persisted"]
     sanity_checker_options = ["debug","delay"]
     refeeder_options = ["debug","generated_metrics","polling_frequency","window_delay","window_timelapse"]
     rebalancer_options = ["debug","rebalance_users","energy_diff_percentage","energy_stolen_percentage","window_delay","window_timelapse"]
+    energy_manager_options = ["polling_frequency", "debug"]
+    watt_trainer_options = ["window_timelapse", "window_delay", "generated_metrics", "models_to_train", "debug"]
 
     if (len(request.POST) > 0):
         if ("name" in request.POST):
@@ -1451,6 +1453,10 @@ def services(request):
 
             elif (service_name == 'rebalancer'):            options = rebalancer_options
 
+            elif (service_name == 'energy_manager'):        options = energy_manager_options
+
+            elif (service_name == 'watt_trainer'):          options = watt_trainer_options
+
             for option in options:
                 error = processServiceConfigPost(request, url, service_name, option)
                 if (len(error) > 0): errors.append(error)
@@ -1459,7 +1465,6 @@ def services(request):
 
     response = urllib.request.urlopen(url)
     data_json = json.loads(response.read())
-        
     requests_errors = request.GET.getlist("errors", None)
     requests_successes = request.GET.getlist("success", None)
     requests_info = []
@@ -1473,6 +1478,7 @@ def services(request):
     ## get datetime in epoch to compare later with each service's heartbeat
     now = time.time()
 
+    not_recognized_services = []
     for item in data_json:
 
         form_initial_data = {'name' : item['name']}
@@ -1501,33 +1507,51 @@ def services(request):
             editable_data += 1
             serviceForm = ScalerForm(initial = form_initial_data)
 
-        if (item['name'] == 'structures_snapshoter'):
+        elif (item['name'] == 'structures_snapshoter'):
             for option in structures_snapshoter_options:
                 if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
 
             editable_data += 1
             serviceForm = StructuresSnapshoterForm(initial = form_initial_data)
 
-        if (item['name'] == 'sanity_checker'):
+        elif (item['name'] == 'sanity_checker'):
             for option in sanity_checker_options:
                 if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
 
             editable_data += 1
             serviceForm = SanityCheckerForm(initial = form_initial_data)
 
-        if (item['name'] == 'refeeder'):
+        elif (item['name'] == 'refeeder'):
             for option in refeeder_options:
                 if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
 
             editable_data += 1
             serviceForm = RefeederForm(initial = form_initial_data)
 
-        if (item['name'] == 'rebalancer'):
+        elif (item['name'] == 'rebalancer'):
             for option in rebalancer_options:
                 if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
 
             editable_data += 1
             serviceForm = ReBalancerForm(initial = form_initial_data)
+
+        elif (item['name'] == 'energy_manager'):
+            for option in watt_trainer_options:
+                if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
+
+            editable_data += 1
+            serviceForm = EnergyManagerForm(initial = form_initial_data)
+
+        elif (item['name'] == 'watt_trainer'):
+            for option in watt_trainer_options:
+                if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
+
+            editable_data += 1
+            serviceForm = WattTrainerForm(initial = form_initial_data)
+        
+        else:
+            not_recognized_services.append(item)
+            continue # Not recognized service
 
         item['form'] = serviceForm
         item['editable_data'] = editable_data
@@ -1536,6 +1560,10 @@ def services(request):
         item['alive'] = (now - last_heartbeat) < 60
 
     config_errors = checkInvalidConfig()
+
+    # Remove not recognized services
+    for item in not_recognized_services:
+        data_json.remove(item)
 
     return render(request, 'services.html', {'data': data_json, 'config_errors': config_errors, 'requests_errors': requests_errors, 'requests_successes': requests_successes, 'requests_info': requests_info})
   
