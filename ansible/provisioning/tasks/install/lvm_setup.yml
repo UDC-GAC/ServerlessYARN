@@ -1,4 +1,10 @@
 
+- name: Install LVM
+  when: virtual_mode
+  package:
+    name: lvm2
+    state: latest
+
 - name: Create and format LVM
   block:
     - name: Create pvs and a volume group

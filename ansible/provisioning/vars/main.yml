@@ -16,7 +16,7 @@ bind_dir_on_container: /opt/bind
 
 ## Framework versions
 hadoop_version: 3.3.6
-spark_version: 3.4.2
+spark_version: 3.4.3
 
 ## Other
 opentsdb_log_path: "{{ bdwatchdog_path }}/opentsdb/log"

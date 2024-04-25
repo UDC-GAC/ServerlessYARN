@@ -11,4 +11,3 @@
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-

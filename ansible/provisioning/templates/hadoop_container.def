@@ -51,7 +51,7 @@ From: apps/base/{{ app_base_image_file }}
 
     # Setup Spark
     export SPARK_CONF_DIR=/opt/files_dir/spark_conf
-    wget "https://dlcdn.apache.org/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-without-hadoop.tgz"
+    wget https://dlcdn.apache.org/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-without-hadoop.tgz
     mkdir spark && tar xf "spark-{{ spark_version }}-bin-without-hadoop.tgz" -C spark --strip-components 1
     chown -R $(whoami):$(whoami) spark
     mkdir -p $SPARK_CONF_DIR && cp -r spark/conf/* $SPARK_CONF_DIR/

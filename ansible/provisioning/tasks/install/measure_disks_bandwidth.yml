@@ -18,7 +18,7 @@
       oflag: "{{ 'oflag=direct' if direct else '' }}"
     register: dd_output
     with_dict: "{{ hostvars[inventory_hostname].disks }}"
-    throttle: 1
+    throttle: "{{ '1' if virtual_mode else (groups['nodes'] | length) }}"
 
   - name: Remove tmp file
     file:
@@ -35,3 +35,4 @@
   vars:
     dd_results: "{{ item.stderr_lines | last | split() }}"
   loop: "{{ dd_output.results }}"
+  throttle: 1

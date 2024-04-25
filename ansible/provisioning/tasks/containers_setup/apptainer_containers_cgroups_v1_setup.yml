@@ -19,6 +19,7 @@
 
     - name: Create app base directory
       delegate_to: localhost
+      run_once: yes
       file:
         path: "{{ installation_path }}/apps/{{ app_base_name }}"
         state: directory
@@ -26,6 +27,7 @@
 
     - name: Copy necessary files for hadoop apps
       delegate_to: localhost
+      run_once: yes
       copy:
         src: "apps/hadoop/{{ item }}"
         dest: "{{ installation_path }}/apps/hadoop/"
@@ -40,6 +42,7 @@
 
     - name: Create app directory
       delegate_to: localhost
+      run_once: yes
       file:
         path: "{{ installation_path }}/apps/{{ app_name }}"
         state: directory
@@ -47,6 +50,7 @@
 
     - name: Copy apptainer containers definition file
       delegate_to: localhost
+      run_once: yes
       template:
         src: "templates/{{ template_definition_file }}"
         dest: "{{ installation_path }}/apps/{{ app_base_name }}/{{ definition_file }}"
@@ -54,6 +58,7 @@
 
     - name: Create app files directory
       delegate_to: localhost
+      run_once: yes
       when: "files_dir != '' and install_script != ''"
       file:
         path: "{{ installation_path }}/apps/{{ app_name }}/{{ files_dir | basename }}"
@@ -63,6 +68,7 @@
     # TODO: allow install script, start script or stop script to be included in files_dir
     - name: Copy app files directory
       delegate_to: localhost
+      run_once: yes
       when: "files_dir != '' and install_script != ''"
       copy:
         src: "apps/{{ files_dir }}"
@@ -71,6 +77,7 @@
 
     - name: Copy app install script
       delegate_to: localhost
+      run_once: yes
       when: "install_script != ''"
       copy:
         src: "apps/{{ install_script }}"
@@ -79,6 +86,7 @@
 
     - name: Build image
       delegate_to: localhost
+      run_once: yes
       shell: "{{ singularity_command_alias }} build apps/{{ app_base_name }}/{{ image_file }} apps/{{ app_base_name }}/{{ definition_file }}"
       args:
         chdir: "{{ installation_path }}"
