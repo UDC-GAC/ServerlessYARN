@@ -11,6 +11,10 @@ cgroups_version: v1
 
 # Power budgeting: "yes" to use power budgets, power will be accounted, restricted and shared among containers
 power_budgeting: yes
+# Power Modelling: "yes" to use power models to get CPU Usage/Power proportionalities insted of using fixed values
+power_modelling: yes
+# Online Learning: "yes" to automatically retrain power models using OpenTSDB real time series
+online_learning: yes
 
 ## Server Node
 server_ip: 192.168.56.200
@@ -31,9 +35,11 @@ mongodb_url: "{{ server_ip }}"
 mongodb_port: 27017
 
 ## WattWizard Config
-train_file_name: "train"
 model_variables: "user_load,system_load"
-prediction_methods: "polyreg"
+prediction_methods: "polyreg,sgdregressor"
+host_train_files: "General"
+container_train_files: "General"
+guardian_default_model: "polyreg_General"
 influxdb_host: "montoxo.des.udc.es"
 influxdb_bucket: "compute2"
 influxdb_token: "MyToken"

@@ -10,5 +10,5 @@ model_variables: "{{ model_variables }}"
 
 host_timestamps_dir: "{{ host_timestamps_dir }}"
 container_timestamps_dir: "{{ container_timestamps_dir }}"
-host_train_files: "General"
-container_train_files: "General"
+host_train_files: "{{ host_train_files }}"
+container_train_files: "{{ container_train_files }}"

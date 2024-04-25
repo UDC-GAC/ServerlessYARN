@@ -85,6 +85,7 @@
       - power_sender
       - energy_manager
       - watt_wizard
+      - watt_trainer
       - orchestrator
     tags: never, stop_services
 

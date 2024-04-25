@@ -55,13 +55,13 @@
     dest: "{{ serverless_containers_path }}/services_config.yml"
 
 - name: Copy WattWizard configuration to ServerlessContainers dir
-  when: "power_budgeting"
+  when: "power_budgeting and power_modelling"
   template:
     src: templates/wattwizard/config.yml
     dest: "{{ serverless_containers_path }}/src/WattWizard/config.yml"
 
 - name: Verify that the InfluxDB server is reachable
-  when: "power_budgeting"
+  when: "power_budgeting and power_modelling"
   wait_for:
     host: "{{ influxdb_host }}"
     port: 8086
@@ -69,6 +69,7 @@
   delegate_to: localhost
 
 - name: Clean host timestamps directory for WattWizard
+  when: "power_budgeting and power_modelling"
   file:
     state: "{{ item }}"
     path: "{{ serverless_containers_path }}/conf/WattWizard/host"
@@ -78,6 +79,7 @@
     - directory
 
 - name: Clean container timestamps directory for WattWizard
+  when: "power_budgeting and power_modelling"
   file:
     state: "{{ item }}"
     path: "{{ serverless_containers_path }}/conf/WattWizard/container"
@@ -87,7 +89,7 @@
     - directory
 
 - name: Copy WattWizard timestamp files from container and host models
-  when: "power_budgeting"
+  when: "power_budgeting and power_modelling"
   copy:
     src: "templates/wattwizard/{{ item }}/"
     dest: "{{ serverless_containers_path }}/conf/WattWizard/{{ item }}/"
