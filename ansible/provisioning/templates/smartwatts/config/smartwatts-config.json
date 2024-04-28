@@ -16,7 +16,7 @@
       "directory": "/sensor-output"
     }
   },
-  "cpu-base-freq": 1900,
+  "cpu-base-freq": 2100,
   "cpu-error-threshold": 2.0,
   "disable-dram-formula": true,
   "sensor-reports-frequency": 1000

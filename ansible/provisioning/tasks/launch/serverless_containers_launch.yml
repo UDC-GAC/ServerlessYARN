@@ -13,13 +13,6 @@
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
 
-- name: Initializing State Database - energy services
-  shell: python3 conf/StateDatabase/energy_services.py
-  when: "'services' not in couchdb_tables.stdout and power_budgeting"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-
 - name: Initializing State Database - create other tables
   shell: python3 conf/StateDatabase/other_tables.py
   when: "'events' not in couchdb_tables.stdout and 'requests' not in couchdb_tables.stdout and 'limits' not in couchdb_tables.stdout and 'structures' not in couchdb_tables.stdout"
@@ -30,13 +23,6 @@
 - name: Initializing State Database - rules
   shell: python3 conf/StateDatabase/rules.py
   when: "'rules' not in couchdb_tables.stdout"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-
-- name: Initializing State Database - energy rules
-  shell: python3 conf/StateDatabase/energy_rules.py
-  when: "'rules' not in couchdb_tables.stdout and power_budgeting"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
@@ -74,12 +60,6 @@
   with_items:
     - energy_manager
   tags: restart_services
-
-- name: Copy custom env file in ServerlessContainers to avoid using yq
-  template:
-    src: "templates/sc_set_env.sh"
-    dest: "{{ serverless_containers_path }}/scripts/orchestrator/set_env.sh"
-  when: "not virtual_mode"
 
 # Start WattWizard when power_modelling is "yes"
 - name: Starting WattWizard to create power models
@@ -142,33 +122,33 @@
     executable: /bin/bash
   tags: never, start_containers, enable_scaler
 
-- name: Guardian - Deactivating cpu and mem rules (Power Budgeting)
-  shell: bash scripts/orchestrator/Rules/deactivate_rule.sh {{ item }}
-  when: "power_budgeting"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-  with_items:
-    - cpu_dropped_lower
-    - cpu_exceeded_upper
-    - CpuRescaleDown
-    - CpuRescaleUp
-    - mem_dropped_lower
-    - mem_exceeded_upper
-    - MemRescaleDown
-    - MemRescaleUp
-
-- name: Guardian - Ensuring that the energy rules are active
-  shell: bash scripts/orchestrator/Rules/activate_rule.sh {{ item }}
-  when: "power_budgeting"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-  with_items:
-    - energy_dropped_lower
-    - energy_exceeded_upper
-    - EnergyRescaleDown
-    - EnergyRescaleUp
+#- name: Guardian - Deactivating cpu and mem rules (Power Budgeting)
+#  shell: bash scripts/orchestrator/Rules/deactivate_rule.sh {{ item }}
+#  when: "power_budgeting"
+#  args:
+#    chdir: "{{ serverless_containers_path }}"
+#    executable: /bin/bash
+#  with_items:
+#    - cpu_dropped_lower
+#    - cpu_exceeded_upper
+#    - CpuRescaleDown
+#    - CpuRescaleUp
+#    - mem_dropped_lower
+#    - mem_exceeded_upper
+#    - MemRescaleDown
+#    - MemRescaleUp
+#
+#- name: Guardian - Ensuring that the energy rules are active
+#  shell: bash scripts/orchestrator/Rules/activate_rule.sh {{ item }}
+#  when: "power_budgeting"
+#  args:
+#    chdir: "{{ serverless_containers_path }}"
+#    executable: /bin/bash
+#  with_items:
+#    - energy_dropped_lower
+#    - energy_exceeded_upper
+#    - EnergyRescaleDown
+#    - EnergyRescaleUp
 
 - name: Guardian - Setting guardable resources
   shell: "bash scripts/orchestrator/Guardian/set_guardable_resources.sh {{ resources }}"
