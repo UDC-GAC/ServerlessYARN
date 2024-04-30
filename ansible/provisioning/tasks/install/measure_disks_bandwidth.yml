@@ -8,12 +8,13 @@
       random_code: "{{ lookup('community.general.random_string', special=false) }}"
 
   - name: Create file with dd
+    when: "not create_lvm or item.key == 'lvm'"
     shell: "dd {{ oflag }} if=/dev/zero of={{ item.value.path }}/{{ tmp_file }}.{{ random_code }}.{{ item.key }} bs={{ block_size }} count={{ count }}"
     vars:
-      block_size: 32k
-      count: 70k
-      # block_size: 2G
-      # count: 1
+      # block_size: 32k
+      # count: 70k
+      block_size: 2G
+      count: 1
       direct: yes
       oflag: "{{ 'oflag=direct' if direct else '' }}"
     register: dd_output
@@ -21,6 +22,7 @@
     throttle: "{{ '1' if virtual_mode else (groups['nodes'] | length) }}"
 
   - name: Remove tmp file
+    when: "not create_lvm or item.key == 'lvm'"
     file:
       path: "{{ item.value.path }}/{{ tmp_file }}.{{ random_code }}.{{ item.key }}"
       state: absent
@@ -30,6 +32,7 @@
     tmp_file: "test_{{ inventory_hostname }}.img"
 
 - name: Update host information in inventory
+  when: "'skipped' not in item"
   delegate_to: localhost
   shell: "python3 scripts/update_host_disks_bw.py {{ inventory_hostname }} {{ item.item.key }} {{ dd_results[-2] }} {{ dd_results[-1] }} config/config.yml"
   vars:
