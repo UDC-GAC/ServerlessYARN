@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 #
 #SBATCH -o <directory to save output>/%x_%j.out
 #SBATCH -t <max time to keep the platform deployed, e.g., 03:00:00>
