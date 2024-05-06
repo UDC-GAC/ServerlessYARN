@@ -10,7 +10,7 @@ guardian = dict(
     config=dict(
         ACTIVE=False,
         DEBUG=True,
-        EVENT_TIMEOUT=40,
+        EVENT_TIMEOUT=60,
         WINDOW_DELAY=20,
         WINDOW_TIMELAPSE=10
     )
