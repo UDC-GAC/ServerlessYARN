@@ -18,7 +18,7 @@
       direct: yes
       oflag: "{{ 'oflag=direct' if direct else '' }}"
     register: dd_output
-    with_dict: "{{ hostvars[inventory_hostname].disks }}"
+    with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
     throttle: "{{ '1' if virtual_mode else (groups['nodes'] | length) }}"
 
   - name: Remove tmp file
@@ -26,10 +26,11 @@
     file:
       path: "{{ item.value.path }}/{{ tmp_file }}.{{ random_code }}.{{ item.key }}"
       state: absent
-    with_dict: "{{ hostvars[inventory_hostname].disks }}"
+    with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
 
   vars:
     tmp_file: "test_{{ inventory_hostname }}.img"
+    new_disks_dict: "{{ new_disks_dict_str | replace(' ','') if new_disks_dict_str is defined else ''}}"
 
 - name: Update host information in inventory
   when: "'skipped' not in item"

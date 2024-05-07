@@ -162,7 +162,7 @@
         #   block:
 
         - name: Delete LV (non-virtual cluster)
-          when: not virtual_mode
+          #when: not virtual_mode
           block:
             - name: Check if volume is mounted
               shell: "mount"
@@ -217,6 +217,28 @@
               vars:
                 host_disk_list: "{{ (hostvars[inventory_hostname].disks | ansible.utils.remove_keys(target=['lvm'])) | dict2items | map(attribute='value.path') }}"
       tags: never, remove_lv
+
+    - name: Extend LV
+      block:
+        - name: Extend LV (non-virtual cluster)
+          #when: not virtual_mode
+          block:
+            - name: Check if logical volume exists
+              shell: "sudo lvs {{ vg_name }}/{{ lv_name }}"
+              args:
+                executable: /bin/bash
+
+            - name: Copy script
+              copy:
+                src: scripts/add_disks_to_lv.sh
+                dest: "{{ installation_path }}/"
+
+            - name: Execute script to do all required steps
+              shell: "bash {{ installation_path }}/add_disks_to_lv.sh {{ vg_name }} {{ lv_name }} {{ new_disks_list }} {{ extra_disk }}"
+              args:
+                executable: /bin/bash
+
+      tags: never, extend_lv
 
   vars:
     vg_name: "vg_{{ inventory_hostname }}"

@@ -236,6 +236,53 @@ class AddHostForm(forms.Form):
             )    
         )       
 
+class AddDisksToHostsForm(forms.Form):
+    operation = forms.CharField(label= "Operation",
+            initial="add",
+            required=True
+            )
+    structure_type = forms.CharField(label= "Structure type",
+            initial="disks_to_hosts",
+            required=True
+            )
+    host_list = forms.MultipleChoiceField(label="Host where to add disks",
+            choices = (),
+            widget=forms.CheckboxSelectMultiple,
+            required=True
+            )
+    add_to_lv = forms.ChoiceField(label="Add to Logical Volume? (if LV exists)",
+            choices = (
+                ("True", "True"),
+                ("False", "False"),
+                ),
+            initial="False",
+            required=True
+            )
+    new_disks = forms.CharField(label= "New disks (set device path if adding to LV or mounted directory if adding as individual disks)",
+            required=True
+            )
+    extra_disk = forms.CharField(label= "Extra disk (required if adding to LV)",
+            required=False
+            )
+    def __init__(self, *args, **kwargs):
+        super(AddDisksToHostsForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-adddiskstohostsform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'hosts'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('structure_type', type="hidden", readonly=True),
+            Field('host_list'),
+            Field('add_to_lv'),
+            Field('new_disks'),
+            Field('extra_disk'),
+            FormActions(
+                Submit('save', 'Add disks to hosts', css_class='caja'),
+            )
+        )
+
 class AddContainersForm(forms.Form):
     operation = forms.CharField(label= "Operation",
             initial="add",

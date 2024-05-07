@@ -1,7 +1,7 @@
 import time
 import subprocess
 import requests
-from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host
+from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host, add_disks_to_hosts
 from celery import shared_task, chain, chord, group
 from celery.result import AsyncResult, allow_join_result
 from bs4 import BeautifulSoup
@@ -160,6 +160,26 @@ def add_host_task(host,cpu,mem,disk_info,new_containers):
     argument_list = [host]
     error_message = "Error adding host {0}".format(host)
     process_script("configure_host", argument_list, error_message)
+
+@shared_task
+def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk):
+
+    # update_inventory_file
+    with redis_server.lock(lock_key):
+        added_disks = add_disks_to_hosts(host_list,new_disks)
+
+    if add_to_lv:
+        ## Add disks to existing LV
+        argument_list = [','.join(host_list), " ".join(new_disks), extra_disk]
+        error_message = "Error extending LV of hosts {0} with disks {1} and extra disk {2}".format(host_list, str(new_disks), extra_disk)
+        process_script("extend_lv", argument_list, error_message)
+
+    else:
+        ## Add disks just as new individual disks
+        formatted_added_disks = str(added_disks).replace(' ','')
+        argument_list = [','.join(host_list), formatted_added_disks]
+        error_message = "Error adding disks {0} to hosts {1}".format(str(new_disks), host_list)
+        process_script("add_disks", argument_list, error_message)
 
 @shared_task
 def add_app_task(full_url, headers, put_field_data, app, app_files):

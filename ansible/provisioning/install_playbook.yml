@@ -57,3 +57,4 @@
       when: "container_engine == 'apptainer'"
 
     - import_tasks: tasks/install/measure_disks_bandwidth.yml
+      tags: extend_lv, add_disks

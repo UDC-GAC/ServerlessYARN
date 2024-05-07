@@ -1,7 +1,9 @@
 from django.shortcuts import render,redirect
 from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm
 from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper, HostResourcesForm, HostResourcesFormSetHelper
-from ui.forms import RemoveStructureForm, AddHostForm, AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddAppForm, AddHadoopAppForm, AddContainersToAppForm, RemoveContainersFromAppForm, StartAppForm
+from ui.forms import AddHostForm, AddAppForm, AddHadoopAppForm, StartAppForm, AddDisksToHostsForm
+from ui.forms import AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddContainersToAppForm
+from ui.forms import RemoveStructureForm, RemoveContainersFromAppForm
 from django.forms import formset_factory
 from django.http import HttpResponse
 import urllib.request
@@ -14,7 +16,7 @@ import re
 import functools
 from bs4 import BeautifulSoup
 
-from ui.background_tasks import start_containers_task_v2, add_host_task, add_app_task, add_container_to_app_task
+from ui.background_tasks import start_containers_task_v2, add_host_task, add_app_task, add_container_to_app_task, add_disks_to_hosts_task
 from ui.background_tasks import remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task, start_app_task, start_hadoop_app_task
 from ui.background_tasks import register_task, get_pendings_tasks_to_string, remove_containers, remove_containers_from_app
 
@@ -115,7 +117,9 @@ def structures(request, structure_type, html_render):
 
     elif(structure_type == "hosts"):
         structures = getHosts(data_json)
-        addStructureForm = AddHostForm()
+        addStructureForm = {}
+        addStructureForm['host'] = AddHostForm()
+        addStructureForm['add_disks_to_hosts'] = setAddDisksToHostsForm(structures,structure_type)
 
     elif(structure_type == "apps"):
         structures = getApps(data_json)
@@ -475,6 +479,18 @@ def setAddContainersForm(structures, hosts, form_action):
 
     return addContainersForm
 
+def setAddDisksToHostsForm(structures, form_action):
+
+    addDisksToHostsForm = AddDisksToHostsForm()
+
+    host_list = {}
+    for host in structures:
+        addDisksToHostsForm.fields['host_list'].choices.append((host['name'],host['name']))
+
+    addDisksToHostsForm.helper.form_action = form_action
+
+    return addDisksToHostsForm
+
 def setRemoveStructureForm(structures, form_action):
 
     removeStructuresForm = RemoveStructureForm()
@@ -672,6 +688,8 @@ def processAdds(request, url):
 
             if ('number_of_containers' in request.POST):
                 error = processStartApp(request, url, app)
+        elif (structure_type == "disks_to_hosts"):
+            error = processAddDisksToHosts(request, url, structure_type, resources)
 
         if (len(error) > 0): errors.append(error)
 
@@ -697,9 +715,34 @@ def processAddHost(request, url, structure_name, structure_type, resources):
     else: disk_info['lvm_path'] = ""
 
     # provision host and start its containers from playbook
-    task = add_host_task(structure_name,cpu,mem,disk_info,new_containers)
+    task = add_host_task.delay(structure_name,cpu,mem,disk_info,new_containers)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"add_host_task")
+
+    return error
+
+def processAddDisksToHosts(request, url, structure_type, resources):
+
+    error = ""
+
+    if 'host_list' in request.POST:
+        print(request.POST)
+        host_list = request.POST.getlist('host_list', None)
+        add_to_lv = eval(request.POST['add_to_lv'])
+        new_disks = request.POST['new_disks'].split(',')
+        extra_disk = request.POST['extra_disk']
+
+        if add_to_lv and extra_disk == "":
+            error = "Can't add disks to Logical Volume without an extra disk"
+            return error
+
+        # add disks from playbook
+        task = add_disks_to_hosts_task.delay(host_list, add_to_lv, new_disks, extra_disk)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"add_disks_to_hosts_task")
+
+    else:
+        error = "No hosts selected"
 
     return error
 

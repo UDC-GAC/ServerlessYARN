@@ -37,14 +37,58 @@ def add_host(hostname,cpu,mem,disk_info,new_containers):
 
     write_container_list(containers,hostname,cpu,mem,disks)
 
+def add_disks_to_hosts(hosts_to_add_disks,new_disks):
+
+    loader = DataLoader()
+    ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
+
+    hostList = ansible_inventory.groups['nodes'].get_hosts()
+
+    added_disks = {}
+
+    pattern = re.compile(r"new_[0-9]+", re.IGNORECASE)
+
+    for host in hostList:
+        if host.name in hosts_to_add_disks:
+
+            cpu = host.vars['cpu']
+            mem = host.vars['mem']
+            disks = host.vars['disks']
+            containers = host.vars['containers']
+            added_disks[host.name] = {}
+
+            disk_id = 0
+            existing_disks = []
+            for d in disks:
+                existing_disks.append(disks[d]['path'])
+                if pattern.match(d):
+                    i = int(d.split("_")[1])
+                    if i >= disk_id: disk_id = i + 1
+
+            for new_disk in new_disks:
+                if new_disk not in existing_disks:
+                    ## It is probably better not to bother differentiating between HDD and SSD disks since measured bandwidth will be used to differentiate them
+                    new_disk_name = "new_{0}".format(disk_id)
+                    disks[new_disk_name] = {}
+                    disks[new_disk_name]['path'] = new_disk
+
+                    added_disks[host.name][new_disk_name] = {}
+                    added_disks[host.name][new_disk_name]['path'] = new_disk
+
+                    disk_id += 1
+
+            write_container_list(containers,host.name,cpu,mem,disks)
+
+    return added_disks
+
 def remove_container_from_host(container,hostname):
 
     loader = DataLoader()
     ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
 
-    hostsList = ansible_inventory.groups['nodes'].get_hosts()
+    hostList = ansible_inventory.groups['nodes'].get_hosts()
 
-    for host in hostsList:
+    for host in hostList:
 
         if (hostname == host.name):
 
@@ -66,10 +110,10 @@ def add_containers_to_hosts(new_containers):
     loader = DataLoader()
     ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
 
-    hostsList = ansible_inventory.groups['nodes'].get_hosts()
+    hostList = ansible_inventory.groups['nodes'].get_hosts()
     addedContainers = {}
 
-    for host in hostsList:
+    for host in hostList:
 
         if (host.name in new_containers):
             
@@ -184,10 +228,10 @@ def update_inventory_disks(hostname, disk, bandwidth_MB):
     loader = DataLoader()
     ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
 
-    hostsList = ansible_inventory.groups['nodes'].get_hosts()
+    hostList = ansible_inventory.groups['nodes'].get_hosts()
 
     host = None
-    for h in hostsList:
+    for h in hostList:
         if h.name == hostname:
             host = h
             break
