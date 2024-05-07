@@ -14,4 +14,4 @@ From: mongo:latest
     mkdir -p ${MONGODB_DATA}
     rm -rf ${MONGODB_DATA}/*
     echo "Starting MongoDB..."
-    mongod --bind_ip_all
+    mongod --bind_ip_all > /dev/null 2>&1

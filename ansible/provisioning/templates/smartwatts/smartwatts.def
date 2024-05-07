@@ -32,8 +32,8 @@ From: python:3-slim
 
 %runscript
     echo "Starting SmartWatts..."
-    python3 -m smartwatts --config-file /smartwatts-config.json
+    python3 -m smartwatts --config-file /smartwatts-config.json > /dev/null 2>&1
 
 %startscript
     echo "Starting SmartWatts..."
-    python3 -m smartwatts  --config-file /smartwatts-config.json
+    python3 -m smartwatts  --config-file /smartwatts-config.json > /dev/null 2>&1
