@@ -51,10 +51,6 @@ iface: eth1
 mode: ipvlan
 subnet: 10.22.0.0/16
 
-# TODO: It may be interesting to leave the possibility to start at least one app from config
-## Application initial values
-#number_of_apps: 1
-#max_cpu_percentage_per_app: 400
-#min_cpu_percentage_per_app: 100
-#max_memory_per_app: 4096
-#min_memory_per_app: 2048
+## Apps (list of applications to automatically load on startup)
+# set list of app configuration file paths
+apps: apps/sample_app/sample_app_config.yml

@@ -16,8 +16,8 @@ then
     BIND_PATH='{{ default_bind_path }}'
 fi
 
-cd ../../
-INVENTORY=../ansible.inventory
+scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
+source $scriptDir/access_playbooks_dir.sh
 
 unbuffer ansible-playbook manage_app_on_container.yml -i $INVENTORY -t stop_app -l $HOST_NAME \
     --extra-vars \

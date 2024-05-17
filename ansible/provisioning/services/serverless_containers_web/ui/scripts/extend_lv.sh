@@ -4,8 +4,8 @@ HOST_NAMES=$1
 NEW_DISKS=$2
 EXTRA_DISK=$3
 
-cd ../../
-INVENTORY=../ansible.inventory
+scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
+source $scriptDir/access_playbooks_dir.sh
 
 unbuffer ansible-playbook install_playbook.yml -i $INVENTORY -t extend_lv -l $HOST_NAMES \
     --extra-vars \

@@ -3,8 +3,8 @@ set -e
 HOST_NAMES=$1
 NEW_DISKS=$2
 
-cd ../../
-INVENTORY=../ansible.inventory
+scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
+source $scriptDir/access_playbooks_dir.sh
 
 unbuffer ansible-playbook install_playbook.yml -i $INVENTORY -t add_disks -l $HOST_NAMES \
     --extra-vars \

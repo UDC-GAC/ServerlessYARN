@@ -4,8 +4,8 @@ APP_JAR=$1
 RM_HOST=$2
 RM_CONTAINER=$3
 
-cd ../../
-INVENTORY=../ansible.inventory
+scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
+source $scriptDir/access_playbooks_dir.sh
 
 unbuffer ansible-playbook manage_app_on_container.yml -i $INVENTORY -t set_hadoop_logs_timestamp -l $RM_HOST \
     --extra-vars \

@@ -19,8 +19,8 @@ MAPREDUCE_AM_MEMORY_JAVA_OPTS=${16}
 DATANODE_D_HEAPSIZE=${17}
 NODEMANAGER_D_HEAPSIZE=${18}
 
-cd ../../
-INVENTORY=../ansible.inventory
+scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
+source $scriptDir/access_playbooks_dir.sh
 
 unbuffer ansible-playbook manage_app_on_container.yml -i $INVENTORY -t setup_network,setup_hadoop -l $HOST_NAMES \
     --extra-vars \
