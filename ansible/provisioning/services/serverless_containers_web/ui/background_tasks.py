@@ -566,8 +566,10 @@ def setup_containers_network_task(app_containers, url, headers, app, app_files, 
 
     start_group_task = group(start_containers_task)
 
-    with allow_join_result():
-        start_group_task().get()
+    task = start_group_task()
+    while not task.ready():
+        time.sleep(1)
+    task.get()
 
 
 @shared_task
