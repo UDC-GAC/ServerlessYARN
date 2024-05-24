@@ -7,6 +7,14 @@
 - name: Install Fio
   when: result is failed
   block:
+    - name: Install prerequisites for FIO
+      when: virtual_mode
+      apt:
+        name:
+        - libaio-dev
+        state: latest
+        update_cache: yes
+
     - name: Clone Fio repo
       git:
         repo: https://github.com/axboe/fio.git
@@ -42,7 +50,6 @@
       size: 500m
       block_size: 1024k
       runtime: 60s
-      count: 1
       direct: 1
     register: bw_output
     with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
