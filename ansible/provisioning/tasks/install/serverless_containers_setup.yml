@@ -77,7 +77,7 @@
 - name: Copy WattWizard configuration to ServerlessContainers dir
   when: "power_budgeting and power_modelling"
   template:
-    src: templates/wattwizard/config.yml
+    src: templates/power_budgeting/wattwizard/config.yml
     dest: "{{ serverless_containers_path }}/src/WattWizard/config.yml"
 
 - name: Verify that the InfluxDB server is reachable
@@ -101,6 +101,6 @@
 - name: Copy WattWizard timestamp files to create models
   when: "power_budgeting and power_modelling"
   copy:
-    src: "templates/wattwizard/timestamps/{{ modelled_cpu }}/"
+    src: "templates/power_budgeting/wattwizard/timestamps/{{ modelled_cpu }}/"
     dest: "{{ serverless_containers_path }}/conf/WattWizard/timestamps/"
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
