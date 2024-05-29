@@ -35,7 +35,7 @@
 
         - name: Start couchdb apptainer container
           shell: "{{ singularity_command_alias }} instance start -C --writable-tmpfs {{ image_file }} {{ container_name }}"
-          when: "'\"instance\": \"{{ container_name }}\",' not in apptainer_list_output.stdout"
+          when: "container_name not in apptainer_list_output.stdout"
           args:
             chdir: "{{ installation_path }}"
             executable: /bin/bash

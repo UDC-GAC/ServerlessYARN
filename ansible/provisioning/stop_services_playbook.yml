@@ -43,13 +43,6 @@
     ignore_errors: yes
     tags: never, stop_opentsdb, stop_services
 
-  - name: Stop SmartWatts sender
-    when: "power_budgeting and 'smartwatts_sender' in tmux_output.stdout"
-    shell: "tmux kill-session -t 'smartwatts_sender'"
-    args:
-      executable: /bin/bash
-    tags: never, stop_smartwatts_sender
-
   - name: Stop OPENTSDB
     shell: bash stop.sh
     when: "'OPENTSDB' in tmux_output.stdout"

@@ -3,12 +3,12 @@
   block:
     - name: Copy HWPC Sensor container definition file
       template:
-        src: "templates/smartwatts/{{ definition_file }}"
+        src: "templates/power_budgeting/monitoring/{{ definition_file }}"
         dest: "{{ hwpc_sensor_path }}/image/{{ definition_file }}"
 
     - name: Copy HWPC Sensor configuration files
       template:
-        src: "templates/smartwatts/config/{{ item }}"
+        src: "templates/power_budgeting/monitoring/config/{{ item }}"
         dest: "{{ hwpc_sensor_path }}/config/{{ item }}"
       with_items:
         - hwpc-sensor-config.json
@@ -29,7 +29,7 @@
 
     - name: Start HWPC Sensor apptainer container
       shell: "sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --bind /sys:/sys --bind {{ hwpc_sensor_reporting_path }}:/reporting image/{{ image_file }} {{ container_name }}"
-      when: "'\"instance\": \"{{ container_name }}\",' not in apptainer_list_output.stdout"
+      when: "container_name not in apptainer_list_output.stdout"
       args:
         chdir: "{{ hwpc_sensor_path }}"
         executable: /bin/bash

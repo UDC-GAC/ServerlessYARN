@@ -3,7 +3,7 @@
   block:
     - name: Copy mongodb container definition file
       template:
-        src: "templates/smartwatts/{{ definition_file }}"
+        src: "templates/power_budgeting/monitoring/{{ definition_file }}"
         dest: "{{ mongodb_path }}/image/{{ definition_file }}"
 
     - name: Build image
@@ -30,7 +30,7 @@
 
     - name: Start mongodb apptainer container
       shell: "{{ singularity_command_alias }} instance start -C --bind {{ mongodb_data_path }}:/data/db image/{{ image_file }} {{ container_name }}"
-      when: "'\"instance\": \"{{ container_name }}\",' not in apptainer_list_output.stdout"
+      when: "container_name not in apptainer_list_output.stdout"
       args:
         chdir: "{{ mongodb_path }}"
         executable: /bin/bash

@@ -4,12 +4,12 @@
   block:
     - name: Copy SmartWatts container definition file
       template:
-        src: "templates/smartwatts/{{ definition_file }}"
+        src: "templates/power_budgeting/monitoring/{{ definition_file }}"
         dest: "{{ smartwatts_path }}/image/{{ definition_file }}"
 
     - name: Copy SmartWatts configuration files
       template:
-        src: "templates/smartwatts/config/{{ item }}"
+        src: "templates/power_budgeting/monitoring/config/{{ item }}"
         dest: "{{ smartwatts_path }}/config/{{ item }}"
       with_items:
         - smartwatts-config.json
@@ -29,7 +29,7 @@
 
     - name: Start SmartWatts apptainer container
       shell: "{{ singularity_command_alias }} instance start -C --bind {{ smartwatts_output }}:/sensor-output image/{{ image_file }} {{ container_name }}"
-      when: "'\"instance\": \"{{ container_name }}\",' not in apptainer_list_output.stdout"
+      when: "container_name not in apptainer_list_output.stdout"
       args:
         chdir: "{{ smartwatts_path }}"
         executable: /bin/bash
@@ -52,7 +52,7 @@
   ignore_errors: yes
 
 - name: Start tmux session for SmartWatts power sender
-  shell: "bash scripts/SmartWatts/start_power_sender_tmux.sh {{ singularity_command_alias }} {{ smartwatts_output }}"
+  shell: "bash scripts/PowerSender/start_power_sender_tmux.sh {{ singularity_command_alias }} {{ smartwatts_output }}"
   when: "'power_sender' not in tmux_output.stdout"
   args:
     executable: /bin/bash
