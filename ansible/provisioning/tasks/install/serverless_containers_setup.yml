@@ -88,31 +88,19 @@
     timeout: 30
   delegate_to: localhost
 
-- name: Clean host timestamps directory for WattWizard
+- name: Clean WattWizard timestamps directory
   when: "power_budgeting and power_modelling"
   file:
     state: "{{ item }}"
-    path: "{{ serverless_containers_path }}/conf/WattWizard/host"
+    path: "{{ serverless_containers_path }}/conf/WattWizard/timestamps"
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
   with_items:
     - absent
     - directory
 
-- name: Clean container timestamps directory for WattWizard
-  when: "power_budgeting and power_modelling"
-  file:
-    state: "{{ item }}"
-    path: "{{ serverless_containers_path }}/conf/WattWizard/container"
-    owner: "{{ username_on_the_host.stdout_lines[0] }}"
-  with_items:
-    - absent
-    - directory
-
-- name: Copy WattWizard timestamp files from container and host models
+- name: Copy WattWizard timestamp files to create models
   when: "power_budgeting and power_modelling"
   copy:
-    src: "templates/wattwizard/{{ item }}/"
-    dest: "{{ serverless_containers_path }}/conf/WattWizard/{{ item }}/"
-  with_items:
-    - host
-    - container
+    src: "templates/wattwizard/timestamps/{{ modelled_cpu }}/"
+    dest: "{{ serverless_containers_path }}/conf/WattWizard/timestamps/"
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"
