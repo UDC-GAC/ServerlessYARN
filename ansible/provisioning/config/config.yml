@@ -34,6 +34,9 @@ opentsdb_port: 4242
 mongodb_url: "{{ server_ip }}"
 mongodb_port: 27017
 
+## BDWatchdog Config
+bdwatchdog_sampling_frequency: 1
+
 ## WattWizard Config
 structures: "host,container"
 model_variables: "user_load,system_load"
