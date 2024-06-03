@@ -13,8 +13,6 @@ from ansible.inventory.manager import InventoryManager
 from src.apptainer.ApptainerHandler import ApptainerHandler
 from src.utils.MyUtils import create_dir, clean_log_file
 
-POLLING_FREQUENCY = 5
-
 SCRIPT_PATH = os.path.abspath(__file__)
 SMARTWATTS_DIR = os.path.dirname(os.path.dirname(SCRIPT_PATH))
 PROVISIONING_DIR = os.path.dirname(os.path.dirname(SMARTWATTS_DIR))
@@ -33,11 +31,12 @@ def get_nodes():
 
 if __name__ == "__main__":
 
-    if len(sys.argv) < 3:
-        raise Exception("Missing some arguments: power_sender.py <SINGULARITY_COMMAND_ALIAS> <SMARTWATTS_OUTPUT>")
+    if len(sys.argv) < 4:
+        raise Exception("Missing some arguments: power_sender.py <SINGULARITY_COMMAND_ALIAS> <SMARTWATTS_OUTPUT> <SAMPLING_FREQUENCY>")
 
     singularity_command_alias = sys.argv[1]
     smartwatts_output = sys.argv[2]
+    sampling_frequency = int(sys.argv[3])
 
     with open(ANSIBLE_CONFIG_FILE, "r") as f:
         ansible_config = yaml.load(f, Loader=yaml.FullLoader)
@@ -149,10 +148,10 @@ if __name__ == "__main__":
             logger.info(f"Processed {iter_count['targets']} targets and {iter_count['lines']} lines causing a delay of {delay} seconds")
 
             # Avoids negative sleep times when there is a high delay
-            if delay > POLLING_FREQUENCY:
-                logger.warning(f"High delay ({delay}) causing negative sleep times. Waiting until the next {POLLING_FREQUENCY}s cycle")
-                delay = delay % POLLING_FREQUENCY
-            time.sleep(POLLING_FREQUENCY - delay)
+            if delay > sampling_frequency:
+                logger.warning(f"High delay ({delay}) causing negative sleep times. Waiting until the next {sampling_frequency}s cycle")
+                delay = delay % sampling_frequency
+            time.sleep(sampling_frequency - delay)
 
         except Exception as e:
             logger.error(f"Unexpected error: {str(e)}")

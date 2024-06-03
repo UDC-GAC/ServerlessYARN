@@ -9,12 +9,14 @@ singularity_command_alias: apptainer # singularity or apptainer (only relevant w
 # Apptainer + cgroups V1 requires sudo privileges to some singularity commands at the moment
 cgroups_version: v1
 
+## Power Budgeting
 # Power budgeting: "yes" to use power budgets, power will be accounted, restricted and shared among containers
 power_budgeting: yes
 # Power Modelling: "yes" to use power models to get CPU Usage/Power proportionalities insted of using fixed values
 power_modelling: yes
 # Online Learning: "yes" to automatically retrain power models using OpenTSDB real time series
 online_learning: yes
+power_sampling_frequency: 1
 
 ## Server Node
 server_ip: 192.168.56.200
@@ -35,7 +37,7 @@ mongodb_url: "{{ server_ip }}"
 mongodb_port: 27017
 
 ## BDWatchdog Config
-bdwatchdog_sampling_frequency: 1
+bdwatchdog_sampling_frequency: 5 # If 'online_learning' is 'yes' then this value will be overwritten by 'power_sampling_frequency'
 
 ## WattWizard Config
 structures: "host,container"
@@ -67,7 +69,6 @@ lvm_path: $HOME/lvm
 # Guardable resources: Initial resources to be scaled by Serverless Containers
 # CAUTION! Energy will be automatically added if power_budgeting is activated
 guardable_resources: "cpu"
-
 
 ## Containers initial values
 number_of_containers_per_node: 1
