@@ -82,6 +82,7 @@ watt_trainer = dict(
     type="service",
     heartbeat="",
     config=dict(
+        POLLING_FREQUENCY={{ power_sampling_frequency }},
         DEBUG=True
     )
 )
