@@ -1,0 +1,29 @@
+# Stop containers from nodes
+- hosts: nodes
+  gather_facts: no
+
+  vars_files:
+    - vars/main.yml
+    - config/config.yml
+
+  tasks:
+  - name: Stop apptainer containers from nodes
+    shell: "sudo apptainer instance stop --all"
+    when: "container_engine == 'apptainer'"
+    args:
+      executable: /bin/bash
+
+# Stop containers from server
+- hosts: localhost
+  gather_facts: no
+
+  vars_files:
+    - vars/main.yml
+    - config/config.yml
+
+  tasks:
+  - name: Stop apptainer containers from server
+    shell: "apptainer instance stop --all"
+    when: "container_engine == 'apptainer'"
+    args:
+      executable: /bin/bash
