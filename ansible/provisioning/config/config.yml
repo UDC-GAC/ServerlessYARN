@@ -9,14 +9,9 @@ singularity_command_alias: apptainer # singularity or apptainer (only relevant w
 # Apptainer + cgroups V1 requires sudo privileges to some singularity commands at the moment
 cgroups_version: v1
 
-## Power Budgeting
-# Power budgeting: "yes" to use power budgets, power will be accounted, restricted and shared among containers
-power_budgeting: yes
-# Power Modelling: "yes" to use power models to get CPU Usage/Power proportionalities insted of using fixed values
-power_modelling: yes
-# Online Learning: "yes" to automatically retrain power models using OpenTSDB real time series
-online_learning: yes
-power_sampling_frequency: 1
+# Guardable resources: Initial resources to be scaled by Serverless Containers
+# CAUTION! Energy will be automatically added if power_budgeting is activated
+guardable_resources: "cpu"
 
 ## Server Node
 server_ip: 192.168.56.200
@@ -39,6 +34,12 @@ mongodb_port: 27017
 ## BDWatchdog Config
 bdwatchdog_sampling_frequency: 5 # If 'online_learning' is 'yes' then this value will be overwritten by 'power_sampling_frequency'
 
+## Power budgeting
+power_budgeting: yes # "yes" to use power budgets, power will be accounted, restricted and shared among containers
+power_modelling: yes # "yes" to use power models to get CPU Usage/Power proportionalities insted of using fixed values
+online_learning: yes # "yes" to automatically retrain power models in real-time using OpenTSDB time series
+power_sampling_frequency: 5
+
 ## WattWizard Config
 structures: "host,container"
 model_variables: "user_load,system_load"
@@ -47,7 +48,7 @@ modelled_cpu: "intel_xeon_silver_4216"
 train_files: "General"
 guardian_default_model: "polyreg_General"
 
-# InfluxDB Config
+## InfluxDB Config
 influxdb_host: "montoxo.des.udc.es"
 influxdb_bucket: "compute2"
 influxdb_token: "MyToken"
@@ -65,10 +66,6 @@ ssd_disks_path_list: $HOME/ssd
 # "yes" to create a LVM using the previous disks. Such disks should be indicated using their /dev path
 create_lvm: no # no
 lvm_path: $HOME/lvm
-
-# Guardable resources: Initial resources to be scaled by Serverless Containers
-# CAUTION! Energy will be automatically added if power_budgeting is activated
-guardable_resources: "cpu"
 
 ## Containers initial values
 number_of_containers_per_node: 1

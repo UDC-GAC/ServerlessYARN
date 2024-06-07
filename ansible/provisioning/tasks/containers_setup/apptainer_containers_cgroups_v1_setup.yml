@@ -93,7 +93,7 @@
     - name: Copy app files directory
       delegate_to: localhost
       when: "app_files_dir != ''"
-      copy:
+      template:
         src: "{{ app_files_dir }}/"
         dest: "{{ installation_path }}/apps/{{ app_name }}/"
       tags: create_app

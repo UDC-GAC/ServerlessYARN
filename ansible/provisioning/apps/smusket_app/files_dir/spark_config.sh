@@ -1,0 +1,5 @@
+SPARK_VERSION="3.3.3"
+SPARK_TAR_FILE="spark-${SPARK_VERSION}-bin-hadoop${SPARK_VERSION:0:1}.tgz"
+SPARK_HOME="${SCRIPT_DIR}"/spark-${SPARK_VERSION}-bin-hadoop"${SPARK_VERSION:0:1}"
+SPARK_DATA_DIR={{ bind_dir_on_container }}
+SPARK_DATA_FILE="${SPARK_DATA_DIR}/ERR031558.fastq"

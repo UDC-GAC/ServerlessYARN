@@ -31,8 +31,8 @@
         - app_name: "sample_app"
         - definition_file: "app_container.def"
         - image_file: "sample_app.sif"
-        #- app_jar: ""
         - app_files_dir: "apps/{{ app_name }}"
+        #- app_jar: ""
         #- install_script: "{{ app_name }}/install.sh"
         # Other config
         - cgroups_file: "apptainer_containers_cgroup.toml"
