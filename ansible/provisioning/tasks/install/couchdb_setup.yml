@@ -1,45 +1,70 @@
+- name: Create directories for CouchDB container
+  block:
+    - name: Clean and create data directory for CouchDB container
+      file:
+        state: "{{ item }}"
+        path: "{{ couchdb_path }}/data"
+        owner: "{{ username_on_the_host.stdout_lines[0] }}"
+      with_items:
+        - absent
+        - directory
 
-- name: Install prerequisites for CouchDB
-  apt:
-    name: 
-     - curl
-     - apt-transport-https
-     - gnupg
-    state: latest   
-    update_cache: yes
+    - name: Clean and create log directory for CouchDB container
+      file:
+        state: "{{ item }}"
+        path: "{{ couchdb_path }}/log"
+        owner: "{{ username_on_the_host.stdout_lines[0] }}"
+      with_items:
+        - absent
+        - directory
 
-- name: Get repo key
-  apt_key:
-    url: https://couchdb.apache.org/repo/keys.asc
-    keyring: /usr/share/keyrings/couchdb-archive-keyring.gpg
-    state: present
-  
-- name: Source os-release
-  shell: source /etc/os-release 
-  args:
-     executable: /bin/bash
-     
-- name: Update sources.list
-  shell: echo "deb [signed-by=/usr/share/keyrings/couchdb-archive-keyring.gpg] https://apache.jfrog.io/artifactory/couchdb-deb/ focal main" | tee /etc/apt/sources.list.d/couchdb.list >/dev/null
+  when: "not virtual_mode"
 
-- name: Update apt packages
-  become: true
-  apt:
-    update_cache: yes   
+- name: Install CouchDB on host
+  block:
+    - name: Install prerequisites for CouchDB
+      apt:
+        name: 
+        - curl
+        - apt-transport-https
+        - gnupg
+        state: latest   
+        update_cache: yes
 
-- name: Populate service facts
-  service_facts:
+    - name: Get repo key
+      apt_key:
+        url: https://couchdb.apache.org/repo/keys.asc
+        keyring: /usr/share/keyrings/couchdb-archive-keyring.gpg
+        state: present
+      
+    - name: Source os-release
+      shell: source /etc/os-release 
+      args:
+        executable: /bin/bash
+        
+    - name: Update sources.list
+      shell: echo "deb [signed-by=/usr/share/keyrings/couchdb-archive-keyring.gpg] https://apache.jfrog.io/artifactory/couchdb-deb/ focal main" | tee /etc/apt/sources.list.d/couchdb.list >/dev/null
 
-- name: Prepare non-interactive installation and install CouchDB
-  when: "'couchdb' not in services"
-  shell: debconf-copydb importmedb configdb  \
-    --config=Name:importmedb               \
-    --config=Driver:File                   \
-    --config=Filename:config/debian_couchdb_conf.dat && \
-    apt-get install -y couchdb
-    
-- name: Start couchdb
-  become: true
-  service: 
-    name: couchdb 
-    state: started    
+    - name: Update apt packages
+      become: true
+      apt:
+        update_cache: yes   
+
+    - name: Populate service facts
+      service_facts:
+
+    - name: Prepare non-interactive installation and install CouchDB
+      when: "'couchdb' not in services"
+      shell: debconf-copydb importmedb configdb  \
+        --config=Name:importmedb               \
+        --config=Driver:File                   \
+        --config=Filename:config/debian_couchdb_conf.dat && \
+        apt-get install -y couchdb
+        
+    - name: Start couchdb
+      become: true
+      service: 
+        name: couchdb 
+        state: started 
+
+  when: "virtual_mode"

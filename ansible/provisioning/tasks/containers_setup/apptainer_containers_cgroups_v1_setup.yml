@@ -93,9 +93,25 @@
     - name: Copy app files directory
       delegate_to: localhost
       when: "app_files_dir != ''"
-      template:
+      copy:
         src: "{{ app_files_dir }}/"
         dest: "{{ installation_path }}/apps/{{ app_name }}/"
+      tags: create_app
+
+    - name: Find config files in the app directory
+      delegate_to: localhost
+      find:
+        paths: "{{ app_files_dir }}/files_dir"
+        recurse: no
+      register: found_config_files
+      tags: create_app
+
+    - name: Process template for each config file
+      delegate_to: localhost
+      template:
+        src: "{{ item.path }}"
+        dest: "{{ installation_path }}/apps/{{ app_name }}/files_dir/{{ item.path | basename }}"
+      loop: "{{ found_config_files.files }}"
       tags: create_app
 
     - name: Build app image
