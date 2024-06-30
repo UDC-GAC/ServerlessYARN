@@ -137,8 +137,14 @@
       {% for item in containers_info %}
         {% if item.host == inventory_hostname %}
           {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-          mkdir -p {{ bind_dir }}/{{ item.container_name }} && 
-        {% endif  %}
+          {% if item.disk is defined and item.disk.startswith('ssd') %}
+            mkdir -p {{ ssd_host_path }}/{{ item.container_name }} &&
+            mkdir -p {{ bind_dir }} &&
+            ln -sf {{ ssd_host_path }}/{{ item.container_name }} {{ bind_dir }}/ &&
+          {% else %}
+            mkdir -p {{ bind_dir }}/{{ item.container_name }} &&
+          {% endif %}
+        {% endif %}
       {% endfor %}true"
       args:
         executable: /bin/bash
@@ -168,12 +174,13 @@
       {% for item in containers_info %}
         {% if item.host == inventory_hostname %}
           {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-          cp /etc/hosts {{ bind_dir }}/{{ item.container_name }}/hosts \
-          && sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
-          'echo {{ server_ip }} opentsdb >> /etc/hosts \
-          && cat {{ bind_dir_on_container }}/hosts >> /etc/hosts \
-          && rm {{ bind_dir_on_container }}/hosts' \
-          && python3 change_cgroupsv1_permissions.py {{ singularity_command_alias }} {{ singularity_cgroups_group }} {{ item.container_name }} && 
+           cp /etc/hosts {{ bind_dir }}/{{ item.container_name }}/hosts \
+           && sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+           'echo {{ server_ip }} opentsdb >> /etc/hosts \
+           && cat {{ bind_dir_on_container }}/hosts >> /etc/hosts \
+           && echo 127.0.0.1 $(hostname) >> /etc/hosts \
+           && rm {{ bind_dir_on_container }}/hosts' \
+           && python3 change_cgroupsv1_permissions.py {{ singularity_command_alias }} {{ singularity_cgroups_group }} {{ item.container_name }} &&
         {% endif  %}
       {% endfor %}true"
       args:
