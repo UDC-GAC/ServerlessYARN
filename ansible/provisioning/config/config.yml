@@ -69,27 +69,30 @@ lvm_path: $HOME/lvm
 
 ## Containers initial values
 number_of_containers_per_node: 1
+# CPU
 max_cpu_percentage_per_container: 600
 min_cpu_percentage_per_container: 50
 cpu_boundary: 20
+#Memory
 max_memory_per_container: 2048
 min_memory_per_container: 512
 mem_boundary: 256
+# Energy
 max_energy_per_container: 30
 min_energy_per_container: 10
 energy_boundary: 5
+# Disk
+disk_boundary: 10
+max_diskbw_per_container: 100
+min_diskbw_per_container: 50
 
 ## Container network configuration
 # host interface through which the containers of different nodes communicate with each other
 iface: eno1
 # currently supported modes: bridge, ptp, macvlan, ipvlan
 mode: ipvlan
-subnet: 10.10.0.0/16
+subnet: 10.22.0.0/16
 
-# TODO: It may be interesting to leave the possibility to start at least one app from config
-## Application initial values
-#number_of_apps: 1
-#max_cpu_percentage_per_app: 400
-#min_cpu_percentage_per_app: 100
-#max_memory_per_app: 4096
-#min_memory_per_app: 2048
+## Apps (list of applications to automatically load on startup)
+# set list of app configuration file paths
+apps: apps/sample_app/sample_app_config.yml

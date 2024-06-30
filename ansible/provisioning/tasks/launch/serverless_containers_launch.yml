@@ -7,22 +7,22 @@
     executable: /bin/bash
 
 - name: Initializing State Database - services
-  shell: python3 conf/StateDatabase/services.py
   when: "'services' not in couchdb_tables.stdout"
+  shell: python3 conf/StateDatabase/services.py
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
 
 - name: Initializing State Database - create other tables
-  shell: python3 conf/StateDatabase/other_tables.py
   when: "'events' not in couchdb_tables.stdout and 'requests' not in couchdb_tables.stdout and 'limits' not in couchdb_tables.stdout and 'structures' not in couchdb_tables.stdout"
+  shell: python3 conf/StateDatabase/other_tables.py
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
 
 - name: Initializing State Database - rules
-  shell: python3 conf/StateDatabase/rules.py
   when: "'rules' not in couchdb_tables.stdout"
+  shell: python3 conf/StateDatabase/rules.py
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
@@ -35,8 +35,8 @@
 
 # Starting Services
 - name: Starting Services
-  shell: "bash scripts/services/{{ item }}/start_tmux.sh"
   when: "item not in tmux_output.stdout"
+  shell: "bash scripts/services/{{ item }}/start_tmux.sh"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
@@ -98,6 +98,21 @@
     disks: "{{ hostvars[item].disks | replace(' ','') | quote }}"
     resources: "{{ {'cpu': hostvars[item].cpu, 'mem': hostvars[item].mem} | combine(({'energy': hostvars[item].energy} if power_budgeting else {})) }}"
   with_items: "{{ nodes }}"
+
+- name: Initializing State Database - add individual disks to hosts
+  shell: "python3 scripts/stateDatabase/add_disks_to_hosts.py {{ new_disks_dict }} config/config.yml"
+  args:
+    executable: /bin/bash
+  vars:
+    new_disks_dict: "{{ new_disks_dict_str | replace(' ','') | quote }}"
+  tags: never, add_disks
+
+- name: Initializing State Database - add disks to existing LV
+  shell: "python3 scripts/stateDatabase/update_host_disks_bw_db.py {{ item }} lvm {{ hostvars[item].disks.lvm.bw }} MB/s config/config.yml"
+  args:
+    executable: /bin/bash
+  with_items: "{{ nodes }}"
+  tags: never, extend_lv
 
 ## Disable scaler service before adding containers
 - name: Disabling Scaler service

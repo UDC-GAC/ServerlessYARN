@@ -7,9 +7,9 @@ From: apps/base/{{ app_base_image_file }}
     #{{ installation_path }}/apps/hadoop/setup.sh /opt/setup.sh
     #{{ installation_path }}/apps/hadoop/java_snitch.sh /opt/java_snitch.sh
     # To avoid repeating hadoop download
-    #"{{ installation_path }}/apps/hadoop/hadoop-3.3.5.tar.gz" /opt/hadoop-3.3.5.tar.gz
+    #"{{ installation_path }}/apps/hadoop/hadoop-{{ hadoop_version }}.tar.gz" /opt/hadoop-{{ hadoop_version }}.tar.gz
     # To avoid repeating spark download
-    #"{{ installation_path }}/apps/hadoop/spark-3.4.0-bin-without-hadoop.tgz" /opt/spark-3.4.0-bin-without-hadoop.tgz
+    #"{{ installation_path }}/apps/hadoop/spark-{{ spark_version }}-bin-without-hadoop.tgz" /opt/spark-{{ spark_version }}-bin-without-hadoop.tgz
 
 %post
     # Install basic software and Java
@@ -39,8 +39,8 @@ From: apps/base/{{ app_base_image_file }}
     export HADOOP_CONF_DIR=/opt/files_dir/hadoop_conf
     export DATA_DIR="{{ bind_dir_on_container }}/files_dir/data_dir"
     mkdir -p files_dir/data_dir
-    wget https://archive.apache.org/dist/hadoop/core/hadoop-3.3.5/hadoop-3.3.5.tar.gz
-    mkdir hadoop && tar xf hadoop-3.3.5.tar.gz -C hadoop --strip-components 1
+    wget https://archive.apache.org/dist/hadoop/core/hadoop-{{ hadoop_version }}/hadoop-{{ hadoop_version }}.tar.gz
+    mkdir hadoop && tar xf hadoop-{{ hadoop_version }}.tar.gz -C hadoop --strip-components 1
     chown -R $(whoami):$(whoami) hadoop
     cp files_dir/config/format_filesystem.sh hadoop
     mkdir -p $HADOOP_CONF_DIR && cp -r hadoop/etc/hadoop/* $HADOOP_CONF_DIR/
@@ -52,13 +52,14 @@ From: apps/base/{{ app_base_image_file }}
 
     # Setup Spark
     export SPARK_CONF_DIR=/opt/files_dir/spark_conf
-    wget https://dlcdn.apache.org/spark/spark-3.4.0/spark-3.4.0-bin-without-hadoop.tgz
-    mkdir spark && tar xf spark-3.4.0-bin-without-hadoop.tgz -C spark --strip-components 1
+    wget https://dlcdn.apache.org/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-without-hadoop.tgz
+    mkdir spark && tar xf "spark-{{ spark_version }}-bin-without-hadoop.tgz" -C spark --strip-components 1
     chown -R $(whoami):$(whoami) spark
     mkdir -p $SPARK_CONF_DIR && cp -r spark/conf/* $SPARK_CONF_DIR/
 
 %environment
     export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+    export JAVA_MAPPINGS_FOLDER_PATH="{{ bind_dir_on_container }}/files_dir/java_mappings"
     # Hadoop
     export DATA_DIR="{{ bind_dir_on_container }}/files_dir/data_dir"
     export HADOOP_HOME=/opt/hadoop

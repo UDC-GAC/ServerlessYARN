@@ -6,8 +6,8 @@ APP_NAME=$3
 FILES_DIR=$4
 INSTALL_SCRIPT=$5
 
-cd ../../
-INVENTORY=../ansible.inventory
+scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
+source $scriptDir/access_playbooks_dir.sh
 
 unbuffer ansible-playbook start_containers_playbook.yml -i $INVENTORY -t create_app \
     --extra-vars \

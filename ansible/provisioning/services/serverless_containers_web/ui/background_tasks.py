@@ -1,7 +1,7 @@
 import time
 import subprocess
 import requests
-from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host
+from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host, add_disks_to_hosts
 from celery import shared_task, chain, chord, group
 from celery.result import AsyncResult, allow_join_result
 from bs4 import BeautifulSoup
@@ -162,6 +162,26 @@ def add_host_task(host,cpu,mem,disk_info,new_containers):
     process_script("configure_host", argument_list, error_message)
 
 @shared_task
+def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk):
+
+    # update_inventory_file
+    with redis_server.lock(lock_key):
+        added_disks = add_disks_to_hosts(host_list,new_disks)
+
+    if add_to_lv:
+        ## Add disks to existing LV
+        argument_list = [','.join(host_list), " ".join(new_disks), extra_disk]
+        error_message = "Error extending LV of hosts {0} with disks {1} and extra disk {2}".format(host_list, str(new_disks), extra_disk)
+        process_script("extend_lv", argument_list, error_message)
+
+    else:
+        ## Add disks just as new individual disks
+        formatted_added_disks = str(added_disks).replace(' ','')
+        argument_list = [','.join(host_list), formatted_added_disks]
+        error_message = "Error adding disks {0} to hosts {1}".format(str(new_disks), host_list)
+        process_script("add_disks", argument_list, error_message)
+
+@shared_task
 def add_app_task(full_url, headers, put_field_data, app, app_files):
 
     r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
@@ -228,7 +248,7 @@ def add_container_to_app_task(full_url, headers, host, container, app, app_files
 
 ## Start containers
 @shared_task
-def start_containers_task_v2(new_containers, container_resources):
+def start_containers_task_v2(new_containers, container_resources, disks):
 
     # update inventory file
     with redis_server.lock(lock_key):
@@ -242,8 +262,12 @@ def start_containers_task_v2(new_containers, container_resources):
             container_info['container_name'] = container
             container_info['host'] = host
             # Resources
-            for resource in ['cpu_max', 'cpu_min', 'cpu_boundary', 'mem_max', 'mem_min', 'mem_boundary']:
+            for resource in ['cpu_max', 'cpu_min', 'cpu_boundary', 'mem_max', 'mem_min', 'mem_boundary', 'disk_max', 'disk_min', 'disk_boundary']:
                 container_info[resource] = container_resources[resource]
+
+            if len(disks) > 0:
+                container_info['disk'] = disks[host]['name']
+                container_info['disk_path'] = disks[host]['path']
             # # Disks
             # for disk in disk_assignation[host]:
             #     if disk_assignation[host][disk]['new_containers'] > 0:
@@ -295,6 +319,9 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
                                 disk_assignation[host][disk]['new_containers'] -= 1
                                 container_info['disk'] = disk
                                 container_info['disk_path'] = disk_assignation[host][disk]['disk_path']
+                                container_info['disk_max'] = container_resources[container_type]['disk_max']
+                                container_info['disk_min'] = container_resources[container_type]['disk_min']
+                                container_info['disk_boundary'] = container_resources[container_type]['disk_boundary']
                                 break
 
                     containers_info.append(container_info)
@@ -329,7 +356,7 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
 
 ## Start Apps
 @shared_task(bind=True)
-def start_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation):
+def start_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq):
 
     start_time = timeit.default_timer()
 
@@ -340,10 +367,10 @@ def start_app_task(self, url, headers, app, app_files, new_containers, container
     runtime = "{:.2f}".format(end_time-start_time)
     update_task_runtime(self.request.id, runtime)
 
-    remove_containers_from_app(url, headers, app_containers, app, app_files)
+    remove_containers_from_app(url, headers, app_containers, app, app_files, scaler_polling_freq)
 
 @shared_task(bind=True)
-def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation):
+def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster):
 
     # Calculate resources for Hadoop cluster
     hadoop_resources = {}
@@ -377,20 +404,18 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
             ## 'BDEv' way of calculating resources:
             #number_of_hadoop_containers = int(min(2*total_cores, available_memory/min_container_size))
 
-            virtual_cluster = True
-
             if virtual_cluster:
                 ## Virtual cluster config (test environment with low resources)
                 hyperthreading = False
                 app_master_heapsize = 128
-                nodemanager_d_heapsize = 0
-                datanode_d_heapsize = 0
+                datanode_d_heapsize = 128
+                nodemanager_d_heapsize = 128
             else:
                 ## Physical cluster config (real environment with (presumably) high resources)
                 hyperthreading = True
                 app_master_heapsize = 1024
-                nodemanager_d_heapsize = 1024
                 datanode_d_heapsize = 1024
+                nodemanager_d_heapsize = 1024
 
             ## adjust total_cores to hyperthreading system
             ## TODO: check if system actually has hyperthreading
@@ -445,6 +470,8 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
             hadoop_resources[container_type]["reduce_memory_java_opts"] = str(reduce_memory_java_opts)
             hadoop_resources[container_type]["mapreduce_am_memory"] = str(mapreduce_am_memory)
             hadoop_resources[container_type]["mapreduce_am_memory_java_opts"] = str(mapreduce_am_memory_java_opts)
+            hadoop_resources[container_type]["datanode_d_heapsize"] = str(datanode_d_heapsize)
+            hadoop_resources[container_type]["nodemanager_d_heapsize"] = str(nodemanager_d_heapsize)
 
     start_time = timeit.default_timer()
 
@@ -465,11 +492,16 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
     error_message = "Error disabling scaler"
     process_script("disable_scaler", argument_list, error_message)
 
+    start_time = timeit.default_timer()
     errors = []
     for container in app_containers:
         full_url = url + "container/{0}/{1}".format(container['container_name'],app)
         error = remove_container_from_app_db(full_url, headers, container['container_name'], app)
         if error != "": errors.append(error)
+    end_time = timeit.default_timer()
+
+    ## Wait at least for the scaler polling frequency time before re-enabling it
+    time.sleep(scaler_polling_freq - (end_time - start_time))
 
     argument_list = []
     error_message = "Error re-enabling scaler"
@@ -534,8 +566,10 @@ def setup_containers_network_task(app_containers, url, headers, app, app_files, 
 
     start_group_task = group(start_containers_task)
 
-    with allow_join_result():
-        start_group_task().get()
+    task = start_group_task()
+    while not task.ready():
+        time.sleep(1)
+    task.get()
 
 
 @shared_task
@@ -567,10 +601,14 @@ def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_
     reduce_memory_java_opts = hadoop_resources["regular"]["reduce_memory_java_opts"]
     mapreduce_am_memory = hadoop_resources["regular"]["mapreduce_am_memory"]
     mapreduce_am_memory_java_opts = hadoop_resources["regular"]["mapreduce_am_memory_java_opts"]
+    datanode_d_heapsize = hadoop_resources["regular"]["datanode_d_heapsize"]
+    nodemanager_d_heapsize =  hadoop_resources["regular"]["nodemanager_d_heapsize"]
 
-    argument_list = [hosts, app, formatted_app_containers, rm_host, rm_container['container_name'], 
-        vcores, min_vcores, scheduler_maximum_memory, scheduler_minimum_memory, nodemanager_memory, 
-        map_memory, map_memory_java_opts, reduce_memory, reduce_memory_java_opts, mapreduce_am_memory, mapreduce_am_memory_java_opts]
+    argument_list = [hosts, app, formatted_app_containers, rm_host, rm_container['container_name'],
+        vcores, min_vcores, scheduler_maximum_memory, scheduler_minimum_memory, nodemanager_memory,
+        map_memory, map_memory_java_opts, reduce_memory, reduce_memory_java_opts, mapreduce_am_memory,
+        mapreduce_am_memory_java_opts, datanode_d_heapsize, nodemanager_d_heapsize]
+
     error_message = "Error setting network for app {0}".format(app)
     process_script("setup_hadoop_network_on_containers", argument_list, error_message)
 
@@ -680,18 +718,23 @@ def remove_containers(url, headers, container_list):
     if len(errors) > 0: raise Exception(str(errors))
 
 @shared_task
-def remove_containers_from_app(url, headers, container_list, app, app_files):
+def remove_containers_from_app(url, headers, container_list, app, app_files, scaler_polling_freq):
 
     ## Disable scaler, remove all containers from StateDB and re-enable scaler
     argument_list = []
     error_message = "Error disabling scaler"
     process_script("disable_scaler", argument_list, error_message)
 
+    start_time = timeit.default_timer()
     errors = []
     for container in container_list:
         full_url = url + "container/{0}/{1}".format(container['container_name'],app)
         error = remove_container_from_app_db(full_url, headers, container['container_name'], app)
         if error != "": errors.append(error)
+    end_time = timeit.default_timer()
+
+    ## Wait at least for the scaler polling frequency time before re-enabling it
+    time.sleep(scaler_polling_freq - (end_time - start_time))
 
     argument_list = []
     error_message = "Error re-enabling scaler"

@@ -6,7 +6,7 @@ import itertools
 import time
 import src.StateDatabase.couchdb as couchDB
 
-# usage example: init_host_node_rescaler_v3.py host1 [{'container_name': 'host1-cont0', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'energy_max': 100, 'energy_min': 30}, {'container_name': 'host1-cont1'...}] ['cpu', 'mem', 'energy']
+# usage example: init_host_node_rescaler_v3.py host1 [{'container_name': 'host1-cont0', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'disk': 'ssd_0', 'disk_path': '$HOME/ssd', 'disk_max': 200, 'disk_min': 50, 'energy_max': 100, 'energy_min': 30}, {'container_name': 'host1-cont1'...}] ['cpu','mem','disk','energy']
 
 NODE_RESCALER_PORT = 8000
 COUCHDB_INIT_TRIES = 10
@@ -30,7 +30,7 @@ if __name__ == "__main__":
         containers = json.loads(sys.argv[2].replace('\'', '"'))
         resources = json.loads(sys.argv[3].replace('\'', '"'))
 
-        base_url = f"http://{host}:{str(NODE_RESCALER_PORT)}/container/"
+        base_url = "http://{0}:{1}/container/".format(host, str(NODE_RESCALER_PORT))
         headers = {'Content-Type': 'application/json'}
 
         # No containers requested
@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
                         else:
                             allocated = 0
-                            for core in range(0,number_of_cores):
+                            for core in range(0, number_of_cores):
                                 if c['container_name'] in core_mapping[str(core)] and core_mapping[str(core)][c['container_name']] > 0:
                                     allocated += core_mapping[str(core)][c['container_name']]
                                     cpu_core_list.append(core)
@@ -164,6 +164,24 @@ if __name__ == "__main__":
                             cont_mem_limit = cont_info['resources']['mem']['max']
 
                     put_field_data["mem"] = {"mem_limit": cont_mem_limit, "unit": "M"}
+
+            if "disk" in resources and "disk" in c:
+
+                not_initialized = int(requested_data['disk']['disk_write_limit']) == -1
+
+                if not_initialized:
+
+                    not_initialized_resources += 1
+
+                    if c in new_containers:
+                        cont_disk_limit = int(int(c['disk_max']))
+                    else:
+                        # Container already added to the StateDatabase (but not initialized)
+                        cont_info = handler.get_structure(c['container_name'])
+                        cont_disk_limit = cont_info['resources']['disk']['current']
+                        if cont_disk_limit == -1: cont_disk_limit = cont_info['resources']['disk']['max']
+
+                    put_field_data["disk"] = {"disk_write_limit": cont_disk_limit, "disk_read_limit": cont_disk_limit, "unit": "Mbit"}
 
             # if "energy" in resources:
             #     try:

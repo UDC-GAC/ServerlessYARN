@@ -14,7 +14,7 @@
   #when: not stat_output.stat.exists
   when : not item.1.stat.exists
   copy:
-    src: bdwatchdog/
+    src: BDWatchdog/
     dest: "{{ item.0 }}"
   with_together:
     - ["{{ bdwatchdog_path }}", "{{ bdwatchdog_source_path }}"]

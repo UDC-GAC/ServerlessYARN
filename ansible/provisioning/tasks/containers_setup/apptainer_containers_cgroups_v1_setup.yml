@@ -43,6 +43,7 @@
   block:
     - name: Create app base directory
       delegate_to: localhost
+      run_once: yes
       file:
         path: "{{ installation_path }}/apps/{{ app_base_name }}"
         state: directory
@@ -78,6 +79,7 @@
   block:
     - name: Create app directory
       delegate_to: localhost
+      run_once: yes
       file:
         path: "{{ installation_path }}/apps/{{ app_name }}"
         state: directory

@@ -16,7 +16,7 @@ base_host_to_API = dict(
     resources = dict()
 )
 
-# usage example: add_hosts_API.py host0 {'cpu': 4, 'mem': 4096, 'energy': 200} {'ssd_0':'$HOME/ssd','hdd_0':'$HOME/hdd'} config/config.yml
+# usage example: add_hosts_API.py host0 {'cpu': 4, 'mem': 4096, 'energy': 200} {'ssd_0':{'path':'$HOME/ssd','bw':500},'hdd_0':{'path':'$HOME/hdd','bw':100}} config/config.yml
 
 if __name__ == "__main__":
 
@@ -57,7 +57,9 @@ if __name__ == "__main__":
             if not create_lvm or "lvm" in disk:
                 new_disk = {}
                 new_disk['name'] = disk
-                new_disk['path'] = disks[disk]
+                new_disk['path'] = disks[disk]['path']
+                new_disk['max']  = disks[disk]['bw']
+                new_disk['free'] = disks[disk]['bw']
                 new_disk['load'] = 0
                 if   "ssd" in disk: new_disk['type'] = "SSD"
                 elif "hdd" in disk: new_disk['type'] = "HDD"

@@ -19,10 +19,10 @@ def update_server_ip(server_ip):
     loader = DataLoader()
     ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
 
-    hostsList = ansible_inventory.groups['server'].get_hosts()
+    hostList = ansible_inventory.groups['server'].get_hosts()
 
-    if (len(hostsList) > 0):
-        server = hostsList[0]
+    if (len(hostList) > 0):
+        server = hostList[0]
         server_info = server.name + " host_ip=" + server_ip + "\n"
     else:
         server_info = "sc-server" + " host_ip=" + server_ip + "\n"
@@ -84,11 +84,11 @@ def update_inventory_hosts_containers(number_of_containers_per_node,disks_dict):
     loader = DataLoader()
     ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
 
-    hostsList = ansible_inventory.groups['nodes'].get_hosts()
+    hostList = ansible_inventory.groups['nodes'].get_hosts()
 
     structures = {}
 
-    for host in hostsList:
+    for host in hostList:
         host_name = host.name
         host_containers = create_container_list(host_name,number_of_containers_per_node)
         structures[host_name] = {'containers': host_containers, 'cpu': host.vars['cpu'], 'mem': host.vars['mem'], 'energy': host.vars.get('energy'), 'disks': disks_dict}
@@ -108,7 +108,7 @@ def create_container_list(host_name,number_of_containers_per_node):
 
     return host_containers
 
-if __name__ == "__main__":   
+if __name__ == "__main__":
 
     config_file = scriptDir + "/../config/config.yml"
 

@@ -1,54 +1,248 @@
 
-- name: Create and format LVM
+- name: Install LVM
+  when: virtual_mode
+  package:
+    name: lvm2
+    state: latest
+
+- name: Manage LVs
   block:
-    - name: Create pvs and a volume group
-      lvg:
-        vg: "{{ vg_name }}"
-        pvs: "{{ host_disk_list }}"
-        pvresize: true
-      vars:
-        host_disk_list: "{{ (hostvars[inventory_hostname].disks | ansible.utils.remove_keys(target=['lvm'])).values() }}"
+    - name: Create, format and mount LV
+      block:
+        - name: Create LV
+          block:
+            - name: Create LV (virtual cluster)
+              when: virtual_mode
+              block:
+                - name: Create pvs and a volume group
+                  lvg:
+                    vg: "{{ vg_name }}"
+                    pvs: "{{ host_disk_list }}"
+                    pvresize: true
 
-    - name: Create a logical volume
-      lvol:
-        vg: "{{ vg_name }}"
-        lv: "{{ lv_name }}"
-        size: 100%VG
-        opts: --type raid0
+                - name: Create a logical volume
+                  lvol:
+                    vg: "{{ vg_name }}"
+                    lv: "{{ lv_name }}"
+                    size: 95%VG
+                    opts: "{{ '--type raid0 --stripes ' + (host_disk_list | length)|string if (host_disk_list | length) > 1 else '--type linear' }}"
 
-    - name: Create directory if does not exist
-      file:
-        path: "{{ lv_path }}"
-        state: directory
+            - name: Create LV (non-virtual cluster)
+              when: not virtual_mode
+              block:
+                - name: Check if pvs exist
+                  shell: "sudo pvs"
+                  args:
+                    executable: /bin/bash
+                  register: pvs_output
 
-    - name: Format the ext4 filesystem
-      filesystem:
-        fstype: ext4
-        dev: "/dev/{{ vg_name }}/{{ lv_name }}"
+                - name: Create pvs
+                  when: "item not in pvs_output.stdout"
+                  shell: "sudo pvcreate {{ item }}"
+                  args:
+                    executable: /bin/bash
+                  loop: "{{ host_disk_list }}"
 
-    - name: Unmount the lv (if mounted)
-      mount:
-        path: "{{ lv_path }}"
-        state: unmounted
-  
-    - name: Mount the lv
-      mount:
-        path: "{{ lv_path }}"
-        src: "/dev/{{ vg_name }}/{{ lv_name }}"
-        fstype: ext4
-        state: ephemeral
+                - name: Check if volume group exists
+                  shell: "sudo vgs {{ vg_name }}"
+                  args:
+                    executable: /bin/bash
+                  ignore_errors: yes
+                  register: vgs_output
 
-    - name: get the username running the deploy
-      become: no
-      local_action: command whoami
-      register: username_on_the_host
+                ## Allow extending VG and LV
+                - name: Create a volume group
+                  when: "vgs_output.rc != 0"
+                  shell: "sudo vgcreate {{ vg_name }} {{ host_disk_list | join (' ') }}"
+                  args:
+                    executable: /bin/bash
 
-    - name: Change lv path permissions
-      file:
-        path: "{{ lv_path }}"
-        owner: "{{ username_on_the_host.stdout_lines[0] }}"
-        mode: '0755'
+                - name: Check if logical volume exists
+                  shell: "sudo lvs {{ vg_name }}/{{ lv_name }}"
+                  args:
+                    executable: /bin/bash
+                  ignore_errors: yes
+                  register: lvs_output
+
+                - name: Create a logical volume
+                  when: "lvs_output.rc != 0"
+                  shell: "sudo lvcreate -y {{ lv_opts }} -n {{ lv_name }} {{ size_opts }} {{ vg_name }}"
+                  args:
+                    executable: /bin/bash
+                  vars:
+                    size_opts: -l 95%VG
+                    lv_opts: "{{ '--type raid0 --stripes ' + (host_disk_list | length)|string if (host_disk_list | length) > 1 else '--type linear' }}"
+          vars:
+            host_disk_list: "{{ (hostvars[inventory_hostname].disks | ansible.utils.remove_keys(target=['lvm'])) | dict2items | map(attribute='value.path') }}"
+
+        - name: Create directory if does not exist
+          file:
+            path: "{{ lv_path }}"
+            state: directory
+
+        - name: get the username running the deploy
+          become: no
+          local_action: command whoami
+          register: username_on_the_host
+
+        - name: Format and mount LV (virtual cluster)
+          when: virtual_mode
+          block:
+            - name: Format the ext4 filesystem
+              filesystem:
+                fstype: ext4
+                dev: "{{ lv_device_path }}"
+
+            - name: Unmount the lv (if mounted)
+              mount:
+                path: "{{ lv_path }}"
+                state: unmounted
+
+            - name: Mount the lv
+              mount:
+                path: "{{ lv_path }}"
+                src: "{{ lv_device_path }}"
+                fstype: ext4
+                state: ephemeral
+
+            - name: Change lv path permissions
+              file:
+                path: "{{ lv_path }}"
+                owner: "{{ username_on_the_host.stdout_lines[0] }}"
+                mode: '0755'
+
+        - name: Format and mount LV (non-virtual cluster)
+          when: not virtual_mode
+          block:
+            - name: Check if volume is mounted
+              shell: "mount"
+              args:
+                executable: /bin/bash
+              register: mount_output
+
+            - name: Check if volume is formatted
+              when: "lv_mounted_name not in mount_output.stdout"
+              shell: "/usr/sbin/blkid {{ lv_device_path }}"
+              args:
+                executable: /bin/bash
+              ignore_errors: yes
+              register: blkid_output
+
+            - name: Check if formatted volume has wrong fs type or bad superblocks
+              when: "lv_mounted_name not in mount_output.stdout and blkid_output.rc == 0"
+              shell: "sudo e2fsck -n {{ lv_device_path }}"
+              args:
+                executable: /bin/bash
+              ignore_errors: yes
+              register: e2fsck_output
+
+            - name: Format the ext4 filesystem
+              when: "lv_mounted_name not in mount_output.stdout and (lvs_output.rc != 0 or blkid_output.rc != 0 or e2fsck_output.rc != 0)"
+              shell: "sudo mkfs.ext4 {{ lv_device_path }}"
+              args:
+                executable: /bin/bash
+
+            - name: Mount the lv
+              when: "lv_mounted_name not in mount_output.stdout"
+              shell: "sudo mount {{ lv_device_path }} {{ lv_path }}"
+              args:
+                executable: /bin/bash
+
+            - name: Change lv path permissions
+              shell: "sudo chown {{ username_on_the_host.stdout_lines[0] }} {{ lv_path }}"
+              args:
+                executable: /bin/bash
+      tags: create_lv
+
+    - name: Unmount and remove LV
+      block:
+        # TODO: virtual cluster version
+        # - name: Delete LV (virtual cluster)
+        #   when: not virtual_mode
+        #   block:
+
+        - name: Delete LV (non-virtual cluster)
+          #when: not virtual_mode
+          block:
+            - name: Check if volume is mounted
+              shell: "mount"
+              args:
+                executable: /bin/bash
+              register: mount_output
+
+            - name: Unmount the lv
+              when: "lv_mounted_name in mount_output.stdout"
+              shell: "sudo umount {{ lv_device_path }}"
+              args:
+                executable: /bin/bash
+
+            - name: Check if logical volume exists
+              shell: "sudo lvs {{ vg_name }}/{{ lv_name }}"
+              args:
+                executable: /bin/bash
+              ignore_errors: yes
+              register: lvs_output
+
+            - name: Remove logical volume
+              when: "lvs_output.rc == 0"
+              shell: "sudo lvremove -y {{ vg_name }}"
+              args:
+                executable: /bin/bash
+
+            - name: Check if volume group exists
+              shell: "sudo vgs {{ vg_name }}"
+              args:
+                executable: /bin/bash
+              ignore_errors: yes
+              register: vgs_output
+
+            - name: Remove volume group
+              when: "vgs_output.rc == 0"
+              shell: "sudo vgremove -y {{ vg_name }}"
+              args:
+                executable: /bin/bash
+
+            - name: Check if pvs exist
+              shell: "sudo pvs"
+              args:
+                executable: /bin/bash
+              register: pvs_output
+
+            - name: Remove pvs
+              when: "item in pvs_output.stdout"
+              shell: "sudo pvremove {{ item }}"
+              args:
+                executable: /bin/bash
+              loop: "{{ host_disk_list }}"
+              vars:
+                host_disk_list: "{{ (hostvars[inventory_hostname].disks | ansible.utils.remove_keys(target=['lvm'])) | dict2items | map(attribute='value.path') }}"
+      tags: never, remove_lv
+
+    - name: Extend LV
+      block:
+        - name: Extend LV (non-virtual cluster)
+          #when: not virtual_mode
+          block:
+            - name: Check if logical volume exists
+              shell: "sudo lvs {{ vg_name }}/{{ lv_name }}"
+              args:
+                executable: /bin/bash
+
+            - name: Copy script
+              copy:
+                src: scripts/add_disks_to_lv.sh
+                dest: "{{ installation_path }}/"
+
+            - name: Execute script to do all required steps
+              shell: "bash {{ installation_path }}/add_disks_to_lv.sh {{ vg_name }} {{ lv_name }} {{ new_disks_list }} {{ extra_disk }}"
+              args:
+                executable: /bin/bash
+
+      tags: never, extend_lv
+
   vars:
     vg_name: "vg_{{ inventory_hostname }}"
     lv_name: "lv_{{ inventory_hostname }}"
-    lv_path: "{{ hostvars[inventory_hostname].disks['lvm'] }}"
+    lv_path: "{{ hostvars[inventory_hostname].disks['lvm']['path'] }}"
+    lv_device_path: "/dev/{{ vg_name }}/{{ lv_name }}"
+    lv_mounted_name: "{{ vg_name | replace('-','--') }}-{{ lv_name | replace('-','--') }}"

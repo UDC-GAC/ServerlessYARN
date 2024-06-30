@@ -3,10 +3,8 @@ set -e
 HOST_NAME=$1
 CONT_NAME=$2
 
-#scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
-
-cd ../../
-INVENTORY=../ansible.inventory
+scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
+source $scriptDir/access_playbooks_dir.sh
 CONFIG_FILE=config/config.yml
 
 container_engine=`yq '.container_engine' < $CONFIG_FILE`

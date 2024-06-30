@@ -6,3 +6,4 @@ libtmux==0.10.2
 ansible_runner
 celery
 redis
+gevent

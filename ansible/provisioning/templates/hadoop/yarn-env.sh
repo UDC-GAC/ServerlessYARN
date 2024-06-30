@@ -31,9 +31,9 @@
 
 #export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.382.b05-1.el7_9.x86_64
 
-export YARN_RESOURCEMANAGER_HEAPSIZE=1024
-export YARN_NODEMANAGER_HEAPSIZE=1024
-export YARN_TIMELINE_HEAPSIZE=1024
+export YARN_RESOURCEMANAGER_HEAPSIZE={{ nodemanager_heapsize }}
+export YARN_NODEMANAGER_HEAPSIZE={{ nodemanager_heapsize }}
+export YARN_TIMELINE_HEAPSIZE={{ nodemanager_heapsize }}
 #export YARNHOSTNAME=`/home/oscar.castellanos/YARNServerless/bdev/bin/get_hostname.sh /home/oscar.castellanos/BDEv_OUT/report_BDEv_14_11_2023_14-14-51-838040307/hostfile.eth 127.0.0.1`
 #export YARN_OPTS="-Djava.net.preferIPv4Stack=true -Djava.io.tmpdir=/tmp/oscar.castellanos/BDEv -DYARNHOSTNAME=${YARNHOSTNAME}"
 export YARN_OPTS="-Djava.net.preferIPv4Stack=true"

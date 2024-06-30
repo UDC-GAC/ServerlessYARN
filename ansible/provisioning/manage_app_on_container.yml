@@ -179,6 +179,11 @@
         vars:
           bind_path: "{{ rm_container_bind_path }}"
 
+      - name: Create app directory on hosts for ssh public key
+        file:
+          path: "{{ installation_path }}/apps/{{ app_name }}/"
+          state: directory
+
       - name: Copy RM/NN container ssh public key to hosts
         synchronize:
           src: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container }}.pub"
@@ -251,19 +256,19 @@
         tags: stop_app
 
       - name: Create app files directory
-        delegate_to: localhost
         when: "files_dir != '' and not stat_output.stat.exists"
         file:
           path: "{{ container_bind_dir }}/{{ files_dir | basename }}"
           state: directory
         tags: stop_app
 
-      - name: Copy app files directory
+      - name: Copy app files
         when: "files_dir != '' and not stat_output.stat.exists"
-        copy:
-          src: "apps/{{ files_dir }}"
-          dest: "{{ container_bind_dir }}/"
-          mode: preserve
+        synchronize:
+          src: "apps/{{ files_dir }}/"
+          dest: "{{ container_bind_dir }}/{{ files_dir | basename }}/"
+          recursive: true
+          perms: true
         tags: stop_app
 
       - name: Copy app start script
@@ -424,6 +429,7 @@
   ## Set hadoop logs timestamp
   - name: Set hadoop logs timestamp
     delegate_to: localhost
+    run_once: yes
     when: "app_jar != ''"
     shell: "mv hadoop_logs hadoop_logs_`date +%d-%m-%y--%H-%M-%S`"
     args:

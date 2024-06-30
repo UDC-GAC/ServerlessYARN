@@ -10,8 +10,8 @@ FILES_DIR=$7
 INSTALL_SCRIPT=$8
 APP_JAR=$9
 
-cd ../../
-INVENTORY=../ansible.inventory
+scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
+source $scriptDir/access_playbooks_dir.sh
 
 unbuffer ansible-playbook start_containers_playbook.yml -i $INVENTORY -t start_containers -l $HOST_NAMES,localhost \
     --extra-vars \

@@ -89,14 +89,18 @@
 					  <th>Type</th>
 					  <th>Path</th>
 					  <th>Load</th>
+					  <th>Max BW</th>
+					  <th>Free BW</th>
 				  </tr>
 				  <!-- rows -->
-				  {% for disk in values %}
+				  {% for disk, disk_info in values.items %}
 				  <tr>
-					<td>{{ disk.name }}</td>
-					<td style="text-transform:uppercase">{{ disk.type }}</td>
-					<td>{{ disk.path }}</td>
-					<td>{{ disk.load }}</td>
+					<td>{{ disk }}</td>
+					<td style="text-transform:uppercase">{{ disk_info.type }}</td>
+					<td>{{ disk_info.path }}</td>
+					<td>{{ disk_info.load }}</td>
+					<td>{{ disk_info.max }}</td>
+					<td>{{ disk_info.free }}</td>
 				  </tr>
 				  {% endfor %}
 			  </table>
@@ -136,7 +140,7 @@
 			<!-- HOST RESOURCES EDIT MODAL -->	
 			{% if item.resources_editable_data > 0 %}
 				<a href="#openModal-{{ item.name }}-resources" title="Edit" class="caja" onclick="hide_resources_submit_buttons('{{ item.name }}');">Edit resources</a>
-				<br><br>  
+				<br><br>
 				<div align="left" id="openModal-{{ item.name }}-resources" class="modalDialog">
 					<div>
 						<a href="#close" title="Close" class="close">X</a>
@@ -205,17 +209,32 @@
 			  <p>Disk</p>
 			  <p></p>
 			  <table class="data_table">
-				  <!-- header -->
-				  <tr>
-					  <th>Name</th>
-					  <th>Path</th>
-				  </tr>
-				  <!-- rows -->
-				  <tr>
-					<td>{{ disk.name }}</td>
-					<td>{{ disk.path }}</td>
-				  </tr>
-			  </table>
+				<!-- rows -->
+				<tr>
+				  <th>Name</th>
+				  <td>{{ disk.name }}</td>
+				</tr>
+				<tr>
+				  <th>Path</th>
+				  <td>{{ disk.path }}</td>
+				</tr>
+				<tr>
+				  <th>Current bandwidth</th>
+				  <td>{{ disk.current }}</td>
+				</tr>
+				<tr>
+				  <th>Guard</th>
+				  <td>{{ disk.guard }}</td>
+				</tr>
+				<tr>
+				  <th>Max bandwidth</th>
+				  <td>{{ disk.max }}</td>
+				</tr>
+				<tr>
+				  <th>Min bandwidth</th>
+				  <td>{{ disk.min }}</td>
+				</tr>
+			</table>
 			  <p></p>
 				  <HR>
 			{% endif %}
@@ -224,7 +243,7 @@
 			<!-- CONT RESOURCES EDIT MODAL -->	
 			{% if cont.resources_editable_data > 0 %}
 				<a href="#openModal-{{ cont.name }}-resources" title="Edit" class="caja" onclick="hide_resources_submit_buttons('{{ cont.name }}');">Edit resources</a>
-				<br><br>  
+				<br><br>
 				<div align="left" id="openModal-{{ cont.name }}-resources" class="modalDialog">
 					<div>
 						<a href="#close" title="Close" class="close">X</a>
@@ -264,7 +283,7 @@
 			<!-- CONT LIMIT EDIT MODAL -->	
 			{% if cont.limits_editable_data > 0 %}
 				<a href="#openModal-{{ cont.name }}-limits" title="Edit" class="caja">Edit boundaries</a>
-				<br><br>  
+				<br><br>
 				<div align="left" id="openModal-{{ cont.name }}-limits" class="modalDialog">
 					<div>
 						<a href="#close" title="Close" class="close">X</a>
@@ -287,20 +306,32 @@
 
   </ul>
 
+  <a href="#openModal-add-disks-hosts" title="Edit" class="caja">Add Disks</a>
+  <br><br>
+  <div align="left" id="openModal-add-disks-hosts" class="modalDialog">
+	  <div>
+		  <a href="#close" title="Close" class="close">X</a>
+		  <h2>Add Disks</h2>
+		  <p>
+			  {% load crispy_forms_tags %} {% crispy addStructureForm.add_disks_to_hosts %}
+		  </p>
+	  </div>
+  </div>
+
   <a href="#openModal-add-host" title="Edit" class="caja">Add Host</a>
-  <br><br>  
+  <br><br>
   <div align="left" id="openModal-add-host" class="modalDialog">
 	  <div>
 		  <a href="#close" title="Close" class="close">X</a>
 		  <h2>Add Host</h2>
 		  <p>
-			  {% load crispy_forms_tags %} {% crispy addStructureForm %}
+			  {% load crispy_forms_tags %} {% crispy addStructureForm.host %}
 		  </p>
 	  </div>
   </div>
 
   <a href="#openModal-remove-hosts" title="Edit" class="caja">Remove Hosts</a>
-  <br><br>  
+  <br><br>
   <div align="left" id="openModal-remove-hosts" class="modalDialog">
 	  <div>
 		  <a href="#close" title="Close" class="close">X</a>

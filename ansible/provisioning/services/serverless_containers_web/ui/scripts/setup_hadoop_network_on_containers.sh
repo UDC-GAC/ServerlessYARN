@@ -16,9 +16,11 @@ REDUCE_MEMORY=${13}
 REDUCE_MEMORY_JAVA_OPTS=${14}
 MAPREDUCE_AM_MEMORY=${15}
 MAPREDUCE_AM_MEMORY_JAVA_OPTS=${16}
+DATANODE_D_HEAPSIZE=${17}
+NODEMANAGER_D_HEAPSIZE=${18}
 
-cd ../../
-INVENTORY=../ansible.inventory
+scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
+source $scriptDir/access_playbooks_dir.sh
 
 unbuffer ansible-playbook manage_app_on_container.yml -i $INVENTORY -t setup_network,setup_hadoop -l $HOST_NAMES \
     --extra-vars \
@@ -36,4 +38,6 @@ unbuffer ansible-playbook manage_app_on_container.yml -i $INVENTORY -t setup_net
         reduce_memory=$REDUCE_MEMORY \
         reduce_memory_java_opts=$REDUCE_MEMORY_JAVA_OPTS \
         mapreduce_am_memory=$MAPREDUCE_AM_MEMORY \
-        mapreduce_am_memory_java_opts=$MAPREDUCE_AM_MEMORY_JAVA_OPTS"
+        mapreduce_am_memory_java_opts=$MAPREDUCE_AM_MEMORY_JAVA_OPTS \
+        datanode_heapsize=$DATANODE_D_HEAPSIZE \
+        nodemanager_heapsize=$NODEMANAGER_D_HEAPSIZE"

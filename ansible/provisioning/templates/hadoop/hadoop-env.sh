@@ -52,8 +52,8 @@
 #export HADOOP_PID_DIR=/tmp/oscar.castellanos/BDEv/hadoop/pid
 #export HADOOP_COMMON_HOME=/home/oscar.castellanos/YARNServerless/bdev/solutions/dist/Hadoop-YARN/3.3.5
 #export HADOOP_MAPRED_PID_DIR=$HADOOP_PID_DIR
-export HADOOP_NAMENODE_HEAPSIZE=1024
-export HADOOP_DATANODE_HEAPSIZE=1024
+export HADOOP_NAMENODE_HEAPSIZE={{ datanode_heapsize }}
+export HADOOP_DATANODE_HEAPSIZE={{ datanode_heapsize }}
 export HDFS_NAMENODE_OPTS="-Xmx""${HADOOP_NAMENODE_HEAPSIZE}""m"
 export HDFS_DATANODE_OPTS="-Xmx""${HADOOP_DATANODE_HEAPSIZE}""m"
 

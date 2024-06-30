@@ -1,0 +1,17 @@
+## Resource configuration to load into State Database
+name: sample_app
+cpu_max: 200
+cpu_min: 100
+mem_max: 1024
+mem_min: 256
+disk_max: 200
+disk_min: 100
+cpu_boundary: 20
+mem_boundary: 128
+disk_boundary: 20
+
+## The indicated files should be in the same directory as this configuration file
+files_dir: files_dir
+install_script: install.sh
+start_script: start.sh
+stop_script: stop.sh

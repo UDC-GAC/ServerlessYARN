@@ -101,15 +101,30 @@
 			  <p>Disk</p>
 			  <p></p>
 			  <table class="data_table">
-				  <!-- header -->
-				  <tr>
-					  <th>Name</th>
-					  <th>Path</th>
-				  </tr>
 				  <!-- rows -->
 				  <tr>
+					<th>Name</th>
 					<td>{{ disk.name }}</td>
+				  </tr>
+				  <tr>
+					<th>Path</th>
 					<td>{{ disk.path }}</td>
+				  </tr>
+				  <tr>
+					<th>Current bandwidth</th>
+					<td>{{ disk.current }}</td>
+				  </tr>
+				  <tr>
+					<th>Guard</th>
+					<td>{{ disk.guard }}</td>
+				  </tr>
+				  <tr>
+					<th>Max bandwidth</th>
+					<td>{{ disk.max }}</td>
+				  </tr>
+				  <tr>
+					<th>Min bandwidth</th>
+					<td>{{ disk.min }}</td>
 				  </tr>
 			  </table>
 			  <p></p>
@@ -120,7 +135,7 @@
 			<!-- CONT RESOURCES EDIT MODAL -->	
 			{% if item.resources_editable_data > 0 %}
 				<a href="#openModal-{{ item.name }}-resources" title="Edit" class="caja" onclick="hide_resources_submit_buttons('{{ item.name }}');">Edit resources</a>
-				<br><br>  
+				<br><br>
 				<div align="left" id="openModal-{{ item.name }}-resources" class="modalDialog">
 					<div>
 						<a href="#close" title="Close" class="close">X</a>
@@ -160,7 +175,7 @@
 			<!-- CONT LIMIT EDIT MODAL -->	
 			{% if item.limits_editable_data > 0 %}
 				<a href="#openModal-{{ item.name }}-limits" title="Edit" class="caja">Edit boundaries</a>
-				<br><br>  
+				<br><br>
 				<div align="left" id="openModal-{{ item.name }}-limits" class="modalDialog">
 					<div>
 						<a href="#close" title="Close" class="close">X</a>
@@ -181,7 +196,7 @@
   </ul>
    
   <a href="#openModal-add-containers" title="Edit" class="caja">Add Containers</a>
-  <br><br>  
+  <br><br>
   <div align="left" id="openModal-add-containers" class="modalDialog">
 	  <div>
 		  <a href="#close" title="Close" class="close">X</a>
@@ -193,7 +208,7 @@
   </div>
 
   <a href="#openModal-remove-containers" title="Edit" class="caja">Remove Containers</a>
-  <br><br>  
+  <br><br>
   <div align="left" id="openModal-remove-containers" class="modalDialog">
 	  <div>
 		  <a href="#close" title="Close" class="close">X</a>
