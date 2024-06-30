@@ -1,3 +1,9 @@
+- name: Check containers status
+  shell: "{{ singularity_command_alias }} instance list -j"
+  register: apptainer_list_output
+  args:
+    executable: /bin/bash
+
 - name: Create directories for CouchDB container
   block:
     - name: Clean and create data directory for CouchDB container
@@ -18,7 +24,7 @@
         - absent
         - directory
 
-  when: "not virtual_mode"
+  when: "not virtual_mode and 'couchdb_cont' not in apptainer_list_output.stdout"
 
 - name: Install CouchDB on host
   block:

@@ -1,3 +1,4 @@
+import logging.handlers
 import os
 import sys
 import time
@@ -13,12 +14,13 @@ from src.opentsdb.OpenTSDBHandler import OpenTSDBHandler
 from src.utils.MyUtils import MyUtils
 
 SCRIPT_PATH = os.path.abspath(__file__)
-SMARTWATTS_DIR = os.path.dirname(os.path.dirname(SCRIPT_PATH))
-PROVISIONING_DIR = os.path.dirname(os.path.dirname(SMARTWATTS_DIR))
+POWER_SENDER_DIR = os.path.dirname(os.path.dirname(SCRIPT_PATH))
+PROVISIONING_DIR = os.path.dirname(os.path.dirname(POWER_SENDER_DIR))
 ANSIBLE_CONFIG_FILE = f"{PROVISIONING_DIR}/config/config.yml"
 ANSIBLE_INVENTORY_FILE = f"{PROVISIONING_DIR}/../ansible.inventory"
-LOG_DIR = f"{SMARTWATTS_DIR}/log"
+LOG_DIR = f"{POWER_SENDER_DIR}/log"
 LOG_FILE = f"{LOG_DIR}/power_sender.log"
+MAX_LOG_SIZE = 10 # Max log file size in MB
 
 
 class PowerSender:
@@ -81,12 +83,19 @@ class PowerSender:
         ]
 
     def __init_logging_config(self):
-        self.logger = logging.getLogger("power_sender")
+        # Create/clean log directory and file
         MyUtils.create_dir(LOG_DIR)
-        MyUtils.clean_log_file(LOG_DIR, LOG_FILE)
-        logging.basicConfig(filename=LOG_FILE,
-                            level=logging.INFO,
-                            format='%(levelname)s (%(name)s): %(asctime)s %(message)s')
+        MyUtils.clean_log_file(LOG_FILE)
+
+        # Set handler to rotate log files and formatter
+        handler = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=MAX_LOG_SIZE*1024*1024, backupCount=3)
+        formatter = logging.Formatter('%(levelname)s (%(name)s): %(asctime)s %(message)s')
+        handler.setFormatter(formatter)
+
+        # Set logger
+        self.logger = logging.getLogger("power_sender")
+        self.logger.setLevel(logging.INFO)
+        self.logger.addHandler(handler)
 
     def __set_start_timestamp(self):
         self.start_timestamp = datetime.now(timezone.utc)

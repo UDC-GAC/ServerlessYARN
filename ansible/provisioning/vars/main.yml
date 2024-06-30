@@ -1,5 +1,5 @@
 ## Installation path variables
-installation_path: /home/vagrant/ServerlessYARN_install
+installation_path: "{{ lookup('env', 'HOME') }}/ServerlessYARN_install"
 bdwatchdog_path: "{{ installation_path }}/BDWatchdog"
 bdwatchdog_source_path: "{{ installation_path }}/BDWatchdog_source"
 serverless_containers_path: "{{ installation_path }}/ServerlessContainers"
@@ -19,6 +19,7 @@ host_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/host"
 container_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/container"
 
 ## Container bind directories variables
+ssd_host_path: /scratch/ssd
 default_bind_path: "{{ installation_path }}"
 bind_path: "{{ default_bind_path }}"
 bind_dir_name: singularity_binds
@@ -26,6 +27,7 @@ bind_dir: "{{ bind_path }}/{{ bind_dir_name }}"
 bind_dir_on_container: /opt/bind
 
 ## Other
+couchdb_path: "{{ installation_path }}/couchdb"
 opentsdb_log_path: "{{ bdwatchdog_path }}/opentsdb/log"
 web_interface_path: services/serverless_containers_web
 singularity_cgroups_group: singularity
