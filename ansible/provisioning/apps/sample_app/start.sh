@@ -7,7 +7,7 @@ source ${scriptDir}/files_dir/app_config.sh
 path_to_executable=$(which stress)
 if [ -x "$path_to_executable" ] ; then
     echo "$path_to_executable available"
-    ${scriptDir}/files_dir/stress --cpu $CORES_TO_STRESS --timeout $TIMEOUT_SECONDS
+    ${path_to_executable} --cpu $CORES_TO_STRESS --timeout $TIMEOUT_SECONDS
 else
     echo "Stress not available, using simple stresser..."
     seq $CORES_TO_STRESS | xargs -P0 -n1 timeout $TIMEOUT_SECONDS md5sum /dev/zero

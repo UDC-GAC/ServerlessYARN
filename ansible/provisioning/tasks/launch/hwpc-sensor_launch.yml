@@ -1,0 +1,48 @@
+
+- name: Start HWPC Sensor inside an apptainer/singularity container
+  block:
+    - name: Copy HWPC Sensor container definition file
+      template:
+        src: "templates/power_budgeting/monitoring/{{ definition_file }}"
+        dest: "{{ hwpc_sensor_path }}/image/{{ definition_file }}"
+
+    - name: Copy HWPC Sensor configuration files
+      template:
+        src: "templates/power_budgeting/monitoring/config/{{ item }}"
+        dest: "{{ hwpc_sensor_path }}/config/{{ item }}"
+      with_items:
+        - hwpc-sensor-config.json
+        - hwpc-sensor-entrypoint.sh
+
+    - name: Build image
+      shell: "{{ singularity_command_alias }} build image/{{ image_file }} image/{{ definition_file }}"
+      args:
+        chdir: "{{ hwpc_sensor_path }}"
+        executable: /bin/bash
+        creates: "image/{{ image_file }}"
+
+    - name: Check containers status
+      shell: "sudo {{ singularity_command_alias }} instance list -j"
+      register: apptainer_list_output
+      args:
+        executable: /bin/bash
+
+    - name: Start HWPC Sensor apptainer container
+      shell: "sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --bind /sys:/sys --bind {{ hwpc_sensor_reporting_path }}:/reporting image/{{ image_file }} {{ container_name }}"
+      when: "container_name not in apptainer_list_output.stdout"
+      args:
+        chdir: "{{ hwpc_sensor_path }}"
+        executable: /bin/bash
+      vars:
+        extra_connection: "{{ ',ptp' if mode == 'ipvlan' else '' }}"
+        
+  when: "container_engine == 'apptainer'"
+  vars:
+    - definition_file: "hwpc-sensor.def"
+    - image_file: "hwpc-sensor.sif"
+    - container_name: "hwpc-sensor"
+
+- name: Start HWPC Sensor inside a lxc container
+  debug:
+    msg: 'HWPC Sensor inside a lxc container not yet supported'
+  when: "container_engine == 'lxc'"

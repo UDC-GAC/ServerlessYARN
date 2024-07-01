@@ -1,0 +1,16 @@
+- name: get the username running the deploy
+  become: no
+  local_action: command whoami
+  register: username_on_the_host
+
+- name: Create mongodb installation directory
+  file:
+    path: "{{ mongodb_path }}/image"
+    state: directory
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+
+- name: Create mongodb data directory
+  file:
+    path: "{{ mongodb_data_path }}"
+    state: directory
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"

@@ -1,0 +1,16 @@
+verbose: no
+
+influxdb_host: "{{ influxdb_host }}"
+influxdb_bucket: "{{ influxdb_bucket }}"
+influxdb_token: "{{ influxdb_token }}"
+influxdb_org: "{{ influxdb_org }}"
+
+structures: "{{ structures }}"
+prediction_methods: "{{ prediction_methods }}"
+model_variables: "{{ model_variables }}"
+
+timestamps_dir: "./conf/WattWizard/timestamps"
+train_files: "{{ train_files }}"
+
+plot_time_series: no
+plot_time_series_dir: "./conf/WattWizard/time_series"

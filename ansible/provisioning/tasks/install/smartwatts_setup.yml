@@ -1,0 +1,25 @@
+- name: get the username running the deploy
+  become: no
+  local_action: command whoami
+  register: username_on_the_host
+
+- name: Create SmartWatts installation directory
+  file:
+    path: "{{ smartwatts_path }}/image"
+    state: directory
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+
+- name: Create SmartWatts configuration directory
+  file:
+    path: "{{ smartwatts_path }}/config"
+    state: directory
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+
+- name: Clean and create SmartWatts output directory
+  file:
+    state: "{{ item }}"
+    path: "{{ smartwatts_path }}/output"
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+  with_items:
+    - absent
+    - directory

@@ -22,15 +22,11 @@
     CELERY_BACKEND: "redis://127.0.0.1:6379/0"
 
   tasks:
-    - import_tasks: tasks/launch/couchdb_launch.yml
     - import_tasks: tasks/launch/opentsdb_launch.yml
       tags: start_opentsdb
 
     - import_tasks: tasks/launch/serverless_containers_launch.yml
       vars:
-        - cpu_boundary: 20
-        - mem_boundary: 256
-        - disk_boundary: 10
         - nodes: "{{ host_list | split(',') if host_list is defined else groups['nodes'] }}"
         - containers_info_str: >
               {%- set containers_info=[] -%}
@@ -40,7 +36,10 @@
                     {{ container_info.update({'container_name': container_name, 'host': host, 'cpu_max': max_cpu_percentage_per_container, 'cpu_min': min_cpu_percentage_per_container, 'mem_max': max_memory_per_container, 'mem_min': min_memory_per_container, 'cpu_boundary': cpu_boundary, 'mem_boundary': mem_boundary }) }}
                     {%- if hostvars[host].disks|length > 0 -%}
                       {%- set first_disk = hostvars[host].disks | first -%}
-                      {{ container_info.update( {'disk': first_disk, 'disk_path': hostvars[host].disks[first_disk]['path'], 'disk_max': max_diskbw_per_container, 'disk_min': min_diskbw_per_container, 'disk_boundary': disk_boundary}) }}
+                      {{ container_info.update( {'disk': first_disk, 'disk_path': hostvars[host].disks[first_disk]} ) }}
+                    {%- endif -%}
+                    {%- if power_budgeting -%}
+                      {{ container_info.update({'energy_max': max_energy_per_container, 'energy_min': min_energy_per_container, 'energy_boundary': energy_boundary}) }}                      
                     {%- endif -%}
                     {{ containers_info.append(container_info) }}
                 {%- endfor -%}
@@ -49,3 +48,22 @@
         - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
 
     - import_tasks: tasks/launch/serverlessyarn_services_launch.yml
+    - block:
+        - import_tasks: tasks/launch/mongodb_launch.yml
+        - import_tasks: tasks/launch/smartwatts_launch.yml
+      when: "power_budgeting"
+      tags: start_smartwatts
+
+# Setup nodes
+- name: Launch services from hosts
+  hosts: nodes
+
+  vars_files:
+    - vars/main.yml
+    - config/config.yml
+
+  tasks:
+    - import_tasks: tasks/launch/hwpc-sensor_launch.yml
+      when: "power_budgeting"
+      tags: 
+      - start_hwpc_sensor

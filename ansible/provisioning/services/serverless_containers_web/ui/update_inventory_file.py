@@ -146,7 +146,7 @@ def add_containers_to_hosts(new_containers):
 
     return addedContainers
 
-def write_container_list(container_list,host,cpu,mem,disks):
+def write_container_list(container_list,host,cpu,mem,disks,energy=None):
 
     # format container list
     i = 0
@@ -181,7 +181,10 @@ def write_container_list(container_list,host,cpu,mem,disks):
     while (i < len(data) and host not in data[i]):
         i+=1
 
-    host_info = "{0} cpu={1} mem={2} disks={3} containers={4}\n".format(host, str(cpu), str(mem), disks_formatted, containers_formatted)
+    if energy and energy != "None":
+        host_info = "{0} cpu={1} mem={2} energy={3} disks={4} containers={5}\n".format(host, str(cpu), str(mem), str(energy), disks_formatted, containers_formatted)
+    else:
+        host_info = "{0} cpu={1} mem={2} disks={3} containers={4}\n".format(host, str(cpu), str(mem), disks_formatted, containers_formatted)
 
     if (i < len(data)):
         data[i] = host_info

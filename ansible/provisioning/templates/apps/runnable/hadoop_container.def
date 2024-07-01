@@ -2,9 +2,10 @@ Bootstrap: localimage
 From: apps/base/{{ app_base_image_file }}
 
 %files
-    "{{ installation_path }}/apps/hadoop/files_dir" /opt/files_dir
-    "{{ installation_path }}/apps/hadoop/setup.sh" /opt/setup.sh
-    "{{ installation_path }}/apps/hadoop/java_snitch.sh" /opt/java_snitch.sh
+    apps/{{ app_name }} /opt
+    #{{ installation_path }}/apps/hadoop/files_dir /opt/files_dir
+    #{{ installation_path }}/apps/hadoop/setup.sh /opt/setup.sh
+    #{{ installation_path }}/apps/hadoop/java_snitch.sh /opt/java_snitch.sh
     # To avoid repeating hadoop download
     #"{{ installation_path }}/apps/hadoop/hadoop-{{ hadoop_version }}.tar.gz" /opt/hadoop-{{ hadoop_version }}.tar.gz
     # To avoid repeating spark download

@@ -10,35 +10,45 @@
   block:
     - name: Start couchdb inside an apptainer/singularity container
       block:
-        - name: Copy couchdb container definition file
-          template:
-            src: "templates/{{ definition_file }}"
-            dest: "{{ installation_path }}/{{ definition_file }}"
 
-        - name: Copy debian config for couchdb install file
-          copy:
-            src: config/debian_couchdb_conf.dat
-            dest: "{{ installation_path }}/debian_couchdb_conf.dat"
+        - name: Copy CouchDB definition file and configuration files
+          template:
+            src: "templates/couchdb/{{ item }}"
+            dest: "{{ couchdb_path }}/{{ item }}"
+          with_items:
+            - "{{ definition_file }}"
+            - debian_couchdb_conf.dat
+            - local.ini
 
         - name: Build image
           shell: "{{ singularity_command_alias }} build {{ image_file }} {{ definition_file }}"
           args:
-            chdir: "{{ installation_path }}"
+            chdir: "{{ couchdb_path }}"
             executable: /bin/bash
             creates: "{{ image_file }}"
-
+            
         - name: Check containers status
           shell: "{{ singularity_command_alias }} instance list -j"
           register: apptainer_list_output
           args:
             executable: /bin/bash
 
+        # Advantage: --writable-tmpfs use an in-memory temporary filesystem (faster reads and writes)
+        # Problem: These filesystem has a limited size (64 MiB by default) so it is not recommended for long executions
+        #
+        # - name: Start couchdb apptainer container
+        #   shell: "{{ singularity_command_alias }} instance start -C --writable-tmpfs {{ image_file }} {{ container_name }}"
+        #   when: "container_name not in apptainer_list_output.stdout"
+        #   args:
+        #     chdir: "{{ installation_path }}"
+        #     executable: /bin/bash
+
         - name: Start couchdb apptainer container
-          when: "'\"instance\": \"{{ container_name }}\",' not in apptainer_list_output.stdout"
-          shell: "{{ singularity_command_alias }} instance start -C --writable-tmpfs {{ image_file }} {{ container_name }}"
+          shell: "{{ singularity_command_alias }} instance start -C --bind {{ couchdb_path }}/data:/couchdb_data --bind {{ couchdb_path }}/log:/var/log/couchdb {{ image_file }} {{ container_name }}"
+          when: "container_name not in apptainer_list_output.stdout"
           args:
-            chdir: "{{ installation_path }}"
-            executable: /bin/bash
+            chdir: "{{ couchdb_path }}"
+            executable: /bin/bash 
 
       when: "container_engine == 'apptainer'"
       vars:

@@ -1,5 +1,6 @@
 
-- name: Initializing State Database - container resource limits on Node Scaler
-  shell: "{% for item in nodes %}python3 scripts/stateDatabase/init_host_node_rescaler_v3.py {{ item }} {{ containers_info | replace(' ','') | quote }} && {% endfor %}true"
+- name: Initializing State Database - container limits on Node Scaler
+  shell: "{% for item in nodes %}
+          python3 scripts/stateDatabase/init_host_node_rescaler_v3.py {{ item }} {{ containers_info | replace(' ','') | quote }} {{ resources | quote }} && {% endfor %}true"
   args:
     executable: /bin/bash

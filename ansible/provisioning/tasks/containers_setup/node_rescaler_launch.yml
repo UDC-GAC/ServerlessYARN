@@ -1,5 +1,19 @@
 
 # Starting Node Rescaler
+- name: Verify gunicorn installation
+  command: "which gunicorn3"
+  register: gunicorn_check
+  ignore_errors: true
+
+- name: Set gunicorn command alias
+  set_fact:
+    gunicorn_command_alias: "{{ 'gunicorn3' if gunicorn_check.rc == 0 else 'gunicorn' }}"
+
+- name: Copy Node Scaler start script
+  template:
+    src: "templates/node_scaler_start.sh"
+    dest: "{{ serverless_containers_path }}/scripts/services/node_scaler/start.sh"
+
 - name: Tmux session check
   shell: tmux ls
   register: tmux_output
@@ -11,3 +25,4 @@
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
+  become: "{{ 'yes' if virtual_mode else 'no' }}"

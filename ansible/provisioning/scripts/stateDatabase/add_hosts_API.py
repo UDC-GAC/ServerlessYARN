@@ -13,26 +13,20 @@ base_host_to_API = dict(
     subtype = "host",
     host_rescaler_ip = "base_host",
     host_rescaler_port = rescaler_port,
-    resources = dict(
-        cpu = dict(),
-        mem = dict(),
-        disks = []
-    )
+    resources = dict()
 )
 
-# usage example: add_hosts_API.py host0 4 4096 {'ssd_0':{'path':'$HOME/ssd','bw':500},'hdd_0':{'path':'$HOME/hdd','bw':100}} config/config.yml
+# usage example: add_hosts_API.py host0 {'cpu': 4, 'mem': 4096, 'energy': 200} {'ssd_0':{'path':'$HOME/ssd','bw':500},'hdd_0':{'path':'$HOME/hdd','bw':100}} config/config.yml
 
 if __name__ == "__main__":
 
-    if (len(sys.argv) > 5):
+    if (len(sys.argv) > 4):
         new_host = sys.argv[1]
-        host_cpu = int(sys.argv[2])
-        host_mem = int(sys.argv[3])
-        disks = json.loads(sys.argv[4].replace('\'','"'))
-        with open(sys.argv[5], "r") as f:
+        host_resources = json.loads(sys.argv[2].replace('\'', '"'))
+        disks = json.loads(sys.argv[3].replace('\'', '"'))
+        with open(sys.argv[4], "r") as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
-        host_shares = host_cpu * 100
         orchestrator_url = "http://{0}:{1}".format(config['server_ip'],config['orchestrator_port'])
         headers = {'Content-Type': 'application/json'}
 
@@ -46,14 +40,19 @@ if __name__ == "__main__":
         put_field_data['host'] = new_host
         put_field_data['host_rescaler_ip'] = new_host
 
-        put_field_data['resources']["cpu"]["max"] = int(host_shares)
-        put_field_data['resources']["cpu"]["free"] = int(host_shares)
-
-        put_field_data['resources']["mem"]["max"] = int(host_mem)
-        put_field_data['resources']["mem"]["free"] = int(host_mem)
+        for resource in host_resources:
+            value = int(host_resources[resource])
+            if value is None:  # Value doesn't exist in ansible inventory, ignoring
+                continue
+            if resource == 'cpu':
+                value *= 100  # 100 shares per CPU
+            put_field_data['resources'][resource] = dict()
+            put_field_data['resources'][resource]["max"] = value
+            put_field_data['resources'][resource]["free"] = value
 
         create_lvm = config['create_lvm']
 
+        put_field_data['resources']["disks"] = []
         for disk in disks:
             if not create_lvm or "lvm" in disk:
                 new_disk = {}

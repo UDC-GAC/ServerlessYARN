@@ -34,6 +34,14 @@
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
     recurse: yes
 
+- name: Set BDWatchdog sampling frequency
+  shell: sed -i s'/atop [0-9]\+/atop {{ sampling_frequency }}/' {{ item }}/MetricsFeeder/scripts/run_atop_stream.sh
+  with_items:
+    - "{{ bdwatchdog_path }}"
+    - "{{ bdwatchdog_source_path }}"
+  vars:
+    sampling_frequency: "{{ bdwatchdog_sampling_frequency if online_learning == 'no' else power_sampling_frequency }}"
+
 - name: Install BDWatchdog
   shell: bash install.sh
   when: "virtual_mode"

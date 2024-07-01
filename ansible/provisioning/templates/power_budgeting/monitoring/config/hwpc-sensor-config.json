@@ -1,0 +1,30 @@
+{
+  "name": "sensor",
+  "verbose": true,
+  "cgroup_basepath": "/sys/fs/cgroup/perf_event",
+  "frequency": 500,
+  "output": {
+    "type": "mongodb",
+    "uri": "mongodb://{{ mongodb_url }}",
+    "database": "cont_metrics",
+    "collection": "collection_0"
+  },
+  "system": {
+    "rapl": {
+      "events": ["RAPL_ENERGY_PKG"],
+      "monitoring_type": "MONITOR_ALL_CPU_PER_SOCKET"
+    },
+    "msr": {
+      "events": ["TSC", "APERF", "MPERF"]
+    }
+  },
+  "container": {
+    "core": {
+      "events": [
+        "CPU_CLK_THREAD_UNHALTED:REF_P",
+        "CPU_CLK_THREAD_UNHALTED:THREAD_P",
+        "INSTRUCTIONS_RETIRED"
+      ]
+    }
+  }
+}

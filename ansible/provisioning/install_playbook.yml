@@ -16,13 +16,19 @@
   tasks:
     - import_tasks: tasks/install/create_installation_dir.yml
     - import_tasks: tasks/install/couchdb_setup.yml
-      when: "virtual_mode"
 
     - import_tasks: tasks/install/bdwatchdog_setup.yml
     - import_tasks: tasks/install/serverless_containers_setup.yml
     - import_tasks: tasks/install/serverlessyarn_services_setup.yml
     - import_tasks: tasks/install/apptainer_setup.yml
       when: "virtual_mode and container_engine == 'apptainer'"
+      tags: install_apptainer
+
+    - block:
+      - import_tasks: tasks/install/mongodb_setup.yml
+      - import_tasks: tasks/install/smartwatts_setup.yml
+      when: "container_engine == 'apptainer' and power_budgeting"
+      tags: setup_smartwatts
 
 # Setup nodes
 - name: Install requisites in hosts
@@ -52,9 +58,14 @@
 
     - import_tasks: tasks/install/apptainer_setup.yml
       when: "virtual_mode and container_engine == 'apptainer'"
+      tags: install_apptainer
 
     - import_tasks: tasks/install/network_setup.yml
       when: "container_engine == 'apptainer'"
 
     - import_tasks: tasks/install/measure_disks_bandwidth.yml
       tags: extend_lv, add_disks
+
+    - import_tasks: tasks/install/hwpc-sensor_setup.yml
+      when: "container_engine == 'apptainer' and power_budgeting"
+      tags: setup_smartwatts

@@ -36,6 +36,14 @@
     dest: "{{ serverless_containers_path }}"
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
 
+- name: Set permanent modules for cluster nodes
+  when: "not virtual_mode and 'nodes' in group_names"
+  include_tasks: tasks/install/modules_setup.yml
+  loop:
+    - gnu8/8.3.0
+    - python/3.8.13
+    - jdk/openjdk/8u382
+
 - name: Install specified python requirements
   pip:
     requirements: "{{ serverless_containers_path }}/requirements.txt"
@@ -43,5 +51,56 @@
 
 - name: Copy service aliases and port configuration to ServerlessContainers dir
   template:
-    src: templates/sc_services_config.yml
+    src: templates/sc_config/services_config.yml
     dest: "{{ serverless_containers_path }}/services_config.yml"
+
+- name: Copy custom env file in ServerlessContainers to avoid using yq
+  template:
+    src: templates/sc_config/set_env.sh
+    dest: "{{ serverless_containers_path }}/scripts/orchestrator/set_env.sh"
+  when: "not virtual_mode"
+
+- name: Copy ServerlessContainers services configuration
+  template:
+    src: "templates/sc_config/{{ services_file }}"
+    dest: "{{ serverless_containers_path }}/conf/StateDatabase/services.py"
+  vars:
+    services_file: "{{ 'power_budgeting_services.py' if power_budgeting else 'default_services.py' }}"
+
+- name: Copy ServerlessContainers rules configuration
+  template:
+    src: "templates/sc_config/{{ rules_file }}"
+    dest: "{{ serverless_containers_path }}/conf/StateDatabase/rules.py"
+  vars:
+    rules_file: "{{ 'power_budgeting_rules.py' if power_budgeting else 'default_rules.py' }}"
+
+- name: Copy WattWizard configuration to ServerlessContainers dir
+  when: "power_budgeting and power_modelling"
+  template:
+    src: templates/power_budgeting/wattwizard/config.yml
+    dest: "{{ serverless_containers_path }}/src/WattWizard/config.yml"
+
+- name: Verify that the InfluxDB server is reachable
+  when: "power_budgeting and power_modelling"
+  wait_for:
+    host: "{{ influxdb_host }}"
+    port: 8086
+    timeout: 30
+  delegate_to: localhost
+
+- name: Clean WattWizard timestamps directory
+  when: "power_budgeting and power_modelling"
+  file:
+    state: "{{ item }}"
+    path: "{{ serverless_containers_path }}/conf/WattWizard/timestamps"
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+  with_items:
+    - absent
+    - directory
+
+- name: Copy WattWizard timestamp files to create models
+  when: "power_budgeting and power_modelling"
+  copy:
+    src: "templates/power_budgeting/wattwizard/timestamps/{{ modelled_cpu }}/"
+    dest: "{{ serverless_containers_path }}/conf/WattWizard/timestamps/"
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"

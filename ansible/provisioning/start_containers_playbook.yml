@@ -23,21 +23,24 @@
     - import_tasks: "tasks/containers_setup/apptainer_containers_cgroups_{{ cgroups_version }}_setup.yml"
       when: "container_engine == 'apptainer'"
       vars:
-        - files_dir: ""
-        - install_script: ""
-        - app_jar: ""
-        - template_definition_file: "ubuntu_container.def"
-        - definition_file: "{{ template_definition_file }}"
-        - app_base_name: "{{ app_name if install_script != '' else 'hadoop' if app_jar != '' else 'base' }}"
-        - app_name: "base"
+        # Base app: Ubuntu container
+        - app_base_name: "base" # "{{ app_name if install_script != '' else 'hadoop' if app_jar != '' else 'base' }}"
+        - base_definition_file: "ubuntu_container.def"
         - app_base_image_file: "ubuntu_container.sif"
-        - image_file: "{{ app_base_image_file }}"
+        # App (e.g. hadoop app, sample app,...)
+        - app_name: "sample_app"
+        - definition_file: "app_container.def"
+        - image_file: "sample_app.sif"
+        - app_files_dir: "apps/{{ app_name }}"
+        #- app_jar: ""
+        #- install_script: "{{ app_name }}/install.sh"
+        # Other config
         - cgroups_file: "apptainer_containers_cgroup.toml"
         - containers_info_str: >
               {%- set containers_info=[] -%}
               {%- for host in groups['nodes'] -%}
                 {%- for container_name in hostvars[host].containers -%}
-                  {%- set container_info = dict() -%}
+                    {%- set container_info = dict() -%}
                     {{ container_info.update({'container_name': container_name, 'host': host, 'cpu_max': max_cpu_percentage_per_container, 'cpu_min': min_cpu_percentage_per_container, 'mem_max': max_memory_per_container, 'mem_min': min_memory_per_container }) }}
                     {%- if hostvars[host].disks|length > 0 -%}
                       {%- if create_lvm -%}
@@ -48,6 +51,9 @@
                       {%- endif -%}
                       {{ container_info.update( {'disk_max': max_diskbw_per_container, 'disk_min': min_diskbw_per_container}) }}
                     {%- endif -%}
+                    {%- if power_budgeting -%}
+                      {{ container_info.update({'energy_max': max_energy_per_container, 'energy_min': min_energy_per_container}) }}                      
+                    {%- endif -%}
                     {{ containers_info.append(container_info) }}
                 {%- endfor -%}
               {%- endfor -%}
@@ -55,7 +61,7 @@
         - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
 
     - import_tasks: tasks/containers_setup/node_rescaler_launch.yml
-      become: "{{ 'no' if container_engine == 'apptainer' else 'yes' }}"
+      #become: "{{ 'no' if container_engine == 'apptainer' else 'yes' }}"
 
 # Setup server (now that nodes have been initialized)
 - hosts: localhost
@@ -72,8 +78,11 @@
     PYTHONPATH: "{{ bdwatchdog_path }}:{{ serverless_containers_path }}"
 
   tasks:
+    - import_tasks: tasks/launch/couchdb_launch.yml
     - import_tasks: tasks/containers_setup/node_rescaler_containers_init.yml
-      tags: start_containers
+      tags: 
+        - start_containers
+        - init_node_rescaler
       vars:
         - nodes: "{{ host_list | split(',') if host_list is defined else groups['nodes'] }}"
         - containers_info_str: >
@@ -82,6 +91,9 @@
                 {%- for container_name in hostvars[host].containers -%}
                   {%- set container_info = dict() -%}
                     {{ container_info.update({'container_name': container_name, 'host': host, 'cpu_max': max_cpu_percentage_per_container, 'cpu_min': min_cpu_percentage_per_container, 'mem_max': max_memory_per_container, 'mem_min': min_memory_per_container }) }}
+                    {%- if power_budgeting -%}
+                      {{ container_info.update({'energy_max': max_energy_per_container, 'energy_min': min_energy_per_container}) }}
+                    {%- endif -%}                      
                     {%- if hostvars[host].disks|length > 0 -%}
                       {{ container_info.update( {'disk_max': max_diskbw_per_container, 'disk_min': min_diskbw_per_container}) }}
                     {%- endif -%}
@@ -89,4 +101,5 @@
                 {%- endfor -%}
               {%- endfor -%}
               {{ containers_info }}
+        - resources: "{{ ['cpu','mem','disk','energy'] if power_budgeting else ['cpu','mem','disk'] }}"
         - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
