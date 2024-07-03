@@ -1,4 +1,4 @@
 [server]
-compute-2-0 host_ip=10.10.255.233
+sc-server host_ip=192.168.56.200
 [nodes]
-compute-2-1 cpu=64 mem=231863 energy=200 disks='{"ssd_0":{"path":"/home/tome.maseda/ssd","bw":2637},"hdd_0":{"path":"/home/tome.maseda/hdd","bw":2660}}' containers='["compute-2-1-cont0"]'
+host0 cpu=4 mem=4096 energy=200 disks='{"ssd_0":{"path":"/home/vagrant/ssd"},"hdd_0":{"path":"/home/vagrant/hdd"},"lvm":{"path":"/home/vagrant/lvm"}}' containers='["host0-cont0","host0-cont1"]'
