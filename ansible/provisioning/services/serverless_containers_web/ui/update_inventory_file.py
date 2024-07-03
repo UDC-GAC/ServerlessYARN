@@ -242,14 +242,15 @@ def update_inventory_disks(hostname, disk, bandwidth_MB):
     if host == None:
         raise Exception("Host {0} is not on the inventory".format(hostname))
 
-    cpu = host.vars['cpu']
+    cpu = host.vars['cpu'] 
     mem = host.vars['mem']
     disks = host.vars['disks']
+    energy = host.vars['energy'] if 'energy' in host.vars else None
     containers = host.vars['containers']
 
     disks[disk]["bw"] = bandwidth_MB
 
-    write_container_list(containers,host.name,cpu,mem,disks)
+    write_container_list(containers, host.name, cpu, mem, disks, energy)
 
 
 def resolve_disk_path(disk_path):

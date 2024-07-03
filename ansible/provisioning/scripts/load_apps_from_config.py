@@ -18,14 +18,17 @@ if __name__ == "__main__":
 
     apps_to_load = general_config["apps"].split(",")
 
-    resources = ["cpu", "mem", "disk"]
+    resources = ["cpu", "mem", "disk", "energy"]
 
     for app_config_file in apps_to_load:
 
-        app_config_dir = os.path.split(app_config_file)[0]
-        rel_app_config_dir = os.path.relpath(app_config_dir, "{0}/../apps".format(scriptDir))
+        app_config_file_path = "{0}/../{1}".format(scriptDir, app_config_file)
+        app_dir = os.path.split(app_config_file_path)[0]
+        #rel_app_config_dir = os.path.relpath(app_config_dir, "{0}/../apps".format(scriptDir))
+        #print(app_dir)
+        #print(os.path.split(app_dir)[0])
 
-        with open(app_config_file, "r") as f:
+        with open(app_config_file_path, "r") as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
         app_config = {}
@@ -39,7 +42,7 @@ if __name__ == "__main__":
             if key in config:
                 app_config["app"][key] = config[key]
             else:
-                if key in []:
+                if key in []: # Not mandatory parameters
                     app_config["app"][key] = ""
                 else:
                     raise Exception("Missing mandatory parameter {0}".format(key))
@@ -47,9 +50,9 @@ if __name__ == "__main__":
         ## Files
         for key in ["files_dir", "install_script", "start_script", "stop_script", "app_jar"]:
             if key in config:
-                app_config["app"][key] = "{0}/{1}".format(rel_app_config_dir,config[key])
+                app_config["app"][key] = "{0}/{1}".format(app_dir, config[key])
             else:
-                if key in ["install_script", "app_jar"]:
+                if key in ["install_script", "app_jar"]: # Not mandatory parameters
                     app_config["app"][key] = ""
                 else:
                     raise Exception("Missing mandatory parameter {0}".format(key))
@@ -101,17 +104,17 @@ if __name__ == "__main__":
             if app_config["app"]['install_script'] != "":
 
                 app_name = app_config['app']['name']
-
-                definition_file = "{0}_container.def".format(app_config['app']['name'].replace(" ", "_"))
-                image_file = "{0}_container.sif".format(app_config['app']['name'].replace(" ", "_"))
-                files_dir = app_config['app']['files_dir']
-                install_script = app_config['app']['install_script']
+                #definition_file = "{0}_container.def".format(app_config['app']['name'].replace(" ", "_"))
+                definition_file = "hadoop_app.def" if app_config['app']['name'] == "hadoop_app" else "generic_app.def"
+                image_file = "{0}.sif".format(app_config['app']['name'].replace(" ", "_"))
+                files_dir = app_config['app']['files_dir'] # Not necessary with new app management
+                install_script = app_config['app']['install_script'] # Not necessary with new app management
 
                 argument_list = [definition_file, image_file, app_config['app']['name'], files_dir, install_script]
                 error_message = "Error creating app {0}".format(app_config['app']['name'])
 
                 ## Process script
-                rc = subprocess.Popen(["{0}/../services/serverless_containers_web/ui/scripts/{1}.sh".format(scriptDir,"create_app"), *argument_list], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                rc = subprocess.Popen(["{0}/../services/serverless_containers_web/ui/scripts/create_app.sh".format(scriptDir), *argument_list], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 out, err = rc.communicate()
 
                 # Log ansible output

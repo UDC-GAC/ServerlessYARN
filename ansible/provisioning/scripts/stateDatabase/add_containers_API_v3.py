@@ -23,10 +23,7 @@ base_container_to_API = dict(
         subtype ="container"
     ),
     limits = dict(
-        resources = dict(
-            cpu = dict(),
-            mem = dict()
-        )
+        resources = dict()
     )
 )
 
@@ -46,7 +43,7 @@ if __name__ == "__main__":
 
         ## Add containers
         for cont in containers:
-
+            cont_resources = ["cpu", "mem"]
             full_url = "{0}/structure/container/{1}".format(orchestrator_url, cont['container_name'])
 
             put_field_data = deepcopy(base_container_to_API)
@@ -66,33 +63,18 @@ if __name__ == "__main__":
             put_field_data['container']['resources']["mem"]["min"] = int(cont['mem_min'])
             put_field_data['container']['resources']["mem"]["guard"] = True
 
+            # Energy
             if 'power_budgeting' in config and config['power_budgeting']:
+                cont_resources.append("energy")
                 put_field_data['container']['resources']["energy"] = dict()
                 put_field_data['container']['resources']["energy"]["max"] = int(cont['energy_max'])
-                put_field_data['container']['resources']["energy"]["current"] = int(cont['energy_min'])
+                put_field_data['container']['resources']["energy"]["current"] = int(cont['energy_max'])
                 put_field_data['container']['resources']["energy"]["min"] = int(cont['energy_min'])
                 put_field_data['container']['resources']["energy"]["guard"] = True
 
-            ## Limits
-            if cont['cpu_boundary'] == 0:
-                put_field_data['limits']["resources"]["cpu"]["boundary"] = int(config['cpu_boundary'])
-            else:
-                put_field_data['limits']["resources"]["cpu"]["boundary"] = int(cont['cpu_boundary'])
-
-            if cont['mem_boundary'] == 0:
-                put_field_data['limits']["resources"]["mem"]["boundary"] = int(config['mem_boundary'])
-            else:
-                put_field_data['limits']["resources"]["mem"]["boundary"] = int(cont['mem_boundary'])
-                
-            if 'power_budgeting' in config and config['power_budgeting']:
-                put_field_data['limits']["resources"]["energy"] = dict()
-                if cont['energy_boundary'] == 0:
-                    put_field_data['limits']["resources"]["energy"]["boundary"] = int(config['energy_boundary'])
-                else:
-                    put_field_data['limits']["resources"]["energy"]["boundary"] = int(cont['energy_boundary'])
-
             # Disk
             if 'disk' in cont:
+                cont_resources.append("disk")
                 put_field_data['container']['resources']["disk"] = {}
                 put_field_data['container']['resources']["disk"]["name"] = cont['disk']
                 put_field_data['container']['resources']["disk"]["path"] = cont['disk_path']
@@ -100,16 +82,21 @@ if __name__ == "__main__":
                 put_field_data['container']['resources']["disk"]["current"] = int(cont['disk_min'])
                 put_field_data['container']['resources']["disk"]["min"] = int(cont['disk_min'])
                 put_field_data['container']['resources']["disk"]["guard"] = True
-                put_field_data['limits']["resources"]["disk"] = {}
-                if cont['disk_boundary'] == 0: put_field_data['limits']["resources"]["disk"]["boundary"] = int(config['disk_boundary'])
-                else: put_field_data['limits']["resources"]["disk"]["boundary"] = int(cont['disk_boundary'])
+
+            ## Limits
+            for res in cont_resources:
+                put_field_data['limits']["resources"][res] = {}
+                if cont[f'{res}_boundary'] == 0:
+                    put_field_data['limits']["resources"][res]["boundary"] = int(config[f'{res}_boundary'])
+                else:
+                    put_field_data['limits']["resources"][res]["boundary"] = int(cont[f'{res}_boundary'])
 
             r = session.put(full_url, data=json.dumps(put_field_data), headers=headers)
 
-            if (r != "" and r.status_code != requests.codes.ok):
+            if r != "" and r.status_code != requests.codes.ok:
                 soup = BeautifulSoup(r.text, features="html.parser")
                 if r.status_code == 400 and "already exists" in soup.get_text().strip():
                     # Container already exists
                     print("Container {0} already exists".format(cont['container_name']))
                 else:
-                    raise Exception("Error adding container {0}: {1}".format(cont['container_name'], soup.get_text().strip()))
+                    raise Exception("Error adding container {0}: {1} | Data: {2}".format(cont['container_name'], soup.get_text().strip(), put_field_data  ))

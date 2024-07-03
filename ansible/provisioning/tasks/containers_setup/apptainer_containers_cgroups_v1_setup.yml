@@ -38,6 +38,7 @@
     get_mime: false
     get_attributes: false
   register: stat_output
+  tags: create_app
 
 - name: Build base app
   block:
@@ -74,6 +75,7 @@
     get_mime: false
     get_attributes: false
   register: stat_output
+  tags: create_app
 
 - name: Build runnable app on top of the base app image
   block:
@@ -92,18 +94,18 @@
         dest: "{{ installation_path }}/apps/{{ app_name }}/"
       tags: create_app
 
-    - name: Copy app files directory
+    - name: Copy app directory
       delegate_to: localhost
-      when: "app_files_dir != ''"
+      when: "app_directory != ''"
       copy:
-        src: "{{ app_files_dir }}/"
+        src: "{{ app_directory }}/"
         dest: "{{ installation_path }}/apps/{{ app_name }}/"
       tags: create_app
 
-    - name: Find config files in the app directory
+    - name: Find config files to template in the app directory
       delegate_to: localhost
       find:
-        paths: "{{ app_files_dir }}/files_dir"
+        paths: "{{ app_directory }}/files_dir"
         recurse: no
       register: found_config_files
       tags: create_app
@@ -130,6 +132,8 @@
         src: "{{ installation_path }}/apps/{{ app_name }}/{{ image_file }}"
         dest: "{{ installation_path }}/images/"
         mode: preserve
+      tags: create_app
+      
   when: not stat_output.stat.exists
 
 - name: Containers startup

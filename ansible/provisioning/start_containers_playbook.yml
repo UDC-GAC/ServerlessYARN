@@ -23,15 +23,14 @@
     - import_tasks: "tasks/containers_setup/apptainer_containers_cgroups_{{ cgroups_version }}_setup.yml"
       when: "container_engine == 'apptainer'"
       vars:
-        # Base app: Ubuntu container
+        ## Base app: Software layer underlying to runnable apps, this layer includes BDWatchdog installation to monitor containers
         - app_base_name: "base" # "{{ app_name if install_script != '' else 'hadoop' if app_jar != '' else 'base' }}"
         - base_definition_file: "ubuntu_container.def"
         - app_base_image_file: "ubuntu_container.sif"
-        # App (e.g. hadoop app, sample app,...)
-        - app_name: "sample_app"
-        - definition_file: "app_container.def"
-        - image_file: "sample_app.sif"
-        - app_files_dir: "apps/{{ app_name }}"
+        # All runnable apps except hadoop can use the same definition file (generic_app.def)
+        - definition_file: "{{ 'hadoop_app.def' if app_name == 'hadoop_app' else 'generic_app.def' }}"
+        - image_file: "{{ app_name }}.sif"
+        - app_directory: "apps/{{ app_name }}"
         #- app_jar: ""
         #- install_script: "{{ app_name }}/install.sh"
         # Other config

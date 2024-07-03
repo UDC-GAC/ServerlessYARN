@@ -1,5 +1,5 @@
 # Virtual mode: "yes" to deploy a vagrant virtual cluster; "no" if you want to use an existing cluster 
-virtual_mode: yes
+virtual_mode: no
 
 # Currently supported container engines: lxc, apptainer
 container_engine: apptainer
@@ -93,6 +93,10 @@ iface: eno1
 mode: ipvlan
 subnet: 10.22.0.0/16
 
-## Apps (list of applications to automatically load on startup)
+## Apps
+# Software layer to install on containers (e.g. hadoop_app, smusket_app, sample_app,...)
+# The provided name must match the name of the app folder in the apps directory
+app_name: "sample_app"
+# List of applications to automatically load on startup over the above software layer
 # set list of app configuration file paths
-apps: apps/sample_app/sample_app_config.yml
+apps: apps/sample_app/app_config.yml

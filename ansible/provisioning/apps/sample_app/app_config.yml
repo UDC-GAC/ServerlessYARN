@@ -6,9 +6,12 @@ mem_max: 1024
 mem_min: 256
 disk_max: 200
 disk_min: 100
+energy_max: 50
+energy_min: 10
 cpu_boundary: 20
 mem_boundary: 128
 disk_boundary: 20
+energy_boundary: 5
 
 ## The indicated files should be in the same directory as this configuration file
 files_dir: files_dir
