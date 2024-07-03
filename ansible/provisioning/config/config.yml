@@ -55,9 +55,9 @@ influxdb_token: "MyToken"
 influxdb_org: "MyOrg"
 
 ## Hosts
-number_of_hosts: 1 # 1
-cpus_per_host: 64
-memory_per_host: 231863
+number_of_hosts: 2 # 1
+cpus_per_host: 4
+memory_per_host: 4096
 energy_per_host: 200
 hdd_disks_per_host: 1
 hdd_disks_path_list: $HOME/hdd
