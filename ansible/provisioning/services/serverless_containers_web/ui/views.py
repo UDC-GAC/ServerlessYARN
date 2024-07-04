@@ -8,6 +8,7 @@ from django.forms import formset_factory
 from django.http import HttpResponse
 import urllib.request
 import urllib.parse
+import os
 import json
 import requests
 import time
@@ -128,9 +129,18 @@ def structures(request, structure_type, html_render):
         addStructureForm['hadoop_app'] = AddHadoopAppForm()
 
     ## Set RemoveStructures Form
-    removeStructuresForm = setRemoveStructureForm(structures,structure_type)
+    removeStructuresForm = setRemoveStructureForm(structures, structure_type)
 
-    return render(request, html_render, {'data': structures, 'requests_errors': requests_errors, 'requests_successes': requests_successes, 'requests_info': requests_info, 'addStructureForm': addStructureForm,'removeStructuresForm': removeStructuresForm})
+    context = {
+        'data': structures,
+        'requests_errors': requests_errors,
+        'requests_successes': requests_successes,
+        'requests_info': requests_info,
+        'addStructureForm': addStructureForm,
+        'removeStructuresForm': removeStructuresForm
+    }
+
+    return render(request, html_render, context)
 
 
 def containers(request):
@@ -473,7 +483,7 @@ def setAddContainersForm(structures, hosts, form_action):
         host_list[host['name']] = 0
 
     addContainersForm = AddContainersForm()
-    addContainersForm.fields['host_list'].initial = host_list
+    addContainersForm.fields['host_list'].initial = json.dumps(host_list)
 
     addContainersForm.helper.form_action = form_action
 
@@ -1963,7 +1973,13 @@ def checkInvalidConfig():
     with open(vars_path, "r") as vars_file:
         vars_config = yaml.load(vars_file, Loader=yaml.FullLoader)
 
-    serverless_containers_path = vars_config['installation_path'] + "/ServerlessContainers"
+    installation_path = vars_config['installation_path']
+
+    if installation_path.startswith("{{ lookup('env', 'HOME') }}"):
+        home_directory = os.path.expanduser("~")
+        installation_path = installation_path.replace("{{ lookup('env', 'HOME') }}", home_directory)
+
+    serverless_containers_path = installation_path + "/ServerlessContainers"
 
     full_path = serverless_containers_path + "/sanity_checker.log"
 

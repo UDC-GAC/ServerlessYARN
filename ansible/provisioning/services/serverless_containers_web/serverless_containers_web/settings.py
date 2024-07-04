@@ -33,6 +33,10 @@ with open(vars_file, "r") as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 installation_path = config['installation_path']
 
+if installation_path.startswith("{{ lookup('env', 'HOME') }}"):
+    home_directory = os.path.expanduser("~")
+    installation_path = installation_path.replace("{{ lookup('env', 'HOME') }}", home_directory)
+
 with open(installation_path + '/.django_secret_key.txt', "r") as f:
     SECRET_KEY = f.read().strip()
 
