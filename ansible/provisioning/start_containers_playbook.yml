@@ -58,6 +58,7 @@
               {%- endfor -%}
               {{ containers_info }}
         - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
+        - master_container: "{{ (containers_info | first).container_name }}" # This container will act as RM/NM on distributed deployments with Hadoop/Spark
 
     - import_tasks: tasks/containers_setup/node_rescaler_launch.yml
       #become: "{{ 'no' if container_engine == 'apptainer' else 'yes' }}"
