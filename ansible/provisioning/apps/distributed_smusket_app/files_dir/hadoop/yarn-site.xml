@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License. See accompanying LICENSE file.
+-->
+
+<!-- Put site-specific property overrides in this file. -->
+
+
+<configuration>
+
+	<property>
+		<name>yarn.resourcemanager.hostname</name>
+		<value>{{ master_container }}</value>
+	</property>
+
+    <property>
+        <name>yarn.resourcemanager.bind-host</name>
+        <value>{{ master_container }}</value>
+    </property>
+
+    <property>
+		<name>yarn.resourcemanager.scheduler.class</name>
+		<value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler</value>
+	</property>
+
+	<property>
+		<name>yarn.nodemanager.aux-services</name>
+		<value>mapreduce_shuffle</value>
+	</property>
+
+	<property>
+		<name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
+		<value>org.apache.hadoop.mapred.ShuffleHandler</value>
+	</property>
+
+    <!-- At least 1 core -->
+	<property>
+		<name>yarn.scheduler.minimum-allocation-vcores</name>
+		<value>1</value>
+	</property>
+
+    <!-- At least 512MB of RAM -->
+    <property>
+        <name>yarn.scheduler.minimum-allocation-mb</name>
+        <value>512</value>
+    </property>
+
+    <!-- Executor cores (75%) -->
+    <property>
+        <name>yarn.scheduler.maximum-allocation-vcores</name>
+        <value>{{ ((max_cpu_percentage_per_container * 0.75) / 100) | int }}</value>
+    </property>
+
+    <!-- Executor memory (75%) + Overhead (10%) -->
+    <property>
+        <name>yarn.scheduler.maximum-allocation-mb</name>
+        <value>{{ (max_memory_per_container * 0.85 ) | int }}</value>
+    </property>
+
+    <!-- Total container cores -->
+    <property>
+        <name>yarn.nodemanager.resource.cpu-vcores</name>
+        <value>{{ (max_cpu_percentage_per_container / 100) | int }}</value>
+    </property>
+
+    <!-- Total container memory -->
+    <property>
+        <name>yarn.nodemanager.resource.memory-mb</name>
+        <value>{{ max_memory_per_container | int }}</value>
+    </property>
+
+    <property>
+        <name>yarn.nodemanager.local-dirs</name>
+        <value>{{ bind_dir_on_container }}/hadoop/yarn/local</value>
+    </property>
+
+	<property>
+		<name>yarn.nodemanager.vmem-check-enabled</name>
+		<value>false</value>
+	</property>
+
+	<!-- Logs -->
+	<property>
+	    <name>yarn.log-aggregation-enable</name>
+	    <value>true</value>
+	</property>
+
+	<property>
+	    <name>yarn.nodemanager.log-aggregation.roll-monitoring-interval-seconds</name>
+	    <value>3600</value>
+	</property>
+
+    <property>
+        <name>yarn.scheduler.increment-allocation-mb</name>
+        <value>128</value>
+    </property>
+
+    <property>
+        <name>yarn.nodemanager.local-dirs</name>
+        <value>{{ bind_dir_on_container }}/hadoop/yarn/local</value>
+    </property>
+
+    <property>
+        <name>yarn.nodemanager.pmem-check-enabled</name>
+        <value>true</value>
+    </property>
+
+    <property>
+        <name>yarn.nodemanager.vmem-pmem-ratio</name>
+        <value>2.1</value>
+    </property>
+
+    <property>
+        <name>yarn.nodemanager.disk-health-checker.enable</name>
+        <value>true</value>
+    </property>
+
+    <property>
+        <name>yarn.nodemanager.disk-health-checker.max-disk-utilization-per-disk-percentage</name>
+        <value>95.0</value>
+    </property>
+
+    <property>
+        <name>yarn.resourcemanager.nodemanagers.heartbeat-interval-ms</name>
+        <value>5000</value>
+    </property>
+
+    <property>
+        <name>yarn.scheduler.fair.assignmultiple</name>
+        <value>true</value>
+    </property>
+
+    <property>
+        <name>yarn.scheduler.fair.dynamic.max.assign</name>
+        <value>true</value>
+    </property>
+
+    <property>
+        <name>yarn.scheduler.fair.max.assign</name>
+        <value>-1</value>
+    </property>
+
+    <property>
+        <name>yarn.scheduler.fair.continuous-scheduling-enabled</name>
+        <value>false</value>
+    </property>
+
+</configuration>
+
