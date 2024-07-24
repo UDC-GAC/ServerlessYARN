@@ -54,12 +54,12 @@ if __name__ == "__main__":
             put_field_data['container']['host'] = cont['host']
 
             put_field_data['container']['resources']["cpu"]["max"] = int(cont['cpu_max'])
-            put_field_data['container']['resources']["cpu"]["current"] = int(cont['cpu_min'])
+            put_field_data['container']['resources']["cpu"]["current"] = int(cont['cpu_max'])
             put_field_data['container']['resources']["cpu"]["min"] = int(cont['cpu_min'])
             put_field_data['container']['resources']["cpu"]["guard"] = True
 
             put_field_data['container']['resources']["mem"]["max"] = int(cont['mem_max'])
-            put_field_data['container']['resources']["mem"]["current"] = int(cont['mem_min'])
+            put_field_data['container']['resources']["mem"]["current"] = int(cont['mem_max'])
             put_field_data['container']['resources']["mem"]["min"] = int(cont['mem_min'])
             put_field_data['container']['resources']["mem"]["guard"] = True
 
@@ -99,4 +99,4 @@ if __name__ == "__main__":
                     # Container already exists
                     print("Container {0} already exists".format(cont['container_name']))
                 else:
-                    raise Exception("Error adding container {0}: {1} | Data: {2}".format(cont['container_name'], soup.get_text().strip(), put_field_data  ))
+                    raise Exception("Error adding container {0}: {1} | Data: {2}".format(cont['container_name'], soup.get_text().strip(), put_field_data))

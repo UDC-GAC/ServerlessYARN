@@ -52,6 +52,7 @@
 
     - name: Copy base app definition file
       delegate_to: localhost
+      run_once: yes
       template:
         src: "templates/apps/base/{{ base_definition_file }}"
         dest: "{{ installation_path }}/apps/{{ app_base_name }}/{{ base_definition_file }}"
@@ -59,6 +60,7 @@
 
     - name: Build base app image
       delegate_to: localhost
+      run_once: yes
       shell: "{{ singularity_command_alias }} build apps/{{ app_base_name }}/{{ app_base_image_file }} apps/{{ app_base_name }}/{{ base_definition_file }}"
       args:
         chdir: "{{ installation_path }}"
@@ -80,8 +82,6 @@
 - name: Build runnable app on top of the base app image
   block:
     - name: Create app directory
-      delegate_to: localhost
-      run_once: yes
       file:
         path: "{{ installation_path }}/apps/{{ app_name }}"
         state: directory
@@ -89,6 +89,7 @@
 
     - name: Copy app definition file
       delegate_to: localhost
+      run_once: yes
       template:
         src: "templates/apps/runnable/{{ definition_file }}"
         dest: "{{ installation_path }}/apps/{{ app_name }}/"
@@ -96,6 +97,7 @@
 
     - name: Copy app directory
       delegate_to: localhost
+      run_once: yes
       when: "app_directory != ''"
       copy:
         src: "{{ app_directory }}/"
@@ -104,22 +106,25 @@
 
     - name: Find config files to template in the app directory
       delegate_to: localhost
+      run_once: yes
       find:
         paths: "{{ app_directory }}/files_dir"
-        recurse: no
+        recurse: yes
       register: found_config_files
       tags: create_app
 
     - name: Process template for each config file
       delegate_to: localhost
+      run_once: yes
       template:
         src: "{{ item.path }}"
-        dest: "{{ installation_path }}/apps/{{ app_name }}/files_dir/{{ item.path | basename }}"
+        dest: "{{ installation_path }}/apps/{{ app_name }}/files_dir/{{ item.path | regex_replace('^' + app_directory + '/files_dir', '') }}"
       loop: "{{ found_config_files.files }}"
       tags: create_app
 
     - name: Build app image
       delegate_to: localhost
+      run_once: yes
       shell: "{{ singularity_command_alias }} build apps/{{ app_name }}/{{ image_file }} apps/{{ app_name }}/{{ definition_file }}"
       args:
         chdir: "{{ installation_path }}"
@@ -133,7 +138,18 @@
         dest: "{{ installation_path }}/images/"
         mode: preserve
       tags: create_app
-      
+
+    - name: Copy app directory and image to hosts
+      delegate_to: localhost
+      run_once: yes
+      synchronize:
+        src: {{ item }}
+        dest: {{ item }}
+      with_items:
+        - "{{ installation_path }}/apps/{{ app_name }}"
+        - "{{ installation_path }}/images/"
+      tags: create_app
+
   when: not stat_output.stat.exists
 
 - name: Containers startup
@@ -184,7 +200,6 @@
            && sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
            'echo {{ server_ip }} opentsdb >> /etc/hosts \
            && cat {{ bind_dir_on_container }}/hosts >> /etc/hosts \
-           && echo 127.0.0.1 $(hostname) >> /etc/hosts \
            && rm {{ bind_dir_on_container }}/hosts' \
            && python3 change_cgroupsv1_permissions.py {{ singularity_command_alias }} {{ singularity_cgroups_group }} {{ item.container_name }} &&
         {% endif  %}

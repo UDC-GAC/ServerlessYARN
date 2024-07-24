@@ -262,8 +262,9 @@ def start_containers_task_v2(new_containers, container_resources, disks):
             container_info['container_name'] = container
             container_info['host'] = host
             # Resources
-            for resource in ['cpu_max', 'cpu_min', 'cpu_boundary', 'mem_max', 'mem_min', 'mem_boundary', 'disk_max', 'disk_min', 'disk_boundary']:
-                container_info[resource] = container_resources[resource]
+            for resource in ['cpu_max', 'cpu_min', 'cpu_boundary', 'mem_max', 'mem_min', 'mem_boundary', 'disk_max', 'disk_min', 'disk_boundary', 'energy_max', 'energy_min', 'energy_boundary']:
+                if resource in container_resources:
+                    container_info[resource] = container_resources[resource]
 
             if len(disks) > 0:
                 container_info['disk'] = disks[host]['name']
@@ -284,7 +285,7 @@ def start_containers_task_v2(new_containers, container_resources, disks):
     hosts = ','.join(list(added_containers.keys()))
     formatted_containers_info = str(containers_info).replace(' ','')
 
-    argument_list = [hosts,formatted_containers_info]
+    argument_list = [hosts, formatted_containers_info]
     error_message = "Error starting containers {0}".format(formatted_containers_info)
     process_script("start_containers", argument_list, error_message)
 

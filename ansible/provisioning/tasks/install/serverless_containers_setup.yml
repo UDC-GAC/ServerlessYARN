@@ -74,21 +74,27 @@
   vars:
     rules_file: "{{ 'power_budgeting_rules.py' if power_budgeting else 'default_rules.py' }}"
 
+## WattWizard configuration
 - name: Copy WattWizard configuration to ServerlessContainers dir
+  delegate_to: localhost
+  run_once: true
   when: "power_budgeting and power_modelling"
   template:
     src: templates/power_budgeting/wattwizard/config.yml
     dest: "{{ serverless_containers_path }}/src/WattWizard/config.yml"
 
 - name: Verify that the InfluxDB server is reachable
+  delegate_to: localhost
+  run_once: true
   when: "power_budgeting and power_modelling"
   wait_for:
     host: "{{ influxdb_host }}"
     port: 8086
     timeout: 30
-  delegate_to: localhost
 
 - name: Clean WattWizard timestamps directory
+  delegate_to: localhost
+  run_once: true
   when: "power_budgeting and power_modelling"
   file:
     state: "{{ item }}"
@@ -99,6 +105,8 @@
     - directory
 
 - name: Copy WattWizard timestamp files to create models
+  delegate_to: localhost
+  run_once: true
   when: "power_budgeting and power_modelling"
   copy:
     src: "templates/power_budgeting/wattwizard/timestamps/{{ modelled_cpu }}/"
