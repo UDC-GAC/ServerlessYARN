@@ -83,9 +83,9 @@ class PowerSender:
         ]
 
     def __init_logging_config(self):
-        # Create/clean log directory and file
+        # Create/clean log directory and files
         MyUtils.create_dir(LOG_DIR)
-        MyUtils.clean_log_file(LOG_FILE)
+        MyUtils.clean_log_files(LOG_DIR)
 
         # Set handler to rotate log files and formatter
         handler = logging.handlers.RotatingFileHandler(LOG_FILE, maxBytes=MAX_LOG_SIZE*1024*1024, backupCount=3)
