@@ -7,7 +7,7 @@ export SCRIPT_DIR=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 . "${SCRIPT_DIR}/files_dir/get-env.sh"
 
 mkdir -p "${SMUSKET_OUTPUT}"
-if [ ! -f "${SMUSKET_INPUT_PATH}" ]; then
+if [ ! -f "${SMUSKET_INPUT}" ]; then
   echo "SMusket input doesn't exist: ${SMUSKET_INPUT}"
   echo "Make sure to copy an input file to container bind directory"
   exit 1

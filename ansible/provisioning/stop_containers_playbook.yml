@@ -12,6 +12,7 @@
     when: "container_engine == 'apptainer'"
     args:
       executable: /bin/bash
+    tags: stop_containers_nodes
 
 # Stop containers from server
 - hosts: localhost
@@ -27,3 +28,4 @@
     when: "container_engine == 'apptainer'"
     args:
       executable: /bin/bash
+    tags: stop_containers_server
