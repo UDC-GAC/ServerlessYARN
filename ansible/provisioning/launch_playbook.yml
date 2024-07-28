@@ -48,9 +48,12 @@
         - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
 
     - import_tasks: tasks/launch/serverlessyarn_services_launch.yml
-    - block:
-        - import_tasks: tasks/launch/mongodb_launch.yml
-        - import_tasks: tasks/launch/smartwatts_launch.yml
+
+    - import_tasks: tasks/launch/mongodb_launch.yml
+      when: "power_budgeting"
+      tags: start_mongodb
+
+    - import_tasks: tasks/launch/smartwatts_launch.yml
       when: "power_budgeting"
       tags: start_smartwatts
 

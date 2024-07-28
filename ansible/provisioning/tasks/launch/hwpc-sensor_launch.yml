@@ -1,20 +1,36 @@
 
 - name: Start HWPC Sensor inside an apptainer/singularity container
   block:
+    - name: Check if HWPC Sensor image already exists
+      stat:
+        path: "{{ hwpc_sensor_path }}/image/{{ image_file }}"
+        get_checksum: false
+        get_mime: false
+        get_attributes: false
+      register: stat_output
+
     - name: Copy HWPC Sensor container definition file
+      when: not stat_output.stat.exists
       template:
         src: "templates/power_budgeting/monitoring/{{ definition_file }}"
         dest: "{{ hwpc_sensor_path }}/image/{{ definition_file }}"
 
     - name: Copy HWPC Sensor configuration files
+      when: not stat_output.stat.exists
       template:
         src: "templates/power_budgeting/monitoring/config/{{ item }}"
         dest: "{{ hwpc_sensor_path }}/config/{{ item }}"
       with_items:
         - hwpc-sensor-config.json
         - hwpc-sensor-entrypoint.sh
+        - CMakeLists.txt
+        - target.h
+        - target.c
+        - target_apptainer.h
+        - target_apptainer.c
 
     - name: Build image
+      when: not stat_output.stat.exists
       shell: "{{ singularity_command_alias }} build image/{{ image_file }} image/{{ definition_file }}"
       args:
         chdir: "{{ hwpc_sensor_path }}"
@@ -26,6 +42,22 @@
       register: apptainer_list_output
       args:
         executable: /bin/bash
+
+    - name: Stop current HWPC Sensor apptainer container
+      shell: "sudo {{ singularity_command_alias }} instance stop {{ container_name }}"
+      when: "container_name in apptainer_list_output.stdout"
+      args:
+        chdir: "{{ hwpc_sensor_path }}"
+        executable: /bin/bash
+      tags: never, restart_hwpc_sensor
+
+    - name: Check containers status again
+      shell: "sudo {{ singularity_command_alias }} instance list -j"
+      when: "container_name in apptainer_list_output.stdout"
+      register: apptainer_list_output
+      args:
+        executable: /bin/bash
+      tags: never, restart_hwpc_sensor
 
     - name: Start HWPC Sensor apptainer container
       shell: "sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --bind /sys:/sys --bind {{ hwpc_sensor_reporting_path }}:/reporting image/{{ image_file }} {{ container_name }}"

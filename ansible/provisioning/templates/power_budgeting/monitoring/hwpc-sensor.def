@@ -1,42 +1,54 @@
 # libpfm dependency builder image
 Bootstrap: docker
-From: ubuntu:22.04
+From: ubuntu:24.04
 Stage: libpfm-builder
 
 %post
     export DEBIAN_FRONTEND=noninteractive
     export LIBPFM4_DIR=/var/lib/libpfm4
+    export LIBPFM4_COMMIT="e198057817a4d87ae06520ace5781719a22712e0"
 
     mkdir -p "${LIBPFM4_DIR}"
 
     # Install dependencies
-    apt update && apt install -y build-essential git devscripts debhelper dpatch python3-dev libncurses-dev swig
-    update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+    apt update && apt install -y build-essential git devscripts debhelper libncurses-dev
+    #apt update && apt install -y build-essential git devscripts debhelper dpatch python3-dev libncurses-dev swig
+    #update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
     # Get libpfm4 git repository and compile .deb files
     git clone -b smartwatts https://github.com/gfieni/libpfm4.git "${LIBPFM4_DIR}"
-    cd "${LIBPFM4_DIR}"
+    cd "${LIBPFM4_DIR}" && git checkout "${LIBPFM4_COMMIT}"
+    sed -i 's/CONFIG_PFMLIB_NOPYTHON=n/CONFIG_PFMLIB_NOPYTHON=y/' debian/rules
+    sed -i '/^Package: python-libpfm4$/,/^$/d' debian/control
     debian/rules binary
     mv "${LIBPFM4_DIR}"/../*.deb "${LIBPFM4_DIR}"
 
 # sensor builder image (build tools + development dependencies):
 Bootstrap: docker
-From: ubuntu:22.04
+From: ubuntu:24.04
 Stage: sensor-builder
 
 %files from libpfm-builder
     /var/lib/libpfm4/libpfm4*.deb /
 
+%files
+    {{ hwpc_sensor_path }}/config/CMakeLists.txt /CMakeLists.txt
+    {{ hwpc_sensor_path }}/config/target.h /target.h
+    {{ hwpc_sensor_path }}/config/target.c /target.c
+    {{ hwpc_sensor_path }}/config/target_apptainer.h /target_apptainer.h
+    {{ hwpc_sensor_path }}/config/target_apptainer.c /target_apptainer.c
+
 %post
     export DEBIAN_FRONTEND=noninteractive
-    export HWPC_SENSOR_REPOSITORY="https://github.com/TomeMD/hwpc-sensor.git"
+    export HWPC_SENSOR_REPOSITORY="https://github.com/powerapi-ng/hwpc-sensor.git"
+    export HWPC_SENSOR_COMMIT="34cd6eefde22385872869640c54ca05a0e39afb4"
     export HWPC_SENSOR_SRC=/usr/src/hwpc-sensor
     export MONGODB_SUPPORT="ON"
     export BUILD_TYPE="debug"
 
     # Install dependencies
     apt update
-    apt install -y build-essential git clang-tidy cmake pkg-config libczmq-dev libsystemd-dev uuid-dev
+    apt install -y build-essential git clang-tidy cmake pkg-config libczmq-dev libjson-c-dev libsystemd-dev uuid-dev
     if [ "${MONGODB_SUPPORT}" = "ON" ]; then
         apt install -y libmongoc-dev
     fi
@@ -46,9 +58,16 @@ Stage: sensor-builder
     # Clone HWPC Sensor repository
     mkdir -p "${HWPC_SENSOR_SRC}"
     git clone -b master "${HWPC_SENSOR_REPOSITORY}" "${HWPC_SENSOR_SRC}"
+    cd "${HWPC_SENSOR_SRC}" && git checkout "${HWPC_SENSOR_COMMIT}"
+
+    # Add support for Apptainer containers to HWPC Sensor
+    mv /CMakeLists.txt "${HWPC_SENSOR_SRC}/CMakeLists.txt"
+    mv /target.h "${HWPC_SENSOR_SRC}/src/target.h"
+    mv /target.c "${HWPC_SENSOR_SRC}/src/target.c"
+    mv /target_apptainer.h "${HWPC_SENSOR_SRC}/src/target_apptainer.h"
+    mv /target_apptainer.c "${HWPC_SENSOR_SRC}/src/target_apptainer.c"
 
     # Build HWPC Sensor
-    cd "${HWPC_SENSOR_SRC}"
     GIT_TAG=$(git describe --tags --dirty 2>/dev/null || echo "unknown")
     GIT_REV=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
     cmake -B build -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" -DCMAKE_C_CLANG_TIDY="clang-tidy" -DWITH_MONGODB="${MONGODB_SUPPORT}"
@@ -56,7 +75,7 @@ Stage: sensor-builder
 
 # sensor runner image (only runtime depedencies):
 Bootstrap: docker
-From: ubuntu:22.04
+From: ubuntu:24.04
 Stage: sensor-runner
 
 %files from libpfm-builder
@@ -80,12 +99,12 @@ Stage: sensor-runner
 
     # Install runtime dependencies
     apt update
-    apt install -y libczmq4 libcap2-bin
+    apt install -y libczmq4 libjson-c5 libcap2-bin
     if [ "${MONGODB_SUPPORT}" = "ON" ]; then
         apt install -y libmongoc-1.0-0
     fi
     if [ "${BUILD_TYPE}" = "debug" ]; then
-        apt install -y libasan6 libubsan1
+        apt install -y libasan8 libubsan1
     fi
     rm -rf /var/lib/apt/lists/*
     dpkg -i /libpfm4_*.deb /libpfm4-dev_*.deb

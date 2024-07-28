@@ -2,7 +2,7 @@
   "name": "sensor",
   "verbose": true,
   "cgroup_basepath": "/sys/fs/cgroup/perf_event",
-  "frequency": 500,
+  "frequency": 1000,
   "output": {
     "type": "mongodb",
     "uri": "mongodb://{{ mongodb_url }}",
@@ -21,9 +21,8 @@
   "container": {
     "core": {
       "events": [
-        "CPU_CLK_THREAD_UNHALTED:REF_P",
-        "CPU_CLK_THREAD_UNHALTED:THREAD_P",
-        "INSTRUCTIONS_RETIRED"
+        "UNHALTED_REFERENCE_CYCLES",
+        "UNHALTED_CORE_CYCLES"
       ]
     }
   }

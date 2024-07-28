@@ -1,13 +1,22 @@
 
 - name: Start SmartWatts inside an apptainer/singularity container
-
   block:
+    - name: Check if SmartWatts image already exists
+      stat:
+        path: "{{ smartwatts_path }}/image/{{ image_file }}"
+        get_checksum: false
+        get_mime: false
+        get_attributes: false
+      register: stat_output
+
     - name: Copy SmartWatts container definition file
+      when: not stat_output.stat.exists
       template:
         src: "templates/power_budgeting/monitoring/{{ definition_file }}"
         dest: "{{ smartwatts_path }}/image/{{ definition_file }}"
 
     - name: Copy SmartWatts configuration files
+      when: not stat_output.stat.exists
       template:
         src: "templates/power_budgeting/monitoring/config/{{ item }}"
         dest: "{{ smartwatts_path }}/config/{{ item }}"
@@ -15,6 +24,7 @@
         - smartwatts-config.json
 
     - name: Build image
+      when: not stat_output.stat.exists
       shell: "{{ singularity_command_alias }} build image/{{ image_file }} image/{{ definition_file }}"
       args:
         chdir: "{{ smartwatts_path }}"
@@ -26,6 +36,22 @@
       register: apptainer_list_output
       args:
         executable: /bin/bash
+
+    - name: Stop current SmartWatts apptainer container
+      shell: "{{ singularity_command_alias }} instance stop {{ container_name }}"
+      when: "container_name in apptainer_list_output.stdout"
+      args:
+        chdir: "{{ smartwatts_path }}"
+        executable: /bin/bash
+      tags: never, restart_smartwatts
+
+    - name: Check containers status again
+      shell: "{{ singularity_command_alias }} instance list -j"
+      when: "container_name in apptainer_list_output.stdout"
+      register: apptainer_list_output
+      args:
+        executable: /bin/bash
+      tags: never, restart_smartwatts
 
     - name: Start SmartWatts apptainer container
       shell: "{{ singularity_command_alias }} instance start -C --bind {{ smartwatts_output }}:/sensor-output image/{{ image_file }} {{ container_name }}"
