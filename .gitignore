@@ -6,8 +6,11 @@ artifacts/
 *.log
 *.jar
 
-## Exclude apps directory, but including some specific subdirectories
+## Exclude apps directory, but including some specific subdirectories and files
 ansible/provisioning/apps/*
+!ansible/provisioning/apps/README.md
 !ansible/provisioning/apps/sample_app/
 !ansible/provisioning/apps/hadoop_app/
 !ansible/provisioning/apps/spark_app/
+!ansible/provisioning/apps/smusket_app/
+!ansible/provisioning/apps/distributed_smusket_app/

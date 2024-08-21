@@ -1,6 +1,8 @@
 Bootstrap: localimage
 From: apps/base/{{ app_base_image_file }}
 
+# NOTE!! THIS FILE SHOULD NO LONGER BE NECESSARY, THE INSTALL.SH SCRIPT IS NOW USED TO CUSTOMISE THE SW OF EACH CONTAINER DYNAMICALLY
+
 %files
     apps/{{ app_name }} /opt
     #{{ installation_path }}/apps/hadoop/files_dir /opt/files_dir
