@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH --job-name ServerlessYARN
 #SBATCH -t 72:00:00
 #SBATCH --nodes 2
 #SBATCH --exclusive
