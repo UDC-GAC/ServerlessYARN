@@ -21,8 +21,10 @@
   "container": {
     "core": {
       "events": [
-        "UNHALTED_REFERENCE_CYCLES",
-        "UNHALTED_CORE_CYCLES"
+        "CPU_CLK_THREAD_UNHALTED:REF_P",
+        "CPU_CLK_THREAD_UNHALTED:THREAD_P",
+        "INSTRUCTIONS_RETIRED",
+        "LLC_MISSES"
       ]
     }
   }
