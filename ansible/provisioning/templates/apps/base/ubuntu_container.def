@@ -2,7 +2,7 @@ Bootstrap: docker
 From: ubuntu:20.04
 
 %files
-    "/home/tome.maseda/ServerlessYARN_install/BDWatchdog_source" /opt/BDWatchdog
+    "{{ bdwatchdog_source_path }}" /opt/BDWatchdog
 
 %post
 

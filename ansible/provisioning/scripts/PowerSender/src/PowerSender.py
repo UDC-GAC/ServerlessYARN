@@ -20,7 +20,7 @@ ANSIBLE_CONFIG_FILE = f"{PROVISIONING_DIR}/config/config.yml"
 ANSIBLE_INVENTORY_FILE = f"{PROVISIONING_DIR}/../ansible.inventory"
 LOG_DIR = f"{POWER_SENDER_DIR}/log"
 LOG_FILE = f"{LOG_DIR}/power_sender.log"
-MAX_LOG_SIZE = 10 # Max log file size in MB
+MAX_LOG_SIZE = 10  # Max log file size in MB
 
 
 class PowerSender:

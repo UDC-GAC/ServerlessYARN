@@ -98,7 +98,7 @@
   when: "power_budgeting and power_modelling"
   file:
     state: "{{ item }}"
-    path: "{{ serverless_containers_path }}/conf/WattWizard/timestamps"
+    path: "{{ serverless_containers_path }}/conf/WattWizard/timestamps/train/default"
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
   with_items:
     - absent
@@ -110,5 +110,5 @@
   when: "power_budgeting and power_modelling"
   copy:
     src: "templates/power_budgeting/wattwizard/timestamps/{{ modelled_cpu }}/"
-    dest: "{{ serverless_containers_path }}/conf/WattWizard/timestamps/"
+    dest: "{{ serverless_containers_path }}/conf/WattWizard/timestamps/train/default"
     owner: "{{ username_on_the_host.stdout_lines[0] }}"

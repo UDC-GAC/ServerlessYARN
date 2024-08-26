@@ -66,6 +66,12 @@
     tmp_file: "test_{{ inventory_hostname }}.img"
     new_disks_dict: "{{ new_disks_dict_str | replace(' ','') if new_disks_dict_str is defined else ''}}"
 
+# TODO: This is just a workaround for Pluton cluster compatibility
+- name: Downgrade urllib3 to avoid incompatibilities with SSL version
+  pip:
+    name: urllib3==1.26.0
+    executable: pip3
+
 - name: Update host information in inventory (with fio)
   when: "'skipped' not in item"
   delegate_to: localhost

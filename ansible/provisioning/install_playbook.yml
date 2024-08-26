@@ -68,4 +68,4 @@
 
     - import_tasks: tasks/install/hwpc-sensor_setup.yml
       when: "container_engine == 'apptainer' and power_budgeting"
-      tags: setup_smartwatts
+      tags: setup_hwpc_sensor
