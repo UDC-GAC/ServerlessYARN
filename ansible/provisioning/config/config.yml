@@ -41,7 +41,7 @@ online_learning: yes # "yes" to automatically retrain power models in real-time 
 power_sampling_frequency: 5
 
 ## WattWizard Config
-structures: "host,container"
+structures: "host"
 model_variables: "user_load,system_load"
 prediction_methods: "polyreg,sgdregressor"
 modelled_cpu: "intel_xeon_silver_4216"
