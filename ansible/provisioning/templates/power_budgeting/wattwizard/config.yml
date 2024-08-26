@@ -1,16 +1,31 @@
 verbose: no
+server_mode: yes
 
+# InfluxDB configuration
 influxdb_host: "{{ influxdb_host }}"
 influxdb_bucket: "{{ influxdb_bucket }}"
 influxdb_token: "{{ influxdb_token }}"
 influxdb_org: "{{ influxdb_org }}"
 
+# Models configuration
 structures: "{{ structures }}"
 prediction_methods: "{{ prediction_methods }}"
 model_variables: "{{ model_variables }}"
 
-timestamps_dir: "./conf/WattWizard/timestamps"
+# Hardware info: Only required when using HW aware models
+sockets: 2
+cores_distribution:
+  CPU0: "0-15,32-47"
+  CPU1: "16-31,48-63"
+
+# Train configuration
+train_timestamps_dir: "./conf/WattWizard/timestamps/train/default"
 train_files: "{{ train_files }}"
 
+# Test configuration
+test_timestamps_dir: "./conf/WattWizard/timestamps/test"
+test_files: ""
+
+# Plots configuration
 plot_time_series: no
 plot_time_series_dir: "./conf/WattWizard/time_series"
