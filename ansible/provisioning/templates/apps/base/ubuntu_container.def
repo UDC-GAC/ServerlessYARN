@@ -2,14 +2,38 @@ Bootstrap: docker
 From: ubuntu:20.04
 
 %files
-    "{{ bdwatchdog_source_path }}" /opt/BDWatchdog
+    "/home/tome.maseda/ServerlessYARN_install/BDWatchdog_source" /opt/BDWatchdog
 
 %post
+
+    export ATOP_INSTALL_DIRECTORY="/opt/atop"
+    export ATOP_VERSION="2.4.0"
+
+    # Install dependencies
     apt-get -y update
-    apt-get -y install atop tmux
+    apt-get -y install tmux git
+    apt-get -y install build-essential make libncurses5-dev libncursesw5-dev zlib1g-dev libcap-dev
     apt-get -y install net-tools iputils-ping traceroute iputils-tracepath bc
-    #apt-get -y install iptables
     apt-get install -y --no-install-recommends python3-pip
+    #apt-get -y install iptables
+
+    # Install atop from source
+    mkdir -p "${ATOP_INSTALL_DIRECTORY}"
+    git clone https://github.com/Atoptool/atop.git "${ATOP_INSTALL_DIRECTORY}"
+    cd "${ATOP_INSTALL_DIRECTORY}"
+    git checkout tags/v${ATOP_VERSION}
+    # Set NOPERFEVENT flag during compilation to avoid the use of perf event counters
+    sed -i 's/ # -DNOPERFEVENT/-DNOPERFEVENT/' "${ATOP_INSTALL_DIRECTORY}/Makefile"
+    make clean && make
+
+    # Move atop daemon and remove sources
+    mv "${ATOP_INSTALL_DIRECTORY}/atop" /usr/local/bin/
+    cd / && rm -rf "${ATOP_INSTALL_DIRECTORY}"
+
+    # Change atop script to use manually installed daemon on BDWatchdog
+    #sed -i 's/\batop\b/\/usr\/local\/bin\/atop/g' /opt/BDWatchdog/MetricsFeeder/scripts/run_atop_stream.sh
+
+    # Install MetricsFeeder
     cd /opt/BDWatchdog/MetricsFeeder
     pip3 install -r requirements.txt
 
