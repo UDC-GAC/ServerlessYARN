@@ -5,6 +5,16 @@ export FILES_DIR="${SCRIPT_DIR}/files_dir"
 
 . "${FILES_DIR}/get_env.sh"
 
+# If some kernels are specified, overwrite default kernels
+if [ -n "${1}" ];then
+  IFS=',' read -ra NPB_KERNELS <<< "${1}"
+fi
+
+# If a number of threads is specified, overwrite NUM_THREADS
+if [ -n "${2}" ];then
+  NUM_THREADS="${2}"
+fi
+
 # Clean/Create output directory
 rm -rf "${NPB_OUTPUT_DIR}/*"
 mkdir -p "${NPB_OUTPUT_DIR}"
@@ -25,7 +35,8 @@ for KERNEL in "${NPB_KERNELS[@]}";do
   echo "[$(date -u "+%Y-%m-%d %H:%M:%S%z")] Execution time for kernel ${KERNEL} (class=${NPB_CLASS}) with ${NUM_THREADS} thread(s): ${EXECUTION_TIME}" | tee -a "${NPB_OUTPUT_DIR}/results.log"
 
   # Sleep 5 minutes between executions
-  sleep 300
+  #sleep 300
+  sleep 10
 done
 
 # Grant permissions to access results outside the container

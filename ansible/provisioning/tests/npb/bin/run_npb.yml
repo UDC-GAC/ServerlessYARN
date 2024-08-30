@@ -1,0 +1,78 @@
+# Start an app on a container
+- hosts: nodes
+  become: no
+  gather_facts: no
+
+  vars_files:
+    - ../../../vars/main.yml
+    - ../../../config/config.yml
+
+  vars:
+    - containers_info_str: >
+        {%- set containers_info=[] -%}
+        {%- for host in groups['nodes'] -%}
+          {%- for container_name in hostvars[host].containers -%}
+              {%- set container_info = dict() -%}
+              {{ container_info.update({'container_name': container_name, 'host': host, 'cpu_max': max_cpu_percentage_per_container, 'cpu_min': min_cpu_percentage_per_container, 'mem_max': max_memory_per_container, 'mem_min': min_memory_per_container }) }}
+              {%- if hostvars[host].disks|length > 0 -%}
+                {%- if create_lvm -%}
+                  {{ container_info.update( {'disk': 'lvm', 'disk_path': hostvars[host].disks['lvm']['path']} ) }}
+                {%- else -%}
+                  {%- set disk = 'ssd_0' -%}
+                  {{ container_info.update( {'disk': disk, 'disk_path': hostvars[host].disks[disk]['path']} ) }}
+                {%- endif -%}
+                {{ container_info.update( {'disk_max': max_diskbw_per_container, 'disk_min': min_diskbw_per_container}) }}
+              {%- endif -%}
+              {%- if power_budgeting -%}
+                {{ container_info.update({'energy_max': max_energy_per_container, 'energy_min': min_energy_per_container}) }}                      
+              {%- endif -%}
+              {{ containers_info.append(container_info) }}
+          {%- endfor -%}
+        {%- endfor -%}
+        {{ containers_info }}
+    - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
+    - npb_kernels: "ft"
+    - num_threads: 32
+
+  environment:
+    BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
+    RESCALING_PATH: "{{ serverless_containers_path }}/scripts/"
+    PYTHONPATH: ":{{ serverless_containers_path }}"
+
+  ## Singularity + cgroups v1
+  tasks:
+
+    ## Debug
+    - name: Debug containers info
+      debug:
+        msg: "{{ (containers_info | first).container_name  }}"
+      tags: never, debug_containers
+
+    #  'nohup bash /opt/{{ app_name }}/start.sh {{ npb_kernels }} > nohup.out 2>&1 &' &&
+    ## Start
+    - name: Start app on containers
+      shell: "
+      {% for item in containers_info %}
+        {% if item.host == inventory_hostname %}
+          sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+          'bash /opt/{{ app_name }}/start.sh {{ npb_kernels }} {{ num_threads }}' && 
+        {% endif  %}
+      {% endfor %}true"
+      args:
+        executable: /bin/bash
+
+      tags: never, start_app
+
+    ## Stop
+    - name: Stop app on containers
+      shell: "
+      {% for item in containers_info %}
+        {% if item.host == inventory_hostname %}
+          sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+          'nohup bash /opt/{{ app_name }}/stop.sh &' && 
+        {% endif  %}
+      {% endfor %}true"
+      args:
+        executable: /bin/bash
+
+      tags: never, stop_app

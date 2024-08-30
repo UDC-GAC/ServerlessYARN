@@ -4,7 +4,8 @@ set -e
 #CONTAINERS_INFO=$2
 
 SCRIPT_DIR=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
-PROVISIONING_DIR=$(dirname "${SCRIPT_DIR}")
+TEST_DIR=$(dirname "${SCRIPT_DIR}")
+PROVISIONING_DIR=$(dirname "${TEST_DIR}")
 ANSIBLE_DIR=$(dirname "${PROVISIONING_DIR}")
 ANSIBLE_INVENTORY="${ANSIBLE_DIR}/ansible.inventory"
 

@@ -4,8 +4,8 @@
   gather_facts: no
 
   vars_files:
-    - ../vars/main.yml
-    - ../config/config.yml
+    - ../../vars/main.yml
+    - ../../config/config.yml
 
   vars:
     - containers_info_str: >
