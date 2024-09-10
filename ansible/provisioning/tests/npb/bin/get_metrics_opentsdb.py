@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 OPENTSDB_URL = "http://127.0.0.1:4242/api/query"
 METRICS = ["proc.cpu.user", "structure.energy.usage", "structure.cpu.current", "structure.energy.max"]
+#METRICS = ["structure.energy.usage", "structure.energy.max"]
 HOSTS = ["compute-2-2-cont0"]
 TAGS = {
     "structure.energy.usage": {"host": "|".join(HOSTS)},
@@ -22,9 +23,9 @@ COLORS = {
 }
 VALUES_TO_FIND_EXP = {
     "serverless_fixed_value": 70,
-    "serverless_dynamic_value": 200,
-    "serverless_static_model": 72,
-    "serverless_dynamic_model": 66
+    "serverless_dynamic_value": 1593,
+    "serverless_static_model": 1701,
+    "serverless_dynamic_model": 60
 }
 
 
@@ -106,7 +107,7 @@ def plot_experiment(exp_name, data, img_dir):
             df['elapsed_seconds'] = (df['timestamp'] - start_time)
             plt.plot(df['elapsed_seconds'], df['value'], label=f"{metric}", color=COLORS[metric])
             if metric == "structure.cpu.current":
-                print_points_between_seconds(exp_name, df, 600, 700)
+                print_points_between_seconds(exp_name, df, 350, 400)
 
 
     plt.xlabel('Execution time (s)')
@@ -116,8 +117,23 @@ def plot_experiment(exp_name, data, img_dir):
     plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2, fontsize=12, framealpha=0.9)
 
     plt.tight_layout()
-    plt.savefig(f"{img_dir}/{exp_name}.png")
+    plt.savefig(f"{img_dir}/{exp_name}_only_power.png")
     plt.show()
+
+
+def sum_total_energy(exp_name, data):
+    total_df = pd.DataFrame()
+    total_energy = 0
+    for metric, values in data.items():
+        if metric == "structure.energy.usage":
+            for ts in values:
+                dps = ts['dps']
+                df = pd.DataFrame(list(dps.items()), columns=['timestamp', 'value'])
+                df['energy'] = df['value'] * 5  # Sampling frequency
+                total_energy += df['energy'].sum()
+                total_df = pd.concat([total_df, df])
+    print(f"Total energy for experiment {exp_name}: {total_energy} J")
+    print(f"Average power consumption for experiment {exp_name}: {total_df['value'].mean()} W")
 
 
 if __name__ == "__main__":
@@ -148,3 +164,4 @@ if __name__ == "__main__":
         if experiment_name in VALUES_TO_FIND_EXP:
             first_found_point_with_value(experiment_name, data_dict, VALUES_TO_FIND_EXP[experiment_name])
 
+        sum_total_energy(experiment_name, data_dict)

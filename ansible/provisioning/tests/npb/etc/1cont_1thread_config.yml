@@ -46,7 +46,7 @@ model_variables: "user_load,system_load"
 prediction_methods: "polyreg,sgdregressor"
 modelled_cpu: "intel_xeon_silver_4216"
 train_files: "General,Single_Core"
-guardian_default_model: "polyreg_General"
+guardian_default_model: "polyreg_Single_Core"
 
 ## InfluxDB Config
 influxdb_host: "montoxo.des.udc.es"
@@ -70,17 +70,17 @@ lvm_path: $HOME/lvm
 ## Containers initial values
 number_of_containers_per_node: 1
 # CPU
-max_cpu_percentage_per_container: 6400
-min_cpu_percentage_per_container: 100
-cpu_boundary: 100
+max_cpu_percentage_per_container: 200
+min_cpu_percentage_per_container: 5
+cpu_boundary: 10
 #Memory
 max_memory_per_container: 204800
 min_memory_per_container: 512
 mem_boundary: 256
 # Energy
-max_energy_per_container: 175
+max_energy_per_container: 40
 min_energy_per_container: 10
-energy_boundary: 10
+energy_boundary: 5
 # Disk
 disk_boundary: 10
 max_diskbw_per_container: 100

@@ -1718,8 +1718,10 @@ def services(request):
         item['form'] = serviceForm
         item['editable_data'] = editable_data
 
-        last_heartbeat = item['heartbeat']
-        item['alive'] = (now - last_heartbeat) < 60
+        try:
+            item['alive'] = (now - item['heartbeat']) < 60
+        except Exception:
+            item['alive'] = False
 
     config_errors = checkInvalidConfig()
 

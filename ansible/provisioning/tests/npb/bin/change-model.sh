@@ -11,5 +11,5 @@ source "${SCRIPT_DIR}/get-env.sh"
 source "${SC_INSTALLATION_PATH}/set_pythonpath.sh"
 export ORCHESTRATOR_PATH="${SERVERLESS_PATH}/scripts/orchestrator"
 
-echo "Activating energy modelling"
+echo "Changing model to ${1}"
 bash ${ORCHESTRATOR_PATH}/Guardian/set_energy_model.sh "${1}"

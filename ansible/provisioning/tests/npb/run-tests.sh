@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# Directories
 SCRIPT_DIR=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 BIN_DIR="${SCRIPT_DIR}/bin"
 CONF_DIR="${SCRIPT_DIR}/etc"
@@ -10,11 +11,18 @@ PROVISIONING_DIR=$(dirname "${TEST_DIR}")
 ANSIBLE_DIR=$(dirname "${PROVISIONING_DIR}")
 ANSIBLE_INVENTORY="${ANSIBLE_DIR}/ansible.inventory"
 
-CONTAINER_HOST="compute-2-2"
-CONTAINER_NAME="compute-2-2-cont0"
+# Host information
+IFS='.' read -ra HOST_INFO <<< $(hostname)
+IFS='-' read -ra HOST_PARTS <<< "${HOST_INFO}"
+HOST_NUM=$(( HOST_PARTS[2] + 1))
+CONTAINER_HOST="${HOST_PARTS[0]}-${HOST_PARTS[1]}-${HOST_NUM}"
+CONTAINER_NAME="${CONTAINER_HOST}-cont0"
+
+# Config
+NPB_NUM_THREADS=64
 DYNAMIC_SHARES_PER_WATT=28 # cpu_max_shares / (max_energy - min_energy)
-STATIC_POWER_MODEL="polyreg_Single_Core"
-DYNAMIC_POWER_MODEL="sgdregressor_Single_Core"
+STATIC_POWER_MODEL="polyreg_General"
+DYNAMIC_POWER_MODEL="sgdregressor_General"
 
 
 function log_timestamp() {
@@ -27,7 +35,7 @@ function run_npb() {
   local EXPERIMENT_NAME="${1}"
   sleep 20
   log_timestamp "${EXPERIMENT_NAME}" "start"
-  unbuffer ansible-playbook ${BIN_DIR}/run_npb.yml -i ${ANSIBLE_INVENTORY} -t start_app
+  unbuffer ansible-playbook ${BIN_DIR}/run_npb.yml -i ${ANSIBLE_INVENTORY} -t start_app --extra-vars "num_threads=${NPB_NUM_THREADS}"
   log_timestamp "${EXPERIMENT_NAME}" "stop"
   sleep 60
   bash "${BIN_DIR}/reset-container-limits.sh" "${CONTAINER_NAME}" "${CONTAINER_HOST}"
@@ -39,10 +47,10 @@ echo "Output directory: ${OUTPUT_DIR}"
 echo "Images directory: ${IMG_DIR}"
 mkdir -p "${OUTPUT_DIR}" "${IMG_DIR}"
 
-#echo "Using ${CONF_DIR}/config.yml to set ServerlessYARN configuration"
+echo "Using ${CONF_DIR}/config.yml to set ServerlessYARN configuration"
 #cp "${CONF_DIR}/config.yml" "${PROVISIONING_DIR}/config/config.yml"
 
-#echo "Running ServerlessYARN"
+echo "Running ServerlessYARN"
 #bash "${PROVISIONING_DIR}/scripts/start_all.sh"
 #sleep 600
 
@@ -53,7 +61,7 @@ echo "Start and deactivate WattTrainer"
 bash "${BIN_DIR}/start-watt-trainer.sh"
 bash "${BIN_DIR}/deactivate-watt-trainer.sh"
 
-echo "Running NPB tests"
+echo "Running NPB tests in ${CONTAINER_NAME}"
 #########################################################################################################
 # calibration: One execution first just to calibrate SmartWatts
 #########################################################################################################

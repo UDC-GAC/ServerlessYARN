@@ -70,7 +70,7 @@ lvm_path: $HOME/lvm
 ## Containers initial values
 number_of_containers_per_node: 1
 # CPU
-max_cpu_percentage_per_container: 6400
+max_cpu_percentage_per_container: 3200
 min_cpu_percentage_per_container: 100
 cpu_boundary: 100
 #Memory
@@ -78,7 +78,7 @@ max_memory_per_container: 204800
 min_memory_per_container: 512
 mem_boundary: 256
 # Energy
-max_energy_per_container: 175
+max_energy_per_container: 150
 min_energy_per_container: 10
 energy_boundary: 10
 # Disk
