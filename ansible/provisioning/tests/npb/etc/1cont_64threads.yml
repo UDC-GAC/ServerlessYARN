@@ -38,6 +38,7 @@ bdwatchdog_sampling_frequency: 5 # If 'online_learning' is 'yes' then this value
 power_budgeting: yes # "yes" to use power budgets, power will be accounted, restricted and shared among containers
 power_modelling: yes # "yes" to use power models to get CPU Usage/Power proportionalities instead of using fixed values
 online_learning: no # "yes" to automatically retrain power models in real-time using OpenTSDB time series
+hw_aware_modelling: yes # "yes" to include train files compatible with HW aware models
 power_sampling_frequency: 5
 
 ## WattWizard Config
