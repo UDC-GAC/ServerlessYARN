@@ -44,9 +44,9 @@ power_sampling_frequency: 5
 ## WattWizard Config
 structures: "host"
 model_variables: "user_load,system_load"
-prediction_methods: "polyreg,sgdregressor"
+prediction_methods: "polyreg,sgdregressor,multisocket"
 modelled_cpu: "intel_xeon_silver_4216"
-train_files: "General,Single_Core"
+train_files: "General,Single_Core,hw_aware"
 guardian_default_model: "polyreg_Single_Core"
 
 ## InfluxDB Config
