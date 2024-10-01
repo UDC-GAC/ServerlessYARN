@@ -34,7 +34,7 @@ EnergyRescaleDown = dict(
     events_to_remove=4,
     action={"requests": ["CpuRescaleDown"]},
     amount=-20,
-    rescale_policy="proportional",
+    rescale_policy="{{ 'modelling' if power_modelling == 'yes' else 'proportional' }}",
     rescale_type="down",
     active=True
 )
@@ -74,7 +74,7 @@ EnergyRescaleUp = dict(
     events_to_remove=4,
     action={"requests": ["CpuRescaleUp"]},
     amount=20,
-    rescale_policy="proportional",
+    rescale_policy="{{ 'modelling' if power_modelling == 'yes' else 'proportional' }}",
     rescale_type="up",
     active=True
 )

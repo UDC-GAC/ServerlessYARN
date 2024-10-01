@@ -180,13 +180,6 @@
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
 
-- name: Guardian - Activate power model use
-  shell: "bash scripts/orchestrator/Guardian/activate_energy_model.sh"
-  when: "power_budgeting and power_modelling"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-
 ## Activate Services
 - name: Activating Services
   shell: "bash scripts/orchestrator/{{ item }}/activate.sh"
