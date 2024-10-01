@@ -28,4 +28,3 @@
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-  become: "{{ 'yes' if virtual_mode else 'no' }}"
