@@ -6,7 +6,7 @@ Stage: libpfm-builder
 %post
     export DEBIAN_FRONTEND=noninteractive
     export LIBPFM4_DIR=/var/lib/libpfm4
-    export LIBPFM4_COMMIT="e198057817a4d87ae06520ace5781719a22712e0"
+    export LIBPFM4_COMMIT="27da20650617b3bd01882e35d8918cc23f6cd80c"
 
     mkdir -p "${LIBPFM4_DIR}"
 
