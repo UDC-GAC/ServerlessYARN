@@ -5,6 +5,12 @@
         path: "{{ installation_path }}/images"
         state: directory
 
+    - name: Create app directory
+      file:
+        path: "{{ installation_path }}/apps/{{ app_name }}"
+        state: directory
+      tags: create_app
+
     - name: Copy apptainer containers cgroup config
       template:
         src: "templates/{{ cgroups_file }}"
@@ -32,6 +38,19 @@
 #      tags: never, create_app
 
 - name: Check if base app image already exists
+  delegate_to: localhost
+  run_once: yes
+  stat:
+    path: "{{ installation_path }}/apps/{{ app_base_name }}/{{ app_base_image_file }}"
+    get_checksum: false
+    get_mime: false
+    get_attributes: false
+  register: stat_output
+  tags: create_app
+
+- name: Check if base app image already exists
+  delegate_to: localhost
+  run_once: yes
   stat:
     path: "{{ installation_path }}/apps/{{ app_base_name }}/{{ app_base_image_file }}"
     get_checksum: false
@@ -71,6 +90,8 @@
   when: not stat_output.stat.exists
 
 - name: Check if app image already exists
+  delegate_to: localhost
+  run_once: yes
   stat:
     path: "{{ installation_path }}/images/{{ image_file }}"
     get_checksum: false
@@ -81,11 +102,6 @@
 
 - name: Build runnable app on top of the base app image
   block:
-    - name: Create app directory
-      file:
-        path: "{{ installation_path }}/apps/{{ app_name }}"
-        state: directory
-      tags: create_app
 
     - name: Copy app definition file
       delegate_to: localhost
@@ -141,18 +157,19 @@
         mode: preserve
       tags: create_app
 
-    - name: Copy app directory and image to hosts
-      delegate_to: localhost
-      run_once: yes
-      synchronize:
-        src: "{{ item }}"
-        dest: "{{ item }}"
-      with_items:
-        - "{{ installation_path }}/apps/{{ app_name }}"
-        - "{{ installation_path }}/images/"
-      tags: create_app
-
   when: not stat_output.stat.exists
+
+- name: Copy app directory and image from server to hosts
+  delegate_to: localhost
+  run_once: yes
+  synchronize:
+    src: "{{ item }}"
+    dest: "{{ item }}"
+    mode: pull
+  with_items:
+    - "{{ installation_path }}/apps/{{ app_name }}"
+    - "{{ installation_path }}/images/"
+  tags: create_app
 
 - name: Containers startup
   block:
