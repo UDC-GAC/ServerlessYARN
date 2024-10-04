@@ -6,6 +6,11 @@
 
 - name: Create directories for CouchDB container
   block:
+    - name: get the username running the deploy
+      become: no
+      local_action: command whoami
+      register: username_on_the_host
+
     - name: Clean and create data directory for CouchDB container
       file:
         state: "{{ item }}"
@@ -64,7 +69,7 @@
       shell: debconf-copydb importmedb configdb  \
         --config=Name:importmedb               \
         --config=Driver:File                   \
-        --config=Filename:config/debian_couchdb_conf.dat && \
+        --config=Filename:templates/couchdb/debian_couchdb_conf.dat && \
         apt-get install -y couchdb
         
     - name: Start couchdb
