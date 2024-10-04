@@ -1,18 +1,15 @@
 
 # Starting Node Rescaler
 - name: Verify gunicorn installation
-  delegate_to: localhost
   command: "which gunicorn3"
   register: gunicorn_check
   ignore_errors: true
 
 - name: Set gunicorn command alias
-  delegate_to: localhost
   set_fact:
     gunicorn_command_alias: "{{ 'gunicorn3' if gunicorn_check.rc == 0 else 'gunicorn' }}"
 
 - name: Copy Node Scaler start script
-  delegate_to: localhost
   template:
     src: "templates/node_scaler_start.sh"
     dest: "{{ serverless_containers_path }}/scripts/services/node_scaler/start.sh"
