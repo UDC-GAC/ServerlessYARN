@@ -1,4 +1,5 @@
 - name: Check containers status
+  become: no
   shell: "{{ singularity_command_alias }} instance list -j"
   register: apptainer_list_output
   args:

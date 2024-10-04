@@ -90,8 +90,8 @@
   when: not stat_output.stat.exists
 
 - name: Check if app image already exists
-  delegate_to: localhost
-  run_once: yes
+  #delegate_to: localhost
+  #run_once: yes
   stat:
     path: "{{ installation_path }}/images/{{ image_file }}"
     get_checksum: false
@@ -149,8 +149,8 @@
       tags: create_app
 
     - name: Copy app image to host
-      delegate_to: localhost
-      run_once: yes
+      #delegate_to: localhost
+      #run_once: yes
       copy:
         src: "{{ installation_path }}/apps/{{ app_name }}/{{ image_file }}"
         dest: "{{ installation_path }}/images/"

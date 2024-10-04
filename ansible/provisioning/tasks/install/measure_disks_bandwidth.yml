@@ -62,6 +62,7 @@
       state: absent
     with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
 
+  become: no
   vars:
     tmp_file: "test_{{ inventory_hostname }}.img"
     new_disks_dict: "{{ new_disks_dict_str | replace(' ','') if new_disks_dict_str is defined else ''}}"
