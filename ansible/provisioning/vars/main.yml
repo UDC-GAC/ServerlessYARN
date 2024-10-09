@@ -19,7 +19,6 @@ host_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/host"
 container_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/container"
 
 ## Container bind directories variables
-ssd_host_path: /scratch/ssd
 default_bind_path: "{{ installation_path }}"
 bind_path: "{{ default_bind_path }}"
 bind_dir_name: singularity_binds

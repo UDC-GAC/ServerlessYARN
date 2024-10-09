@@ -148,6 +148,8 @@ def update_config_file(config_file, server, server_ip, hosts, cpus_per_node, mem
             data[elem] = cpus_per_host
         elif elem == 'memory_per_host':
             data[elem] = memory_per_host
+        elif elem == "number_of_containers_per_node":
+            data[elem] = 0
 
     yaml_utils.dump(data, out)
     #yaml_utils.dump(data, sys.stdout)

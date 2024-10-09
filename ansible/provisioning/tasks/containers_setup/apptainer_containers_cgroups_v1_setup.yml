@@ -178,13 +178,7 @@
       {% for item in containers_info %}
         {% if item.host == inventory_hostname %}
           {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-          {% if item.disk is defined and item.disk.startswith('ssd') and not virtual_mode %}
-            mkdir -p {{ ssd_host_path }}/{{ item.container_name }} &&
-            mkdir -p {{ bind_dir }} &&
-            ln -sf {{ ssd_host_path }}/{{ item.container_name }} {{ bind_dir }}/ &&
-          {% else %}
-            mkdir -p {{ bind_dir }}/{{ item.container_name }} &&
-          {% endif %}
+          mkdir -p {{ bind_dir }}/{{ item.container_name }} &&
         {% endif %}
       {% endfor %}true"
       args:
