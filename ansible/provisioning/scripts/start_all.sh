@@ -43,5 +43,5 @@ ansible-playbook ${scriptDir}/../launch_playbook.yml -i $INVENTORY
 echo "Launch Done!"
 
 echo "Load applications..."
-#python3 ${scriptDir}/load_apps_from_config.py
+python3 ${scriptDir}/load_apps_from_config.py
 echo "Apps loaded!"
