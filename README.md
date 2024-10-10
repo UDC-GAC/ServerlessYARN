@@ -4,7 +4,7 @@ This project provides a platform for the execution of Big Data workloads through
 
 The platform provides a serverless environment that supports Singularity/Apptainer containers, scaling their allocated resources to fit them according to the usage in real time.
 
-It is provided an automatic way of deploying the platform through IaC tools such as Ansible, as well as a web interface to easily manage the platform and execute Big Data workloads. The serverless platform may be deployed on an existing cluster or a virtual Vagrant cluster for testing purposes.
+It is provided an automatic way of deploying the platform through IaC tools such as Ansible, as well as a web interface to easily manage the platform and execute Big Data workloads. The serverless platform may be deployed on an existing physical cluster, or on a virtual cluster for testing purposes.
 
 ### More information
 > &Oacute;scar Castellanos-Rodr&iacute;guez, Roberto R. Exp&oacute;sito, Jonatan Enes, Guillermo L. Taboada, Juan Touriño, [Serverless-like platform for container-based YARN clusters](https://doi.org/10.1016/j.future.2024.02.013). Future Generation Computer Systems, 155:256-271, February 2024.
@@ -13,11 +13,11 @@ It is provided an automatic way of deploying the platform through IaC tools such
 
 ### Prerequisites
 
-#### For the Vagrant virtual cluster deployment
+#### For the virtual cluster deployment
 
 - Vagrant
 - VirtualBox
-- Vagrant plugins: vagrant-hostmanager, vagrant-reload
+- Vagrant plugins: vagrant-hostmanager, vagrant-reload, vagrant-vbguest
 
 > vagrant-reload plugin is only necessary when deploying nodes with cgroups V2
 
@@ -25,18 +25,19 @@ You may install the vagrant plugins with the following commands:
 ```
 vagrant plugin install vagrant-hostmanager
 vagrant plugin install vagrant-reload
+vagrant plugin install vagrant-vbguest
 ```
 
-#### For the existing cluster deployment
+#### For the physical cluster deployment
 
 - Python
 - Ansible
 - Passwordless SSH login between nodes
 
-> Only one node (master node) needs to have Ansible installed and a passwordless SSH login to the remaining ones
+> Only one cluster node (i.e. master node) needs to have Ansible installed and a passwordless SSH login to the remaining ones
 
 ### Quickstart
-The platform need to be installed and deployed on a master node (or "server" node), while the containers will be deployed on the remaining nodes of the cluster.
+The Serverless platform need to be installed and deployed on the master node (or "server" node), while the containers will be deployed on the remaining cluster nodes (workers or "hosts").
 
 - You can clone this repository and the required frameworks with
     ```
@@ -57,13 +58,13 @@ The platform need to be installed and deployed on a master node (or "server" nod
 
 **NOTE**: You must ensure **"id_rsa.pub"** doesn't exist when executing "vagrant up" the first time (or after a "vagrant destroy")
 
-- Inside the server node (you may use "vagrant ssh" to log in if using a virtual cluster) go to the **"ansible/provisioning/scripts"** directory within the platform root directory (accessible from **"/vagrant"** on the virtual cluster). Then execute the scripts to install and set up all the necessary requirements for the platform and start its services:
+- Inside the server node (you can use "vagrant ssh" to log in when using a virtual cluster) go to the **"ansible/provisioning/scripts"** directory within the platform root directory (accessible from **"/vagrant"** on the virtual cluster). Then, execute the scripts to install and set up all the necessary requirements for the platform and start its services:
     ```
     python3 load_inventory_from_conf.py
     bash start_all.sh
     ```
 
-**NOTE**: When deploying on an existing cluster through SLURM, you may skip the execution of the **"load_inventory_from_conf.py"** script. The inventory will be automatically generated considering the available nodes. A sample script for sbatch is provided on the **"slurm"** directory.
+**NOTE**: When deploying on a physical cluster that relies on SLURM for job scheduling, you can skip the execution of the **"load_inventory_from_conf.py"** script. The Ansible inventory will be automatically generated considering the available nodes. A sample script for sbatch is provided in the **"slurm"** directory.
 
 
 - Once you are done, you can shutdown the virtual cluster (if applicable) exiting the server node and executing:
@@ -71,7 +72,7 @@ The platform need to be installed and deployed on a master node (or "server" nod
     vagrant halt
     ```
 
-- Or you may destroy the virtual cluster with:
+- Or you may destroy the whole virtual cluster with:
     ```
     vagrant destroy --force
     ```
