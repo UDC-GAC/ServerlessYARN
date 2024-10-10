@@ -56,8 +56,6 @@ The Serverless platform need to be installed and deployed on the master node (or
     vagrant up
     ```
 
-**NOTE**: You must ensure **"id_rsa.pub"** doesn't exist when executing "vagrant up" the first time (or after a "vagrant destroy")
-
 - Inside the server node (you can use "vagrant ssh" to log in when using a virtual cluster) go to the **"ansible/provisioning/scripts"** directory within the platform root directory (accessible from **"/vagrant"** on the virtual cluster). Then, execute the scripts to install and set up all the necessary requirements for the platform and start its services:
     ```
     python3 load_inventory_from_conf.py
