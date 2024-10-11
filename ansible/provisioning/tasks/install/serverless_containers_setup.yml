@@ -105,15 +105,9 @@
   run_once: true
   when: "power_budgeting and power_modelling"
   copy:
-    src: "templates/power_budgeting/wattwizard/timestamps/{{ modelled_cpu }}/default/"
+    src: "templates/power_budgeting/wattwizard/timestamps/{{ modelled_cpu }}/{{ item }}/"
     dest: "{{ serverless_containers_path }}/conf/WattWizard/timestamps/train/default/"
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
-
-- name: Copy WattWizard timestamp files for HW aware models
-  delegate_to: localhost
-  run_once: true
-  when: "power_budgeting and power_modelling and hw_aware_modelling"
-  copy:
-    src: "templates/power_budgeting/wattwizard/timestamps/{{ modelled_cpu }}/hw_aware/"
-    dest: "{{ serverless_containers_path }}/conf/WattWizard/timestamps/train/default/"
-    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+  with_items:
+    - "default"
+    - "hw_aware"
