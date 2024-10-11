@@ -2,7 +2,8 @@
 import src.StateDatabase.couchdb as couchDB
 import src.StateDatabase.utils as couchdb_utils
 
-
+# TODO: Add disk in GUARDABLE_RESOURCES if disk_rescaling
+# TODO: Check use cases to add mem in GUARDABLE_RESOURCES
 guardian = dict(
     name="guardian",
     type="service",
@@ -10,9 +11,10 @@ guardian = dict(
     config=dict(
         ACTIVE=False,
         DEBUG=True,
-        EVENT_TIMEOUT=100,
+        EVENT_TIMEOUT=60,
         WINDOW_DELAY=20,
-        WINDOW_TIMELAPSE=10
+        WINDOW_TIMELAPSE=10,
+        GUARDABLE_RESOURCES=["cpu"{% if power_budgeting %}, "energy"{% endif %}]
     )
 )
 
@@ -38,13 +40,15 @@ database_snapshoter = dict(
     )
 )
 
+# TODO: Add disk in RESOURCES_PERSISTED if disk_rescaling
 structures_snapshoter = dict(
     name="structures_snapshoter",
     type="service",
     heartbeat="",
     config=dict(
         ACTIVE=False,
-        DEBUG=True
+        DEBUG=True,
+        RESOURCES_PERSISTED=["cpu", "mem"{% if power_budgeting %}, "energy"{% endif %}]
     )
 )
 
@@ -77,6 +81,31 @@ rebalancer  = dict(
     )
 )
 
+{% if power_budgeting %}
+# Aditional services for power_budgeting
+energy_manager = dict(
+    name="energy_manager",
+    type="service",
+    heartbeat="",
+    config=dict(
+        POLLING_FREQUENCY=10,
+        DEBUG=True
+    )
+)
+
+{% if online_learning %}
+watt_trainer = dict(
+    name="watt_trainer",
+    type="service",
+    heartbeat="",
+    config=dict(
+        WINDOW_TIMELAPSE={{ power_sampling_frequency }},
+        DEBUG=True
+    )
+)
+{% endif %}
+{% endif %}
+
 if __name__ == "__main__":
     initializer_utils = couchdb_utils.CouchDBUtils()
     handler = couchDB.CouchDBServer()
@@ -93,3 +122,11 @@ if __name__ == "__main__":
         handler.add_service(refeeder)
         handler.add_service(sanity_checker)
         handler.add_service(rebalancer)
+
+        {% if power_budgeting %}
+        # Aditional services for power_budgeting
+        handler.add_service(energy_manager)
+        {% if online_learning %}
+        handler.add_service(watt_trainer)
+        {% endif %}
+        {% endif %}

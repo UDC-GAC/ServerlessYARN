@@ -62,17 +62,13 @@
 
 - name: Copy ServerlessContainers services configuration
   template:
-    src: "templates/sc_config/{{ services_file }}"
+    src: "templates/sc_config/services.py"
     dest: "{{ serverless_containers_path }}/conf/StateDatabase/services.py"
-  vars:
-    services_file: "{{ 'power_budgeting_services.py' if power_budgeting else 'default_services.py' }}"
 
 - name: Copy ServerlessContainers rules configuration
   template:
-    src: "templates/sc_config/{{ rules_file }}"
+    src: "templates/sc_config/rules.py"
     dest: "{{ serverless_containers_path }}/conf/StateDatabase/rules.py"
-  vars:
-    rules_file: "{{ 'power_budgeting_rules.py' if power_budgeting else 'default_rules.py' }}"
 
 ## WattWizard configuration
 - name: Copy WattWizard configuration to ServerlessContainers dir

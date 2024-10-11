@@ -9,10 +9,6 @@ singularity_command_alias: apptainer # singularity or apptainer (only relevant w
 # Apptainer + cgroups V1 requires sudo privileges to some singularity commands at the moment
 cgroups_version: v1
 
-# Guardable resources: Initial resources to be scaled by Serverless Containers
-# CAUTION! Energy will be automatically added if power_budgeting is activated
-guardable_resources: "cpu"
-
 ## Server Node
 server_ip: 192.168.56.200
 cpus_server_node: 2

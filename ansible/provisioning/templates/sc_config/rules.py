@@ -331,6 +331,84 @@ DiskRescaleDown = dict(
     active=True
 )
 
+## Energy consumption
+energy_exceeded_upper = dict(
+    _id='energy_exceeded_upper',
+    type='rule',
+    resource="energy",
+    name='energy_exceeded_upper',
+    rule=dict(
+        {"and": [
+            {">": [
+                {"var": "energy.structure.energy.usage"},
+                {"var": "energy.structure.energy.max"}]}]}),
+    generates="events", action={"events": {"scale": {"up": 1}}},
+    active=True
+)
+
+energy_dropped_lower_and_cpu_exceeded_upper = dict(
+    _id='energy_dropped_lower_and_cpu_exceeded_upper',
+    type='rule',
+    resource="energy",
+    name='energy_dropped_lower_and_cpu_exceeded_upper',
+    rule=dict(
+        {"and": [
+            {"<": [
+                {"var": "energy.structure.energy.usage"},
+                {"var": "energy.limits.energy.upper"}]},
+            {">": [
+                {"var": "cpu.structure.cpu.usage"},
+                {"var": "cpu.limits.cpu.upper"}]}]}),
+    generates="events", action={"events": {"scale": {"down": 1}}},
+    active=True
+)
+
+EnergyRescaleDown = dict(
+    _id='EnergyRescaleDown',
+    type='rule',
+    resource="energy",
+    name='EnergyRescaleDown',
+    rule=dict(
+        {"and": [
+            {"<=": [
+                {"var": "events.scale.down"},
+                1]},
+            {">=": [
+                {"var": "events.scale.up"},
+                4]}
+        ]}),
+    generates="requests",
+    events_to_remove=4,
+    action={"requests": ["CpuRescaleDown"]},
+    amount=-20,
+    rescale_policy="{{ 'modelling' if power_modelling else 'proportional' }}",
+    rescale_type="down",
+    active=True
+)
+
+EnergyRescaleUp = dict(
+    _id='EnergyRescaleUp',
+    type='rule',
+    resource="energy",
+    name='EnergyRescaleUp',
+    rule=dict(
+        {"and": [
+            {">=": [
+                {"var": "events.scale.down"},
+                4]},
+            {"<=": [
+                {"var": "events.scale.up"},
+                1]}
+        ]}),
+    generates="requests",
+    events_to_remove=4,
+    action={"requests": ["CpuRescaleUp"]},
+    amount=20,
+    rescale_policy="{{ 'modelling' if power_modelling else 'proportional' }}",
+    rescale_type="up",
+    active=True
+)
+
 if __name__ == "__main__":
     initializer_utils = couchdb_utils.CouchDBUtils()
     handler = couchDB.CouchDBServer()
@@ -339,7 +417,16 @@ if __name__ == "__main__":
     initializer_utils.create_db(database)
     if handler.database_exists("rules"):
         print("Adding 'rules' documents")
-        
+
+        {% if power_budgeting %}
+        # When power_budgeting is used only these rules must be applied
+        handler.add_rule(energy_exceeded_upper)
+        handler.add_rule(EnergyRescaleDown)
+        handler.add_rule(energy_dropped_lower_and_cpu_exceeded_upper)
+        handler.add_rule(EnergyRescaleUp)
+
+        {% else %}
+        # TODO: Check if disk_rescaling needs to apply or to not apply specific rules and manage here ( elif disk_rescaling ...)
         # CPU
         handler.add_rule(cpu_exceeded_upper)
         handler.add_rule(cpu_dropped_lower)
@@ -359,3 +446,5 @@ if __name__ == "__main__":
         handler.add_rule(disk_dropped_lower)
         handler.add_rule(DiskRescaleUp)
         handler.add_rule(DiskRescaleDown)
+
+        {% endif %}
