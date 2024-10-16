@@ -53,7 +53,7 @@ if __name__ == "__main__":
                 tries += 1
                 time.sleep(COUCHDB_INIT_WAIT)
                 print("StateDatabase is {0}".format("up" if couchdb_up else "down. Retrying..."))
-            
+
         if handler.database_exists(database):
             try:
                 host_info = handler.get_structure(host)
@@ -167,7 +167,10 @@ if __name__ == "__main__":
 
             if "disk" in resources and "disk" in c:
 
-                not_initialized = int(requested_data['disk']['disk_write_limit']) == -1
+                if isinstance(requested_data['disk'], list) and len(requested_data['disk']) == 0:
+                    not_initialized = True
+                else:
+                    not_initialized = int(requested_data['disk']['disk_write_limit']) == -1
 
                 if not_initialized:
 
