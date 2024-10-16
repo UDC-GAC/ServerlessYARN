@@ -895,7 +895,7 @@ def processStartApp(request, url, app_name):
     for resource in app['resources']:
         app_resources[resource] = {}
         app_resources[resource]['max'] = app['resources'][resource]['max']
-        app_resources[resource]['current'] = app['resources'][resource]['current']
+        app_resources[resource]['current'] = 0 if 'current' not in app['resources'][resource] else app['resources'][resource]['current']
         app_resources[resource]['min'] = app['resources'][resource]['min']
 
     ## Containers to create
@@ -905,7 +905,7 @@ def processStartApp(request, url, app_name):
     # Check if there is space for app
     free_resources = {}
     for resource in app_resources:
-        if resource == 'disk':
+        if resource in ['disk', 'energy']:
             continue
         free_resources[resource] = 0
         for host in hosts:
