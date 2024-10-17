@@ -211,23 +211,28 @@ def add_container_to_app_in_db(full_url, headers, container, app):
 
     max_retries = 10
     actual_try = 0
-    error = ""
 
     while actual_try < max_retries:
 
         r = requests.put(full_url, headers=headers)
 
-        if (r != "" and not r.ok):
-            response_text = BeautifulSoup(r.text, features="html.parser").get_text().strip()
-            if r.status_code == 400 and "already subscribed" in response_text:
+        # Check response is not empty
+        if r != "":
+            # Check container has been successfully subscribed
+            if r.ok and r.status_code == 200:
                 break
-            else:
-                error = "Error adding container {0} to app {1}: {2}".format(container, app, response_text)
-                raise Exception(error)
+            elif not r.ok:
+                response_text = BeautifulSoup(r.text, features="html.parser").get_text().strip()
+                # Check container is already subscribed
+                if r.status_code == 400 and "already subscribed" in response_text:
+                    break
+                else:
+                    raise Exception("Error adding container {0} to app {1}: {2}".format(container, app, response_text))
 
         actual_try += 1
 
-    if actual_try >= max_retries: raise Exception("Reached max tries when adding {0} to app {1}".format(container, app))
+    if actual_try >= max_retries:
+        raise Exception("Reached max tries when adding {0} to app {1}".format(container, app))
 
 @shared_task
 def add_container_to_app_task(full_url, headers, host, container, app, app_files):
@@ -784,20 +789,28 @@ def remove_container_from_app_db(full_url, headers, container_name, app):
         # Remove container from app
         r = requests.delete(full_url, headers=headers)
 
-        if (r != "" and not r.ok):
-            response_text = BeautifulSoup(r.text, features="html.parser").get_text().strip()
-            if r.status_code == 400 and "missing in app" in response_text:
+        # Check response is not empty
+        if r != "":
+            # Check container has been successfully removed
+            if r.ok and r.status_code == 200:
                 break
-            else:
-                error = "Error removing container {0} from app {1}: {2}".format(container_name, app, response_text)
-                break
+            elif not r.ok:
+                response_text = BeautifulSoup(r.text, features="html.parser").get_text().strip()
+                # Check container was already removed from app
+                if r.status_code == 400 and "missing in app" in response_text:
+                    break
+                else:
+                    error = "Error removing container {0} from app {1}: {2}".format(container_name, app, response_text)
+                    break
 
         actual_try += 1
 
-    if actual_try >= max_retries: error = "Reached max tries when removing {0} from app {1}".format(container_name, app)
+    if actual_try >= max_retries:
+        error = "Reached max tries when removing {0} from app {1}".format(container_name, app)
 
     remove_error = remove_container_from_db(full_url[:full_url.rfind('/')], headers, container_name)
-    if remove_error != "": error = remove_error
+    if remove_error != "":
+        error = remove_error
 
     return error
 
