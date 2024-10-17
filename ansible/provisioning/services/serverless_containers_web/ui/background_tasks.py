@@ -334,20 +334,21 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
     formatted_containers_info = str(containers_info).replace(' ','')
 
     # Start containers
-    if app_files['install_script'] and app_files['install_script'] != "":
-        template_definition_file="app_container.def"
-        definition_file = "{0}_container.def".format(app.replace(" ", "_"))
-        image_file = "{0}_container.sif".format(app.replace(" ", "_"))
-    elif app_files['app_jar'] and app_files['app_jar'] != "":
-        template_definition_file="hadoop_container.def"
-        definition_file = "hadoop_container.def"
-        image_file = "hadoop_container.sif"
-    else:
-        template_definition_file="ubuntu_container.def"
-        definition_file = "ubuntu_container.def"
-        image_file = "ubuntu_container.sif"
+    # TODO: Add application types (e.g., default, hadoop, spark,...)
+    # if app_files['install_script'] and app_files['install_script'] != "":
+    #     template_definition_file="app_container.def"
+    #     definition_file = "{0}_container.def".format(app.replace(" ", "_"))
+    #     image_file = "{0}_container.sif".format(app.replace(" ", "_"))
+    # elif app_files['app_jar'] and app_files['app_jar'] != "":
+    #     template_definition_file="hadoop_container.def"
+    #     definition_file = "hadoop_container.def"
+    #     image_file = "hadoop_container.sif"
+    # else:
+    #     template_definition_file="ubuntu_container.def"
+    #     definition_file = "ubuntu_container.def"
+    #     image_file = "ubuntu_container.sif"
 
-    argument_list = [hosts, formatted_containers_info, app, template_definition_file, definition_file, image_file, app_files['files_dir'], app_files['install_script'], app_files['app_jar']]
+    argument_list = [hosts, formatted_containers_info, app, app_files['app_jar']]
     error_message = "Error starting containers {0}".format(formatted_containers_info)
     process_script("start_containers_with_app", argument_list, error_message)
 
