@@ -151,11 +151,11 @@ def process_script(script_name, argument_list, error_message):
 
 ## Adds
 @shared_task
-def add_host_task(host,cpu,mem,disk_info,new_containers):
+def add_host_task(host,cpu,mem,disk_info,energy,new_containers):
 
     # update_inventory_file
     with redis_server.lock(lock_key):
-        add_host(structure_name,cpu,mem,disk_info,new_containers)
+        add_host(host,cpu,mem,disk_info,energy,new_containers)
 
     argument_list = [host]
     error_message = "Error adding host {0}".format(host)
@@ -308,7 +308,9 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
                     container_info['container_name'] = container
                     container_info['host'] = host
                     # Resources
-                    for resource in ['cpu_max', 'cpu_min', 'cpu_boundary', 'mem_max', 'mem_min', 'mem_boundary']:
+                    for resource in ['cpu_max', 'cpu_min', 'cpu_boundary',
+                                     'mem_max', 'mem_min', 'mem_boundary',
+                                     'energy_max', 'energy_min', 'energy_boundary']:
                         container_info[resource] = container_resources[container_type][resource]
                     # Disks
                     if container_type != 'rm-nn':

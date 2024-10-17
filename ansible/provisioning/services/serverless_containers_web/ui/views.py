@@ -720,6 +720,7 @@ def processAddHost(request, url, structure_name, structure_type, resources):
     new_containers = int(request.POST['number_of_containers'])
     cpu = int(request.POST['cpu_max'])
     mem = int(request.POST['mem_max'])
+    energy = int(request.POST['energy_max']) if 'energy_max' in request.POST else None
 
     # disks
     disk_info = {}
@@ -734,7 +735,7 @@ def processAddHost(request, url, structure_name, structure_type, resources):
     else: disk_info['lvm_path'] = ""
 
     # provision host and start its containers from playbook
-    task = add_host_task.delay(structure_name,cpu,mem,disk_info,new_containers)
+    task = add_host_task.delay(structure_name,cpu,mem,disk_info,energy,new_containers)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"add_host_task")
 
