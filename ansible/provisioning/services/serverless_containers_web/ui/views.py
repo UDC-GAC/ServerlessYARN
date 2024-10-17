@@ -934,7 +934,8 @@ def processStartApp(request, url, app_name):
     for host in hosts:
         free_disk_load += getHostFreeDiskLoad(host)
 
-    if free_disk_load < disk_load: space_left_for_app = False
+    if free_disk_load < disk_load:
+        space_left_for_app = False
 
     error = ""
     if not space_left_for_app:
@@ -975,14 +976,16 @@ def processStartApp(request, url, app_name):
     new_containers, disk_assignation, error = getContainerAssignationForApp(assignation_policy, hosts, number_of_containers, container_resources, app_name)
     if error != "": return error
 
-    container_resources["regular"] = {x:str(y) for x,y in container_resources["regular"].items()}
-    if "bigger" in container_resources: container_resources["irregular"] = {x:str(y) for x,y in container_resources["bigger"].items()}
-    if "smaller" in container_resources: container_resources["irregular"] = {x:str(y) for x,y in container_resources["smaller"].items()}
-    if "rm-nn" in container_resources: container_resources["rm-nn"] = {x:str(y) for x,y in container_resources["rm-nn"].items()}
+    container_resources["regular"] = {x: str(y) for x, y in container_resources["regular"].items()}
+    if "bigger" in container_resources:
+        container_resources["irregular"] = {x: str(y) for x, y in container_resources["bigger"].items()}
+    if "smaller" in container_resources:
+        container_resources["irregular"] = {x: str(y) for x, y in container_resources["smaller"].items()}
+    if "rm-nn" in container_resources:
+        container_resources["rm-nn"] = {x: str(y) for x, y in container_resources["rm-nn"].items()}
 
     ## Get scaler polling frequency
     scaler_polling_freq = getScalerPollFreq()
-
     virtual_cluster = config['virtual_mode']
 
     if is_hadoop_app:
@@ -991,7 +994,7 @@ def processStartApp(request, url, app_name):
         task = start_app_task.delay(url, headers, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq)
 
     print("Starting task with id {0}".format(task.id))
-    register_task(task.id,"{0}_app_task".format(app_name))
+    register_task(task.id, "{0}_app_task".format(app_name))
 
     return error
 
@@ -1031,12 +1034,11 @@ def getContainerResourcesForApp(number_of_containers, app_resources, benevolence
 
     # CPU min and other resources allocation
     if 'bigger' in container_resources or 'smaller' in container_resources:
-        if 'bigger' in container_resources: irregular = 'bigger'
-        else: irregular = 'smaller'
+        irregular = 'bigger' if 'bigger' in container_resources else 'smaller'
 
         # We will scale resources mantaining the original ratio with cpu_max
         # example: 400/100 max/min shares between 3 containers -> 133.333/33.333 shares each -> modified to 200/50 bigger container and 100/25 regular
-        for resource in app_containers:
+        for resource in app_resources:
             for limit in ['max', 'min']:
                 key = "{0}_{1}".format(resource, key)
                 if key == "cpu_max":
