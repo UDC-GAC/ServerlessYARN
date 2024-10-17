@@ -7,9 +7,9 @@ scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 source $scriptDir/access_playbooks_dir.sh
 CONFIG_FILE=config/config.yml
 
-container_engine=`yq '.container_engine' < $CONFIG_FILE`
-singularity_command_alias=`yq '.singularity_command_alias' < $CONFIG_FILE`
-cgroups_version=`yq '.cgroups_version' < $CONFIG_FILE`
+container_engine=$(grep 'container_engine' ${CONFIG_FILE} | awk '{print $2}' | tr -d '[:space:]' | tr -d '"')
+singularity_command_alias=$(grep 'singularity_command_alias' ${CONFIG_FILE} | awk '{print $2}' | tr -d '[:space:]' | tr -d '"')
+cgroups_version=$(grep 'cgroups_version' ${CONFIG_FILE} | awk '{print $2}' | tr -d '[:space:]' | tr -d '"')
 
 if [ $container_engine = "lxc" ]
 then
