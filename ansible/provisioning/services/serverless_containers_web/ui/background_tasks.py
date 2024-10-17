@@ -192,17 +192,9 @@ def add_app_task(full_url, headers, put_field_data, app, app_files):
         error = "Error adding app " + app + ": " + soup.get_text().strip()
 
     if (error == ""):
-
-        if (app_files['install_script'] != ""):
-
-            definition_file = "{0}_container.def".format(app.replace(" ", "_"))
-            image_file = "{0}_container.sif".format(app.replace(" ", "_"))
-            files_dir = app_files['files_dir']
-            install_script = app_files['install_script']
-
-            argument_list = [definition_file, image_file, app, files_dir, install_script]
-            error_message = "Error creating app {0}".format(app)
-            process_script("create_app", argument_list, error_message)
+        argument_list = [app]
+        error_message = "Error creating app {0}".format(app)
+        process_script("create_app", argument_list, error_message)
 
     else:
         raise Exception(error)

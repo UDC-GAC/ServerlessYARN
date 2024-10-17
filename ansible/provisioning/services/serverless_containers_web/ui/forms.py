@@ -413,6 +413,9 @@ class AddAppForm(forms.Form):
     name = forms.CharField(label= "Name",
             required=True
             )
+    app_name = forms.CharField(label= "App Name (name of the dir containing app files)",
+                           required=True
+                           )
     cpu_max = forms.IntegerField(label= "CPU Max",
             required=True
             )
@@ -456,10 +459,10 @@ class AddAppForm(forms.Form):
             required=False
             )
     start_script = forms.CharField(label= "Start script",
-            required=True
+            required=False
             )
     stop_script = forms.CharField(label= "Stop script",
-            required=True
+            required=False
             )
     def __init__(self, *args, **kwargs):
         super(AddAppForm, self).__init__(*args, **kwargs)
@@ -472,6 +475,7 @@ class AddAppForm(forms.Form):
             Field('operation', type="hidden", readonly=True),
             Field('structure_type', type="hidden", readonly=True),
             Field('name'),
+            Field('app_name'),
             Field('cpu_max'),
             Field('cpu_min'),
             Field('mem_max'),
