@@ -117,7 +117,8 @@ if __name__ == "__main__":
                 error_message = "Error creating app {0}".format(app_config['app']['name'])
 
                 ## Process script
-                rc = subprocess.Popen(["{0}/../services/serverless_containers_web/ui/scripts/create_app.sh".format(scriptDir), *argument_list], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                #rc = subprocess.Popen(["{0}/../services/serverless_containers_web/ui/scripts/create_app.sh".format(scriptDir), *argument_list], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                rc = subprocess.Popen(["{0}/../services/serverless_containers_web/ui/scripts/create_app.sh".format(scriptDir), *[app_name]], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 out, err = rc.communicate()
 
                 # Log ansible output

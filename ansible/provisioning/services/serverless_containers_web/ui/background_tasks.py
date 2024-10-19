@@ -329,9 +329,12 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
                     container_info['host'] = host
                     # Resources
                     for resource in ['cpu_max', 'cpu_min', 'cpu_boundary',
-                                     'mem_max', 'mem_min', 'mem_boundary',
-                                     'energy_max', 'energy_min', 'energy_boundary']:
+                                     'mem_max', 'mem_min', 'mem_boundary']:
                         container_info[resource] = container_resources[container_type][resource]
+                    # Energy
+                    if config['power_budgeting']:
+                        for resource in ['energy_max', 'energy_min', 'energy_boundary']:
+                            container_info[resource] = container_resources[container_type][resource]
                     # Disks
                     if config['disk_scaling'] and container_type != 'rm-nn':
                         for disk in disk_assignation[host]:
