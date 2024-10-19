@@ -156,11 +156,11 @@ def process_script(script_name, argument_list, error_message):
 
 ## Adds
 @shared_task
-def add_host_task(host,cpu,mem,disk_info,new_containers):
+def add_host_task(host,cpu,mem,disk_info,energy,new_containers):
 
     # update_inventory_file
     with redis_server.lock(lock_key):
-        add_host(structure_name,cpu,mem,disk_info,new_containers)
+        add_host(host,cpu,mem,disk_info,energy,new_containers)
 
     argument_list = [host]
     error_message = "Error adding host {0}".format(host)
@@ -198,16 +198,23 @@ def add_app_task(full_url, headers, put_field_data, app, app_files):
 
     if (error == ""):
 
-        if (app_files['install_script'] != ""):
+        ## TODO: discuss which of the following versions should be used
+        ## V1: send install_script, files_dir, etc into create_app script as args
+        # if (app_files['install_script'] != ""):
 
-            definition_file = "{0}_container.def".format(app.replace(" ", "_"))
-            image_file = "{0}.sif".format(app.replace(" ", "_"))
-            files_dir = app_files['files_dir']
-            install_script = app_files['install_script']
+        #     definition_file = "{0}_container.def".format(app.replace(" ", "_"))
+        #     image_file = "{0}.sif".format(app.replace(" ", "_"))
+        #     files_dir = app_files['files_dir']
+        #     install_script = app_files['install_script']
 
-            argument_list = [definition_file, image_file, app, files_dir, install_script]
-            error_message = "Error creating app {0}".format(app)
-            process_script("create_app", argument_list, error_message)
+        #     argument_list = [definition_file, image_file, app, files_dir, install_script]
+        #     error_message = "Error creating app {0}".format(app)
+        #     process_script("create_app", argument_list, error_message)
+
+        ## V2: just send app name as argument for the script
+        argument_list = [app]
+        error_message = "Error creating app {0}".format(app)
+        process_script("create_app", argument_list, error_message)
 
     else:
         raise Exception(error)
@@ -216,23 +223,28 @@ def add_container_to_app_in_db(full_url, headers, container, app):
 
     max_retries = 10
     actual_try = 0
-    error = ""
 
     while actual_try < max_retries:
 
         r = requests.put(full_url, headers=headers)
 
-        if (r != "" and not r.ok):
-            response_text = BeautifulSoup(r.text, features="html.parser").get_text().strip()
-            if r.status_code == 400 and "already subscribed" in response_text:
+        # Check response is not empty
+        if r != "":
+            # Check container has been successfully subscribed
+            if r.ok and r.status_code == 200:
                 break
-            else:
-                error = "Error adding container {0} to app {1}: {2}".format(container, app, response_text)
-                raise Exception(error)
+            elif not r.ok:
+                response_text = BeautifulSoup(r.text, features="html.parser").get_text().strip()
+                # Check container is already subscribed
+                if r.status_code == 400 and "already subscribed" in response_text:
+                    break
+                else:
+                    raise Exception("Error adding container {0} to app {1}: {2}".format(container, app, response_text))
 
         actual_try += 1
 
-    if actual_try >= max_retries: raise Exception("Reached max tries when adding {0} to app {1}".format(container, app))
+    if actual_try >= max_retries:
+        raise Exception("Reached max tries when adding {0} to app {1}".format(container, app))
 
 @shared_task
 def add_container_to_app_task(full_url, headers, host, container, app, app_files):
@@ -316,7 +328,9 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
                     container_info['container_name'] = container
                     container_info['host'] = host
                     # Resources
-                    for resource in ['cpu_max', 'cpu_min', 'cpu_boundary', 'mem_max', 'mem_min', 'mem_boundary']:
+                    for resource in ['cpu_max', 'cpu_min', 'cpu_boundary',
+                                     'mem_max', 'mem_min', 'mem_boundary',
+                                     'energy_max', 'energy_min', 'energy_boundary']:
                         container_info[resource] = container_resources[container_type][resource]
                     # Disks
                     if config['disk_scaling'] and container_type != 'rm-nn':
@@ -340,20 +354,22 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
     formatted_containers_info = str(containers_info).replace(' ','')
 
     # Start containers
-    if app_files['install_script'] and app_files['install_script'] != "":
-        template_definition_file="app_container.def"
-        definition_file = "{0}_container.def".format(app.replace(" ", "_"))
-        image_file = "{0}.sif".format(app.replace(" ", "_"))
-    elif app_files['app_jar'] and app_files['app_jar'] != "":
-        template_definition_file="hadoop_container.def"
-        definition_file = "hadoop_container.def"
-        image_file = "hadoop_container.sif"
-    else:
-        template_definition_file="ubuntu_container.def"
-        definition_file = "ubuntu_container.def"
-        image_file = "ubuntu_container.sif"
+    # TODO: Add application types (e.g., default, hadoop, spark,...)
+    # if app_files['install_script'] and app_files['install_script'] != "":
+    #     template_definition_file="app_container.def"
+    #     definition_file = "{0}_container.def".format(app.replace(" ", "_"))
+    #     image_file = "{0}_container.sif".format(app.replace(" ", "_"))
+    # elif app_files['app_jar'] and app_files['app_jar'] != "":
+    #     template_definition_file="hadoop_container.def"
+    #     definition_file = "hadoop_container.def"
+    #     image_file = "hadoop_container.sif"
+    # else:
+    #     template_definition_file="ubuntu_container.def"
+    #     definition_file = "ubuntu_container.def"
+    #     image_file = "ubuntu_container.sif"
+    # argument_list = [hosts, formatted_containers_info, app, template_definition_file, definition_file, image_file, app_files['files_dir'], app_files['install_script'], app_files['app_jar']]
 
-    argument_list = [hosts, formatted_containers_info, app, template_definition_file, definition_file, image_file, app_files['files_dir'], app_files['install_script'], app_files['app_jar']]
+    argument_list = [hosts, formatted_containers_info, app, app_files['app_jar']]
     error_message = "Error starting containers {0}".format(formatted_containers_info)
     process_script("start_containers_with_app", argument_list, error_message)
 
@@ -790,20 +806,28 @@ def remove_container_from_app_db(full_url, headers, container_name, app):
         # Remove container from app
         r = requests.delete(full_url, headers=headers)
 
-        if (r != "" and not r.ok):
-            response_text = BeautifulSoup(r.text, features="html.parser").get_text().strip()
-            if r.status_code == 400 and "missing in app" in response_text:
+        # Check response is not empty
+        if r != "":
+            # Check container has been successfully removed
+            if r.ok and r.status_code == 200:
                 break
-            else:
-                error = "Error removing container {0} from app {1}: {2}".format(container_name, app, response_text)
-                break
+            elif not r.ok:
+                response_text = BeautifulSoup(r.text, features="html.parser").get_text().strip()
+                # Check container was already removed from app
+                if r.status_code == 400 and "missing in app" in response_text:
+                    break
+                else:
+                    error = "Error removing container {0} from app {1}: {2}".format(container_name, app, response_text)
+                    break
 
         actual_try += 1
 
-    if actual_try >= max_retries: error = "Reached max tries when removing {0} from app {1}".format(container_name, app)
+    if actual_try >= max_retries:
+        error = "Reached max tries when removing {0} from app {1}".format(container_name, app)
 
     remove_error = remove_container_from_db(full_url[:full_url.rfind('/')], headers, container_name)
-    if remove_error != "": error = remove_error
+    if remove_error != "":
+        error = remove_error
 
     return error
 

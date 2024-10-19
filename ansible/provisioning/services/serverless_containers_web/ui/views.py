@@ -34,6 +34,15 @@ max_load_dict["HDD"] = 1
 max_load_dict["SSD"] = 4
 max_load_dict["LVM"] = 20
 
+DEFAULT_APP_VALUES = {
+    "app_name": "",
+    "app_jar": "",
+    "install_script": "{app_name}/install.sh",
+    "start_script": "{app_name}/start.sh",
+    "stop_script": "{app_name}/stop.sh",
+    "files_dir": "{app_name}/files_dir"
+}
+
 ## Auxiliary general methods
 def redirect_with_errors(redirect_url, errors):
 
@@ -711,6 +720,7 @@ def processAddHost(request, url, structure_name, structure_type, resources):
     new_containers = int(request.POST['number_of_containers'])
     cpu = int(request.POST['cpu_max'])
     mem = int(request.POST['mem_max'])
+    energy = int(request.POST['energy_max']) if 'energy_max' in request.POST else None
 
     # disks
     disk_info = {}
@@ -726,7 +736,7 @@ def processAddHost(request, url, structure_name, structure_type, resources):
         else: disk_info['lvm_path'] = ""
 
     # provision host and start its containers from playbook
-    task = add_host_task.delay(structure_name,cpu,mem,disk_info,new_containers)
+    task = add_host_task.delay(structure_name,cpu,mem,disk_info,energy,new_containers)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"add_host_task")
 
@@ -817,11 +827,12 @@ def processAddApp(request, url, structure_name, structure_type, resources):
 
     ## APP info
     app_files = {}
-    for f in ['files_dir', 'install_script', 'start_script', 'stop_script', 'app_jar']:
+    for f in ['app_name', 'files_dir', 'install_script', 'start_script', 'stop_script', 'app_jar']:
         if f in request.POST:
             app_files[f] = request.POST[f]
         else:
-            app_files[f] = ""
+            app_files[f] = DEFAULT_APP_VALUES[f].format(app_name=app_files['app_name'])
+
 
     put_field_data = {
         'app': {
@@ -849,7 +860,7 @@ def processAddApp(request, url, structure_name, structure_type, resources):
             put_field_data['limits']['resources'][resource] = {'boundary': int(resource_boundary)}
 
     error = ""
-    task = add_app_task.delay(full_url, headers, put_field_data, structure_name, app_files)
+    task = add_app_task.delay(full_url, headers, put_field_data, app_files['app_name'], app_files)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"add_app_task")
 
@@ -896,7 +907,7 @@ def processStartApp(request, url, app_name):
     for resource in app['resources']:
         app_resources[resource] = {}
         app_resources[resource]['max'] = app['resources'][resource]['max']
-        app_resources[resource]['current'] = app['resources'][resource]['current']
+        app_resources[resource]['current'] = 0 if 'current' not in app['resources'][resource] else app['resources'][resource]['current']
         app_resources[resource]['min'] = app['resources'][resource]['min']
 
     ## Containers to create
@@ -906,7 +917,7 @@ def processStartApp(request, url, app_name):
     # Check if there is space for app
     free_resources = {}
     for resource in app_resources:
-        if resource == 'disk':
+        if resource in ['disk', 'energy']:
             continue
         free_resources[resource] = 0
         for host in hosts:
@@ -966,14 +977,16 @@ def processStartApp(request, url, app_name):
     new_containers, disk_assignation, error = getContainerAssignationForApp(assignation_policy, hosts, number_of_containers, container_resources, app_name)
     if error != "": return error
 
-    container_resources["regular"] = {x:str(y) for x,y in container_resources["regular"].items()}
-    if "bigger" in container_resources: container_resources["irregular"] = {x:str(y) for x,y in container_resources["bigger"].items()}
-    if "smaller" in container_resources: container_resources["irregular"] = {x:str(y) for x,y in container_resources["smaller"].items()}
-    if "rm-nn" in container_resources: container_resources["rm-nn"] = {x:str(y) for x,y in container_resources["rm-nn"].items()}
+    container_resources["regular"] = {x: str(y) for x, y in container_resources["regular"].items()}
+    if "bigger" in container_resources:
+        container_resources["irregular"] = {x: str(y) for x, y in container_resources["bigger"].items()}
+    if "smaller" in container_resources:
+        container_resources["irregular"] = {x: str(y) for x, y in container_resources["smaller"].items()}
+    if "rm-nn" in container_resources:
+        container_resources["rm-nn"] = {x: str(y) for x, y in container_resources["rm-nn"].items()}
 
     ## Get scaler polling frequency
     scaler_polling_freq = getScalerPollFreq()
-
     virtual_cluster = config['virtual_mode']
 
     if is_hadoop_app:
@@ -982,7 +995,7 @@ def processStartApp(request, url, app_name):
         task = start_app_task.delay(url, headers, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq)
 
     print("Starting task with id {0}".format(task.id))
-    register_task(task.id,"{0}_app_task".format(app_name))
+    register_task(task.id, "{0}_app_task".format(app_name))
 
     return error
 
@@ -1022,12 +1035,11 @@ def getContainerResourcesForApp(number_of_containers, app_resources, benevolence
 
     # CPU min and other resources allocation
     if 'bigger' in container_resources or 'smaller' in container_resources:
-        if 'bigger' in container_resources: irregular = 'bigger'
-        else: irregular = 'smaller'
+        irregular = 'bigger' if 'bigger' in container_resources else 'smaller'
 
         # We will scale resources mantaining the original ratio with cpu_max
         # example: 400/100 max/min shares between 3 containers -> 133.333/33.333 shares each -> modified to 200/50 bigger container and 100/25 regular
-        for resource in app_containers:
+        for resource in app_resources:
             for limit in ['max', 'min']:
                 key = "{0}_{1}".format(resource, key)
                 if key == "cpu_max":

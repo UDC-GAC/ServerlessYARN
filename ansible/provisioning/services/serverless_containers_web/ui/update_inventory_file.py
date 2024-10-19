@@ -25,7 +25,7 @@ def remove_host(host_name):
                 if (words[0] != host_name):
                     file.write(line)
 
-def add_host(hostname,cpu,mem,disk_info,new_containers):
+def add_host(hostname,cpu,mem,disk_info,energy,new_containers):
 
     containers = []
 
@@ -37,7 +37,7 @@ def add_host(hostname,cpu,mem,disk_info,new_containers):
     if disk_info:
         disks = get_disks_dict(disk_info['hdd_disks'],disk_info['hdd_disks_path_list'], disk_info['ssd_disks'], disk_info['ssd_disks_path_list'], disk_info['create_lvm'], disk_info['lvm_path'])
 
-    write_container_list(containers,hostname,cpu,mem,disks)
+    write_container_list(containers,hostname,cpu,mem,disks,energy)
 
 def add_disks_to_hosts(hosts_to_add_disks,new_disks):
 
@@ -56,6 +56,7 @@ def add_disks_to_hosts(hosts_to_add_disks,new_disks):
             cpu = host.vars['cpu']
             mem = host.vars['mem']
             disks = host.vars['disks']
+            energy = host.vars['energy'] if 'energy' in host.vars else None
             containers = host.vars['containers']
             added_disks[host.name] = {}
 
@@ -79,7 +80,7 @@ def add_disks_to_hosts(hosts_to_add_disks,new_disks):
 
                     disk_id += 1
 
-            write_container_list(containers,host.name,cpu,mem,disks)
+            write_container_list(containers,host.name,cpu,mem,disks,energy)
 
     return added_disks
 
@@ -96,10 +97,8 @@ def remove_container_from_host(container,hostname):
 
             cpu = host.vars['cpu']
             mem = host.vars['mem']
-            disks = None
-            if 'disks' in host.vars: disks = host.vars['disks']
-            energy = None
-            if 'energy' in host.vars: energy = host.vars['energy']
+            disks = host.vars['disks'] if 'disks' in host.vars else None
+            energy = host.vars['energy'] if 'energy' in host.vars else None
             containers = host.vars['containers'] 
 
             if (container in containers): 
@@ -124,10 +123,8 @@ def add_containers_to_hosts(new_containers):
             
             cpu = host.vars['cpu']
             mem = host.vars['mem']
-            disks = None
-            if 'disks' in host.vars: disks = host.vars['disks']
-            energy = None
-            if 'energy' in host.vars: energy = host.vars['energy']
+            disks = host.vars['disks'] if 'disks' in host.vars else None
+            energy = host.vars['energy'] if 'energy' in host.vars else None
             containers = host.vars['containers']
             addedContainers[host.name] = []
 
