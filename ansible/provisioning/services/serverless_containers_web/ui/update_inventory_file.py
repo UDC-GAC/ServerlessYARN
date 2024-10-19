@@ -33,7 +33,9 @@ def add_host(hostname,cpu,mem,disk_info,new_containers):
         cont_name = 'cont' + str(i)
         containers.append(hostname + host_container_separator + cont_name)
 
-    disks = get_disks_dict(disk_info['hdd_disks'],disk_info['hdd_disks_path_list'], disk_info['ssd_disks'], disk_info['ssd_disks_path_list'], disk_info['create_lvm'], disk_info['lvm_path'])
+    disks = {}
+    if disk_info:
+        disks = get_disks_dict(disk_info['hdd_disks'],disk_info['hdd_disks_path_list'], disk_info['ssd_disks'], disk_info['ssd_disks_path_list'], disk_info['create_lvm'], disk_info['lvm_path'])
 
     write_container_list(containers,hostname,cpu,mem,disks)
 
@@ -94,12 +96,15 @@ def remove_container_from_host(container,hostname):
 
             cpu = host.vars['cpu']
             mem = host.vars['mem']
-            disks = host.vars['disks']
+            disks = None
+            if 'disks' in host.vars: disks = host.vars['disks']
+            energy = None
+            if 'energy' in host.vars: energy = host.vars['energy']
             containers = host.vars['containers'] 
 
             if (container in containers): 
                 containers.remove(container)
-                write_container_list(containers,host.name,cpu,mem,disks)
+                write_container_list(containers,host.name,cpu,mem,disks,energy)
                 
             break
 
@@ -119,7 +124,10 @@ def add_containers_to_hosts(new_containers):
             
             cpu = host.vars['cpu']
             mem = host.vars['mem']
-            disks = host.vars['disks']
+            disks = None
+            if 'disks' in host.vars: disks = host.vars['disks']
+            energy = None
+            if 'energy' in host.vars: energy = host.vars['energy']
             containers = host.vars['containers']
             addedContainers[host.name] = []
 
@@ -142,11 +150,11 @@ def add_containers_to_hosts(new_containers):
                 containers.append(full_cont_name)
                 addedContainers[host.name].append(full_cont_name)
 
-            write_container_list(containers,host.name,cpu,mem,disks)
+            write_container_list(containers,host.name,cpu,mem,disks,energy)
 
     return addedContainers
 
-def write_container_list(container_list,host,cpu,mem,disks,energy=None):
+def write_container_list(container_list,host,cpu,mem,disks=None,energy=None):
 
     # format container list
     i = 0
@@ -166,9 +174,6 @@ def write_container_list(container_list,host,cpu,mem,disks,energy=None):
         # read a list of lines into data
         data = file.readlines()
 
-    # format disk dict
-    disks_formatted = "\'{0}\'".format(str(disks).replace(" ", "").replace('\'','"'))
-
     i = 0
 
     # skip to nodes
@@ -181,10 +186,17 @@ def write_container_list(container_list,host,cpu,mem,disks,energy=None):
     while (i < len(data) and host not in data[i]):
         i+=1
 
+    ## Host resources and containers
+    host_info = "{0} cpu={1} mem={2}".format(host, str(cpu), str(mem))
+
     if energy and energy != "None":
-        host_info = "{0} cpu={1} mem={2} energy={3} disks={4} containers={5}\n".format(host, str(cpu), str(mem), str(energy), disks_formatted, containers_formatted)
-    else:
-        host_info = "{0} cpu={1} mem={2} disks={3} containers={4}\n".format(host, str(cpu), str(mem), disks_formatted, containers_formatted)
+        host_info = "{0} energy={1}".format(host_info, str(energy))
+
+    if disks:
+        disks_formatted = "\'{0}\'".format(str(disks).replace(" ", "").replace('\'','"'))
+        host_info = "{0} disks={1}".format(host_info, disks_formatted)
+
+    host_info = "{0} containers={1}\n".format(host_info, containers_formatted)
 
     if (i < len(data)):
         data[i] = host_info

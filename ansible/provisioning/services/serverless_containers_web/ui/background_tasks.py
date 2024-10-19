@@ -8,6 +8,11 @@ from bs4 import BeautifulSoup
 import redis
 import json
 import timeit
+import yaml
+
+config_path = "../../config/config.yml"
+with open(config_path, "r") as config_file:
+    config = yaml.load(config_file, Loader=yaml.FullLoader)
 
 redis_server = redis.StrictRedis()
 redis_prefix = "pending_tasks"
@@ -196,7 +201,7 @@ def add_app_task(full_url, headers, put_field_data, app, app_files):
         if (app_files['install_script'] != ""):
 
             definition_file = "{0}_container.def".format(app.replace(" ", "_"))
-            image_file = "{0}_container.sif".format(app.replace(" ", "_"))
+            image_file = "{0}.sif".format(app.replace(" ", "_"))
             files_dir = app_files['files_dir']
             install_script = app_files['install_script']
 
@@ -314,7 +319,7 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
                     for resource in ['cpu_max', 'cpu_min', 'cpu_boundary', 'mem_max', 'mem_min', 'mem_boundary']:
                         container_info[resource] = container_resources[container_type][resource]
                     # Disks
-                    if container_type != 'rm-nn':
+                    if config['disk_scaling'] and container_type != 'rm-nn':
                         for disk in disk_assignation[host]:
                             if disk_assignation[host][disk]['new_containers'] > 0:
                                 disk_assignation[host][disk]['new_containers'] -= 1
@@ -338,7 +343,7 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
     if app_files['install_script'] and app_files['install_script'] != "":
         template_definition_file="app_container.def"
         definition_file = "{0}_container.def".format(app.replace(" ", "_"))
-        image_file = "{0}_container.sif".format(app.replace(" ", "_"))
+        image_file = "{0}.sif".format(app.replace(" ", "_"))
     elif app_files['app_jar'] and app_files['app_jar'] != "":
         template_definition_file="hadoop_container.def"
         definition_file = "hadoop_container.def"
@@ -581,6 +586,7 @@ def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_
         if "rm-nn" in new_containers[host]:
             rm_host = host
             for container in app_containers:
+                ## TODO: maybe differentiate rm_container using another parameter and not disk in case you dont want disk scaling on hadoop app
                 if container['host'] == rm_host and 'disk' not in container:
                     rm_container = container
                     break

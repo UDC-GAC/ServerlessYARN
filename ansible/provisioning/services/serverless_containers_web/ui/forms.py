@@ -3,6 +3,11 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Submit, Layout, ButtonHolder, Field, Button
 from crispy_forms.bootstrap import FormActions
 from django_json_widget.widgets import JSONEditorWidget
+import yaml
+
+config_path = "../../config/config.yml"
+with open(config_path, "r") as config_file:
+    config = yaml.load(config_file, Loader=yaml.FullLoader)
 
 ### Structures
 class HostResourcesFormSetHelper(FormHelper):
@@ -183,8 +188,8 @@ class AddHostForm(forms.Form):
             required=True
             )
     energy_max = forms.IntegerField(label= "Energy",
-                                 required=False
-                                 )
+            required=False
+            )
     hdd_disks = forms.IntegerField(label= "HDD disks",
             initial = 0,
             required=True
@@ -226,19 +231,21 @@ class AddHostForm(forms.Form):
             Field('structure_type', type="hidden", readonly=True),
             Field('name'),
             Field('cpu_max'),
-            Field('mem_max'),
-            Field('energy_max'),
-            Field('hdd_disks'),
-            Field('hdd_disks_path_list'),
-            Field('ssd_disks'),
-            Field('ssd_disks_path_list'),
-            Field('create_lvm'),
-            Field('lvm_path'),
-            Field('number_of_containers'),
-            FormActions(
-                Submit('save', 'Add host', css_class='caja'),
-            )    
-        )       
+            Field('mem_max')
+        )
+
+        if config['power_budgeting']: self.helper.layout.append(Field('energy_max'))
+        if config['disk_scaling']:
+            self.helper.layout.append(Field('hdd_disks'))
+            self.helper.layout.append(Field('hdd_disks_path_list'))
+            self.helper.layout.append(Field('ssd_disks'))
+            self.helper.layout.append(Field('ssd_disks_path_list'))
+            self.helper.layout.append(Field('create_lvm'))
+            self.helper.layout.append(Field('lvm_path'))
+
+        self.helper.layout.append(Field('number_of_containers'))
+        self.helper.layout.append(FormActions(Submit('save', 'Add host', css_class='caja')))
+
 
 class AddDisksToHostsForm(forms.Form):
     operation = forms.CharField(label= "Operation",
@@ -350,19 +357,23 @@ class AddContainersForm(forms.Form):
             Field('cpu_max'),
             Field('cpu_min'),  
             Field('mem_max'),
-            Field('mem_min'),
-            Field('disk_max'),
-            Field('disk_min'),
-            Field('energy_max'),
-            Field('energy_min'),
-            Field('cpu_boundary'),
-            Field('mem_boundary'),
-            Field('disk_boundary'),
-            Field('energy_boundary'),
-            FormActions(
-                Submit('save', 'Add container', css_class='caja'),
-            )
+            Field('mem_min')
         )
+        if config['disk_scaling']:
+            self.helper.layout.append(Field('disk_max'))
+            self.helper.layout.append(Field('disk_min'))
+        if config['power_budgeting']:
+            self.helper.layout.append(Field('energy_max'))
+            self.helper.layout.append(Field('energy_min'))
+
+        # Boundaries
+        self.helper.layout.append(Field('cpu_boundary'))
+        self.helper.layout.append(Field('mem_boundary'))
+        if config['disk_scaling']: self.helper.layout.append(Field('disk_boundary'))
+        if config['power_budgeting']: self.helper.layout.append(Field('energy_boundary'))
+
+        # Submit button
+        self.helper.layout.append(FormActions(Submit('save', 'Add container', css_class='caja')))
 
 # Not used ATM
 class AddNContainersFormSetHelper(FormHelper):
@@ -475,23 +486,30 @@ class AddAppForm(forms.Form):
             Field('cpu_max'),
             Field('cpu_min'),
             Field('mem_max'),
-            Field('mem_min'),
-            Field('disk_max'),
-            Field('disk_min'),
-            Field('energy_max'),
-            Field('energy_min'),
-            Field('cpu_boundary'),
-            Field('mem_boundary'),
-            Field('disk_boundary'),
-            Field('energy_boundary'),
-            Field('files_dir'),
-            Field('install_script'),
-            Field('start_script'),
-            Field('stop_script'),
-            FormActions(
-                Submit('save', 'Add app', css_class='caja'),
-            )
+            Field('mem_min')
         )
+
+        if config['disk_scaling']:
+            self.helper.layout.append(Field('disk_max'))
+            self.helper.layout.append(Field('disk_min'))
+        if config['power_budgeting']:
+            self.helper.layout.append(Field('energy_max'))
+            self.helper.layout.append(Field('energy_min'))
+
+        # Boundaries
+        self.helper.layout.append(Field('cpu_boundary'))
+        self.helper.layout.append(Field('mem_boundary'))
+        if config['disk_scaling']: self.helper.layout.append(Field('disk_boundary'))
+        if config['power_budgeting']: self.helper.layout.append(Field('energy_boundary'))
+
+        # Other parameters for application
+        self.helper.layout.append(Field('files_dir'))
+        self.helper.layout.append(Field('install_script'))
+        self.helper.layout.append(Field('start_script'))
+        self.helper.layout.append(Field('stop_script'))
+
+        # Submit button
+        self.helper.layout.append(FormActions(Submit('save', 'Add app', css_class='caja')))
 
 class AddHadoopAppForm(AddAppForm):
     app_jar = forms.CharField(label= "App JAR",
@@ -511,24 +529,31 @@ class AddHadoopAppForm(AddAppForm):
             Field('cpu_max'),
             Field('cpu_min'),
             Field('mem_max'),
-            Field('mem_min'),
-            Field('disk_max'),
-            Field('disk_min'),
-            Field('energy_max'),
-            Field('energy_min'),
-            Field('cpu_boundary'),
-            Field('mem_boundary'),
-            Field('disk_boundary'),
-            Field('energy_boundary'),
-            Field('files_dir'),
-            Field('install_script'),
-            Field('start_script'),
-            Field('stop_script'),
-            Field('app_jar'),
-            FormActions(
-                Submit('save', 'Add app', css_class='caja'),
-            )
+            Field('mem_min')
         )
+
+        if config['disk_scaling']:
+            self.helper.layout.append(Field('disk_max'))
+            self.helper.layout.append(Field('disk_min'))
+        if config['power_budgeting']:
+            self.helper.layout.append(Field('energy_max'))
+            self.helper.layout.append(Field('energy_min'))
+
+        # Boundaries
+        self.helper.layout.append(Field('cpu_boundary'))
+        self.helper.layout.append(Field('mem_boundary'))
+        if config['disk_scaling']: self.helper.layout.append(Field('disk_boundary'))
+        if config['power_budgeting']: self.helper.layout.append(Field('energy_boundary'))
+
+        # Other parameters for application
+        self.helper.layout.append(Field('files_dir'))
+        self.helper.layout.append(Field('install_script'))
+        self.helper.layout.append(Field('start_script'))
+        self.helper.layout.append(Field('stop_script'))
+        self.helper.layout.append(Field('app_jar'))
+
+        # Submit button
+        self.helper.layout.append(FormActions(Submit('save', 'Add app', css_class='caja')))
 
 class StartAppForm(forms.Form):
     operation = forms.CharField(label= "Operation",
@@ -559,6 +584,7 @@ class StartAppForm(forms.Form):
                 (2, "Medium"),
                 (3, "Strict"),
                 ),
+            initial=3,
             required=True
             )
     def __init__(self, *args, **kwargs):
