@@ -4,13 +4,17 @@ cpu_max: 200
 cpu_min: 100
 mem_max: 1024
 mem_min: 256
-disk_max: 200
-disk_min: 100
-energy_max: 50
-energy_min: 10
 cpu_boundary: 20
 mem_boundary: 128
+
+## Only used if disk_scaling set to yes
+disk_max: 200
+disk_min: 100
 disk_boundary: 20
+
+## Only used if power_budgeting set to yes
+energy_max: 50
+energy_min: 10
 energy_boundary: 5
 
 ## The indicated files should be in the same directory as this configuration file

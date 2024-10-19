@@ -227,13 +227,13 @@ MemRescaleDown = dict(
         {"and": [
             {">=": [
                 {"var": "events.scale.down"},
-                8]},
+                6]},
             {"<=": [
                 {"var": "events.scale.up"},
                 0]}
         ]}),
     generates="requests",
-    events_to_remove=8,
+    events_to_remove=6,
     action={"requests": ["MemRescaleDown"]},
     rescale_policy="fit_to_usage",
     rescale_type="down",
@@ -318,13 +318,13 @@ DiskRescaleDown = dict(
         {"and": [
             {">=": [
                 {"var": "events.scale.down"},
-                8]},
+                6]},
             {"<=": [
                 {"var": "events.scale.up"},
                 0]}
         ]}),
     generates="requests",
-    events_to_remove=8,
+    events_to_remove=6,
     action={"requests": ["DiskRescaleDown"]},
     rescale_policy="fit_to_usage",
     rescale_type="down",
@@ -426,7 +426,6 @@ if __name__ == "__main__":
         handler.add_rule(EnergyRescaleUp)
 
         {% else %}
-        # TODO: Check if disk_rescaling needs to apply or to not apply specific rules and manage here ( elif disk_rescaling ...)
         # CPU
         handler.add_rule(cpu_exceeded_upper)
         handler.add_rule(cpu_dropped_lower)
@@ -442,9 +441,11 @@ if __name__ == "__main__":
         handler.add_rule(MemRescaleDown)
 
         # Disk
+        {% if disk_scaling %}
         handler.add_rule(disk_exceeded_upper)
         handler.add_rule(disk_dropped_lower)
         handler.add_rule(DiskRescaleUp)
         handler.add_rule(DiskRescaleDown)
+        {% endif %}
 
         {% endif %}

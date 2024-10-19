@@ -23,7 +23,10 @@ if __name__ == "__main__":
     if (len(sys.argv) > 4):
         new_host = sys.argv[1]
         host_resources = json.loads(sys.argv[2].replace('\'', '"'))
-        disks = json.loads(sys.argv[3].replace('\'', '"'))
+        if sys.argv[3] != "None":
+            disks = json.loads(sys.argv[3].replace('\'', '"'))
+        else:
+            disks = None
         with open(sys.argv[4], "r") as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -52,20 +55,21 @@ if __name__ == "__main__":
 
         create_lvm = config['create_lvm']
 
-        put_field_data['resources']["disks"] = []
-        for disk in disks:
-            if not create_lvm or "lvm" in disk:
-                new_disk = {}
-                new_disk['name'] = disk
-                new_disk['path'] = disks[disk]['path']
-                new_disk['max']  = disks[disk]['bw']
-                new_disk['free'] = disks[disk]['bw']
-                new_disk['load'] = 0
-                if   "ssd" in disk: new_disk['type'] = "SSD"
-                elif "hdd" in disk: new_disk['type'] = "HDD"
-                elif "lvm" in disk: new_disk['type'] = "LVM"
-                else: raise Exception("Disk {0} has an invalid type".format(disk))
-                put_field_data['resources']["disks"].append(new_disk)
+        if disks:
+            put_field_data['resources']["disks"] = []
+            for disk in disks:
+                if not create_lvm or "lvm" in disk:
+                    new_disk = {}
+                    new_disk['name'] = disk
+                    new_disk['path'] = disks[disk]['path']
+                    new_disk['max']  = disks[disk]['bw']
+                    new_disk['free'] = disks[disk]['bw']
+                    new_disk['load'] = 0
+                    if   "ssd" in disk: new_disk['type'] = "SSD"
+                    elif "hdd" in disk: new_disk['type'] = "HDD"
+                    elif "lvm" in disk: new_disk['type'] = "LVM"
+                    else: raise Exception("Disk {0} has an invalid type".format(disk))
+                    put_field_data['resources']["disks"].append(new_disk)
 
         r = session.put(full_url, data=json.dumps(put_field_data), headers=headers)
 

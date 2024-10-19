@@ -22,14 +22,13 @@ if __name__ == "__main__":
 
     for app_config_file in apps_to_load:
 
+        # Open app configuration file
         app_config_file_path = "{0}/../{1}".format(scriptDir, app_config_file)
-        app_dir = os.path.split(app_config_file_path)[0]
-        #rel_app_config_dir = os.path.relpath(app_config_dir, "{0}/../apps".format(scriptDir))
-        #print(app_dir)
-        #print(os.path.split(app_dir)[0])
-
         with open(app_config_file_path, "r") as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
+
+        app_dir = os.path.relpath(os.path.split(app_config_file_path)[0], "{0}/../apps".format(scriptDir))
+        #app_dir = os.path.split(app_config_file_path)[0]
 
         app_config = {}
         app_config["app"] = {}
@@ -61,6 +60,10 @@ if __name__ == "__main__":
         app_config["app"]["resources"] = {}
         app_config["limits"]["resources"] = {}
         for resource in resources:
+
+            if resource == "disk" and not general_config['disk_scaling']: continue
+            if resource == "energy" and not general_config['power_budgeting']: continue
+
             ## Max and min resources
             app_config["app"]["resources"][resource] = {}
             app_config["app"]["resources"][resource]['guard'] = False

@@ -52,9 +52,6 @@
       when: "virtual_mode and container_engine == 'apptainer'"
       tags: install_apptainer
 
-    - import_tasks: tasks/install/lvm_setup.yml
-      when: "create_lvm"
-
     - import_tasks: tasks/install/serverless_containers_setup.yml
     - import_tasks: tasks/install/metrics_feeder_setup.yml # can be removed if an LXC container image is created
       when: "container_engine == 'lxc'"
@@ -65,8 +62,13 @@
     - import_tasks: tasks/install/network_setup.yml
       when: "container_engine == 'apptainer'"
 
-    - import_tasks: tasks/install/measure_disks_bandwidth.yml
-      tags: extend_lv, add_disks
+    - block:
+      - import_tasks: tasks/install/lvm_setup.yml
+        when: create_lvm
+      - import_tasks: tasks/install/measure_disks_bandwidth.yml
+        when: disk_scaling
+        tags: extend_lv, add_disks
+      when: disk_capabilities
 
     - import_tasks: tasks/install/hwpc-sensor_setup.yml
       when: "container_engine == 'apptainer' and power_budgeting"
