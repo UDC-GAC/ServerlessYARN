@@ -58,10 +58,8 @@ Vagrant.configure("2") do |config|
 		node.vm.hostname = "host#{i}"
 		node.vm.provision "shell", path: "provision/nodes.sh"
 
-		if CGROUPS_VERSION == "v2" then
-			node.vm.provision "shell", path: "provision/cgroupsv2.sh"
-			node.vm.provision :reload
-		end
+		node.vm.provision "shell", path: "provision/cgroups_setup.sh", args: CGROUPS_VERSION
+		node.vm.provision :reload
 
 		number_to_ip = [server_ip_to_number + 1 + i].pack('N').unpack('CCCC').join('.')
 		node.vm.network :private_network, ip: number_to_ip
