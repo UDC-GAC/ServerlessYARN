@@ -15,7 +15,14 @@
     state: directory
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
 
+- name: Check containers status
+  shell: "{{ singularity_command_alias }} instance list -j"
+  register: apptainer_list_output
+  args:
+    executable: /bin/bash
+
 - name: Clean and create SmartWatts output directory
+  when: "'smartwatts' not in apptainer_list_output.stdout"
   file:
     state: "{{ item }}"
     path: "{{ smartwatts_path }}/output"
