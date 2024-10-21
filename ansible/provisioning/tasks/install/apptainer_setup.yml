@@ -90,3 +90,10 @@
     name: "{{ username_on_the_host.stdout }}"
     groups: "{{ singularity_cgroups_group }}"
     append: true
+
+# Directory .apptainer is created the first time an apptainer command is executed
+- name: Create .apptainer directory with non-root permissions
+  become: no
+  shell: "{{ singularity_command_alias }} instance list -j"
+  args:
+    executable: /bin/bash

@@ -1,18 +1,19 @@
-- name: Check containers status
-  become: no
-  shell: "{{ singularity_command_alias }} instance list -j"
-  register: apptainer_list_output
-  args:
-    executable: /bin/bash
-
 - name: Create directories for CouchDB container
   block:
+    - name: Check containers status
+      shell: "{{ singularity_command_alias }} instance list -j"
+      register: apptainer_list_output
+      args:
+        executable: /bin/bash
+
     - name: get the username running the deploy
+      when: "'couchdb_cont' not in apptainer_list_output.stdout"
       become: no
       local_action: command whoami
       register: username_on_the_host
 
     - name: Clean and create data directory for CouchDB container
+      when: "'couchdb_cont' not in apptainer_list_output.stdout"
       file:
         state: "{{ item }}"
         path: "{{ couchdb_path }}/data"
@@ -22,6 +23,7 @@
         - directory
 
     - name: Clean and create log directory for CouchDB container
+      when: "'couchdb_cont' not in apptainer_list_output.stdout"
       file:
         state: "{{ item }}"
         path: "{{ couchdb_path }}/log"
@@ -30,7 +32,7 @@
         - absent
         - directory
 
-  when: "not virtual_mode and 'couchdb_cont' not in apptainer_list_output.stdout"
+  when: "not virtual_mode"
 
 - name: Install CouchDB on host
   block:
