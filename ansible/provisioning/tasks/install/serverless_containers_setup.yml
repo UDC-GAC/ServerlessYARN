@@ -49,6 +49,33 @@
     requirements: "{{ serverless_containers_path }}/requirements.txt"
     executable: pip3
 
+- name: Check if OpenSSL is installed
+  command: which openssl
+  register: openssl_check
+  ignore_errors: yes
+
+- name: Fail if OpenSSL is not installed
+  fail:
+    msg: "OpenSSL is not installed, please install it (preferably OpenSSL 1.1.1 or higher)"
+  when: openssl_check.rc != 0
+
+- name: Get OpenSSL version
+  command: openssl version
+  register: openssl_version
+  when: openssl_check.rc == 0
+
+- name: Extract OpenSSL version number
+  set_fact:
+    openssl_version_number: "{{ openssl_version.stdout.split(' ')[1] }}"
+  when: openssl_check.rc == 0
+
+# urllib3 v2.0 only supports OpenSSL 1.1.1+
+- name: Downgrade urllib3 to avoid incompatibilities with SSL version
+  pip:
+    name: urllib3==1.26.0
+    executable: pip3
+  when: openssl_check.rc == 0 and openssl_version_number is version('1.1.1', '<')
+
 - name: Copy service aliases and port configuration to ServerlessContainers dir
   template:
     src: templates/sc_config/services_config.yml
