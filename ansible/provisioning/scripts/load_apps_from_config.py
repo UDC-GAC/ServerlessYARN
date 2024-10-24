@@ -8,6 +8,9 @@ import json
 from bs4 import BeautifulSoup
 import subprocess
 
+MANDATORY_APP_KEYS = ["name"]
+OPTIONAL_APP_KEYS = ["files_dir", "install_script", "start_script", "stop_script", "app_jar"]
+
 if __name__ == "__main__":
 
     scriptDir = os.path.realpath(os.path.dirname(__file__))
@@ -36,25 +39,19 @@ if __name__ == "__main__":
         app_config["app"]["guard"] = False
         app_config["app"]["subtype"] = "application"
 
-        ## Basic properties
-        for key in ["name"]:
+        ## Mandatory keys (name)
+        for key in MANDATORY_APP_KEYS:
             if key in config:
                 app_config["app"][key] = config[key]
             else:
-                if key in []: # Not mandatory parameters
-                    app_config["app"][key] = ""
-                else:
-                    raise Exception("Missing mandatory parameter {0}".format(key))
+                raise Exception("Missing mandatory parameter {0}".format(key))
 
-        ## Files
-        for key in ["files_dir", "install_script", "start_script", "stop_script", "app_jar"]:
+        ## Optional keys (files)
+        for key in OPTIONAL_APP_KEYS:
             if key in config:
                 app_config["app"][key] = "{0}/{1}".format(app_dir, config[key])
             else:
-                if key in ["install_script", "app_jar"]: # Not mandatory parameters
-                    app_config["app"][key] = ""
-                else:
-                    raise Exception("Missing mandatory parameter {0}".format(key))
+                app_config["app"][key] = ""
 
         ## Resources
         app_config["app"]["resources"] = {}
@@ -106,6 +103,8 @@ if __name__ == "__main__":
 
             if app_config["app"]['install_script'] != "":
 
+                # TODO: Adapt to new app management, it is pending to know which parameters are needed
+                # Only app_name is used right now but we could use install_script and files_dir too
                 app_name = app_config['app']['name']
                 #definition_file = "{0}_container.def".format(app_config['app']['name'].replace(" ", "_"))
                 definition_file = "hadoop_app.def" if app_config['app']['name'] == "hadoop_app" else "generic_app.def"
