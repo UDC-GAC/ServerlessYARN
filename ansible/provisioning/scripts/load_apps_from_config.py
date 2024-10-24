@@ -10,6 +10,8 @@ import subprocess
 
 APPS_DIR = "apps"
 APP_CONFIG_FILENAME = "app_config.yml"
+MANDATORY_APP_KEYS = ["name"]
+OPTIONAL_APP_KEYS = ["files_dir", "install_script", "start_script", "stop_script", "app_jar"]
 
 if __name__ == "__main__":
 
@@ -41,26 +43,21 @@ if __name__ == "__main__":
         app_config["app"]["guard"] = False
         app_config["app"]["subtype"] = "application"
 
-        # ## Basic properties
-        # for key in ["name"]:
+        ## Name is now checked later to loop and create several apps with the same config
+        # ## Mandatory keys (name) 
+        # for key in MANDATORY_APP_KEYS:
         #     if key in config:
         #         app_config["app"][key] = config[key]
         #     else:
-        #         if key in []: # Not mandatory parameters
-        #             app_config["app"][key] = ""
-        #         else:
-        #             raise Exception("Missing mandatory parameter {0}".format(key))
+        #         raise Exception("Missing mandatory parameter {0}".format(key))
 
-        ## Files
-        for key in ["files_dir", "install_script", "start_script", "stop_script", "app_jar"]:
+        ## Optional keys (files)
+        for key in OPTIONAL_APP_KEYS:
             if key in config:
                 app_config["app"][key] = "{0}/{1}".format(app_dir, config[key])
                 #app_config["app"][key] = "{0}".format(config[key])
             else:
-                if key in ["install_script", "app_jar"]: # Not mandatory parameters
-                    app_config["app"][key] = ""
-                else:
-                    raise Exception("Missing mandatory parameter {0}".format(key))
+                app_config["app"][key] = ""
 
         ## Resources
         app_config["app"]["resources"] = {}
