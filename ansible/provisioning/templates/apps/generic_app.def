@@ -1,0 +1,8 @@
+Bootstrap: localimage
+From: apps/base/{{ app_base_image_file }}
+
+%files
+    apps/{{ app_dir }} /opt/{{ app_dir }}
+
+%post
+    bash /opt/{{ app_dir }}/{{ install_script }}

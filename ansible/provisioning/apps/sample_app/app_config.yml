@@ -1,5 +1,7 @@
+## Name or list of names in case you want to create several apps with the same configuration
+names: sample_app
+
 ## Resource configuration to load into State Database
-name: sample_app
 cpu_max: 200
 cpu_min: 100
 mem_max: 1024

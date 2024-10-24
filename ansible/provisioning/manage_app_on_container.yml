@@ -170,6 +170,13 @@
         with_items:
         - "{{ containers_info }}"
 
+      - name: Create app directory on server for ssh public key
+        delegate_to: localhost
+        run_once: yes
+        file:
+          path: "{{ installation_path }}/apps/{{ app_name }}/"
+          state: directory
+
       - name: Fetch RM/NN container ssh public key
         when: rm_host == inventory_hostname
         synchronize:
@@ -240,32 +247,32 @@
         register: userid_on_the_host
 
       - name: Copy app files already on container if there was an installation
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c 'cp -pr /opt/{{ app_name }}/* {{ bind_dir_on_container }} && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/*'"
         when: "install_script != ''"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c 'cp -pr /opt/{{ app_dir }}/* {{ bind_dir_on_container }} && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/*'"
         args:
           executable: /bin/bash
 
-      - name: Check if app files directory is already there
-        when: "files_dir != ''"
-        stat:
-          path: "{{ container_bind_dir }}/{{ files_dir | basename }}"
-          get_checksum: false
-          get_mime: false
-          get_attributes: false
-        register: stat_output
-        tags: stop_app
+      # - name: Check if app files directory is already there
+      #   when: "files_dir != ''"
+      #   stat:
+      #     path: "{{ container_bind_dir }}/{{ files_dir | basename }}"
+      #     get_checksum: false
+      #     get_mime: false
+      #     get_attributes: false
+      #   register: stat_output
+      #   tags: stop_app
 
       - name: Create app files directory
-        when: "files_dir != '' and not stat_output.stat.exists"
+        when: "files_dir != ''"
         file:
           path: "{{ container_bind_dir }}/{{ files_dir | basename }}"
           state: directory
         tags: stop_app
 
       - name: Copy app files
-        when: "files_dir != '' and not stat_output.stat.exists"
+        when: "files_dir != ''"
         synchronize:
-          src: "apps/{{ files_dir }}/"
+          src: "apps/{{ app_dir }}/{{ files_dir }}/"
           dest: "{{ container_bind_dir }}/{{ files_dir | basename }}/"
           recursive: true
           perms: true
@@ -273,13 +280,13 @@
 
       - name: Copy app start script
         template:
-          src: "apps/{{ start_script }}"
+          src: "apps/{{ app_dir }}/{{ start_script }}"
           dest: "{{ container_bind_dir }}/"
           mode: preserve
 
       - name: Copy app stop script
         template:
-          src: "apps/{{ stop_script }}"
+          src: "apps/{{ app_dir }}/{{ stop_script }}"
           dest: "{{ container_bind_dir }}/"
           mode: preserve
         tags: stop_app
@@ -287,7 +294,7 @@
       - name: Copy app jar
         when: "app_jar != ''"
         copy:
-          src: "apps/{{ app_jar }}"
+          src: "apps/{{ app_dir }}/{{ app_jar }}"
           dest: "{{ container_bind_dir }}/"
 
       - name: Execute start script on container

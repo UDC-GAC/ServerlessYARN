@@ -4,10 +4,56 @@ from crispy_forms.layout import Submit, Layout, ButtonHolder, Field, Button
 from crispy_forms.bootstrap import FormActions
 from django_json_widget.widgets import JSONEditorWidget
 import yaml
+from copy import deepcopy
 
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file:
     config = yaml.load(config_file, Loader=yaml.FullLoader)
+
+DEFAULT_BOUNDARY_PERCENTAGE = 0.05
+
+DEFAULT_COMMON_FIELDS = {
+        ## Basic fields
+        'operation': forms.CharField(label= "Operation", required=True),
+        'structure_type': forms.CharField(label= "Structure type", required=True),
+        'name': forms.CharField(label="Name", required=True),
+
+        ## Resource limits
+        'cpu_max': forms.IntegerField(label="CPU Max", required=True, min_value=1),
+        'cpu_min': forms.IntegerField(label="CPU Min", required=True, min_value=1),
+        'mem_max': forms.IntegerField(label="Mem Max", required=True, min_value=1),
+        'mem_min': forms.IntegerField(label="Mem Min", required=True, min_value=1),
+        'disk_max': forms.IntegerField(label="Disk I/O Bandwidth Max", required=True, min_value=1),
+        'disk_min': forms.IntegerField(label="Disk I/O Bandwidth Min", required=True, min_value=1),
+        'energy_max': forms.IntegerField(label="Energy Max", required=False, min_value=1),
+        'energy_min': forms.IntegerField(label="Energy Min", required=False, min_value=1),
+        ## Resource boundaries
+        'cpu_boundary': forms.IntegerField(label="CPU boundary ({0}% of CPU Min if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE*100), required=False, min_value=1),
+        'mem_boundary': forms.IntegerField(label="Mem boundary ({0}% of Mem Min if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE*100), required=False, min_value=1),
+        'disk_boundary': forms.IntegerField(label="Disk boundary ({0}% of Disk Min if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE*100), required=False, min_value=1),
+        'energy_boundary': forms.IntegerField(label="Energy boundary ({0}% of Energy Min if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE*100), required=False, min_value=1),
+
+        ## Application files
+        'add_files_dir': forms.BooleanField(label="Add additional files directory?", required=False),
+        'files_dir': forms.CharField(label="Files directory ('files_dir' if unset)", required=False),
+        'add_install': forms.BooleanField(label="Add install script?", required=False),
+        'install_script': forms.CharField(label="Install script ('install.sh' if unset)", required=False),
+        'start_script': forms.CharField(label="Start script ('start.sh' if unset)", required=False),
+        'stop_script': forms.CharField(label="Stop script ('stop.sh' if unset)", required=False),
+
+        ## Services
+        'debug': forms.ChoiceField(label="Debug",
+                choices = (
+                        ("True", "True"),
+                        ("False", "False"),
+                ),
+                required=True
+        ),
+        'polling_frequency': forms.IntegerField(label="Polling Frequency (seconds)", required=True, min_value=1),
+        'window_delay': forms.IntegerField(label="Window Delay (seconds)", required=True, min_value=1),
+        'window_timelapse': forms.IntegerField(label="Window Timelapse (seconds)", required=True, min_value=1),
+
+}
 
 ### Structures
 class HostResourcesFormSetHelper(FormHelper):
@@ -28,15 +74,13 @@ class HostResourcesFormSetHelper(FormHelper):
             )
         )
         self.render_required_fields = True
-        
+
 class HostResourcesForm(forms.Form):
-    operation = forms.CharField(label= "Operation",
-            initial="resources",
-            required=True
-            )
-    name = forms.CharField(label="Name",
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "resources"
+    name = common_fields['name']
+
     structure_type = forms.ChoiceField(label="Type",
             choices = (
                 ("application", "Application"),
@@ -75,13 +119,11 @@ class StructureResourcesFormSetHelper(FormHelper):
         self.render_required_fields = True
 
 class StructureResourcesForm(forms.Form):
-    operation = forms.CharField(label= "Operation",
-            initial="resources",
-            required=True
-            )
-    name = forms.CharField(label="Name",
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "resources"
+    name = common_fields['name']
+
     resource = forms.CharField(label="Resource",
             required=True
             )
@@ -93,6 +135,7 @@ class StructureResourcesForm(forms.Form):
                 ),
             required=True
             )
+
     guard = forms.ChoiceField(label="Guard",
             choices = (
                 ("True", "True"),
@@ -108,24 +151,28 @@ class StructureResourcesForm(forms.Form):
             )
 
 class LimitsForm(forms.Form):
-    name = forms.CharField(label="Name",
-            required=True
-            ) 
-    cpu_boundary = forms.IntegerField(label="CPU Boundary (CPU shares)",
-            required=True
-            )
-    mem_boundary = forms.IntegerField(label="Memory Boundary (MB)",
-            required=True
-            )
-    disk_boundary = forms.IntegerField(label="Disk Boundary (MB/s)",
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    name = common_fields['name']
+
+    cpu_boundary = common_fields['cpu_boundary']
+    cpu_boundary.label = "CPU Boundary (CPU shares)"
+    cpu_boundary.required = True
+
+    mem_boundary = common_fields['mem_boundary']
+    mem_boundary.label = "Memory Boundary (MB)"
+    mem_boundary.required = True
+
+    disk_boundary = common_fields['disk_boundary']
+    disk_boundary.label = "Disk Boundary (MB/s)"
+    disk_boundary.required = True
+
+    energy_boundary = common_fields['energy_boundary']
+    energy_boundary.label = "Energy Boundary (Watts)"
+    energy_boundary.required = True
+
     net_boundary = forms.IntegerField(label="Network Boundary (MB/s)",
             required=True
-            )
-    energy_boundary = forms.IntegerField(label="Energy Boundary (Watts)",
-            required=True
-            )
+    )
 
     def __init__(self, *args, **kwargs):
         super(LimitsForm, self).__init__(*args, **kwargs)
@@ -146,10 +193,10 @@ class LimitsForm(forms.Form):
         )
 
 class RemoveStructureForm(forms.Form):
-    operation = forms.CharField(label= "Operation",
-            initial="remove",
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "remove"
+
     structures_removed = forms.MultipleChoiceField(label="Structures Removed",
             choices = (),
             widget=forms.CheckboxSelectMultiple,
@@ -170,26 +217,20 @@ class RemoveStructureForm(forms.Form):
         )
 
 class AddHostForm(forms.Form):
-    operation = forms.CharField(label= "Operation",
-            initial="add",
-            required=True
-            )
-    structure_type = forms.CharField(label= "Structure type",
-            initial="host",
-            required=True
-            )
-    name = forms.CharField(label= "Name",
-            required=True
-            )
-    cpu_max = forms.IntegerField(label= "CPU cores",
-            required=True
-            )
-    mem_max = forms.IntegerField(label= "Memory",
-            required=True
-            )
-    energy_max = forms.IntegerField(label= "Energy",
-            required=False
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "add"
+    structure_type = common_fields['structure_type']
+    structure_type.initial = "host"
+    name = common_fields['name']
+
+    cpu_max = common_fields['cpu_max']
+    cpu_max.label = "CPU cores"
+    mem_max = common_fields['mem_max']
+    mem_max.label = "Memory"
+    energy_max = common_fields['energy_max']
+    energy_max.label = "Energy"
+
     hdd_disks = forms.IntegerField(label= "HDD disks",
             initial = 0,
             required=True
@@ -248,14 +289,12 @@ class AddHostForm(forms.Form):
 
 
 class AddDisksToHostsForm(forms.Form):
-    operation = forms.CharField(label= "Operation",
-            initial="add",
-            required=True
-            )
-    structure_type = forms.CharField(label= "Structure type",
-            initial="disks_to_hosts",
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "add"
+    structure_type = common_fields['structure_type']
+    structure_type.initial = "disks_to_hosts"
+
     host_list = forms.MultipleChoiceField(label="Host where to add disks",
             choices = (),
             widget=forms.CheckboxSelectMultiple,
@@ -295,54 +334,32 @@ class AddDisksToHostsForm(forms.Form):
         )
 
 class AddContainersForm(forms.Form):
-    operation = forms.CharField(label= "Operation",
-            initial="add",
-            required=True
-            )
-    structure_type = forms.CharField(label= "Structure type",
-            initial="container",
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "add"
+    structure_type = common_fields['structure_type']
+    structure_type.initial = "container"
+    name = common_fields['name']
+
+    cpu_max = common_fields['cpu_max']
+    cpu_min = common_fields['cpu_min']
+    mem_max = common_fields['mem_max']
+    mem_min = common_fields['mem_min']
+    disk_max = common_fields['disk_max']
+    disk_min = common_fields['disk_min']
+    energy_max = common_fields['energy_max']
+    energy_min = common_fields['energy_min']
+
+    cpu_boundary = common_fields['cpu_boundary']
+    mem_boundary = common_fields['mem_boundary']
+    disk_boundary = common_fields['disk_boundary']
+    energy_boundary = common_fields['energy_boundary']
+
     host_list = forms.CharField(label= "Hosts",
             required=True,
             widget=JSONEditorWidget(width="50%", height="50%", options={'mode':'form', 'name': 'hosts', 'maxVisibleChilds': 10, 'modes': []})
             )
-    cpu_max = forms.IntegerField(label= "CPU Max",
-            required=True
-            )
-    cpu_min = forms.IntegerField(label= "CPU Min",
-            required=True
-            )
-    mem_max = forms.IntegerField(label= "Mem Max",
-            required=True
-            )
-    mem_min = forms.IntegerField(label= "Mem Min",
-            required=True
-            )
-    disk_max = forms.IntegerField(label= "Disk I/O Bandwidth Max",
-            required=False
-            )
-    disk_min = forms.IntegerField(label= "Disk I/O Bandwidth Min",
-            required=False
-            )
-    energy_max = forms.IntegerField(label= "Energy Max",
-            required=False
-            )
-    energy_min = forms.IntegerField(label= "Energy Min",
-            required=False
-            )
-    cpu_boundary = forms.IntegerField(label= "CPU boundary",
-            required=False
-            )
-    mem_boundary = forms.IntegerField(label= "Mem boundary",
-            required=False
-            )
-    disk_boundary = forms.IntegerField(label= "Disk boundary",
-            required=False
-            )
-    energy_boundary = forms.IntegerField(label= "Energy boundary",
-            required=False
-            )
+
     def __init__(self, *args, **kwargs):
         super(AddContainersForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()            
@@ -396,14 +413,12 @@ class AddNContainersFormSetHelper(FormHelper):
 
 # Not used ATM
 class AddNContainersForm(forms.Form):
-    operation = forms.CharField(label= "Operation",
-            initial="add",
-            required=True
-            )
-    structure_type = forms.CharField(label= "Structure type",
-            initial="Ncontainers",
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "add"
+    structure_type = common_fields['structure_type']
+    structure_type.initial = "Ncontainers"
+
     host = forms.CharField(label="Host",
             required=True
             )
@@ -413,68 +428,38 @@ class AddNContainersForm(forms.Form):
             )
 
 class AddAppForm(forms.Form):
-    operation = forms.CharField(label= "Operation",
-            initial="add",
-            required=True
-            )
-    structure_type = forms.CharField(label= "Structure type",
-            initial="apps",
-            required=True
-            )
-    name = forms.CharField(label= "Name",
-            required=True
-            )
-    app_name = forms.CharField(label= "App Name (name of the dir containing app files)",
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "add"
+    structure_type = common_fields['structure_type']
+    structure_type.initial = "apps"
+    name = common_fields['name']
+
+    cpu_max = common_fields['cpu_max']
+    cpu_min = common_fields['cpu_min']
+    mem_max = common_fields['mem_max']
+    mem_min = common_fields['mem_min']
+    disk_max = common_fields['disk_max']
+    disk_min = common_fields['disk_min']
+    energy_max = common_fields['energy_max']
+    energy_min = common_fields['energy_min']
+
+    cpu_boundary = common_fields['cpu_boundary']
+    mem_boundary = common_fields['mem_boundary']
+    disk_boundary = common_fields['disk_boundary']
+    energy_boundary = common_fields['energy_boundary']
+
+    add_files_dir = common_fields['add_files_dir']
+    files_dir = common_fields['files_dir']
+    add_install = common_fields['add_install']
+    install_script = common_fields['install_script']
+    start_script = common_fields['start_script']
+    stop_script = common_fields['stop_script']
+
+    app_dir = forms.CharField(label= "App Directory (name of the directory containing app files)",
                            required=True
                            )
-    cpu_max = forms.IntegerField(label= "CPU Max",
-            required=True
-            )
-    cpu_min = forms.IntegerField(label= "CPU Min",
-            required=True
-            )
-    mem_max = forms.IntegerField(label= "Mem Max",
-            required=True
-            )
-    mem_min = forms.IntegerField(label= "Mem Min",
-            required=True
-            )
-    disk_max = forms.IntegerField(label= "Disk I/O Bandwidth Max",
-            required=True
-            )
-    disk_min = forms.IntegerField(label= "Disk I/O Bandwidth Min",
-            required=True
-            )
-    energy_max = forms.IntegerField(label= "Energy Max",
-                                  required=False
-                                  )
-    energy_min = forms.IntegerField(label= "Energy Min",
-                                  required=False
-                                  )
-    cpu_boundary = forms.IntegerField(label= "CPU boundary",
-            required=True
-            )
-    mem_boundary = forms.IntegerField(label= "Mem boundary",
-            required=True
-            )
-    disk_boundary = forms.IntegerField(label= "Disk boundary",
-            required=True
-            )
-    energy_boundary = forms.IntegerField(label= "Energy boundary",
-                                       required=False
-                                       )
-    files_dir = forms.CharField(label= "Files directory",
-            required=False
-            )
-    install_script = forms.CharField(label= "Install script",
-            required=False
-            )
-    start_script = forms.CharField(label= "Start script",
-            required=False
-            )
-    stop_script = forms.CharField(label= "Stop script",
-            required=False
-            )
+
     def __init__(self, *args, **kwargs):
         super(AddAppForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -486,7 +471,6 @@ class AddAppForm(forms.Form):
             Field('operation', type="hidden", readonly=True),
             Field('structure_type', type="hidden", readonly=True),
             Field('name'),
-            Field('app_name'),
             Field('cpu_max'),
             Field('cpu_min'),
             Field('mem_max'),
@@ -506,11 +490,14 @@ class AddAppForm(forms.Form):
         if config['disk_scaling']: self.helper.layout.append(Field('disk_boundary'))
         if config['power_budgeting']: self.helper.layout.append(Field('energy_boundary'))
 
-        # Other parameters for application
-        self.helper.layout.append(Field('files_dir'))
-        self.helper.layout.append(Field('install_script'))
+        # Files for application
+        self.helper.layout.append(Field('app_dir'))
         self.helper.layout.append(Field('start_script'))
         self.helper.layout.append(Field('stop_script'))
+        self.helper.layout.append(Field('add_files_dir', id='add_files_dir'))
+        self.helper.layout.append(Field('files_dir', id='files_dir'))
+        self.helper.layout.append(Field('add_install', id='add_install'))
+        self.helper.layout.append(Field('install_script', id='install_script'))
 
         # Submit button
         self.helper.layout.append(FormActions(Submit('save', 'Add app', css_class='caja')))
@@ -550,27 +537,27 @@ class AddHadoopAppForm(AddAppForm):
         if config['power_budgeting']: self.helper.layout.append(Field('energy_boundary'))
 
         # Other parameters for application
-        self.helper.layout.append(Field('files_dir'))
-        self.helper.layout.append(Field('install_script'))
+        self.helper.layout.append(Field('app_dir'))
         self.helper.layout.append(Field('start_script'))
         self.helper.layout.append(Field('stop_script'))
+        self.helper.layout.append(Field('add_files_dir', id='add_files_dir'))
+        self.helper.layout.append(Field('files_dir', id='files_dir'))
+        self.helper.layout.append(Field('add_install', id='add_install'))
+        self.helper.layout.append(Field('install_script', id='install_script'))
         self.helper.layout.append(Field('app_jar'))
 
         # Submit button
         self.helper.layout.append(FormActions(Submit('save', 'Add app', css_class='caja')))
 
 class StartAppForm(forms.Form):
-    operation = forms.CharField(label= "Operation",
-            initial="add",
-            required=True
-            )
-    structure_type = forms.CharField(label= "Structure type",
-            initial="containers_to_app",
-            required=True
-            )
-    name = forms.CharField(label= "App",
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "add"
+    structure_type = common_fields['structure_type']
+    structure_type.initial = "containers_to_app"
+    name = common_fields['name']
+    name.label = "App"
+
     number_of_containers = forms.IntegerField(label= "Number of instances",
             required=True
             )
@@ -611,17 +598,14 @@ class StartAppForm(forms.Form):
 
 # Not used ATM
 class AddContainersToAppForm(forms.Form):
-    operation = forms.CharField(label= "Operation",
-            initial="add",
-            required=True
-            )
-    structure_type = forms.CharField(label= "Structure type",
-            initial="containers_to_app",
-            required=True
-            )
-    name = forms.CharField(label= "App",
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "add"
+    structure_type = common_fields['structure_type']
+    structure_type.initial = "containers_to_app"
+    name = common_fields['name']
+    name.label = "App"
+
     containers_to_add = forms.MultipleChoiceField(label="Containers to Add",
             choices = (),
             widget=forms.CheckboxSelectMultiple,
@@ -630,18 +614,11 @@ class AddContainersToAppForm(forms.Form):
     fill_with_new_containers = forms.BooleanField(label= "Fill with new containers",
             required=False
             )
-    files_dir = forms.CharField(label= "Files directory",
-            required=False
-            )
-    install_script = forms.CharField(label= "Install script",
-            required=True
-            )
-    start_script = forms.CharField(label= "Start script",
-            required=True
-            )
-    stop_script = forms.CharField(label= "Stop script",
-            required=True
-            )
+    files_dir = common_fields['files_dir']
+    install_script = common_fields['install_script']
+    start_script = common_fields['start_script']
+    stop_script = common_fields['stop_script']
+
     def __init__(self, *args, **kwargs):
         super(AddContainersToAppForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -664,10 +641,10 @@ class AddContainersToAppForm(forms.Form):
         )
 
 class RemoveContainersFromAppForm(forms.Form):
-    operation = forms.CharField(label= "Operation",
-            initial="remove",
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "remove"
+
     app = forms.CharField(label= "App",
             required=True
             )
@@ -676,18 +653,12 @@ class RemoveContainersFromAppForm(forms.Form):
             widget=forms.CheckboxSelectMultiple,
             required=False
             )
-    files_dir = forms.CharField(label= "Files directory",
-            required=False
-            )
-    install_script = forms.CharField(label= "Install script",
-            required=True
-            )
-    start_script = forms.CharField(label= "Start script",
-            required=True
-            )
-    stop_script = forms.CharField(label= "Stop script",
-            required=True
-            )
+
+    files_dir = common_fields['files_dir']
+    install_script = common_fields['install_script']
+    start_script = common_fields['start_script']
+    stop_script = common_fields['stop_script']
+
     def __init__(self, *args, **kwargs):
         super(RemoveContainersFromAppForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -710,16 +681,11 @@ class RemoveContainersFromAppForm(forms.Form):
 ### Services
 # CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 5, "DEBUG": True, "DOCUMENTS_PERSISTED": ["limits", "structures", "users", "configs"] ,"ACTIVE": True}
 class DBSnapshoterForm(forms.Form):
-    name = forms.CharField(label="Name",
-            required=True
-            ) 
-    debug = forms.ChoiceField(label="Debug",
-            choices = (
-                ("True", "True"),
-                ("False", "False"),
-                ),
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    name = common_fields['name']
+    debug = common_fields['debug']
+    polling_frequency = common_fields['polling_frequency']
+
     documents_persisted = forms.MultipleChoiceField(label="Documents Persisted",
             choices = (
                 ("structures", "Structures"),
@@ -734,9 +700,6 @@ class DBSnapshoterForm(forms.Form):
             widget=forms.CheckboxSelectMultiple,
             required=False
             )
-    polling_frequency = forms.IntegerField(label="Polling Frequency (seconds)",
-            required=True
-            )           
 
     def __init__(self, *args, **kwargs):
         super(DBSnapshoterForm, self).__init__(*args, **kwargs)
@@ -752,23 +715,19 @@ class DBSnapshoterForm(forms.Form):
             Field('polling_frequency'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
-            )    
+            )
         )
 
 # CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 10, "WINDOW_DELAY": 10, "EVENT_TIMEOUT": 40, "DEBUG": True, "STRUCTURE_GUARDED": "container", "GUARDABLE_RESOURCES": ["cpu"], "CPU_SHARES_PER_WATT": 5, "ACTIVE": True}
 class GuardianForm(forms.Form):
-    name = forms.CharField(label="Name",
-            required=True
-            ) 
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    name = common_fields['name']
+    debug = common_fields['debug']
+    window_delay = common_fields['window_delay']
+    window_timelapse = common_fields['window_timelapse']
+
     cpu_shares_per_watt = forms.IntegerField(label="Cpu Shares per Watt",
             required=False
-            )
-    debug = forms.ChoiceField(label="Debug",
-            choices = (
-                ("True", "True"),
-                ("False", "False"),
-                ),
-            required=True
             )
     event_timeout = forms.IntegerField(label="Event Timeout (seconds)",
             required=True
@@ -791,12 +750,6 @@ class GuardianForm(forms.Form):
                 ),
             required=True
             )
-    window_delay = forms.IntegerField(label="Window Delay (seconds)",
-            required=True
-            )
-    window_timelapse = forms.IntegerField(label="Window Timelapse (seconds)",
-            required=True
-            ) 
 
     def __init__(self, *args, **kwargs):
         super(GuardianForm, self).__init__(*args, **kwargs)
@@ -821,9 +774,11 @@ class GuardianForm(forms.Form):
 
 # CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 5, "REQUEST_TIMEOUT": 60, "self.debug": True, "CHECK_CORE_MAP": True, "ACTIVE": True}
 class ScalerForm(forms.Form):
-    name = forms.CharField(label="Name",
-            required=True
-            ) 
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    name = common_fields['name']
+    debug = common_fields['debug']
+    polling_frequency = common_fields['polling_frequency']
+
     check_core_map = forms.ChoiceField(label="Check Core Map",
             choices = (
                 ("True", "True"),
@@ -831,16 +786,7 @@ class ScalerForm(forms.Form):
                 ),
             required=False
             )
-    debug = forms.ChoiceField(label="Debug",
-            choices = (
-                ("True", "True"),
-                ("False", "False"),
-                ),
-            required=True
-            )
-    polling_frequency = forms.IntegerField(label="Polling Frequency (seconds)",
-            required=True
-            )             
+
     request_timeout = forms.IntegerField(label="Request Timeout (seconds)",
             required=True
             )
@@ -865,16 +811,11 @@ class ScalerForm(forms.Form):
 
 # CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 5, "DEBUG": True, "PERSIST_APPS": True, "RESOURCES_PERSISTED": ["cpu", "mem"], "ACTIVE": True}
 class StructuresSnapshoterForm(forms.Form):
-    name = forms.CharField(label="Name",
-            required=True
-            )   
-    debug = forms.ChoiceField(label="Debug",
-            choices = (
-                ("True", "True"),
-                ("False", "False"),
-                ),
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    name = common_fields['name']
+    debug = common_fields['debug']
+    polling_frequency = common_fields['polling_frequency']
+
     persist_apps = forms.ChoiceField(label="Persist Apps",
             choices = (
                 ("True", "True"),
@@ -882,9 +823,7 @@ class StructuresSnapshoterForm(forms.Form):
                 ),
             required=False
             )
-    polling_frequency = forms.IntegerField(label="Polling Frequency (seconds)",
-            required=True
-            )   
+
     resources_persisted = forms.MultipleChoiceField(label="Resources Persisted",
             choices = (
                 ("cpu", "CPU"),
@@ -916,16 +855,10 @@ class StructuresSnapshoterForm(forms.Form):
 
 # CONFIG_DEFAULT_VALUES = {"DELAY": 120, "DEBUG": True}
 class SanityCheckerForm(forms.Form):
-    name = forms.CharField(label="Name",
-            required=True
-            ) 
-    debug = forms.ChoiceField(label="Debug",
-            choices = (
-                ("True", "True"),
-                ("False", "False"),
-                ),
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    name = common_fields['name']
+    debug = common_fields['debug']
+
     delay = forms.IntegerField(label="Delay (seconds)",
             required=True
             )           
@@ -948,16 +881,14 @@ class SanityCheckerForm(forms.Form):
 
 # CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 10, "WINDOW_TIMELAPSE": 10, "WINDOW_DELAY": 20, "GENERATED_METRICS": ["cpu","mem"], "DEBUG": True}
 class RefeederForm(forms.Form):
-    name = forms.CharField(label="Name",
-            required=True
-            ) 
-    debug = forms.ChoiceField(label="Debug",
-            choices = (
-                ("True", "True"),
-                ("False", "False"),
-                ),
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    name = common_fields['name']
+    debug = common_fields['debug']
+    polling_frequency = common_fields['polling_frequency']
+    polling_frequency.required = False
+    window_delay = common_fields['window_delay']
+    window_timelapse = common_fields['window_timelapse']
+
     generated_metrics = forms.MultipleChoiceField(label="Generated Metrics",
             choices = (
                 ("cpu", "CPU"),
@@ -968,16 +899,7 @@ class RefeederForm(forms.Form):
                 ),
             widget=forms.CheckboxSelectMultiple,
             required=False
-            ) 
-    polling_frequency = forms.IntegerField(label="Polling Frequency (seconds)",
-            required=False
             )
-    window_delay = forms.IntegerField(label="Window Delay (seconds)",
-            required=True
-            )
-    window_timelapse = forms.IntegerField(label="Window Timelapse (seconds)",
-            required=True
-            ) 
 
     def __init__(self, *args, **kwargs):
         super(RefeederForm, self).__init__(*args, **kwargs)
@@ -1000,16 +922,12 @@ class RefeederForm(forms.Form):
 
 # CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 30, "WINDOW_DELAY": 10, "REBALANCE_USERS": False, "DEBUG": True, "ENERGY_DIFF_PERCENTAGE": 0.40, "ENERGY_STOLEN_PERCENTAGE": 0.40}
 class ReBalancerForm(forms.Form):
-    name = forms.CharField(label="Name",
-            required=True
-            ) 
-    debug = forms.ChoiceField(label="Debug",
-            choices = (
-                ("True", "True"),
-                ("False", "False"),
-                ),
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    name = common_fields['name']
+    debug = common_fields['debug']
+    window_delay = common_fields['window_delay']
+    window_timelapse = common_fields['window_timelapse']
+
     energy_diff_percentage = forms.DecimalField(label="Energy Diff Percentage",
             min_value=0,
             max_value=1,
@@ -1027,12 +945,6 @@ class ReBalancerForm(forms.Form):
                 ),
             required=False
             )
-    window_delay = forms.IntegerField(label="Window Delay (seconds)",
-            required=True
-            )
-    window_timelapse = forms.IntegerField(label="Window Timelapse (seconds)",
-            required=True
-            ) 
 
     def __init__(self, *args, **kwargs):
         super(ReBalancerForm, self).__init__(*args, **kwargs)
@@ -1057,23 +969,14 @@ class ReBalancerForm(forms.Form):
 
 # CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 10, "DEBUG": True, "ACTIVE": True}
 class EnergyManagerForm(forms.Form):
-    name = forms.CharField(label="Name",
-            required=True
-            ) 
-    debug = forms.ChoiceField(label="Debug",
-            choices = (
-                ("True", "True"),
-                ("False", "False"),
-                ),
-            required=True
-            )
-    polling_frequency = forms.IntegerField(label="Polling Frequency (seconds)",
-            required=True
-            )         
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    name = common_fields['name']
+    debug = common_fields['debug']
+    polling_frequency = common_fields['polling_frequency']
 
     def __init__(self, *args, **kwargs):
         super(EnergyManagerForm, self).__init__(*args, **kwargs)
-        self.helper = FormHelper()            
+        self.helper = FormHelper()
         self.helper.form_id = 'id-energyManagerForm'
         self.helper.form_class = 'form-group'
         self.helper.form_method = 'post'
@@ -1084,22 +987,18 @@ class EnergyManagerForm(forms.Form):
             Field('polling_frequency'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
-            )    
+            )
         )
 
 
 # CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 10, "WINDOW_DELAY": 10, "GENERATED_METRICS": ["cpu_user", "cpu_kernel", "energy"], "MODELS_TO_TRAIN": ["sgdregressor_General"], "DEBUG": True, "ACTIVE": True}
 class WattTrainerForm(forms.Form):
-    name = forms.CharField(label="Name",
-            required=True
-            ) 
-    debug = forms.ChoiceField(label="Debug",
-            choices = (
-                ("True", "True"),
-                ("False", "False"),
-                ),
-            required=True
-            )
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    name = common_fields['name']
+    debug = common_fields['debug']
+    window_delay = common_fields['window_delay']
+    window_timelapse = common_fields['window_timelapse']
+
 #     generated_metrics = forms.MultipleChoiceField(label="Generated Metrics",
 #             choices = (
 #                 ("cpu", "CPU"),
@@ -1125,12 +1024,6 @@ class WattTrainerForm(forms.Form):
             widget=forms.CheckboxSelectMultiple,
             required=True
             )
-    window_delay = forms.IntegerField(label="Window Delay (seconds)",
-            required=True
-            )
-    window_timelapse = forms.IntegerField(label="Window Timelapse (seconds)",
-            required=True
-            ) 
 
     def __init__(self, *args, **kwargs):
         super(WattTrainerForm, self).__init__(*args, **kwargs)
@@ -1153,9 +1046,9 @@ class WattTrainerForm(forms.Form):
 
 ### Rules
 class RuleForm(forms.Form):
-    name = forms.CharField(label="Name",
-            required=True
-            ) 
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    name = common_fields['name']
+
     amount = forms.IntegerField(label="Amount",
             required=False
             )          

@@ -200,21 +200,20 @@ def add_app_task(full_url, headers, put_field_data, app, app_files):
 
         ## TODO: discuss which of the following versions should be used
         ## V1: send install_script, files_dir, etc into create_app script as args
-        # if (app_files['install_script'] != ""):
+        #if (app_files['install_script'] != ""):
 
-        #     definition_file = "{0}_container.def".format(app.replace(" ", "_"))
-        #     image_file = "{0}.sif".format(app.replace(" ", "_"))
-        #     files_dir = app_files['files_dir']
-        #     install_script = app_files['install_script']
+        app_dir = app_files['app_dir']
+        files_dir = app_files['files_dir']
+        install_script = app_files['install_script']
 
-        #     argument_list = [definition_file, image_file, app, files_dir, install_script]
-        #     error_message = "Error creating app {0}".format(app)
-        #     process_script("create_app", argument_list, error_message)
-
-        ## V2: just send app name as argument for the script
-        argument_list = [app]
+        argument_list = [app_dir, files_dir, install_script]
         error_message = "Error creating app {0}".format(app)
         process_script("create_app", argument_list, error_message)
+
+        # ## V2: just send app name as argument for the script
+        # argument_list = [app]
+        # error_message = "Error creating app {0}".format(app)
+        # process_script("create_app", argument_list, error_message)
 
     else:
         raise Exception(error)
@@ -249,6 +248,7 @@ def add_container_to_app_in_db(full_url, headers, container, app):
 @shared_task
 def add_container_to_app_task(full_url, headers, host, container, app, app_files):
 
+    app_dir = app_files['app_dir']
     files_dir = app_files['files_dir']
     install_script = app_files['install_script']
     start_script = app_files['start_script']
@@ -259,7 +259,7 @@ def add_container_to_app_task(full_url, headers, host, container, app, app_files
     if 'disk_path' in container:
         bind_path = container['disk_path']
 
-    argument_list = [host, container['container_name'], app, files_dir, install_script, start_script, stop_script, app_jar, bind_path]
+    argument_list = [host, container['container_name'], app, app_dir, files_dir, install_script, start_script, stop_script, app_jar, bind_path]
     error_message = "Error starting app {0} on container {1}".format(app, container['container_name'])
     process_script("start_app_on_container", argument_list, error_message)
 
@@ -372,7 +372,8 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
     #     image_file = "ubuntu_container.sif"
     # argument_list = [hosts, formatted_containers_info, app, template_definition_file, definition_file, image_file, app_files['files_dir'], app_files['install_script'], app_files['app_jar']]
 
-    argument_list = [hosts, formatted_containers_info, app, app_files['app_jar']]
+    argument_list = [hosts, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar']]
+    #argument_list = [hosts, formatted_containers_info, app, app_files['app_jar']]
     error_message = "Error starting containers {0}".format(formatted_containers_info)
     process_script("start_containers_with_app", argument_list, error_message)
 
@@ -850,13 +851,14 @@ def stop_container(host, container_name):
 def stop_app_on_container_task(host, container_name, bind_path, app, app_files, rm_container):
 
     ## Stop app on container
+    app_dir = app_files['app_dir']
     files_dir = app_files['files_dir']
     install_script = app_files['install_script']
     start_script = app_files['start_script']
     stop_script = app_files['stop_script']
     app_jar = app_files['app_jar']
 
-    argument_list = [host, container_name, app, files_dir, install_script, start_script, stop_script, app_jar, bind_path, rm_container]
+    argument_list = [host, container_name, app, app_dir, files_dir, install_script, start_script, stop_script, app_jar, bind_path, rm_container]
     error_message = "Error stopping app {0} on container {1}".format(app, container_name)
     process_script("stop_app_on_container", argument_list, error_message)
 

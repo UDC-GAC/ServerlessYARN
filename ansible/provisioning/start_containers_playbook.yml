@@ -27,12 +27,24 @@
         - app_base_name: "base" # "{{ app_name if install_script != '' else 'hadoop' if app_jar != '' else 'base' }}"
         - base_definition_file: "ubuntu_container.def"
         - app_base_image_file: "ubuntu_container.sif"
+        ## Select app type
+        - app_type: "{%- if install_script is defined and install_script != '' -%}generic_app
+                   {%- elif app_jar is defined and app_jar != '' -%}hadoop_app
+                   {%- else -%}base
+                   {%- endif -%}"
         # All runnable apps except hadoop can use the same definition file (generic_app.def)
-        - definition_file: "{{ 'hadoop_app.def' if app_name == 'hadoop_app' else 'generic_app.def' }}"
-        - image_file: "{{ app_name }}.sif"
-        - app_directory: "apps/{{ app_name }}"
-        #- app_jar: ""
-        #- install_script: "{{ app_name }}/install.sh"
+        #- definition_file: "{{ 'hadoop_app.def' if app_name == 'hadoop_app' else 'generic_app.def' }}"
+        #- image_file: "{{ app_name }}.sif"
+        #- app_directory: "apps/{{ app_install_dir }}"
+        - definition_file: "{%- if app_type == 'generic_app' -%}generic_app.def
+                          {%- elif app_type == 'hadoop_app' -%}hadoop_app.def
+                          {%- else -%}{{ base_definition_file }}
+                          {%- endif -%}"
+        - image_file: "{%- if app_type == 'generic_app' -%}{{ app_dir }}.sif
+                     {%- elif app_type == 'hadoop_app' -%}hadoop_app.sif
+                     {%- else -%}{{ app_base_image_file }}
+                     {%- endif -%}"
+        - app_directory: "apps/{{ app_dir if app_type == 'generic_app' else app_type }}"
         # Other config
         - cgroups_file: "apptainer_containers_cgroup.toml"
         - containers_info_str: >

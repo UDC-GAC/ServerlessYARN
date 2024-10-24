@@ -2,8 +2,10 @@
 set -e
 HOST_NAMES=$1
 CONTAINERS_INFO=$2
-APP_NAME=$3
-APP_JAR=$4
+APP_DIR=$3
+INSTALL_SCRIPT=$4
+APP_JAR=$5
+#APP_JAR=$4
 #TEMPLATE_DEFINITION_FILE=$4
 #DEFINITION_FILE=$5
 #IMAGE_FILE=$6
@@ -34,7 +36,8 @@ unbuffer ansible-playbook start_containers_playbook.yml -i $INVENTORY -t start_c
     --extra-vars \
         "host_list=$HOST_NAMES \
         containers_info_str=$CONTAINERS_INFO \
-        app_name=$APP_NAME \
+        app_dir=$APP_DIR \
+        install_script=$INSTALL_SCRIPT \
         app_jar=$APP_JAR"
 
 unbuffer ansible-playbook launch_playbook.yml -i $INVENTORY -t start_containers \

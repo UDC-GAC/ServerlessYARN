@@ -4,6 +4,8 @@ from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormS
 from ui.forms import AddHostForm, AddAppForm, AddHadoopAppForm, StartAppForm, AddDisksToHostsForm
 from ui.forms import AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddContainersToAppForm
 from ui.forms import RemoveStructureForm, RemoveContainersFromAppForm
+from ui.forms import DEFAULT_BOUNDARY_PERCENTAGE
+
 from django.forms import formset_factory
 from django.http import HttpResponse
 import urllib.request
@@ -34,13 +36,21 @@ max_load_dict["HDD"] = 1
 max_load_dict["SSD"] = 4
 max_load_dict["LVM"] = 20
 
+# DEFAULT_APP_VALUES = {
+#     "app_name": "",
+#     "app_jar": "",
+#     "install_script": "{app_name}/install.sh",
+#     "start_script": "{app_name}/start.sh",
+#     "stop_script": "{app_name}/stop.sh",
+#     "files_dir": "{app_name}/files_dir"
+# }
+
 DEFAULT_APP_VALUES = {
-    "app_name": "",
     "app_jar": "",
-    "install_script": "{app_name}/install.sh",
-    "start_script": "{app_name}/start.sh",
-    "stop_script": "{app_name}/stop.sh",
-    "files_dir": "{app_name}/files_dir"
+    "install_script": "install.sh",
+    "start_script": "start.sh",
+    "stop_script": "stop.sh",
+    "files_dir": "files_dir"
 }
 
 ## Auxiliary general methods
@@ -784,11 +794,12 @@ def processAddContainers(request, url, structure_type, resources, host_list):
                 container_resources[resource + "_max"] = max_res
                 container_resources[resource + "_min"] = min_res
         if (resource + "_boundary" in request.POST):
-            boundary = request.POST[resource + "_boundary"]
-            if boundary == "":
-                container_resources[resource + "_boundary"] = "0"
+            if request.POST[resource + "_boundary"] != "":
+                resource_boundary = request.POST[resource + "_boundary"]
             else:
-                container_resources[resource + "_boundary"] = boundary
+                resource_boundary = int(int(container_resources[resource + "_min"]) * DEFAULT_BOUNDARY_PERCENTAGE)
+                if resource_boundary == 0: resource_boundary = 1
+            container_resources[resource + "_boundary"] = resource_boundary
 
     ## Bind specific disk
     bind_disk = "disk" in resources and "disk_max" in request.POST and request.POST["disk_max"] != "" and request.POST["disk_min"]
@@ -825,14 +836,36 @@ def processAddApp(request, url, structure_name, structure_type, resources):
     full_url = url + structure_type + "/" + structure_name
     headers = {'Content-Type': 'application/json'}
 
+    # ## APP info
+    # app_files = {}
+    # for f in ['app_dir', 'files_dir', 'install_script', 'start_script', 'stop_script', 'app_jar']:
+    #     if f in request.POST:
+    #         app_files[f] = request.POST[f]
+    #     else:
+    #         app_files[f] = DEFAULT_APP_VALUES[f].format(app_name=app_files['app_name'])
+
     ## APP info
     app_files = {}
-    for f in ['app_name', 'files_dir', 'install_script', 'start_script', 'stop_script', 'app_jar']:
-        if f in request.POST:
+    # Mandatory fields
+    if 'app_dir' in request.POST: app_files['app_dir'] = request.POST['app_dir']
+    else: raise Exception("Missing mandatory parameter: {0}".format('app_dir'))
+
+    # Optional parameters
+    for f in ['start_script', 'stop_script', 'app_jar']:
+        if f in request.POST and request.POST[f] != "":
             app_files[f] = request.POST[f]
         else:
-            app_files[f] = DEFAULT_APP_VALUES[f].format(app_name=app_files['app_name'])
+            app_files[f] = DEFAULT_APP_VALUES[f]
 
+    # Additional files
+    for condition, additional_file in [('add_files_dir', 'files_dir'), ('add_install', 'install_script')]:
+        if condition in request.POST and request.POST[condition]:
+            if additional_file in request.POST and request.POST[additional_file] != "":
+                app_files[additional_file] = request.POST[additional_file]
+            else:
+                app_files[additional_file] = DEFAULT_APP_VALUES[additional_file]
+        else:
+            app_files[additional_file] = ""
 
     put_field_data = {
         'app': {
@@ -840,27 +873,31 @@ def processAddApp(request, url, structure_name, structure_type, resources):
             'resources': {},
             'guard': False,
             'subtype': "application",
-            'files_dir': app_files['files_dir'],
-            'install_script': app_files['install_script'],
-            'start_script': app_files['start_script'],
-            'stop_script': app_files['stop_script'],
-            'app_jar': app_files['app_jar']
+            'files_dir': "{0}/{1}".format(app_files['app_dir'], app_files['files_dir']) if app_files['files_dir'] != "" else "",
+            'install_script': "{0}/{1}".format(app_files['app_dir'], app_files['install_script']) if app_files['install_script'] != "" else "",
+            'start_script': "{0}/{1}".format(app_files['app_dir'], app_files['start_script']) if app_files['start_script'] != "" else "",
+            'stop_script': "{0}/{1}".format(app_files['app_dir'], app_files['stop_script']) if app_files['stop_script'] != "" else "",
+            'app_jar': "{0}/{1}".format(app_files['app_dir'], app_files['app_jar']) if app_files['app_jar'] != "" else ""
         },
         'limits': {'resources': {}}
     }
 
     for resource in resources:
         if (resource + "_max" in request.POST):
-            resource_max = request.POST[resource + "_max"]
-            resource_min = request.POST[resource + "_min"]
-            put_field_data['app']['resources'][resource] = {'max': int(resource_max), 'min': int(resource_min), 'guard': 'false'}
+            resource_max = int(request.POST[resource + "_max"])
+            resource_min = int(request.POST[resource + "_min"])
+            put_field_data['app']['resources'][resource] = {'max': resource_max, 'min': resource_min, 'guard': 'false'}
 
         if (resource + "_boundary" in request.POST):
-            resource_boundary = request.POST[resource + "_boundary"]
-            put_field_data['limits']['resources'][resource] = {'boundary': int(resource_boundary)}
+            if request.POST[resource + "_boundary"] != "":
+                resource_boundary = request.POST[resource + "_boundary"]
+            else:
+                resource_boundary = int(resource_min * DEFAULT_BOUNDARY_PERCENTAGE)
+                if resource_boundary == 0: resource_boundary = 1
+            put_field_data['limits']['resources'][resource] = {'boundary': resource_boundary}
 
     error = ""
-    task = add_app_task.delay(full_url, headers, put_field_data, app_files['app_name'], app_files)
+    task = add_app_task.delay(full_url, headers, put_field_data, structure_name, app_files)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"add_app_task")
 
@@ -897,9 +934,12 @@ def processStartApp(request, url, app_name):
 
     ## APP info
     app_files = {}
+    if 'start_script' in app and app['start_script']: app_files['app_dir'] = os.path.dirname(app['start_script'])
+    else: return "Error: there is no start script for app {0}".format(app_name)
+
     for f in ['files_dir', 'install_script', 'start_script', 'stop_script', 'app_jar']:
         if f in app:
-            app_files[f] = app[f]
+            app_files[f] = os.path.basename(app[f])
         else:
             app_files[f] = ""
 
@@ -1469,11 +1509,12 @@ def processRemoves(request, url, structure_type):
             containers_to_remove = request.POST.getlist('containers_removed', None)
             app = request.POST['app']
             app_files = {}
-            app_files['files_dir'] = request.POST['files_dir']
-            app_files['install_script'] = request.POST['install_script']
-            app_files['start_script'] = request.POST['start_script']
-            app_files['stop_script'] = request.POST['stop_script']
-            if 'app_jar' in request.POST: app_files['app_jar'] = request.POST['app_jar']
+            app_files['files_dir'] = os.path.basename(request.POST['files_dir'])
+            app_files['install_script'] = os.path.basename(request.POST['install_script'])
+            app_files['start_script'] = os.path.basename(request.POST['start_script'])
+            app_files['stop_script'] = os.path.basename(request.POST['stop_script'])
+            app_files['app_dir'] = os.path.dirname(request.POST['start_script'])
+            if 'app_jar' in request.POST: app_files['app_jar'] = os.path.basename(request.POST['app_jar'])
             else: app_files['app_jar'] = ""
 
             error = processRemoveContainersFromApp(url, containers_to_remove, app, app_files)
@@ -1587,11 +1628,12 @@ def getContainersFromApp(url, app_name):
     for item in data:
         if (item['subtype'] == 'application' and item['name'] == app_name):
             containerNamesList = item['containers']
-            app_files['files_dir'] = item['files_dir']
-            app_files['install_script'] = item['install_script']
-            app_files['start_script'] = item['start_script']
-            app_files['stop_script'] = item['stop_script']
-            app_files['app_jar'] = item['app_jar']
+            app_files['files_dir'] = os.path.basename(item['files_dir'])
+            app_files['install_script'] = os.path.basename(item['install_script'])
+            app_files['start_script'] = os.path.basename(item['start_script'])
+            app_files['stop_script'] = os.path.basename(item['stop_script'])
+            app_files['app_jar'] = os.path.basename(item['app_jar'])
+            app_files['app_dir'] = os.path.dirname(item['start_script'])
 
     for item in data:
         if (item['subtype'] == 'container' and item['name'] in containerNamesList):

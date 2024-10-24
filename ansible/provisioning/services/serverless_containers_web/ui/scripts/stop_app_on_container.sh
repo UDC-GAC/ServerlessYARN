@@ -3,13 +3,14 @@ set -e
 HOST_NAME=$1
 CONTAINER=$2
 APP_NAME=$3
-FILES_DIR=$4
-INSTALL_SCRIPT=$5
-START_SCRIPT=$6
-STOP_SCRIPT=$7
-APP_JAR=$8
-BIND_PATH=$9
-RM_CONTAINER=${10}
+APP_DIR=$4
+FILES_DIR=$5
+INSTALL_SCRIPT=$6
+START_SCRIPT=$7
+STOP_SCRIPT=$8
+APP_JAR=$9
+BIND_PATH=${10}
+RM_CONTAINER=${11}
 
 if [ -z "$BIND_PATH" ]
 then
@@ -23,6 +24,7 @@ unbuffer ansible-playbook manage_app_on_container.yml -i $INVENTORY -t stop_app 
     --extra-vars \
         "container=$CONTAINER \
         app_name=$APP_NAME \
+        app_dir=$APP_DIR \
         files_dir=$FILES_DIR \
         install_script=$INSTALL_SCRIPT \
         start_script=$START_SCRIPT \
