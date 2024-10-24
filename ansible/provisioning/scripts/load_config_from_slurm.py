@@ -100,14 +100,16 @@ def getDisksFromConfig(config_file):
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
-    hdd_disks_per_host = config['hdd_disks_per_host']
-    hdd_disks_path_list = config['hdd_disks_path_list'].split(",")
-    ssd_disks_per_host = config['ssd_disks_per_host']
-    ssd_disks_path_list = config['ssd_disks_path_list'].split(",")
-    create_lvm = config['create_lvm']
-    lvm_path = config['lvm_path']
-
-    return get_disks_dict(hdd_disks_per_host, hdd_disks_path_list, ssd_disks_per_host, ssd_disks_path_list, create_lvm, lvm_path)
+    if config['disk_capabilities']:
+        hdd_disks_per_host = config['hdd_disks_per_host']
+        hdd_disks_path_list = config['hdd_disks_path_list'].split(",")
+        ssd_disks_per_host = config['ssd_disks_per_host']
+        ssd_disks_path_list = config['ssd_disks_path_list'].split(",")
+        create_lvm = config['create_lvm']
+        lvm_path = config['lvm_path']
+        return get_disks_dict(hdd_disks_per_host, hdd_disks_path_list, ssd_disks_per_host, ssd_disks_path_list, create_lvm, lvm_path)
+    else:
+        return None
 
 def update_config_file(config_file, server, server_ip, hosts, cpus_per_node, memory_per_node):
     #server_ip = server
