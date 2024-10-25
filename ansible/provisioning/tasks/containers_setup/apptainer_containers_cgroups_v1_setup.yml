@@ -70,8 +70,6 @@
   when: not stat_output.stat.exists
 
 - name: Check if app image already exists
-  #delegate_to: localhost
-  #run_once: yes
   stat:
     path: "{{ installation_path }}/images/{{ image_file }}"
     get_checksum: false
@@ -159,18 +157,6 @@
         mode: preserve
   tags: create_app
   when: not stat_output.stat.exists
-
-# - name: Copy app directory and image from server to hosts
-#   delegate_to: localhost
-#   run_once: yes
-#   synchronize:
-#     src: "{{ item }}"
-#     dest: "{{ item }}"
-#     mode: pull
-#   with_items:
-#     - "{{ installation_path }}/apps/{{ app_name }}"
-#     - "{{ installation_path }}/images/"
-#   tags: create_app
 
 - name: Containers startup
   block:

@@ -94,10 +94,7 @@ mode: ipvlan
 subnet: 10.22.0.0/16
 
 ## Apps
-# Software layer to install on containers (e.g. hadoop_app, smusket_app, sample_app,...)
-# The provided name must match the name of the app folder in the apps directory
-#app_name: "sample_app"
-# List of applications to automatically load on startup over the above software layer
-# set list of app configuration file paths
-#apps: apps/sample_app/app_config.yml
+# List of application configurations to load on startup, the provided name must match the name of an app folder
+# in the ansible/provisioning/apps directory. Indicate multiple names in the app_config.yml of the app folder(s)
+# specified here to deploy various applications with the same configuration
 apps: sample_app

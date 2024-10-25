@@ -2,7 +2,6 @@
 
 import yaml
 import os
-import sys
 import requests
 import json
 from bs4 import BeautifulSoup
@@ -43,19 +42,10 @@ if __name__ == "__main__":
         app_config["app"]["guard"] = False
         app_config["app"]["subtype"] = "application"
 
-        ## Name is now checked later to loop and create several apps with the same config
-        # ## Mandatory keys (name) 
-        # for key in MANDATORY_APP_KEYS:
-        #     if key in config:
-        #         app_config["app"][key] = config[key]
-        #     else:
-        #         raise Exception("Missing mandatory parameter {0}".format(key))
-
         ## Optional keys (files)
         for key in OPTIONAL_APP_KEYS:
             if key in config:
                 app_config["app"][key] = "{0}/{1}".format(app_dir, config[key])
-                #app_config["app"][key] = "{0}".format(config[key])
             else:
                 app_config["app"][key] = ""
 
@@ -117,10 +107,6 @@ if __name__ == "__main__":
             if (error == ""):
 
                 if app_config["app"]['install_script'] != "":
-
-                    # #definition_file = "{0}_container.def".format(app_config['app']['name'].replace(" ", "_"))
-                    # definition_file = "hadoop_app.def" if app_config['app']['name'] == "hadoop_app" else "generic_app.def"
-                    # image_file = "{0}.sif".format(app_config['app']['name'].replace(" ", "_"))
                     files_dir = os.path.basename(app_config['app']['files_dir'])
                     install_script = os.path.basename(app_config['app']['install_script'])
 

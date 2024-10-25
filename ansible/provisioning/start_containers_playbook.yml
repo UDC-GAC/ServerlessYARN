@@ -113,5 +113,5 @@
                 {%- endfor -%}
               {%- endfor -%}
               {{ containers_info }}
-        - resources: "{{ ['cpu','mem','disk','energy'] if power_budgeting else ['cpu','mem','disk'] }}"
+        - resources: "{{ ['cpu', 'mem'] + (['disk'] if disk_capabilities else []) + (['energy'] if power_budgeting else []) }}"
         - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
