@@ -433,6 +433,7 @@
           executable: /bin/bash
     tags: never, stop_hadoop_cluster
 
+  # TODO: do not rely on shared folders (NFS and such) to access hadoop_logs
   ## Set hadoop logs timestamp
   - name: Set hadoop logs timestamp
     delegate_to: localhost

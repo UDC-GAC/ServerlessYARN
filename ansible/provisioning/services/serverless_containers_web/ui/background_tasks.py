@@ -205,8 +205,9 @@ def add_app_task(full_url, headers, put_field_data, app, app_files):
         app_dir = app_files['app_dir']
         files_dir = app_files['files_dir']
         install_script = app_files['install_script']
+        app_jar = app_files['app_jar']
 
-        argument_list = [app_dir, files_dir, install_script]
+        argument_list = [app_dir, files_dir, install_script, app_jar]
         error_message = "Error creating app {0}".format(app)
         process_script("create_app", argument_list, error_message)
 
@@ -336,7 +337,7 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
                         for resource in ['energy_max', 'energy_min', 'energy_boundary']:
                             container_info[resource] = container_resources[container_type][resource]
                     # Disks
-                    if config['disk_scaling'] and container_type != 'rm-nn':
+                    if config['disk_capabilities'] and config['disk_scaling'] and container_type != 'rm-nn':
                         for disk in disk_assignation[host]:
                             if disk_assignation[host][disk]['new_containers'] > 0:
                                 disk_assignation[host][disk]['new_containers'] -= 1

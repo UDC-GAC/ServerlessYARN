@@ -64,7 +64,7 @@ if __name__ == "__main__":
         app_config["limits"]["resources"] = {}
         for resource in resources:
 
-            if resource == "disk" and not general_config['disk_scaling']: continue
+            if resource == "disk" and (not general_config['disk_capabilities'] or not general_config['disk_scaling']): continue
             if resource == "energy" and not general_config['power_budgeting']: continue
 
             ## Max and min resources
@@ -116,27 +116,28 @@ if __name__ == "__main__":
 
             if (error == ""):
 
-                if app_config["app"]['install_script'] != "":
+                #if app_config["app"]['install_script'] != "":
 
-                    # #definition_file = "{0}_container.def".format(app_config['app']['name'].replace(" ", "_"))
-                    # definition_file = "hadoop_app.def" if app_config['app']['name'] == "hadoop_app" else "generic_app.def"
-                    # image_file = "{0}.sif".format(app_config['app']['name'].replace(" ", "_"))
-                    files_dir = os.path.basename(app_config['app']['files_dir'])
-                    install_script = os.path.basename(app_config['app']['install_script'])
+                # #definition_file = "{0}_container.def".format(app_config['app']['name'].replace(" ", "_"))
+                # definition_file = "hadoop_app.def" if app_config['app']['name'] == "hadoop_app" else "generic_app.def"
+                # image_file = "{0}.sif".format(app_config['app']['name'].replace(" ", "_"))
+                files_dir = os.path.basename(app_config['app']['files_dir'])
+                install_script = os.path.basename(app_config['app']['install_script'])
+                app_jar = os.path.basename(app_config['app']['app_jar'])
 
-                    argument_list = [app_dir, files_dir, install_script]
-                    error_message = "Error creating app {0} with directory {1}".format(app_config['app']['name'], app_dir)
+                argument_list = [app_dir, files_dir, install_script, app_jar]
+                error_message = "Error creating app {0} with directory {1}".format(app_config['app']['name'], app_dir)
 
-                    ## Process script
-                    rc = subprocess.Popen(["{0}/../services/serverless_containers_web/ui/scripts/create_app.sh".format(scriptDir), *argument_list], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                    out, err = rc.communicate()
+                ## Process script
+                rc = subprocess.Popen(["{0}/../services/serverless_containers_web/ui/scripts/create_app.sh".format(scriptDir), *argument_list], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                out, err = rc.communicate()
 
-                    # Log ansible output
-                    print(out.decode("utf-8"))
+                # Log ansible output
+                print(out.decode("utf-8"))
 
-                    if rc.returncode != 0:
-                        error = "{0}: {1}".format(error_message, err.decode("utf-8"))
-                        raise Exception(error)
+                if rc.returncode != 0:
+                    error = "{0}: {1}".format(error_message, err.decode("utf-8"))
+                    raise Exception(error)
             else:
                 raise Exception(error)
 

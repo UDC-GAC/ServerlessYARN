@@ -1,20 +1,19 @@
 Bootstrap: localimage
 From: apps/base/{{ app_base_image_file }}
 
-# NOTE!! THIS FILE SHOULD NO LONGER BE NECESSARY, THE INSTALL.SH SCRIPT IS NOW USED TO CUSTOMISE THE SW OF EACH CONTAINER DYNAMICALLY
-
 %files
-    apps/{{ app_name }} /opt
-    #{{ installation_path }}/apps/hadoop/files_dir /opt/files_dir
-    #{{ installation_path }}/apps/hadoop/setup.sh /opt/setup.sh
-    #{{ installation_path }}/apps/hadoop/java_snitch.sh /opt/java_snitch.sh
-    # To avoid repeating hadoop download
-    #"{{ installation_path }}/apps/hadoop/hadoop-{{ hadoop_version }}.tar.gz" /opt/hadoop-{{ hadoop_version }}.tar.gz
-    # To avoid repeating spark download
-    #"{{ installation_path }}/apps/hadoop/spark-{{ spark_version }}-bin-without-hadoop.tgz" /opt/spark-{{ spark_version }}-bin-without-hadoop.tgz
+    {{ app_directory }}/files_dir /opt/files_dir
+    {{ app_directory }}/setup.sh /opt/setup.sh
+    {{ app_directory }}/java_snitch.sh /opt/java_snitch.sh
+
+    # To avoid repeating hadoop download while debugging
+    #"{{ installation_path }}/apps/hadoop_app/hadoop-{{ hadoop_version }}.tar.gz" /opt/hadoop-{{ hadoop_version }}.tar.gz
+    # To avoid repeating spark download while debugging
+    #"{{ installation_path }}/apps/hadoop_app/spark-{{ spark_version }}-bin-without-hadoop.tgz" /opt/spark-{{ spark_version }}-bin-without-hadoop.tgz
 
 %post
     # Install basic software and Java
+    export DEBIAN_FRONTEND=noninteractive
     apt-get -y update
     apt-get install -y wget gettext-base openssh-client openssh-server
     apt-get install -y openjdk-8-jdk
@@ -54,7 +53,7 @@ From: apps/base/{{ app_base_image_file }}
 
     # Setup Spark
     export SPARK_CONF_DIR=/opt/files_dir/spark_conf
-    wget https://dlcdn.apache.org/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-without-hadoop.tgz
+    wget https://archive.apache.org/dist/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-without-hadoop.tgz
     mkdir spark && tar xf "spark-{{ spark_version }}-bin-without-hadoop.tgz" -C spark --strip-components 1
     chown -R $(whoami):$(whoami) spark
     mkdir -p $SPARK_CONF_DIR && cp -r spark/conf/* $SPARK_CONF_DIR/

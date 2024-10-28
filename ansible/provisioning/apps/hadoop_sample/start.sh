@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-cd "{{ bind_dir_on_container }}"
+cd {{ bind_dir_on_container }}
 set -e
 
 # Store data in HDFS
@@ -12,7 +12,7 @@ hdfs_put_time=$( echo "$end - $start" | bc -l )
 
 # Run JAR
 start=`date +%s.%N`
-$HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-3.3.5.jar grep input output 'dfs[a-z.]+'
+$HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-{{ hadoop_version }}.jar grep input output 'dfs[a-z.]+'
 end=`date +%s.%N`
 jar_runtime=$( echo "$end - $start" | bc -l )
 

@@ -17,19 +17,19 @@
         dest: "{{ installation_path }}/change_cgroupsv1_permissions.py"
         mode: preserve
 
-    # TODO: Run only when hadoop is used (app_name == hadoop)
+    # TODO: Run only when hadoop is used (app_type == hadoop_app)
     # So far it works because only one app_jar is specified when using hadoop
-#    - name: Copy necessary files for hadoop apps
-#      delegate_to: localhost
-#      when: "app_jar != ''"
-#      copy:
-#        src: "apps/hadoop/{{ item }}"
-#        dest: "{{ installation_path }}/apps/hadoop/"
-#      with_items:
-#        - setup.sh
-#        - java_snitch.sh
-#        - files_dir
-#      tags: never, create_app
+    - name: Copy necessary files for hadoop apps
+      delegate_to: localhost
+      when: "app_type == 'hadoop_app'"
+      copy:
+        src: "apps/{{ app_type }}/{{ item }}"
+        dest: "{{ installation_path }}/apps/{{ app_type }}/"
+      with_items:
+        - setup.sh
+        - java_snitch.sh
+        - files_dir
+      tags: never, create_app
 
 - name: Check if base app image already exists
   delegate_to: localhost
