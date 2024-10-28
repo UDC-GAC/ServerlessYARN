@@ -36,15 +36,6 @@ max_load_dict["HDD"] = 1
 max_load_dict["SSD"] = 4
 max_load_dict["LVM"] = 20
 
-# DEFAULT_APP_VALUES = {
-#     "app_name": "",
-#     "app_jar": "",
-#     "install_script": "{app_name}/install.sh",
-#     "start_script": "{app_name}/start.sh",
-#     "stop_script": "{app_name}/stop.sh",
-#     "files_dir": "{app_name}/files_dir"
-# }
-
 DEFAULT_APP_VALUES = {
     "app_jar": "",
     "install_script": "install.sh",
@@ -836,14 +827,6 @@ def processAddApp(request, url, structure_name, structure_type, resources):
     full_url = url + structure_type + "/" + structure_name
     headers = {'Content-Type': 'application/json'}
 
-    # ## APP info
-    # app_files = {}
-    # for f in ['app_dir', 'files_dir', 'install_script', 'start_script', 'stop_script', 'app_jar']:
-    #     if f in request.POST:
-    #         app_files[f] = request.POST[f]
-    #     else:
-    #         app_files[f] = DEFAULT_APP_VALUES[f].format(app_name=app_files['app_name'])
-
     ## APP info
     app_files = {}
     # Mandatory fields
@@ -1081,7 +1064,7 @@ def getContainerResourcesForApp(number_of_containers, app_resources, benevolence
         # example: 400/100 max/min shares between 3 containers -> 133.333/33.333 shares each -> modified to 200/50 bigger container and 100/25 regular
         for resource in app_resources:
             for limit in ['max', 'min']:
-                key = "{0}_{1}".format(resource, key)
+                key = "{0}_{1}".format(resource, limit)
                 if key == "cpu_max":
                     continue
                 resource_ratio = app_resources['cpu']['max'] / app_resources[resource][limit]
@@ -1092,7 +1075,7 @@ def getContainerResourcesForApp(number_of_containers, app_resources, benevolence
         # Adjust resource values to integer
         for resource in app_resources:
             for limit in ['max', 'min']:
-                key = "{0}_{1}".format(resource, key)
+                key = "{0}_{1}".format(resource, limit)
                 if key == "cpu_max":
                     continue
 
