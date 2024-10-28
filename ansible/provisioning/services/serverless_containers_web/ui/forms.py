@@ -276,7 +276,7 @@ class AddHostForm(forms.Form):
         )
 
         if config['power_budgeting']: self.helper.layout.append(Field('energy_max'))
-        if config['disk_scaling']:
+        if config['disk_capabilities'] and config['disk_scaling']:
             self.helper.layout.append(Field('hdd_disks'))
             self.helper.layout.append(Field('hdd_disks_path_list'))
             self.helper.layout.append(Field('ssd_disks'))
@@ -376,7 +376,7 @@ class AddContainersForm(forms.Form):
             Field('mem_max'),
             Field('mem_min')
         )
-        if config['disk_scaling']:
+        if config['disk_capabilities'] and config['disk_scaling']:
             self.helper.layout.append(Field('disk_max'))
             self.helper.layout.append(Field('disk_min'))
         if config['power_budgeting']:
@@ -386,7 +386,7 @@ class AddContainersForm(forms.Form):
         # Boundaries
         self.helper.layout.append(Field('cpu_boundary'))
         self.helper.layout.append(Field('mem_boundary'))
-        if config['disk_scaling']: self.helper.layout.append(Field('disk_boundary'))
+        if config['disk_capabilities'] and config['disk_scaling']: self.helper.layout.append(Field('disk_boundary'))
         if config['power_budgeting']: self.helper.layout.append(Field('energy_boundary'))
 
         # Submit button
@@ -477,7 +477,7 @@ class AddAppForm(forms.Form):
             Field('mem_min')
         )
 
-        if config['disk_scaling']:
+        if config['disk_capabilities'] and config['disk_scaling']:
             self.helper.layout.append(Field('disk_max'))
             self.helper.layout.append(Field('disk_min'))
         if config['power_budgeting']:
@@ -487,17 +487,17 @@ class AddAppForm(forms.Form):
         # Boundaries
         self.helper.layout.append(Field('cpu_boundary'))
         self.helper.layout.append(Field('mem_boundary'))
-        if config['disk_scaling']: self.helper.layout.append(Field('disk_boundary'))
+        if config['disk_capabilities'] and config['disk_scaling']: self.helper.layout.append(Field('disk_boundary'))
         if config['power_budgeting']: self.helper.layout.append(Field('energy_boundary'))
 
         # Files for application
         self.helper.layout.append(Field('app_dir'))
         self.helper.layout.append(Field('start_script'))
         self.helper.layout.append(Field('stop_script'))
-        self.helper.layout.append(Field('add_files_dir', id='add_files_dir'))
-        self.helper.layout.append(Field('files_dir', id='files_dir'))
-        self.helper.layout.append(Field('add_install', id='add_install'))
-        self.helper.layout.append(Field('install_script', id='install_script'))
+        self.helper.layout.append(Field('add_files_dir', css_class='add_files_dir_condition'))
+        self.helper.layout.append(Field('files_dir', css_class='additional_files_dir'))
+        self.helper.layout.append(Field('add_install', css_class='add_install_condition'))
+        self.helper.layout.append(Field('install_script', css_class='additional_install'))
 
         # Submit button
         self.helper.layout.append(FormActions(Submit('save', 'Add app', css_class='caja')))
@@ -523,7 +523,7 @@ class AddHadoopAppForm(AddAppForm):
             Field('mem_min')
         )
 
-        if config['disk_scaling']:
+        if config['disk_capabilities'] and config['disk_scaling']:
             self.helper.layout.append(Field('disk_max'))
             self.helper.layout.append(Field('disk_min'))
         if config['power_budgeting']:
@@ -533,17 +533,17 @@ class AddHadoopAppForm(AddAppForm):
         # Boundaries
         self.helper.layout.append(Field('cpu_boundary'))
         self.helper.layout.append(Field('mem_boundary'))
-        if config['disk_scaling']: self.helper.layout.append(Field('disk_boundary'))
+        if config['disk_capabilities'] and config['disk_scaling']: self.helper.layout.append(Field('disk_boundary'))
         if config['power_budgeting']: self.helper.layout.append(Field('energy_boundary'))
 
         # Other parameters for application
         self.helper.layout.append(Field('app_dir'))
         self.helper.layout.append(Field('start_script'))
         self.helper.layout.append(Field('stop_script'))
-        self.helper.layout.append(Field('add_files_dir', id='add_files_dir'))
-        self.helper.layout.append(Field('files_dir', id='files_dir'))
-        self.helper.layout.append(Field('add_install', id='add_install'))
-        self.helper.layout.append(Field('install_script', id='install_script'))
+        self.helper.layout.append(Field('add_files_dir', css_class='add_files_dir_condition'))
+        self.helper.layout.append(Field('files_dir', css_class='additional_files_dir'))
+        self.helper.layout.append(Field('add_install', css_class='add_install_condition'))
+        self.helper.layout.append(Field('install_script', css_class='additional_install'))
         self.helper.layout.append(Field('app_jar'))
 
         # Submit button
