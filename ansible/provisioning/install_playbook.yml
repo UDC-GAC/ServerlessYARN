@@ -66,7 +66,7 @@
       - import_tasks: tasks/install/lvm_setup.yml
         when: create_lvm
       - import_tasks: tasks/install/measure_disks_bandwidth.yml
-        when: disk_scaling
+        when: disk_capabilities and disk_scaling
         tags: extend_lv, add_disks
       when: disk_capabilities
 

@@ -441,7 +441,7 @@ if __name__ == "__main__":
         handler.add_rule(MemRescaleDown)
 
         # Disk
-        {% if disk_scaling %}
+        {% if disk_capabilities and disk_scaling %}
         handler.add_rule(disk_exceeded_upper)
         handler.add_rule(disk_dropped_lower)
         handler.add_rule(DiskRescaleUp)

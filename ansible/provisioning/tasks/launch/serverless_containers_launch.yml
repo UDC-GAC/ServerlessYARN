@@ -95,12 +95,12 @@
   args:
     executable: /bin/bash
   vars:
-    disks: "{{ (hostvars[item].disks | replace(' ','') | quote) if disk_scaling else 'None' }}"
+    disks: "{{ (hostvars[item].disks | replace(' ','') | quote) if (disk_capabilities and disk_scaling) else 'None' }}"
     resources: "{{ {'cpu': hostvars[item].cpu, 'mem': hostvars[item].mem} | combine(({'energy': hostvars[item].energy} if power_budgeting else {})) }}"
   with_items: "{{ nodes }}"
 
 - name: Initializing State Database - add individual disks to hosts
-  when: disk_scaling
+  when: disk_capabilities and disk_scaling
   shell: "python3 scripts/stateDatabase/add_disks_to_hosts.py {{ new_disks_dict }} config/config.yml"
   args:
     executable: /bin/bash
@@ -109,7 +109,7 @@
   tags: never, add_disks
 
 - name: Initializing State Database - add disks to existing LV
-  when: disk_scaling
+  when: disk_capabilities and disk_scaling
   shell: "python3 scripts/stateDatabase/update_host_disks_bw_db.py {{ item }} lvm {{ hostvars[item].disks.lvm.bw }} MB/s config/config.yml"
   args:
     executable: /bin/bash

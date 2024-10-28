@@ -734,7 +734,7 @@ def processAddHost(request, url, structure_name, structure_type, resources):
 
     # disks
     disk_info = {}
-    if config['disk_scaling']:
+    if config['disk_capabilities'] and config['disk_scaling']:
         disk_info['hdd_disks'] = int(request.POST['hdd_disks'])
         disk_info['ssd_disks'] = int(request.POST['ssd_disks'])
         disk_info['create_lvm'] = eval(request.POST['create_lvm'])
@@ -970,7 +970,7 @@ def processStartApp(request, url, app_name):
 
     ## TODO: replace/add disk load check for disk I/O bandwidth check
     # Check if there is enough free disk load (specially important for Hadoop apps)
-    if config['disk_scaling']:
+    if config['disk_capabilities'] and config['disk_scaling']:
         disk_load = number_of_containers
         free_disk_load = 0
         for host in hosts:
@@ -1285,7 +1285,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
     for host in hosts:
         assignation[host['name']] = {}
         assignation[host['name']]["regular"] = 0
-        if config['disk_scaling'] and 'disks' in host['resources']:
+        if config['disk_capabilities'] and config['disk_scaling'] and 'disks' in host['resources']:
             disk_assignation[host['name']] = {}
             for disk_name in host['resources']['disks']:
                 disk = host['resources']['disks'][disk_name]
@@ -1300,18 +1300,18 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
             free_cpu = host['resources']['cpu']['free']
             free_mem = host['resources']['mem']['free']
             #free_disk_load = getHostFreeDiskLoad(host)
-            if config['disk_scaling']: free_bw_host = getHostFreeDiskBw(host)
+            if config['disk_capabilities'] and config['disk_scaling']: free_bw_host = getHostFreeDiskBw(host)
 
             if containers_to_allocate + irregular_container_to_allocate + hadoop_container_to_allocate <= 0:
                 break
             # First we try to assign the bigger container if it exists
             if irregular_container_to_allocate > 0 and "bigger" in container_resources and free_cpu >= container_resources["bigger"]['cpu_max'] and free_mem >= container_resources["bigger"]['mem_max']:
-                if not config['disk_scaling'] or free_bw_host > container_resources["bigger"]['disk_max']:
+                if not config['disk_capabilities'] or not config['disk_scaling'] or free_bw_host > container_resources["bigger"]['disk_max']:
                     assignation[host['name']]["irregular"] = 1
                     irregular_container_to_allocate = 0
                     free_cpu -= container_resources["bigger"]['cpu_max']
                     free_mem -= container_resources["bigger"]['mem_max']
-                    if config['disk_scaling']:
+                    if config['disk_capabilities'] and config['disk_scaling']:
                         free_bw_host -= container_resources["bigger"]['disk_max']
                         for disk in disk_assignation[host['name']]:
                             if disk_assignation[host['name']][disk]['free_bw'] > container_resources["bigger"]['disk_max']:
@@ -1320,12 +1320,12 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                                 break
 
             while containers_to_allocate > 0 and free_cpu >= container_resources["regular"]['cpu_max'] and free_mem >= container_resources["regular"]['mem_max']:
-                if config['disk_scaling'] and free_bw_host > container_resources["regular"]['disk_max']: break
+                if config['disk_capabilities'] and config['disk_scaling'] and free_bw_host > container_resources["regular"]['disk_max']: break
                 assignation[host['name']]["regular"] += 1
                 containers_to_allocate -= 1
                 free_cpu -= container_resources['regular']['cpu_max']
                 free_mem -= container_resources['regular']['mem_max']
-                if config['disk_scaling']:
+                if config['disk_capabilities'] and config['disk_scaling']:
                     free_bw_host -= container_resources['regular']['disk_max']
                     for disk in disk_assignation[host['name']]:
                         if disk_assignation[host['name']][disk]['free_bw'] > container_resources['regular']['disk_max']:
@@ -1335,12 +1335,12 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
 
             # We try to assign the smaller container if it exists
             if irregular_container_to_allocate > 0 and "smaller" in container_resources and free_cpu >= container_resources["smaller"]['cpu_max'] and free_mem >= container_resources["smaller"]['mem_max']:
-                if not config['disk_scaling'] or free_bw_host > container_resources["smaller"]['disk_max']:
+                if not config['disk_capabilities'] or not config['disk_scaling'] or free_bw_host > container_resources["smaller"]['disk_max']:
                     assignation[host['name']]["irregular"] = 1
                     irregular_container_to_allocate = 0
                     free_cpu -= container_resources["smaller"]['cpu_max']
                     free_mem -= container_resources["smaller"]['mem_max']
-                    if config['disk_scaling']:
+                    if config['disk_capabilities'] and config['disk_scaling']:
                         free_bw_host -= container_resources["smaller"]['disk_max']
                         for disk in disk_assignation[host['name']]:
                             if disk_assignation[host['name']][disk]['free_bw'] > container_resources["smaller"]['disk_max']:
@@ -1364,7 +1364,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     break
 
                 #free_disk_load = getHostFreeDiskLoad(host)
-                if config['disk_scaling']: free_bw_host = getHostFreeDiskBw(host)
+                if config['disk_capabilities'] and config['disk_scaling']: free_bw_host = getHostFreeDiskBw(host)
 
                 container_allocated = False
                 for container_type in ['bigger', 'regular', 'smaller', 'rm-nn']:
@@ -1376,7 +1376,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                         containers_to_check = containers_to_allocate
 
                     if containers_to_check > 0 and container_type in container_resources and host['resources']['cpu']['free'] >= container_resources[container_type]['cpu_min'] and host['resources']['mem']['free'] >= container_resources[container_type]['mem_min']:
-                        if not config['disk_scaling'] or container_type == "rm-nn" or free_bw_host > container_resources[container_type]['disk_min']:
+                        if not config['disk_capabilities'] or not config['disk_scaling'] or container_type == "rm-nn" or free_bw_host > container_resources[container_type]['disk_min']:
                             if container_type == 'bigger' or container_type == 'smaller':
                                 assignation[host['name']]["irregular"] = 1
                                 irregular_container_to_allocate = 0
@@ -1390,7 +1390,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                             host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
                             host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
 
-                            if config['disk_scaling'] and container_type != "rm-nn":
+                            if config['disk_capabilities'] and config['disk_scaling'] and container_type != "rm-nn":
                                 host_disk = getFreestDisk(host)
                                 if host_disk == None: break
 
@@ -1423,7 +1423,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
 
                 if containers_to_check > 0 and container_type in container_resources:
 
-                    if not config['disk_scaling'] or container_type == 'rm-nn':
+                    if not config['disk_capabilities'] or not config['disk_scaling'] or container_type == 'rm-nn':
                         check_disks = False
                     else:
                         check_disks = True
@@ -1445,7 +1445,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     freest_host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
                     freest_host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
 
-                    if config['disk_scaling'] and container_type != "rm-nn":
+                    if config['disk_capabilities'] and config['disk_scaling'] and container_type != "rm-nn":
                         host_disk = getFreestDisk(freest_host)
                         if host_disk == None: break
 

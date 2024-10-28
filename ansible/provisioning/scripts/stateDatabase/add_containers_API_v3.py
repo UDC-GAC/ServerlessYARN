@@ -73,7 +73,7 @@ if __name__ == "__main__":
                 put_field_data['container']['resources']["energy"]["guard"] = True
 
             # Disk
-            if 'disk' in cont and config['disk_scaling']:
+            if 'disk' in cont and config['disk_capabilities'] and config['disk_scaling']:
                 cont_resources.append("disk")
                 put_field_data['container']['resources']["disk"] = {}
                 put_field_data['container']['resources']["disk"]["name"] = cont['disk']
