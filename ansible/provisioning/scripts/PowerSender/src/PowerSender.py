@@ -171,10 +171,12 @@ class PowerSender:
             if num_fields < 4:
                 raise Exception(f"Missing some fields in SmartWatts output for "
                                 f"target {cont_name} ({num_fields} out of 4 expected fields)")
-            # SmartWatts timestamps are 2 hours ahead from UTC (UTC-02:00)
-            # Normalize timestamps to UTC (actually UTC-02:00) and add 2 hours to get real UTC
+
+            # SmartWatts hour = UTC+00:00 - offset(Europe/Madrid) (UTC+02:00 summer schedule or UTC+01:00 winter one)
+            # We read timestamp as Europe/Madrid to sum exactly this offset and then we mark the timestamp as UTC
+            # This way OpenTSDB interprets the real UTC+00:00 (Smartwatts + offset(Europe/Madrid))
             data = {
-                "timestamp": datetime.fromtimestamp(int(fields[0]) / 1000, timezone.utc) + timedelta(hours=2),
+                "timestamp": datetime.fromtimestamp(int(fields[0]) / 1000).replace(tzinfo=timezone.utc),
                 "value": float(fields[3]),
                 "cpu": int(fields[4])
             }
