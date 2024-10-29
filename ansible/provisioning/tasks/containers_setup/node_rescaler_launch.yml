@@ -1,13 +1,21 @@
 
 # Starting Node Rescaler
-- name: Verify gunicorn installation
+- name: Verify gunicorn3 installation
   command: "which gunicorn3"
+  register: gunicorn3_check
+  ignore_errors: true
+
+- name: Verify gunicorn installation
+  command: "which gunicorn"
   register: gunicorn_check
   ignore_errors: true
 
 - name: Set gunicorn command alias
   set_fact:
-    gunicorn_command_alias: "{{ 'gunicorn3' if gunicorn_check.rc == 0 else 'gunicorn' }}"
+    gunicorn_command_alias: "{%- if gunicorn3_check.rc == 0 -%}gunicorn3
+                           {%- elif gunicorn_check.rc == 0 -%}gunicorn
+                           {%- else -%}$HOME/.local/bin/gunicorn
+                           {%- endif -%}"
 
 - name: Copy Node Scaler start script
   template:

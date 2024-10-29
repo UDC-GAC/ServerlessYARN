@@ -1,5 +1,5 @@
 
-- name: Install prerequisites for Serverless Containers
+- name: Install prerequisites for Serverless Containers (root)
   when: "virtual_mode"
   apt:
     name:
@@ -9,11 +9,31 @@
     state: latest
     update_cache: yes
 
-- name: Install yq
+- name: Install yq (root)
   when: "virtual_mode"
   snap:
     name: yq
     state: present
+
+- name: Install prerequisites for Serverless Containers (non-root)
+  throttle: 1
+  when: "not virtual_mode"
+  pip:
+    name:
+     - gunicorn
+     - yq
+    executable: pip3
+
+- name: Verify jq installation (non-root)
+  shell: "which jq"
+  register: jq_check
+  ignore_errors: true
+
+- name: Install jq (non-root)
+  when: "not virtual_mode and jq_check.rc != 0"
+  shell: curl -sS https://webi.sh/jq | sh
+  args:
+    executable: /bin/bash
 
 - name: Check if ServerlessContainers directory is already there
   stat:
@@ -44,7 +64,9 @@
     - python/3.8.13
     - jdk/openjdk/8u382
 
+# We use throttle on pip installs to avoid dependency issues with multiple hosts installing simultaneously on shared $HOME folder
 - name: Install specified python requirements
+  throttle: 1
   pip:
     requirements: "{{ serverless_containers_path }}/requirements.txt"
     executable: pip3
@@ -71,6 +93,7 @@
 
 # urllib3 v2.0 only supports OpenSSL 1.1.1+
 - name: Downgrade urllib3 to avoid incompatibilities with SSL version
+  throttle: 1
   pip:
     name: urllib3==1.26.0
     executable: pip3

@@ -8,7 +8,7 @@
 
   tasks:
   - name: Stop apptainer containers from nodes
-    shell: "sudo apptainer instance stop --all"
+    shell: "sudo {{ singularity_command_alias }} instance stop --all"
     when: "container_engine == 'apptainer'"
     args:
       executable: /bin/bash
@@ -24,7 +24,7 @@
 
   tasks:
   - name: Stop apptainer containers from server
-    shell: "apptainer instance stop --all"
+    shell: "{{ singularity_command_alias }} instance stop --all"
     when: "container_engine == 'apptainer'"
     args:
       executable: /bin/bash

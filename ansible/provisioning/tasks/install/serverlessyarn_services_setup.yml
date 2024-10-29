@@ -8,13 +8,22 @@
     state: latest
     update_cache: yes
 
-- name: Install yq
+- name: Install yq (root)
   when: "virtual_mode"
   snap:
     name: yq
     state: present
 
+- name: Install yq (non-root)
+  throttle: 1
+  when: "not virtual_mode"
+  pip:
+    name:
+     - yq
+    executable: pip3
+
 - name: Install pip dependencies
+  throttle: 1
   pip:
     requirements: "{{ playbook_dir }}/services/requirements.txt"
     executable: pip3
@@ -45,7 +54,7 @@
     path: "{{ installation_path }}/redis"
     state: directory
 
-- name: Download redis 
+- name: Download redis
   become: no
   unarchive:
     src: http://download.redis.io/releases/redis-7.0.5.tar.gz
