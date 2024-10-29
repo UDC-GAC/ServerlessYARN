@@ -2,7 +2,6 @@
 import src.StateDatabase.couchdb as couchDB
 import src.StateDatabase.utils as couchdb_utils
 
-# TODO: Add disk in GUARDABLE_RESOURCES if disk_rescaling
 # TODO: Check use cases to add mem in GUARDABLE_RESOURCES
 guardian = dict(
     name="guardian",
@@ -14,7 +13,7 @@ guardian = dict(
         EVENT_TIMEOUT=60,
         WINDOW_DELAY=20,
         WINDOW_TIMELAPSE=10,
-        GUARDABLE_RESOURCES=["cpu"{% if power_budgeting %}, "energy"{% endif %}]
+        GUARDABLE_RESOURCES=["cpu"{% if disk_capabilities and disk_rescaling %}, "disk"{% endif %}{% if power_budgeting %}, "energy"{% endif %}]
     )
 )
 
@@ -40,7 +39,6 @@ database_snapshoter = dict(
     )
 )
 
-# TODO: Add disk in RESOURCES_PERSISTED if disk_capabilities and disk_rescaling??
 structures_snapshoter = dict(
     name="structures_snapshoter",
     type="service",
@@ -48,11 +46,10 @@ structures_snapshoter = dict(
     config=dict(
         ACTIVE=False,
         DEBUG=True,
-        RESOURCES_PERSISTED=["cpu", "mem"{% if power_budgeting %}, "energy"{% endif %}]
+        RESOURCES_PERSISTED=["cpu", "mem"{% if disk_capabilities and disk_rescaling %}, "disk"{% endif %}{% if power_budgeting %}, "energy"{% endif %}]
     )
 )
 
-# TODO: Add disk in GENERATED_METRICS if disk_capabilities and disk_rescaling??
 refeeder = dict(
     name="refeeder",
     type="service",
@@ -60,7 +57,7 @@ refeeder = dict(
     config=dict(
         ACTIVE=False,
         DEBUG=True,
-        GENERATED_METRICS=["cpu", "mem"{% if power_budgeting %}, "energy"{% endif %}]
+        GENERATED_METRICS=["cpu", "mem"{% if disk_capabilities and disk_rescaling %}, "disk"{% endif %}{% if power_budgeting %}, "energy"{% endif %}]
     )
 )
 
