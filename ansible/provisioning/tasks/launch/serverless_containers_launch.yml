@@ -52,8 +52,8 @@
   tags: restart_services
 
 - name: Starting Energy Services
-  shell: "bash scripts/services/{{ item }}/start_tmux.sh"
   when: "power_budgeting and item not in tmux_output.stdout"
+  shell: "bash scripts/services/{{ item }}/start_tmux.sh"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
@@ -63,21 +63,30 @@
 
 # Start WattWizard when power_modelling is "yes"
 - name: Starting WattWizard to create power models
-  shell: "bash scripts/services/watt_wizard/start_tmux.sh"
   when: "power_budgeting and power_modelling and 'watt_wizard' not in tmux_output.stdout"
+  shell: "bash scripts/services/watt_wizard/start_tmux.sh"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
   tags: restart_services
 
 # Start WattTrainer when online_learning is "yes"
-- name: Starting WattTrainer to train power models in real time
-  shell: "bash scripts/services/watt_trainer/start_tmux.sh"
-  when: "power_budgeting and power_modelling and online_learning and 'watt_trainer' not in tmux_output.stdout"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
+- name: Start WattTrainer and deactivate
+  block:
+    - name: Starting WattTrainer to train power models in real time
+      when: "'watt_trainer' not in tmux_output.stdout"
+      shell: "bash scripts/services/watt_trainer/start_tmux.sh"
+      args:
+        chdir: "{{ serverless_containers_path }}"
+        executable: /bin/bash
+
+    - name: Deactivate WattTrainer
+      shell: "bash scripts/orchestrator/WattTrainer/deactivate.sh"
+      args:
+        chdir: "{{ serverless_containers_path }}"
+        executable: /bin/bash
   tags: restart_services
+  when: "power_budgeting and power_modelling and online_learning"
 
 # - name: Getting container model names based on prediction methods and container train files
 #   command: python3 -c "import itertools, sys; [print(v, end=' ') for v in [str(item[0]) + '_' + str(item[1]) for item in itertools.product(sys.argv[1].split(','), sys.argv[2].split(','))]]" {{ prediction_methods }} {{ container_train_files }}
@@ -140,8 +149,8 @@
   tags: never, start_containers, enable_scaler
 
 - name: Guardian - Set power model
-  shell: "bash scripts/orchestrator/Guardian/set_energy_model.sh {{ guardian_default_model }}"
   when: "power_budgeting and power_modelling"
+  shell: "bash scripts/orchestrator/Guardian/set_energy_model.sh {{ guardian_default_model }}"
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
