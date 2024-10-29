@@ -418,14 +418,14 @@ if __name__ == "__main__":
     if handler.database_exists("rules"):
         print("Adding 'rules' documents")
 
-        {% if power_budgeting %}
+        {% if power_budgeting -%}
         # When power_budgeting is used only these rules must be applied
         handler.add_rule(energy_exceeded_upper)
         handler.add_rule(EnergyRescaleDown)
         handler.add_rule(energy_dropped_lower_and_cpu_exceeded_upper)
         handler.add_rule(EnergyRescaleUp)
 
-        {% else %}
+        {%- else %}
         # CPU
         handler.add_rule(cpu_exceeded_upper)
         handler.add_rule(cpu_dropped_lower)
@@ -441,11 +441,11 @@ if __name__ == "__main__":
         handler.add_rule(MemRescaleDown)
 
         # Disk
-        {% if disk_capabilities and disk_scaling %}
+        {% if disk_capabilities and disk_scaling -%}
         handler.add_rule(disk_exceeded_upper)
         handler.add_rule(disk_dropped_lower)
         handler.add_rule(DiskRescaleUp)
         handler.add_rule(DiskRescaleDown)
-        {% endif %}
+        {%- endif %}
 
-        {% endif %}
+        {%- endif %}

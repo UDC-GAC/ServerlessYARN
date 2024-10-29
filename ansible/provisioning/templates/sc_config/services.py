@@ -40,7 +40,7 @@ database_snapshoter = dict(
     )
 )
 
-# TODO: Add disk in RESOURCES_PERSISTED if disk_rescaling
+# TODO: Add disk in RESOURCES_PERSISTED if disk_capabilities and disk_rescaling??
 structures_snapshoter = dict(
     name="structures_snapshoter",
     type="service",
@@ -52,13 +52,15 @@ structures_snapshoter = dict(
     )
 )
 
+# TODO: Add disk in GENERATED_METRICS if disk_capabilities and disk_rescaling??
 refeeder = dict(
     name="refeeder",
     type="service",
     heartbeat="",
     config=dict(
         ACTIVE=False,
-        DEBUG=True
+        DEBUG=True,
+        GENERATED_METRICS=["cpu", "mem"{% if power_budgeting %}, "energy"{% endif %}]
     )
 )
 
@@ -81,7 +83,7 @@ rebalancer  = dict(
     )
 )
 
-{% if power_budgeting %}
+{% if power_budgeting -%}
 # Aditional services for power_budgeting
 energy_manager = dict(
     name="energy_manager",
@@ -93,7 +95,7 @@ energy_manager = dict(
     )
 )
 
-{% if online_learning %}
+{% if online_learning -%}
 watt_trainer = dict(
     name="watt_trainer",
     type="service",
@@ -103,8 +105,9 @@ watt_trainer = dict(
         DEBUG=True
     )
 )
-{% endif %}
-{% endif %}
+
+{%- endif %}
+{%- endif %}
 
 if __name__ == "__main__":
     initializer_utils = couchdb_utils.CouchDBUtils()
@@ -123,10 +126,10 @@ if __name__ == "__main__":
         handler.add_service(sanity_checker)
         handler.add_service(rebalancer)
 
-        {% if power_budgeting %}
+        {% if power_budgeting -%}
         # Aditional services for power_budgeting
         handler.add_service(energy_manager)
-        {% if online_learning %}
+        {% if online_learning -%}
         handler.add_service(watt_trainer)
-        {% endif %}
-        {% endif %}
+        {%- endif %}
+        {%- endif %}
