@@ -1,1 +1,1 @@
-export SC_INSTALLATION_PATH="/home/tome.maseda/ServerlessYARN_install/ServerlessContainers/"
+export SC_INSTALLATION_PATH="${HOME}/ServerlessYARN_install/ServerlessContainers/"

@@ -1,103 +1,22 @@
-# Virtual mode: "yes" to deploy a vagrant virtual cluster; "no" if you want to use an existing cluster
-virtual_mode: no
+## Name or list of names in case you want to create several apps with the same configuration
+names: npb_app
 
-# Currently supported container engines: lxc, apptainer
-container_engine: apptainer
-singularity_command_alias: apptainer # singularity or apptainer (only relevant when using apptainer as container engine)
-
-# Cgroups version: v1 (Lecacy or Hybrid mode) or v2 (Unified mode)
-# Apptainer + cgroups V1 requires sudo privileges to some singularity commands at the moment
-cgroups_version: v1
-
-# Guardable resources: Initial resources to be scaled by Serverless Containers
-# CAUTION! Energy will be automatically added if power_budgeting is activated
-guardable_resources: "cpu"
-
-## Server Node
-server_ip: 10.10.255.232
-cpus_server_node: 64
-memory_server_node: 231863
-web_interface_port: 9000
-
-## Services Config
-orchestrator_url: "{{ server_ip }}"
-orchestrator_port: 5000
-wattwizard_url: "{{ server_ip }}"
-wattwizard_port: 7777
-couchdb_url: "{{ server_ip }}"
-couchdb_port: 5984
-opentsdb_url: "{{ server_ip }}"
-opentsdb_port: 4242
-mongodb_url: "{{ server_ip }}"
-mongodb_port: 27017
-
-## BDWatchdog Config
-bdwatchdog_sampling_frequency: 5 # If 'online_learning' is 'yes' then this value will be overwritten by 'power_sampling_frequency'
-
-## Power budgeting
-power_budgeting: yes # "yes" to use power budgets, power will be accounted, restricted and shared among containers
-power_modelling: yes # "yes" to use power models to get CPU Usage/Power proportionalities instead of using fixed values
-online_learning: no # "yes" to automatically retrain power models in real-time using OpenTSDB time series
-hw_aware_modelling: yes # "yes" to include train files compatible with HW aware models
-power_sampling_frequency: 5
-
-## WattWizard Config
-structures: "host"
-model_variables: "user_load,system_load"
-prediction_methods: "polyreg,sgdregressor,multisocket"
-modelled_cpu: "intel_xeon_silver_4216"
-train_files: "General,Single_Core,hw_aware"
-guardian_default_model: "polyreg_General"
-
-## InfluxDB Config
-influxdb_host: "montoxo.des.udc.es"
-influxdb_bucket: "compute2"
-influxdb_token: "MyToken"
-influxdb_org: "MyOrg"
-
-## Hosts
-number_of_hosts: 1 # 1
-cpus_per_host: 64
-memory_per_host: 231863
-energy_per_host: 200
-hdd_disks_per_host: 1
-hdd_disks_path_list: $HOME/hdd
-ssd_disks_per_host: 1
-ssd_disks_path_list: $HOME/ssd
-# "yes" to create a LVM using the previous disks. Such disks should be indicated using their /dev path
-create_lvm: no # no
-lvm_path: $HOME/lvm
-
-## Containers initial values
-number_of_containers_per_node: 1
+## Resource configuration to load into State Database
 # CPU
-max_cpu_percentage_per_container: 3200
-min_cpu_percentage_per_container: 100
+cpu_max: 3200
+cpu_min: 100
 cpu_boundary: 100
-#Memory
-max_memory_per_container: 204800
-min_memory_per_container: 512
+# Memory
+mem_max: 102400
+mem_min: 512
 mem_boundary: 256
 # Energy
-max_energy_per_container: 150
-min_energy_per_container: 10
+energy_max: 150
+energy_min: 10
 energy_boundary: 10
-# Disk
-disk_boundary: 10
-max_diskbw_per_container: 100
-min_diskbw_per_container: 50
 
-## Container network configuration
-# host interface through which the containers of different nodes communicate with each other
-iface: eno1
-# currently supported modes: bridge, ptp, macvlan, ipvlan
-mode: ipvlan
-subnet: 10.22.0.0/16
-
-## Apps
-# Software layer to install on containers (e.g. hadoop_app, smusket_app, sample_app,...)
-# The provided name must match the name of the app folder in the apps directory
-app_name: "npb_app"
-# List of applications to automatically load on startup over the above software layer
-# set list of app configuration file paths
-apps: apps/sample_app/app_config.yml
+## The indicated files should be in the same directory as this configuration file
+files_dir: files_dir
+install_script: install.sh
+start_script: start.sh
+stop_script: stop.sh
