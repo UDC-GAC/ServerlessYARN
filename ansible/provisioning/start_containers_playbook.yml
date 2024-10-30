@@ -70,6 +70,7 @@
               {%- endfor -%}
               {{ containers_info }}
         - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
+        ## TODO: merge the "master_container" parameter with "rm_container" as they are both used for the same purpose
         - master_container: "{{ (containers_info | first).container_name }}" # This container will act as RM/NM on distributed deployments with Hadoop/Spark
 
     - import_tasks: tasks/containers_setup/node_rescaler_launch.yml
