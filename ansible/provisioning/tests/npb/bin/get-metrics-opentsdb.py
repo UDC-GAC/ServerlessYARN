@@ -1,3 +1,4 @@
+import os
 import sys
 import json
 import requests
@@ -7,7 +8,10 @@ from datetime import datetime, timedelta
 
 OPENTSDB_URL = "http://127.0.0.1:4242/api/query"
 
-METRICS = {
+CONTAINER_METRICS = ["proc.cpu.user", "structure.energy.usage"]
+APPLICATION_METRICS = ["structure.cpu.current", "structure.energy.max"]
+
+RESOURCE_METRICS = {
     "all": ["proc.cpu.user", "structure.energy.usage", "structure.cpu.current", "structure.energy.max"],
     "cpu": ["proc.cpu.user", "structure.cpu.current"],
     "energy": ["structure.energy.usage", "structure.energy.max"]
@@ -27,7 +31,7 @@ COLORS = {
 
 LABELS = {
     "structure.energy.usage": "Power Usage (W)",
-    "structure.energy.max": "Power Budget(W)",
+    "structure.energy.max": "Power Budget (W)",
     "proc.cpu.user": "CPU Usage (%)",
     "structure.cpu.current": "CPU Max (%)"
 }
@@ -38,7 +42,15 @@ VALUES_TO_FIND_EXP = {
     "serverless_static_model": 1701,
     "serverless_dynamic_model": 60
 }
-# TODO: Manage plots for multiple containers (maybe associate metrics with containers in create_experiment_df)
+
+
+def create_dir(d):
+    os.makedirs(d, exist_ok=True)
+
+
+def remove_file(f):
+    if os.path.exists(f):
+        os.remove(f)
 
 
 def read_experiment_times(file_path):
@@ -55,8 +67,8 @@ def read_experiment_times(file_path):
             stop_time = datetime.strptime(stop_time_str, '%Y-%m-%d %H:%M:%S%z')
 
             # Add a little margin to start and end
-            start_time_adjusted = start_time - timedelta(seconds=10)
-            stop_time_adjusted = stop_time + timedelta(seconds=10)
+            start_time_adjusted = start_time #- timedelta(seconds=10)
+            stop_time_adjusted = stop_time #+ timedelta(seconds=10)
             execution_time = stop_time - start_time
             #stop_time_adjusted = start_time + timedelta(seconds=1000)
 
@@ -100,7 +112,7 @@ def get_tags(metric, containers):
     return {field_name: "|".join(containers)}
 
 
-def get_opentsdb_data(metric, containers, start, end, aggregator="sum", downsample="5s-avg"):
+def get_opentsdb_data(metric, containers, start, end, aggregator="zimsum", downsample="5s-avg"):
     query = {
         "start": start,
         "end": end,
@@ -120,12 +132,15 @@ def get_opentsdb_data(metric, containers, start, end, aggregator="sum", downsamp
 
 def get_experiment_data(metrics, containers, start, end):
     data = {}
-    for metric in metrics:
-        opentsdb_data = get_opentsdb_data(metric, containers, start, end)
-        if opentsdb_data and any(d['dps'] for d in opentsdb_data):
-            data[metric] = opentsdb_data
-        else:
-            print(f"No values found for metric {metric} and containers: {containers}")
+    for container in containers:
+        data[container] = {}
+        for metric in metrics:
+            opentsdb_data = get_opentsdb_data(metric, [container], start, end)
+
+            if opentsdb_data and any(d['dps'] for d in opentsdb_data):
+                data[container][metric] = opentsdb_data
+            else:
+                print(f"No values found for metric {metric} and container {container}")
 
     return data
 
@@ -153,30 +168,39 @@ def first_found_point_with_value(exp_name, data, value, min_time=0):
 
 def create_experiment_df(data):
     rows = []
-    for metric, values in data.items():
-        for ts in values:
-            dps = ts['dps']
-            for timestamp, value in dps.items():
-                rows.append({
-                    'metric': metric,
-                    'timestamp': timestamp,
-                    'elapsed_seconds': pd.to_numeric(timestamp) - start_time,
-                    'value': value
-                })
+    for container in data:
+        for metric, values in data[container].items():
+            for ts in values:
+                dps = ts['dps']
+                for timestamp, value in dps.items():
+                    rows.append({
+                        'container': container,
+                        'metric': metric,
+                        'timestamp': timestamp,
+                        'elapsed_seconds': pd.to_numeric(timestamp) - start_time,
+                        'value': value
+                    })
 
-    return pd.DataFrame(rows, columns=['metric', 'timestamp', 'elapsed_seconds', 'value'])
+    return pd.DataFrame(rows, columns=['container', 'metric', 'timestamp', 'elapsed_seconds', 'value'])
 
 
-def plot_experiment(exp_name, exp_df, img_dir, resource):
+def plot_experiment_by_app(app_name, containers, exp_name, exp_df, out_dir):
     plt.figure(figsize=(10, 5))
     ax = plt.gca()
     max_plot_value = exp_df['value'].max()
 
-    for metric in METRICS[resource]:
+    for metric in RESOURCE_METRICS["all"]:
         filtered_df = exp_df.loc[exp_df['metric'] == metric]
-        plt.plot(filtered_df['elapsed_seconds'], filtered_df['value'], label=f"{metric}", color=COLORS[metric])
+        if metric in CONTAINER_METRICS:
+            for container in containers:
+                filtered_df = filtered_df.loc[filtered_df['container'] == container]
+                plt.plot(filtered_df['elapsed_seconds'], filtered_df['value'], label=f"{LABELS[metric]} - {container}", color=COLORS[metric])
+        elif metric in APPLICATION_METRICS:
+            filtered_df = filtered_df.groupby(['container', 'elapsed_seconds'], as_index=False).sum()  # TODO: Check if we have to aggregate by sum or avg
+            plt.plot(filtered_df['elapsed_seconds'], filtered_df['value'], label=f"{LABELS[metric]}", color=COLORS[metric])
+
         #if metric == "structure.cpu.current":
-            #print_points_between_seconds(exp_name, df, 350, 400)
+        #print_points_between_seconds(exp_name, df, 350, 400)
 
     plt.xlabel('Execution time (s)', fontsize=12)
     plt.ylabel("CPU Metrics", fontsize=12)
@@ -185,52 +209,179 @@ def plot_experiment(exp_name, exp_df, img_dir, resource):
     plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2, fontsize=12, framealpha=0.9)
 
     plt.tight_layout()
-    plt.savefig(f"{img_dir}/{exp_name}_{resource}.png")
-    plt.show()
+    plt.savefig(f"{out_dir}/{app_name}.png")
+    plt.close()
 
 
-def sum_total_energy(exp_name, exp_df):
+def plot_experiment_by_resource_and_containers(resource, containers, exp_name, exp_df, out_dir):
+    plt.figure(figsize=(10, 5))
+    ax = plt.gca()
+    max_plot_value = 0
+
+    for metric in RESOURCE_METRICS[resource]:
+        filtered_df = exp_df.loc[exp_df['metric'] == metric]
+        if metric in CONTAINER_METRICS:
+            for container in containers:
+                filtered_df = filtered_df.loc[filtered_df['container'] == container]
+                max_plot_value = max(filtered_df['value'].max(), max_plot_value)
+                plt.plot(filtered_df['elapsed_seconds'], filtered_df['value'], label=f"{LABELS[metric]} - {container}", color=COLORS[metric])
+        elif metric in APPLICATION_METRICS:
+            filtered_df = filtered_df.groupby(['container', 'elapsed_seconds'], as_index=False).sum()  # TODO: Check if we have to aggregate by sum or avg
+            max_plot_value = max(filtered_df['value'].max(), max_plot_value)
+            plt.plot(filtered_df['elapsed_seconds'], filtered_df['value'], label=f"{LABELS[metric]}", color=COLORS[metric])
+
+    plt.xlabel('Execution time (s)', fontsize=12)
+    plt.ylabel("CPU Metrics", fontsize=12)
+    ax.set_ylim([0, max_plot_value * 1.1])
+    plt.grid(True)
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2, fontsize=12, framealpha=0.9)
+
+    plt.tight_layout()
+    plt.savefig(f"{out_dir}/{resource}_{'_'.join(containers)}.png")
+    plt.close()
+
+
+def plot_experiment_by_resource_and_container(resource, container, exp_name, exp_df, out_dir):
+    plt.figure(figsize=(10, 5))
+    ax = plt.gca()
+    max_plot_value = 0
+    for metric in RESOURCE_METRICS[resource]:
+        filtered_df = exp_df.loc[exp_df['metric'] == metric]
+        filtered_df = filtered_df.loc[filtered_df['container'] == container]
+        max_plot_value = max(filtered_df['value'].max(), max_plot_value)
+        plt.plot(filtered_df['elapsed_seconds'], filtered_df['value'], label=f"{LABELS[metric]}", color=COLORS[metric])
+
+    plt.xlabel('Execution time (s)', fontsize=12)
+    plt.ylabel("CPU Metrics", fontsize=12)
+    ax.set_ylim([0, max_plot_value * 1.1])
+    plt.grid(True)
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2, fontsize=12, framealpha=0.9)
+
+    plt.tight_layout()
+    plt.savefig(f"{out_dir}/{resource}_{container}.png")
+    plt.close()
+
+
+def write_experiment_results(exp_name, exp_df, results_file):
+    cpu_limit_df = exp_df.loc[exp_df['metric'] == "structure.cpu.current"]
     power_df = exp_df.loc[exp_df['metric'] == "structure.energy.usage"]
-
+    execution_time = exp_df['elapsed_seconds'].max()
     avg_power = power_df['value'].mean()
-    total_energy = avg_power * power_df['elapsed_seconds'].max()
-    total_energy_checksum = power_df['value'].sum() * 5
+    results = {
+        "Execution time (s)": execution_time,
+        "Minimum CPU limit (%)": cpu_limit_df['value'].min(),
+        "Average power consumption (W)": avg_power,
+        "Average power * Execution time (J)": avg_power * execution_time,
+        "Total energy checksum (J)": power_df['value'].sum() * 5
+    }
 
-    print(f"[{exp_name}] Average power consumption: {avg_power} W")
-    print(f"[{exp_name}] Total energy (avg power * elapsed time): {total_energy} J")
-    print(f"[{exp_name}] Total energy checksum: {total_energy_checksum} J")
+    with open(results_file, "a") as f:
+        for name, value in results.items():
+            f.write(f"{name}: {value}\n")
+            print(f"[{exp_name}] {name}: {value}")
+
+    return results
+
+
+def write_latex(results_df, out_dir):
+    # Configurable parameters
+    include_borders = False
+    caption = "Experiments"
+    label = "tab:experiments"
+
+    # Pre-processing
+    # Avoid errors with percentage and underscore symbols
+    columns = [col.replace('%', '\\%').replace('_', '\\%') for col in results_df.columns]
+    # Set all columns centered (c) and include borders (|) if specified
+    column_format = "|".join(["c" for _ in range(len(columns))])
+    if include_borders:
+        column_format = "|" + column_format + "|"
+
+    # Get LaTeX from DataFrame
+    latex_str = results_df.to_latex(index=False,
+                                    float_format="%.2f",
+                                    header=columns,
+                                    column_format=column_format,
+                                    label=label,
+                                    caption=caption)
+
+    # Post-processing
+    # Top-rule: Upper border of the table
+    latex_str = latex_str.replace("\\toprule", "\\hline")
+    # Mid-rule: Between the headers and the values
+    latex_str = latex_str.replace("\\midrule", "\\hline")
+    # Bottom-rule: Lower border of the table
+    latex_str = latex_str.replace("\\bottomrule", "\\hline" if include_borders else "\\_")
+    # Avoid errors with percentage and underscore symbols
+    latex_str = latex_str.replace('%', '\\%').replace('_', '\\%')
+
+    # Write latex to .tex file
+    with open(f"{out_dir}/global_stats.tex", "w") as f:
+        f.write(latex_str)
+
+
+def write_global_results(results_dict, out_dir):
+    results_df = pd.DataFrame.from_dict(results_dict, orient='index').reset_index(names="Experiment")
+
+    # Export the results to many different formats
+    write_latex(results_df, out_dir)
+    results_df.to_markdown(f"{out_dir}/global_stats.md", index=False)
+    results_df.to_csv(f"{out_dir}/global_stats.csv", index=False)
+    results_df.to_excel(f"{out_dir}/global_stats.xlsx", index=False)
+    results_df.to_html(f"{out_dir}/global_stats.html", index=False)
+    results_df.to_json(f"{out_dir}/global_stats.json")
 
 
 if __name__ == "__main__":
 
     if len(sys.argv) != 4:
-        print("Usage: python get-metrics-opentsdb.py <experiments-log-file> <containers-file> <img-directory>")
+        print("Usage: python get-metrics-opentsdb.py <experiments-log-file> <containers-file> <results-directory>")
         sys.exit(1)
 
+    app_name = "npb_app"
     experiments_dates = read_experiment_times(sys.argv[1])
     experiment_containers_map = map_containers_to_experiments(sys.argv[2], experiments_dates)
-    img_dir = sys.argv[3]
+    results_dir = sys.argv[3]
+    create_dir(results_dir)
+    global_results = {}
     print(experiment_containers_map)
     for experiment_name in experiments_dates:
-        start_str = experiments_dates[experiment_name]["start"].strftime("%Y-%m-%d_%H-%M-%S")
-        end_str = experiments_dates[experiment_name]["stop"].strftime("%Y-%m-%d_%H-%M-%S")
+
+        print(experiment_name.upper().replace("_", " "))
+
+        exp_results_dir = f"{results_dir}/{experiment_name}"
+        exp_results_file = f"{exp_results_dir}/stats"
+        create_dir(exp_results_dir)
+        remove_file(exp_results_file)
+
+        # Get experiment dates
         start_time = int(experiments_dates[experiment_name]["start"].timestamp())
         end_time = int(experiments_dates[experiment_name]["stop"].timestamp())
 
+
         # Gather data for these period
         containers = experiment_containers_map[experiment_name]
-        data_dict = get_experiment_data(METRICS["all"], containers, start_time, end_time)
-
-        print(f"[{experiment_name}] Start timestamp: {start_str}")
-        print(f"[{experiment_name}] Stop timestamp:  {end_str}")
-        print(f"[{experiment_name}] Execution time: {experiments_dates[experiment_name]['execution_time'].total_seconds()}")
-
+        data_dict = get_experiment_data(RESOURCE_METRICS["all"], containers, start_time, end_time)
         experiment_df = create_experiment_df(data_dict)
+        #df_pivoted = experiment_df.pivot(index='timestamp', columns='metric', values='value').join(experiment_df.set_index('timestamp')[['container', 'elapsed_seconds']])
 
-        # TODO: Manage to get separated plots for each resource (maybe by container too)
-        plot_experiment(experiment_name, experiment_df, img_dir, "all")
+        # Get experiment plots
+
+        # Plot with all resources and all containers
+        plot_experiment_by_app(app_name, containers, experiment_name, experiment_df, exp_results_dir)
+
+        # Separated plot for each resource and container
+        single_resources = list(filter(lambda x: x != "all", RESOURCE_METRICS.keys()))
+        for resource in single_resources:
+            for container in containers:
+                plot_experiment_by_resource_and_container(resource, container, experiment_name, experiment_df, exp_results_dir)
+
+        # Write experiment results
         #
         # if experiment_name in VALUES_TO_FIND_EXP:
         #     first_found_point_with_value(experiment_name, data_dict, VALUES_TO_FIND_EXP[experiment_name])
         #
-        sum_total_energy(experiment_name, experiment_df)
+        global_results[experiment_name] = write_experiment_results(experiment_name, experiment_df, exp_results_file)
+
+    write_global_results(global_results, results_dir)
+
