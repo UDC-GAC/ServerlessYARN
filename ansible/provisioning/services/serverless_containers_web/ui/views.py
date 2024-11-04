@@ -940,11 +940,12 @@ def processStartApp(request, url, app_name):
     # Check if there is space for app
     free_resources = {}
     for resource in app_resources:
-        if resource in ['disk', 'energy']:
+        if resource in ['disk']:
             continue
         free_resources[resource] = 0
         for host in hosts:
-            free_resources[resource] += host['resources'][resource]['free']
+            if resource in host['resources']:
+                free_resources[resource] += host['resources'][resource]['free']
 
     space_left_for_app = True
     for resource in free_resources:
@@ -980,6 +981,12 @@ def processStartApp(request, url, app_name):
         app_resources['cpu']['min'] -= rm_minimum_cpu
         app_resources['mem']['max'] -= rm_maximum_mem
         app_resources['mem']['min'] -= rm_minimum_mem
+        if config['power_budgeting']:
+            rm_maximum_energy = 50 # This value is provisional (it has to be tested)
+            rm_minimum_energy = 10
+            rm_energy_boundary = 5
+            app_resources['energy']['max'] -= rm_maximum_energy
+            app_resources['energy']['min'] -= rm_minimum_energy
 
     # Get resources for containers
     container_resources = getContainerResourcesForApp(number_of_containers, app_resources, benevolence, is_hadoop_app)
@@ -992,6 +999,10 @@ def processStartApp(request, url, app_name):
         container_resources['rm-nn']['mem_max'] = rm_maximum_mem
         container_resources['rm-nn']['mem_min'] = rm_minimum_mem
         container_resources['rm-nn']['mem_boundary'] = rm_mem_boundary
+        if config['power_budgeting']:
+            container_resources['rm-nn']['energy_max'] = rm_maximum_energy
+            container_resources['rm-nn']['energy_min'] = rm_minimum_energy
+            container_resources['rm-nn']['energy_boundary'] = rm_energy_boundary
 
         number_of_containers += 1
 
