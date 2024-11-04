@@ -401,7 +401,7 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
 
     # Calculate resources for Hadoop cluster
     hadoop_resources = {}
-    for container_type in ["regular","irregular"]:
+    for container_type in ["regular", "irregular"]:
         # NOTE: 'irregular' container won't be created due to a previous workaround
         if container_type in container_resources:
             hadoop_resources[container_type] = {}
@@ -499,6 +499,15 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
             hadoop_resources[container_type]["mapreduce_am_memory_java_opts"] = str(mapreduce_am_memory_java_opts)
             hadoop_resources[container_type]["datanode_d_heapsize"] = str(datanode_d_heapsize)
             hadoop_resources[container_type]["nodemanager_d_heapsize"] = str(nodemanager_d_heapsize)
+
+            # Check assigned resources are valid
+            for resource in hadoop_resources[container_type]:
+                value = int(hadoop_resources[container_type][resource])
+                if value <= 0:
+                    bottleneck_resource = "CPU" if resource in ["vcores", "min_vcores"] else "memory"
+                    raise Exception("Error allocating resources for containers in Hadoop application. "
+                                    "Value for '{0}' is negative ({1}). The application may have been assigned "
+                                    "too low {2} values.".format(resource, value, bottleneck_resource))
 
     start_time = timeit.default_timer()
 
