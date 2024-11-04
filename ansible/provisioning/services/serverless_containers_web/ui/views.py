@@ -1040,16 +1040,29 @@ def getContainerResourcesForApp(number_of_containers, app_resources, benevolence
     container_resources['regular'] = {}
     container_resources['regular']['cpu_max'] = (app_resources['cpu']['max'] - app_resources['cpu']['current']) / number_of_containers
 
-    # CPU max shares allocation
-    # We will try to allocate shares in multiples of 100
+    # CPU MAX SHARES ALLOCATION
+    # We will try to allocate shares in multiples of 100, then if cpu_max is not a multiple of 100 we will run n-1
+    # regular containers whose cpu_max will be adjusted to a multiple of 100 and 1 irregular container that compensates
+    # the increase or decrease of the regular containers cpu_max. There are two cases:
+    #
+    # CASE 1: Creating a "bigger" container:
+    # - If `cpu_max` is closer to a lower multiple of 100 (i.e., modulo < 50), we adjust the `cpu_max` of regular
+    #   containers to that multiple (regular -= cpu_modulo). Then a bigger container must be created to compensate for
+    #   the CPU decrease of the n - 1 regular containers (cpu_modulo * (number_of_containers - 1))
+    #
+    # CASE 2: Creating a "smaller" container:
+    # - If `cpu_max` is closer to the next higher multiple of 100 (i.e., modulo >= 50), we adjust the `cpu_max` of
+    #   regular containers up to this multiple (regular += 100 - cpu_modulo). Then a smaller container must be created
+    #   to compensate for the extra CPU allocated to each of the n - 1 regular containers ((100 - cpu_modulo) * (number_of_containers - 1))
+    # - To avoid undersized containers, this smaller container must have at least 10 CPU shares.
     correctly_allocated = False
     cpu_modulo = container_resources['regular']['cpu_max'] % 100
-    if  cpu_modulo == 0 or is_hadoop_app:
+    # Hadoop apps avoid irregular containers since YARN limits all workers to the smallest container's resources
+    if cpu_modulo == 0 or is_hadoop_app:
         # we don't have to do anything
-        # Workaround to avoid underusing resources in hadoop clusters: don't create smaller or bigger containers, since the whole cluster would be limited by the smaller container's resources
         correctly_allocated = True
     else:
-        # Case 1: we create a bigger container
+        # CASE 1: Creating a "bigger" container
         if cpu_modulo < 50:
             # Check that it is actually possible for the containers to give shares
             if container_resources['regular']['cpu_max'] > 100:
@@ -1057,7 +1070,7 @@ def getContainerResourcesForApp(number_of_containers, app_resources, benevolence
                 container_resources['bigger']['cpu_max'] = container_resources['regular']['cpu_max'] + cpu_modulo*(number_of_containers - 1)
                 container_resources['regular']['cpu_max'] -= cpu_modulo
                 correctly_allocated = True
-        # Case 2: we create a smaller container
+        # CASE 2: Creating a "smaller" container
         else:
             smaller_resources = container_resources['regular']['cpu_max'] - ((100 - cpu_modulo) * (number_of_containers - 1))
             # Check that the smaller container is not too small
