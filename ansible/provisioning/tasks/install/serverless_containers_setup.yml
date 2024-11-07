@@ -31,9 +31,18 @@
 
 - name: Install jq (non-root)
   when: "not virtual_mode and jq_check.rc != 0"
-  shell: curl -sS https://webi.sh/jq | sh
-  args:
-    executable: /bin/bash
+  block:
+    - name: Install jq (non-root)
+      shell: curl -sS https://webi.sh/jq | sh
+      args:
+        executable: /bin/bash
+
+    - name: Remove residual directory created by jq installation
+      shell: rmdir -p Downloads/webi/jq/*
+      args:
+        chdir: "$HOME"
+        executable: /bin/bash
+      ignore_errors: true
 
 - name: Check if ServerlessContainers directory is already there
   stat:
