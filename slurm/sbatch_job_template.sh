@@ -12,7 +12,8 @@
 
 set -e
 
-PLATFORM_HOME=$HOME/ServerlessYARN
+SCRIPT_PATH=$(scontrol show job $SLURM_JOB_ID | grep 'Command=' | cut -d "=" -f 2)
+PLATFORM_HOME=$(dirname $(dirname -- "${SCRIPT_PATH}"))
 
 echo SLURM_JOB_NODELIST=$SLURM_JOB_NODELIST
 echo SLURM_JOB_CPUS_PER_NODE=$SLURM_JOB_CPUS_PER_NODE
@@ -41,7 +42,17 @@ cd $PLATFORM_HOME/ansible/provisioning
 bash scripts/start_all.sh
 
 # Hold job until timeout or a scancel is sent
-TIME_LIMIT=`squeue -j $SLURM_JOB_ID --Format=timelimit -h`
-SLEEP_TIME=`date -d "1970-01-01 ${TIME_LIMIT} Z" +%s`
+TIME_LIMIT=$(squeue -j $SLURM_JOB_ID --Format=timelimit -h | tr -d " ")
+if [[ "${TIME_LIMIT}" =~ ^[0-9]+-[0-9]{2}:[0-9]{2}:[0-9]{2}$ ]]; then # Format d-hh:mm:ss
+  DAYS="${TIME_LIMIT:0:1}"
+  REMAINING_SECONDS=$(date -d "1970-01-01 ${TIME_LIMIT:2} Z" +%s)
+elif [[ "${TIME_LIMIT}" =~ ^[0-9]{2}:[0-9]{2}:[0-9]{2}$ ]]; then # Format hh:mm:ss
+  DAYS=0
+  REMAINING_SECONDS=$(date -d "1970-01-01 ${TIME_LIMIT} Z" +%s)
+else # Bad format
+  DAYS="3"
+  REMAINING_SECONDS="0"
+fi
+SLEEP_TIME=$(( DAYS * 86400 + REMAINING_SECONDS ))
 sleep ${SLEEP_TIME} &
 wait
