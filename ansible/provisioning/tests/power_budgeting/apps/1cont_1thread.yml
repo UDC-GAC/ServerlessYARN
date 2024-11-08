@@ -1,19 +1,19 @@
 ## Name or list of names in case you want to create several apps with the same configuration
-names: npb_app
+names: npb_1cont_1thread
 
 ## Resource configuration to load into State Database
 # CPU
-cpu_max: 6400
-cpu_min: 100
-cpu_boundary: 100
+cpu_max: 200
+cpu_min: 5
+cpu_boundary: 10
 # Memory
 mem_max: 102400
 mem_min: 512
 mem_boundary: 256
 # Energy
-energy_max: 175
+energy_max: 40
 energy_min: 10
-energy_boundary: 10
+energy_boundary: 5
 
 ## The indicated files should be in the same directory as this configuration file
 files_dir: files_dir

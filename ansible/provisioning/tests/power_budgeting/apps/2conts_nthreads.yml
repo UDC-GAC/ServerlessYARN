@@ -1,0 +1,25 @@
+## Name or list of names in case you want to create several apps with the same configuration
+names: hadoop_2conts_nthreads
+
+## Resource configuration to load into State Database
+cpu_max: 1200
+cpu_min: 200
+mem_max: 16384
+mem_min: 2048
+cpu_boundary: 20
+mem_boundary: 128
+
+## Only used if disk_scaling set to yes
+disk_max: 200
+disk_min: 100
+disk_boundary: 20
+
+## Only used if power_budgeting set to yes
+energy_max: 150
+energy_min: 10
+energy_boundary: 5
+
+## The indicated files should be in the same directory as this configuration file
+start_script: start.sh
+stop_script: stop.sh
+app_jar: app_jar.jar

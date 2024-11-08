@@ -68,7 +68,10 @@ def get_app_redis_key(redis_server, app_name):
 
 def get_containers_from_app(session, app_name):
     response = session.get(urljoin(ORCHESTRATOR_URL, f"/structure/{app_name}"))
-    return response.json()['containers']
+    if 'containers' in response.json():
+        return response.json()['containers']
+    else:
+        raise Exception(f"No containers found for app {0}: {1}".format(app_name, response.json()))
 
 
 def update_containers_file(file, containers):

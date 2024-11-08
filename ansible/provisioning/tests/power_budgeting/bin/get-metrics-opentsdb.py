@@ -291,7 +291,7 @@ def write_latex(results_df, out_dir):
 
     # Pre-processing
     # Avoid errors with percentage and underscore symbols
-    columns = [col.replace('%', '\\%').replace('_', '\\%') for col in results_df.columns]
+    columns = [col.replace('%', '\\%').replace('_', '\\_') for col in results_df.columns]
     # Set all columns centered (c) and include borders (|) if specified
     column_format = "|".join(["c" for _ in range(len(columns))])
     if include_borders:
@@ -334,14 +334,14 @@ def write_global_results(results_dict, out_dir):
 
 if __name__ == "__main__":
 
-    if len(sys.argv) != 4:
-        print("Usage: python get-metrics-opentsdb.py <experiments-log-file> <containers-file> <results-directory>")
+    if len(sys.argv) != 5:
+        print("Usage: python get-metrics-opentsdb.py <app-name> <experiments-log-file> <containers-file> <results-directory>")
         sys.exit(1)
 
-    app_name = "npb_app"
-    experiments_dates = read_experiment_times(sys.argv[1])
-    experiment_containers_map = map_containers_to_experiments(sys.argv[2], experiments_dates)
-    results_dir = sys.argv[3]
+    app_name = str(sys.argv[1])
+    experiments_dates = read_experiment_times(sys.argv[2])
+    experiment_containers_map = map_containers_to_experiments(sys.argv[3], experiments_dates)
+    results_dir = sys.argv[4]
     create_dir(results_dir)
     global_results = {}
     print(experiment_containers_map)
