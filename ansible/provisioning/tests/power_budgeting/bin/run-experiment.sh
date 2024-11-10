@@ -19,27 +19,31 @@ declare -A SC_LOGS_START=(
 #########################################################################################################
 # APPLICATION AND CONFIGURATION
 #########################################################################################################
-APP_NAME="${APP}_${EXPERIMENT}"
-APP_DIR="${APP}_app"
-RESULTS_DIR="${OUTPUT_DIR}/results_${APP}_${EXPERIMENT}"
+# Experiment
+EXPERIMENT_NAME=$(echo "${EXPERIMENT}" | jq -r '.name')
+NUM_THREADS=$(echo "${EXPERIMENT}" | jq -r '.params.num_threads')
+NPB_KERNEL=$(echo "${EXPERIMENT}" | jq -r '.params.npb_kernel')
+DYNAMIC_SHARES_PER_WATT=$(echo "${EXPERIMENT}" | jq -r '.params.dynamic_shares_per_watt')
+STATIC_POWER_MODEL=$(echo "${EXPERIMENT}" | jq -r '.params.static_model')
+DYNAMIC_POWER_MODEL=$(echo "${EXPERIMENT}" | jq -r '.params.dynamic_model')
+HW_AWARE_POWER_MODEL=$(echo "${EXPERIMENT}" | jq -r '.params.hw_aware_model')
 
-if [ "${APP}" == "hadoop" ]; then
-  APP_DIR="${APP}_sample"
-fi
-
-# Read config for current experiment
-source "${CONF_DIR}/experiment-config.sh"
-IFS="," read NUM_THREADS STATIC_POWER_MODEL DYNAMIC_POWER_MODEL HW_AWARE_POWER_MODEL <<< "${EXPERIMENT_CONFIG[${EXPERIMENT}]}"
+# App
+APP_CONFIG_FILENAME=$(echo "${EXPERIMENT}" | jq -r '.config_file')
+APP_CONFIG_FILE="${APPS_CONFIG_DIR}/${APP_CONFIG_FILENAME}"
+APP_DIR=$(jq -r ".apps[] | select(.app == \"${APP}\") | .app_dir" "${CONFIG_FILE}")
+APP_NAME="${APP}_${EXPERIMENT_NAME}"
+RESULTS_DIR="${OUTPUT_DIR}/results_${APP_NAME}"
 
 #########################################################################################################
 # AUXILIAR FUNCTIONS
 #########################################################################################################
 function print_env() {
-  echo "ENVIRONMENT FOR APP ${APP} AND EXPERIMENT ${EXPERIMENT}"
-  echo "EXPERIMENT: ${EXPERIMENT}"
+  echo "ENVIRONMENT FOR APP ${APP} AND EXPERIMENT ${EXPERIMENT_NAME}"
+  echo "EXPERIMENT: ${EXPERIMENT_NAME}"
   echo "APP_NAME: ${APP_NAME}"
   echo "APP_DIR: ${APP_DIR}"
-  echo "APP_CONFIG_DIR: ${APP_CONFIG_DIR}"
+  echo "APP_CONFIG_FILE: ${APP_CONFIG_FILE}"
   echo "NUM_THREADS: ${NUM_THREADS}"
   echo "STATIC_POWER_MODEL: ${STATIC_POWER_MODEL}"
   echo "DYNAMIC_POWER_MODEL: ${DYNAMIC_POWER_MODEL}"
@@ -51,6 +55,26 @@ function print_env() {
   echo "PROVISIONING_DIR: ${PROVISIONING_DIR}"
   echo "ANSIBLE_DIR: ${ANSIBLE_DIR}"
   echo "ANSIBLE_INVENTORY: ${ANSIBLE_INVENTORY}"
+}
+
+function change_npb_num_threads() {
+  sed -i "s/^\(export NUM_THREADS=\)[0-9]\+$/\1${1}/" "${PROVISIONING_DIR}/apps/${APP_DIR}/files_dir/get_env.sh"
+}
+
+function change_npb_kernel() {
+  sed -i "s/^\(export NPB_KERNELS_TO_RUN=\)(.*)/\1(${1})/" "${PROVISIONING_DIR}/apps/${APP_DIR}/files_dir/get_env.sh"
+}
+
+function manage_app_details() {
+  # TODO: If more exceptions appears for each app, do this in a separated file
+  if [ "${APP}" == "npb" ]; then
+    if [ "${NUM_THREADS}" != "null" ]; then
+      change_npb_num_threads "${NUM_THREADS}"
+    fi
+    if [ "${NPB_KERNEL}" != "null" ]; then
+      change_npb_kernel \"${NPB_KERNEL}\"
+    fi
+  fi
 }
 
 function register_logs_position() {
@@ -81,14 +105,6 @@ function run_app() {
   sleep 60
 }
 
-function change_npb_num_threads() {
-  sed -i "s/^\(export NUM_THREADS=\)[0-9]\+$/\1${1}/" "${PROVISIONING_DIR}/apps/${APP_DIR}/files_dir/get_env.sh"
-}
-
-function change_npb_kernel() {
-  sed -i "s/^\(export NPB_KERNELS_TO_RUN=\)(.*)/\1(${1})/" "${PROVISIONING_DIR}/apps/${APP_DIR}/files_dir/get_env.sh"
-}
-
 #########################################################################################################
 # INITIALIZATION
 #########################################################################################################
@@ -97,17 +113,14 @@ print_env
 # Create directory to store the results of the experiment
 mkdir -p "${RESULTS_DIR}"
 
+# Manage different configurations across different types of apps
+manage_app_details
+
 # Set application configuration
-cp "${APP_CONFIG_DIR}/${EXPERIMENT}.yml" "${PROVISIONING_DIR}/apps/${APP_DIR}/app_config.yml"
+cp "${APP_CONFIG_FILE}" "${PROVISIONING_DIR}/apps/${APP_DIR}/app_config.yml"
 
 # Add application if it doesn't exists
 python3 "${BIN_DIR}/add-app.py" "${APP_DIR}"
-
-# TODO: If more exceptions appears for each app, do this in a separated file
-if [ "${APP}" == "npb" ]; then
-  change_npb_num_threads "${NUM_THREADS}"
-  change_npb_kernel '"ft"'
-fi
 
 echo "Ensure WattTrainer is deactivated"
 bash "${BIN_DIR}/deactivate-watt-trainer.sh"
