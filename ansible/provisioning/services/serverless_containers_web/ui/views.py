@@ -4,7 +4,7 @@ from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormS
 from ui.forms import AddHostForm, AddAppForm, AddHadoopAppForm, StartAppForm, AddDisksToHostsForm
 from ui.forms import AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddContainersToAppForm
 from ui.forms import RemoveStructureForm, RemoveContainersFromAppForm
-from ui.forms import DEFAULT_BOUNDARY_PERCENTAGE
+from ui.forms import DEFAULT_BOUNDARY_PERCENTAGE, DEFAULT_BOUNDARY_TYPE
 
 from django.forms import formset_factory
 from django.http import HttpResponse
@@ -444,6 +444,7 @@ def setStructureResourcesForm(structure, form_action):
     ## Need to do this to hide extra 'Save changes' buttons on JS
     structure['resources_form_helper'].layout[submit_button_disp][0].name += structure['name']
 
+
 def getLimits(structure_name):
     url = base_url + "/structure/" + structure_name + "/limits"
     
@@ -452,29 +453,39 @@ def getLimits(structure_name):
         data_json = json.loads(response.read())
     except urllib.error.HTTPError:
         data_json = {}
-    
-    
+
     return data_json
-  
+
+
 def setLimitsForm(structure, form_action):
-
     editable_data = 0
-    form_initial_data = {'name' : structure['name']}
+    form_initial_data = {'name': structure['name']}
 
-    resource_list = ["cpu","mem","disk","net","energy"]
+    resource_list = ["cpu", "mem", "disk", "net", "energy"]
 
     for resource in resource_list:
-        if (resource in structure['limits'] and 'boundary' in structure['limits'][resource]): 
-            editable_data += 1
-            form_initial_data[resource + '_boundary'] = structure['limits'][resource]['boundary']
+        if resource in structure['limits']:
+            if 'boundary' in structure['limits'][resource]:
+                editable_data += 1
+                form_initial_data[resource + '_boundary'] = structure['limits'][resource]['boundary']
+            if 'boundary_type' in structure['limits'][resource]:
+                editable_data += 1
+                form_initial_data[resource + '_boundary'] = structure['limits'][resource]['boundary_type']
     
-    structure['limits_form'] = LimitsForm(initial = form_initial_data)
+    structure['limits_form'] = LimitsForm(initial=form_initial_data)
     structure['limits_form'].helper.form_action = form_action
     structure['limits_editable_data'] = editable_data
     
     for resource in resource_list:
-        if ( not (resource in structure['limits'] and 'boundary' in structure['limits'][resource])):    
+        if resource not in structure['limits']:
             structure['limits_form'].helper[resource + '_boundary'].update_attributes(type="hidden")
+            structure['limits_form'].helper[resource + '_boundary_type'].update_attributes(type="hidden")
+        else:
+            if 'boundary' not in structure['limits'][resource]:
+                structure['limits_form'].helper[resource + '_boundary'].update_attributes(type="hidden")
+            if 'boundary_type' not in structure['limits'][resource]:
+                structure['limits_form'].helper[resource + '_boundary_type'].update_attributes(type="hidden")
+
 
 def setStartAppForm(structure, form_action, started_app):
     startAppForm = StartAppForm()
@@ -483,7 +494,6 @@ def setStartAppForm(structure, form_action, started_app):
 
     structure['start_app_form'] = startAppForm
     structure['started_app'] = started_app
-
 
 
 def setAddContainersForm(structures, hosts, form_action):
@@ -787,10 +797,12 @@ def processAddContainers(request, url, structure_type, resources, host_list):
         if (resource + "_boundary" in request.POST):
             if request.POST[resource + "_boundary"] != "":
                 resource_boundary = request.POST[resource + "_boundary"]
+                resource_boundary_type = request.POST[resource + "_boundary_type"]
             else:
-                resource_boundary = int(int(container_resources[resource + "_min"]) * DEFAULT_BOUNDARY_PERCENTAGE)
-                if resource_boundary == 0: resource_boundary = 1
+                resource_boundary = DEFAULT_BOUNDARY_PERCENTAGE
+                resource_boundary_type = DEFAULT_BOUNDARY_TYPE
             container_resources[resource + "_boundary"] = resource_boundary
+            container_resources[resource + "_boundary_type"] = resource_boundary_type
 
     ## Bind specific disk
     bind_disk = "disk" in resources and "disk_max" in request.POST and request.POST["disk_max"] != "" and request.POST["disk_min"]
@@ -874,10 +886,12 @@ def processAddApp(request, url, structure_name, structure_type, resources):
         if (resource + "_boundary" in request.POST):
             if request.POST[resource + "_boundary"] != "":
                 resource_boundary = request.POST[resource + "_boundary"]
+                resource_boundary_type = request.POST[resource + "_boundary_type"]
             else:
-                resource_boundary = int(resource_min * DEFAULT_BOUNDARY_PERCENTAGE)
-                if resource_boundary == 0: resource_boundary = 1
-            put_field_data['limits']['resources'][resource] = {'boundary': resource_boundary}
+                resource_boundary = DEFAULT_BOUNDARY_PERCENTAGE
+                resource_boundary_type = DEFAULT_BOUNDARY_TYPE
+
+            put_field_data['limits']['resources'][resource] = {'boundary': resource_boundary, 'boundary_type': resource_boundary_type}
 
     error = ""
     task = add_app_task.delay(full_url, headers, put_field_data, structure_name, app_files)
@@ -973,18 +987,18 @@ def processStartApp(request, url, app_name):
         ## ResourceManager/NameNode resources
         rm_maximum_cpu = 100
         rm_minimum_cpu = 100
-        rm_cpu_boundary = 25
+        rm_cpu_boundary = 25 # 25 = 25% * max
         rm_maximum_mem = 1024
         rm_minimum_mem = 1024
-        rm_mem_boundary = 256
+        rm_mem_boundary = 25  # 256 = 25% * max
         app_resources['cpu']['max'] -= rm_maximum_cpu
         app_resources['cpu']['min'] -= rm_minimum_cpu
         app_resources['mem']['max'] -= rm_maximum_mem
         app_resources['mem']['min'] -= rm_minimum_mem
         if config['power_budgeting']:
-            rm_maximum_energy = 50 # This value is provisional (it has to be tested)
+            rm_maximum_energy = 50  # This value is provisional (it has to be tested)
             rm_minimum_energy = 10
-            rm_energy_boundary = 5
+            rm_energy_boundary = 10  # 5 = 10% * max
             app_resources['energy']['max'] -= rm_maximum_energy
             app_resources['energy']['min'] -= rm_minimum_energy
 
@@ -1035,7 +1049,6 @@ def processStartApp(request, url, app_name):
 
 
 def getContainerResourcesForApp(number_of_containers, app_resources, benevolence, is_hadoop_app):
-
     container_resources = {}
     container_resources['regular'] = {}
     container_resources['regular']['cpu_max'] = (app_resources['cpu']['max'] - app_resources['cpu']['current']) / number_of_containers
@@ -1123,23 +1136,31 @@ def getContainerResourcesForApp(number_of_containers, app_resources, benevolence
                 continue
             container_resources['regular']['{0}_max'.format(resource)] = int((app_resources[resource]['max'] - app_resources[resource]['current']) / number_of_containers)
 
-    # Boundaries are assigned based on max and min value of resource and the benevolence policy value
-    # example: for 200/100 max/min cpu and a high benevolence value (or 'lax' limits) : boundary = (200-100)/4 = 25 -> actual minimum cpu (without takint into account rebalancing) 100+25*2 = 150
-    # same example for low benevolence valye (or 'strict' limits) : boundary = (200-100)/16 = 6 -> actual minimum cpu 100+6*2 = 112
-    if benevolence == 1: divider = 4
-    elif benevolence == 2: divider = 8
-    else: divider = 16
+    # BOUNDARIES ALLOCATION
+    # Boundaries are assigned based on resource max and min values and the benevolence policy
+    # Example: For 200/100 max/min cpu and a high benevolence value (or 'lax' limits) :
+    # - boundary = (200 - 100) / 4 = 25 -> actual minimum cpu = minimum + 2 * boundary = 100 + 25 * 2 = 150
+    # Boundaries were computed as direct values, now they are computed as a percentage of max (default boundary type)
+    # Computation of boundaries before = (max - min) / divider
+    # Computation of boundaries now = ((max - min) / divider) / max ) * 100 = ((max - min) / (divider * max)) * 100
 
+    divider = 2 ** (benevolence + 1)  # benevolence=1 divider=4, benevolence=2 divider=8,...
     for resource in app_resources:
         boundary_key = '{0}_boundary'.format(resource)
+        boundary_type_key = '{0}_boundary_type'.format(resource)
         max_key = '{0}_max'.format(resource)
         min_key = '{0}_min'.format(resource)
-        container_resources['regular'][boundary_key] = round((container_resources['regular'][max_key] - container_resources['regular'][min_key]) / divider)
+        container_resources['regular'][boundary_key] = round(
+            ((container_resources['regular'][max_key] - container_resources['regular'][min_key]) * 100) /
+            (divider * container_resources['regular'][max_key]))
+        container_resources['regular'][boundary_type_key] = DEFAULT_BOUNDARY_TYPE
 
         if 'bigger' in container_resources or 'smaller' in container_resources:
-            if 'bigger' in container_resources: irregular = 'bigger'
-            else: irregular = 'smaller'
-            container_resources[irregular][boundary_key] = round((container_resources[irregular][max_key] - container_resources[irregular][min_key]) / divider)
+            irregular = 'bigger' if 'bigger' in container_resources else 'smaller'
+            container_resources[irregular][boundary_key] = round(
+                ((container_resources[irregular][max_key] - container_resources[irregular][min_key]) * 100) /
+                (divider * container_resources['regular'][max_key]))
+            container_resources[irregular][boundary_type_key] = DEFAULT_BOUNDARY_TYPE
 
     if not correctly_allocated:
         # use original resource allocation

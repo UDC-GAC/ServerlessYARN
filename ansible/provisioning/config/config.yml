@@ -72,19 +72,24 @@ number_of_containers_per_node: 1
 # CPU
 max_cpu_percentage_per_container: 200
 min_cpu_percentage_per_container: 50
-cpu_boundary: 20
+cpu_boundary: 10
+cpu_boundary_type: "percentage_of_max"
 # Memory
 max_memory_per_container: 2048
 min_memory_per_container: 512
-mem_boundary: 256
+mem_boundary: 15
+mem_boundary_type: "percentage_of_max"
 # Energy
-max_energy_per_container: 30
+max_energy_per_container: 40
 min_energy_per_container: 10
 energy_boundary: 5
+energy_boundary_type: "percentage_of_max"
 # Disk (only relevant if disk_scaling is set to "yes")
-disk_boundary: 10
 max_diskbw_per_container: 100
 min_diskbw_per_container: 50
+disk_boundary: 10
+disk_boundary_type: "percentage_of_max"
+
 
 ## Container network configuration
 # host interface through which the containers of different nodes communicate with each other

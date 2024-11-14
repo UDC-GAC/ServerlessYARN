@@ -88,8 +88,10 @@ if __name__ == "__main__":
                 put_field_data['limits']["resources"][res] = {}
                 if cont[f'{res}_boundary'] == 0:
                     put_field_data['limits']["resources"][res]["boundary"] = int(config[f'{res}_boundary'])
+                    put_field_data['limits']["resources"][res]["boundary_type"] = str(cont[f'{res}_boundary_type'])
                 else:
                     put_field_data['limits']["resources"][res]["boundary"] = int(cont[f'{res}_boundary'])
+                    put_field_data['limits']["resources"][res]["boundary_type"] = str(cont[f'{res}_boundary_type'])
 
             r = session.put(full_url, data=json.dumps(put_field_data), headers=headers)
 

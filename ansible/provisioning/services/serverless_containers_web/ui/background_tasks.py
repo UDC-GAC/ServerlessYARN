@@ -280,9 +280,11 @@ def start_containers_task_v2(new_containers, container_resources, disks):
             container_info['container_name'] = container
             container_info['host'] = host
             # Resources
-            for resource in ['cpu_max', 'cpu_min', 'cpu_boundary', 'mem_max', 'mem_min', 'mem_boundary', 'disk_max', 'disk_min', 'disk_boundary', 'energy_max', 'energy_min', 'energy_boundary']:
-                if resource in container_resources:
-                    container_info[resource] = container_resources[resource]
+            for resource in ['cpu', 'mem', 'disk', 'energy']:
+                for key in ['max', 'min', 'boundary', 'boundary_type']:
+                    resource_key = '{0}_{1}'.format(resource, key)
+                    if resource_key in container_resources:
+                        container_info[resource_key] = container_resources[resource_key]
 
             if len(disks) > 0:
                 container_info['disk'] = disks[host]['name']
@@ -329,12 +331,12 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
                     container_info['container_name'] = container
                     container_info['host'] = host
                     # Resources
-                    for resource in ['cpu_max', 'cpu_min', 'cpu_boundary',
-                                     'mem_max', 'mem_min', 'mem_boundary']:
+                    for resource in ['cpu_max', 'cpu_min', 'cpu_boundary', 'cpu_boundary_type',
+                                     'mem_max', 'mem_min', 'mem_boundary', 'mem_boundary_type']:
                         container_info[resource] = container_resources[container_type][resource]
                     # Energy
                     if config['power_budgeting']:
-                        for resource in ['energy_max', 'energy_min', 'energy_boundary']:
+                        for resource in ['energy_max', 'energy_min', 'energy_boundary', 'energy_boundary_type']:
                             container_info[resource] = container_resources[container_type][resource]
                     # Disks
                     if config['disk_capabilities'] and config['disk_scaling'] and container_type != 'rm-nn':
@@ -346,6 +348,7 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
                                 container_info['disk_max'] = container_resources[container_type]['disk_max']
                                 container_info['disk_min'] = container_resources[container_type]['disk_min']
                                 container_info['disk_boundary'] = container_resources[container_type]['disk_boundary']
+                                container_info['disk_boundary_type'] = container_resources[container_type]['disk_boundary_type']
                                 break
 
                     containers_info.append(container_info)
@@ -374,7 +377,6 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
     # argument_list = [hosts, formatted_containers_info, app, template_definition_file, definition_file, image_file, app_files['files_dir'], app_files['install_script'], app_files['app_jar']]
 
     argument_list = [hosts, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar']]
-    #argument_list = [hosts, formatted_containers_info, app, app_files['app_jar']]
     error_message = "Error starting containers {0}".format(formatted_containers_info)
     process_script("start_containers_with_app", argument_list, error_message)
 

@@ -10,7 +10,8 @@ config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file:
     config = yaml.load(config_file, Loader=yaml.FullLoader)
 
-DEFAULT_BOUNDARY_PERCENTAGE = 0.05
+DEFAULT_BOUNDARY_PERCENTAGE = 10
+DEFAULT_BOUNDARY_TYPE = "percentage_of_max"
 
 DEFAULT_COMMON_FIELDS = {
         ## Basic fields
@@ -27,11 +28,42 @@ DEFAULT_COMMON_FIELDS = {
         'disk_min': forms.IntegerField(label="Disk I/O Bandwidth Min", required=True, min_value=1),
         'energy_max': forms.IntegerField(label="Energy Max", required=False, min_value=1),
         'energy_min': forms.IntegerField(label="Energy Min", required=False, min_value=1),
+
         ## Resource boundaries
-        'cpu_boundary': forms.IntegerField(label="CPU boundary ({0}% of CPU Min if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE*100), required=False, min_value=1),
-        'mem_boundary': forms.IntegerField(label="Mem boundary ({0}% of Mem Min if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE*100), required=False, min_value=1),
-        'disk_boundary': forms.IntegerField(label="Disk boundary ({0}% of Disk Min if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE*100), required=False, min_value=1),
-        'energy_boundary': forms.IntegerField(label="Energy boundary ({0}% of Energy Min if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE*100), required=False, min_value=1),
+        'cpu_boundary': forms.IntegerField(label="CPU boundary ({0}% if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE), required=False, min_value=1, max_value=100),
+        'mem_boundary': forms.IntegerField(label="Mem boundary ({0}% if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE), required=False, min_value=1, max_value=100),
+        'disk_boundary': forms.IntegerField(label="Disk boundary ({0}% if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE), required=False, min_value=1, max_value=100),
+        'energy_boundary': forms.IntegerField(label="Energy boundary ({0}% if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE), required=False, min_value=1, max_value=100),
+
+        # Resource boundary types
+        'cpu_boundary_type': forms.ChoiceField(label="CPU boundary type (percentage of max or current)",
+                                               choices=(
+                                                   ("percentage_of_max", "Percentage of max"),
+                                                   ("percentage_of_current", "Percentage of current"),
+                                               ),
+                                               initial=DEFAULT_BOUNDARY_TYPE,
+                                               required=False),
+        'mem_boundary_type': forms.ChoiceField(label="Mem boundary type (percentage of max or current)",
+                                               choices=(
+                                                   ("percentage_of_max", "Percentage of max"),
+                                                   ("percentage_of_current", "Percentage of current"),
+                                               ),
+                                               initial=DEFAULT_BOUNDARY_TYPE,
+                                               required=False),
+        'disk_boundary_type': forms.ChoiceField(label="Disk boundary type (percentage of max or current)",
+                                               choices=(
+                                                   ("percentage_of_max", "Percentage of max"),
+                                                   ("percentage_of_current", "Percentage of current"),
+                                               ),
+                                               initial=DEFAULT_BOUNDARY_TYPE,
+                                               required=False),
+        'energy_boundary_type': forms.ChoiceField(label="Energy boundary type (percentage of max or current)",
+                                               choices=(
+                                                   ("percentage_of_max", "Percentage of max"),
+                                                   ("percentage_of_current", "Percentage of current"),
+                                               ),
+                                               initial=DEFAULT_BOUNDARY_TYPE,
+                                               required=False),
 
         ## Application files
         'add_files_dir': forms.BooleanField(label="Add additional files directory?", required=False),
@@ -43,7 +75,7 @@ DEFAULT_COMMON_FIELDS = {
 
         ## Services
         'debug': forms.ChoiceField(label="Debug",
-                choices = (
+                choices=(
                         ("True", "True"),
                         ("False", "False"),
                 ),
@@ -155,24 +187,43 @@ class LimitsForm(forms.Form):
     name = common_fields['name']
 
     cpu_boundary = common_fields['cpu_boundary']
-    cpu_boundary.label = "CPU Boundary (CPU shares)"
+    cpu_boundary.label = "CPU Boundary (%)"
     cpu_boundary.required = True
 
     mem_boundary = common_fields['mem_boundary']
-    mem_boundary.label = "Memory Boundary (MB)"
+    mem_boundary.label = "Memory Boundary (%)"
     mem_boundary.required = True
 
     disk_boundary = common_fields['disk_boundary']
-    disk_boundary.label = "Disk Boundary (MB/s)"
+    disk_boundary.label = "Disk Boundary (%)"
     disk_boundary.required = True
 
     energy_boundary = common_fields['energy_boundary']
-    energy_boundary.label = "Energy Boundary (Watts)"
+    energy_boundary.label = "Energy Boundary (%)"
     energy_boundary.required = True
 
-    net_boundary = forms.IntegerField(label="Network Boundary (MB/s)",
+    cpu_boundary_type = common_fields['cpu_boundary_type']
+    cpu_boundary_type.required = True
+
+    mem_boundary_type = common_fields['mem_boundary_type']
+    mem_boundary_type.required = True
+
+    disk_boundary_type = common_fields['disk_boundary_type']
+    disk_boundary_type.required = True
+
+    energy_boundary_type = common_fields['energy_boundary_type']
+    energy_boundary_type.required = True
+
+    net_boundary = forms.IntegerField(label="Network Boundary (%)",
             required=True
     )
+    net_boundary_type = forms.ChoiceField(label="Network boundary type (percentage of max or current)",
+                                           choices=(
+                                               ("percentage_of_max", "Percentage of max"),
+                                               ("percentage_of_current", "Percentage of current"),
+                                           ),
+                                           initial=DEFAULT_BOUNDARY_TYPE,
+                                           required=False)
 
     def __init__(self, *args, **kwargs):
         super(LimitsForm, self).__init__(*args, **kwargs)
@@ -183,10 +234,15 @@ class LimitsForm(forms.Form):
         self.helper.layout = Layout(
             Field('name', type="hidden", readonly=True),
             Field('cpu_boundary'),
+            Field('cpu_boundary_type'),
             Field('mem_boundary'),
+            Field('mem_boundary_type'),
             Field('disk_boundary'),
+            Field('disk_boundary_type'),
             Field('net_boundary'),
+            Field('net_boundary_type'),
             Field('energy_boundary'),
+            Field('energy_boundary_type'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
             )    
@@ -355,6 +411,11 @@ class AddContainersForm(forms.Form):
     disk_boundary = common_fields['disk_boundary']
     energy_boundary = common_fields['energy_boundary']
 
+    cpu_boundary_type = common_fields['cpu_boundary_type']
+    mem_boundary_type = common_fields['mem_boundary_type']
+    disk_boundary_type = common_fields['disk_boundary_type']
+    energy_boundary_type = common_fields['energy_boundary_type']
+
     host_list = forms.CharField(label= "Hosts",
             required=True,
             widget=JSONEditorWidget(width="50%", height="50%", options={'mode':'form', 'name': 'hosts', 'maxVisibleChilds': 10, 'modes': []})
@@ -383,11 +444,17 @@ class AddContainersForm(forms.Form):
             self.helper.layout.append(Field('energy_max'))
             self.helper.layout.append(Field('energy_min'))
 
-        # Boundaries
+        # Boundaries and boundary types
         self.helper.layout.append(Field('cpu_boundary'))
+        self.helper.layout.append(Field('cpu_boundary_type'))
         self.helper.layout.append(Field('mem_boundary'))
-        if config['disk_capabilities'] and config['disk_scaling']: self.helper.layout.append(Field('disk_boundary'))
-        if config['power_budgeting']: self.helper.layout.append(Field('energy_boundary'))
+        self.helper.layout.append(Field('mem_boundary_type'))
+        if config['disk_capabilities'] and config['disk_scaling']:
+            self.helper.layout.append(Field('disk_boundary'))
+            self.helper.layout.append(Field('disk_boundary_type'))
+        if config['power_budgeting']:
+            self.helper.layout.append(Field('energy_boundary'))
+            self.helper.layout.append(Field('energy_boundary_type'))
 
         # Submit button
         self.helper.layout.append(FormActions(Submit('save', 'Add container', css_class='caja')))
@@ -449,6 +516,11 @@ class AddAppForm(forms.Form):
     disk_boundary = common_fields['disk_boundary']
     energy_boundary = common_fields['energy_boundary']
 
+    cpu_boundary_type = common_fields['cpu_boundary_type']
+    mem_boundary_type = common_fields['mem_boundary_type']
+    disk_boundary_type = common_fields['disk_boundary_type']
+    energy_boundary_type = common_fields['energy_boundary_type']
+
     add_files_dir = common_fields['add_files_dir']
     files_dir = common_fields['files_dir']
     add_install = common_fields['add_install']
@@ -484,11 +556,17 @@ class AddAppForm(forms.Form):
             self.helper.layout.append(Field('energy_max'))
             self.helper.layout.append(Field('energy_min'))
 
-        # Boundaries
+        # Boundaries and boundary types
         self.helper.layout.append(Field('cpu_boundary'))
+        self.helper.layout.append(Field('cpu_boundary_type'))
         self.helper.layout.append(Field('mem_boundary'))
-        if config['disk_capabilities'] and config['disk_scaling']: self.helper.layout.append(Field('disk_boundary'))
-        if config['power_budgeting']: self.helper.layout.append(Field('energy_boundary'))
+        self.helper.layout.append(Field('mem_boundary_type'))
+        if config['disk_capabilities'] and config['disk_scaling']:
+            self.helper.layout.append(Field('disk_boundary'))
+            self.helper.layout.append(Field('disk_boundary_type'))
+        if config['power_budgeting']:
+            self.helper.layout.append(Field('energy_boundary'))
+            self.helper.layout.append(Field('energy_boundary_type'))
 
         # Files for application
         self.helper.layout.append(Field('app_dir'))
@@ -502,10 +580,10 @@ class AddAppForm(forms.Form):
         # Submit button
         self.helper.layout.append(FormActions(Submit('save', 'Add app', css_class='caja')))
 
+
 class AddHadoopAppForm(AddAppForm):
-    app_jar = forms.CharField(label= "App JAR",
-            required=True
-            )
+    app_jar = forms.CharField(label="App JAR", required=True)
+
     def __init__(self, *args, **kwargs):
         super(AddHadoopAppForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -530,11 +608,17 @@ class AddHadoopAppForm(AddAppForm):
             self.helper.layout.append(Field('energy_max'))
             self.helper.layout.append(Field('energy_min'))
 
-        # Boundaries
+        # Boundaries and boundary types
         self.helper.layout.append(Field('cpu_boundary'))
+        self.helper.layout.append(Field('cpu_boundary_type'))
         self.helper.layout.append(Field('mem_boundary'))
-        if config['disk_capabilities'] and config['disk_scaling']: self.helper.layout.append(Field('disk_boundary'))
-        if config['power_budgeting']: self.helper.layout.append(Field('energy_boundary'))
+        self.helper.layout.append(Field('mem_boundary_type'))
+        if config['disk_capabilities'] and config['disk_scaling']:
+            self.helper.layout.append(Field('disk_boundary'))
+            self.helper.layout.append(Field('disk_boundary_type'))
+        if config['power_budgeting']:
+            self.helper.layout.append(Field('energy_boundary'))
+            self.helper.layout.append(Field('energy_boundary_type'))
 
         # Other parameters for application
         self.helper.layout.append(Field('app_dir'))

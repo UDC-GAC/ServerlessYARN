@@ -71,14 +71,14 @@ if __name__ == "__main__":
 
             ## Limits
             app_config["limits"]["resources"][resource] = {}
-            key = "boundary"
-            if "{0}_{1}".format(resource,key) in config:
-                app_config["limits"]["resources"][resource][key] = config["{0}_{1}".format(resource,key)]
-            else:
-                if key in []:
-                    app_config["limits"]["resources"][resource][key] = ""
+            for key in ["boundary", "boundary_type"]:
+                if "{0}_{1}".format(resource,key) in config:
+                    app_config["limits"]["resources"][resource][key] = config["{0}_{1}".format(resource,key)]
                 else:
-                    raise Exception("Missing mandatory parameter {0}".format(key))
+                    if key in []:
+                        app_config["limits"]["resources"][resource][key] = ""
+                    else:
+                        raise Exception("Missing mandatory parameter {0}".format(key))
 
         ## Name or names of applications (we allow "name" or "names" as key)
         if "name" in config and config["name"] != "": alias_name_key = "name"

@@ -33,13 +33,13 @@
               {%- for host in nodes -%}
                 {%- for container_name in hostvars[host].containers -%}
                   {%- set container_info = dict() -%}
-                    {{ container_info.update({'container_name': container_name, 'host': host, 'cpu_max': max_cpu_percentage_per_container, 'cpu_min': min_cpu_percentage_per_container, 'mem_max': max_memory_per_container, 'mem_min': min_memory_per_container, 'cpu_boundary': cpu_boundary, 'mem_boundary': mem_boundary }) }}
+                    {{ container_info.update({'container_name': container_name, 'host': host, 'cpu_max': max_cpu_percentage_per_container, 'cpu_min': min_cpu_percentage_per_container, 'mem_max': max_memory_per_container, 'mem_min': min_memory_per_container, 'cpu_boundary': cpu_boundary, 'cpu_boundary_type': cpu_boundary_type, 'mem_boundary': mem_boundary, 'mem_boundary_type': mem_boundary_type }) }}
                     {%- if disk_capabilities and disk_scaling and hostvars[host].disks|length > 0 -%}
                       {%- set first_disk = hostvars[host].disks | first -%}
-                      {{ container_info.update( {'disk': first_disk, 'disk_path': hostvars[host].disks[first_disk]['path'], 'disk_max': max_diskbw_per_container, 'disk_min': min_diskbw_per_container, 'disk_boundary': disk_boundary}) }}
+                      {{ container_info.update( {'disk': first_disk, 'disk_path': hostvars[host].disks[first_disk]['path'], 'disk_max': max_diskbw_per_container, 'disk_min': min_diskbw_per_container, 'disk_boundary': disk_boundary, 'disk_boundary_type': disk_boundary_type}) }}
                     {%- endif -%}
                     {%- if power_budgeting -%}
-                      {{ container_info.update({'energy_max': max_energy_per_container, 'energy_min': min_energy_per_container, 'energy_boundary': energy_boundary}) }}                      
+                      {{ container_info.update({'energy_max': max_energy_per_container, 'energy_min': min_energy_per_container, 'energy_boundary': energy_boundary, 'energy_boundary_type': energy_boundary_type}) }}                      
                     {%- endif -%}
                     {{ containers_info.append(container_info) }}
                 {%- endfor -%}
