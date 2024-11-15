@@ -6,15 +6,15 @@ cpu_max: 400
 cpu_min: 200
 mem_max: 4096
 mem_min: 2048
-cpu_boundary: 20
+cpu_boundary: 10
 cpu_boundary_type: "percentage_of_max"
-mem_boundary: 128
+mem_boundary: 1
 mem_boundary_type: "percentage_of_max"
 
 ## Only used if disk_scaling set to yes
 disk_max: 200
 disk_min: 100
-disk_boundary: 20
+disk_boundary: 10
 disk_boundary_type: "percentage_of_max"
 
 ## Only used if power_budgeting set to yes
