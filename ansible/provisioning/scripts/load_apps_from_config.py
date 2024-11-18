@@ -22,6 +22,10 @@ if __name__ == "__main__":
 
     url = "http://{0}:{1}/structure/apps".format(general_config['server_ip'],general_config['orchestrator_port'])
 
+    if not general_config["apps"]:
+        print("No application was specified in config.yml")
+        exit(0)
+
     apps_to_load = general_config["apps"].split(",")
 
     resources = ["cpu", "mem", "disk", "energy"]
@@ -30,8 +34,13 @@ if __name__ == "__main__":
 
         # Open app configuration file
         app_config_file_path = "{0}/../{1}/{2}/{3}".format(scriptDir, APPS_DIR, app_dir, APP_CONFIG_FILENAME)
-        with open(app_config_file_path, "r") as f:
-            config = yaml.load(f, Loader=yaml.FullLoader)
+        try:
+            with open(app_config_file_path, "r") as f:
+                config = yaml.load(f, Loader=yaml.FullLoader)
+        except FileNotFoundError:
+            print("App configuration file doesn't exist: {0}. Check that '{1}' exists in apps directory "
+                  "and has an app_config.yml inside".format(app_config_file_path, app_dir))
+            break
 
         #app_dir = os.path.relpath(os.path.split(app_config_file_path)[0], "{0}/../apps".format(scriptDir))
         #app_dir = os.path.split(app_config_file_path)[0]
