@@ -655,6 +655,7 @@ class StartAppForm(forms.Form):
             )
     benevolence = forms.ChoiceField(label= "Scaling benevolence",
             choices = (
+                (-1, "Manual"),
                 (1, "Lax"),
                 (2, "Medium"),
                 (3, "Strict"),

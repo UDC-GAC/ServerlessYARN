@@ -928,6 +928,7 @@ def processStartApp(request, url, app_name):
     # hosts[0]['resources']['disks'][1]['load'] = 1
 
     app = getAppInfo(data_json, app_name)
+    app_limits = getLimits(app_name)
 
     ## APP info
     app_files = {}
@@ -1003,7 +1004,7 @@ def processStartApp(request, url, app_name):
             app_resources['energy']['min'] -= rm_minimum_energy
 
     # Get resources for containers
-    container_resources = getContainerResourcesForApp(number_of_containers, app_resources, benevolence, is_hadoop_app)
+    container_resources = getContainerResourcesForApp(number_of_containers, app_resources, app_limits, benevolence, is_hadoop_app)
 
     if is_hadoop_app:
         container_resources['rm-nn'] = {}
@@ -1048,7 +1049,7 @@ def processStartApp(request, url, app_name):
     return error
 
 
-def getContainerResourcesForApp(number_of_containers, app_resources, benevolence, is_hadoop_app):
+def getContainerResourcesForApp(number_of_containers, app_resources, app_limits, benevolence, is_hadoop_app):
     container_resources = {}
     container_resources['regular'] = {}
     container_resources['regular']['cpu_max'] = (app_resources['cpu']['max'] - app_resources['cpu']['current']) / number_of_containers
@@ -1137,30 +1138,46 @@ def getContainerResourcesForApp(number_of_containers, app_resources, benevolence
             container_resources['regular']['{0}_max'.format(resource)] = int((app_resources[resource]['max'] - app_resources[resource]['current']) / number_of_containers)
 
     # BOUNDARIES ALLOCATION
-    # Boundaries are assigned based on resource max and min values and the benevolence policy
-    # Example: For 200/100 max/min cpu and a high benevolence value (or 'lax' limits) :
-    # - boundary = (200 - 100) / 4 = 25 -> actual minimum cpu = minimum + 2 * boundary = 100 + 25 * 2 = 150
-    # Boundaries were computed as direct values, now they are computed as a percentage of max (default boundary type)
-    # Computation of boundaries before = (max - min) / divider
-    # Computation of boundaries now = ((max - min) / divider) / max ) * 100 = ((max - min) / (divider * max)) * 100
-
-    divider = 2 ** (benevolence + 1)  # benevolence=1 divider=4, benevolence=2 divider=8,...
-    for resource in app_resources:
-        boundary_key = '{0}_boundary'.format(resource)
-        boundary_type_key = '{0}_boundary_type'.format(resource)
-        max_key = '{0}_max'.format(resource)
-        min_key = '{0}_min'.format(resource)
-        container_resources['regular'][boundary_key] = round(
-            ((container_resources['regular'][max_key] - container_resources['regular'][min_key]) * 100) /
-            (divider * container_resources['regular'][max_key]))
-        container_resources['regular'][boundary_type_key] = DEFAULT_BOUNDARY_TYPE
-
-        if 'bigger' in container_resources or 'smaller' in container_resources:
-            irregular = 'bigger' if 'bigger' in container_resources else 'smaller'
-            container_resources[irregular][boundary_key] = round(
-                ((container_resources[irregular][max_key] - container_resources[irregular][min_key]) * 100) /
+    # 2 options:
+    #
+    # - Manual allocation: Keep the app boundary and boundary_type for all the containers on the app
+    #
+    # - Automatic allocation: Boundaries for each container are assigned based on resource max and min values
+    #   and the benevolence policy as follows: boundary = (max - min) / (2 ** (benevolence + 1))
+    #   Example: For 200/100 max/min cpu and a low benevolence value (1 or 'lax' limits):
+    #   boundary = (200 - 100) / 4 = 25 -> actual minimum cpu = minimum + 2 * boundary = 100 + 25 * 2 = 150
+    #   Then boundaries are converted to a percentage of max, as this is how ServerlessContainers processes them if we
+    #   use the default boundary type (percentage_of_max) -> boundary = (boundary / max) * 100
+    if benevolence == -1:
+        # Manual allocation
+        for resource in app_resources:
+            boundary_key = '{0}_boundary'.format(resource)
+            boundary_type_key = '{0}_boundary_type'.format(resource)
+            container_resources['regular'][boundary_key] = app_limits[resource]["boundary"]
+            container_resources['regular'][boundary_type_key] = app_limits[resource]["boundary_type"]
+            if 'bigger' in container_resources or 'smaller' in container_resources:
+                irregular = 'bigger' if 'bigger' in container_resources else 'smaller'
+                container_resources[irregular][boundary_key] = app_limits[resource]["boundary"]
+                container_resources[irregular][boundary_type_key] = app_limits[resource]["boundary_type"]
+    else:
+        # Automatic allocation
+        divider = 2 ** (benevolence + 1)  # benevolence=1 divider=4, benevolence=2 divider=8,...
+        for resource in app_resources:
+            boundary_key = '{0}_boundary'.format(resource)
+            boundary_type_key = '{0}_boundary_type'.format(resource)
+            max_key = '{0}_max'.format(resource)
+            min_key = '{0}_min'.format(resource)
+            container_resources['regular'][boundary_key] = round(
+                ((container_resources['regular'][max_key] - container_resources['regular'][min_key]) * 100) /
                 (divider * container_resources['regular'][max_key]))
-            container_resources[irregular][boundary_type_key] = DEFAULT_BOUNDARY_TYPE
+            container_resources['regular'][boundary_type_key] = DEFAULT_BOUNDARY_TYPE
+
+            if 'bigger' in container_resources or 'smaller' in container_resources:
+                irregular = 'bigger' if 'bigger' in container_resources else 'smaller'
+                container_resources[irregular][boundary_key] = round(
+                    ((container_resources[irregular][max_key] - container_resources[irregular][min_key]) * 100) /
+                    (divider * container_resources['regular'][max_key]))
+                container_resources[irregular][boundary_type_key] = DEFAULT_BOUNDARY_TYPE
 
     if not correctly_allocated:
         # use original resource allocation
