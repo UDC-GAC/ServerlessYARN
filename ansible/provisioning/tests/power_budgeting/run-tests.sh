@@ -52,7 +52,9 @@ for APP in "${APPS[@]}"; do
           EXPERIMENT_NAME=$(echo "$EXPERIMENT" | jq -r '.name')
           echo "Running experiment ${EXPERIMENT_NAME} for app ${APP}"
           bash "${BIN_DIR}/run-experiment.sh" "${APP}" "${EXPERIMENT}" >> "${OUTPUT_DIR}/${APP}_${EXPERIMENT_NAME}.out" 2>&1
-          mv "${OUTPUT_DIR}/${APP}_${EXPERIMENT_NAME}.out" "${OUTPUT_DIR}/results_${APP}_${EXPERIMENT_NAME}/"
+          if [ -f "${OUTPUT_DIR}/${APP}_${EXPERIMENT_NAME}.out" ]; then
+            mv "${OUTPUT_DIR}/${APP}_${EXPERIMENT_NAME}.out" "${OUTPUT_DIR}/results_${APP}_${EXPERIMENT_NAME}/"
+          fi
       done
     else
       echo "Application ${APP} not included"

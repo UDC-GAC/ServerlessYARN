@@ -30,7 +30,7 @@ HW_AWARE_POWER_MODEL=$(echo "${EXPERIMENT}" | jq -r '.params.hw_aware_model')
 
 # App
 APP_CONFIG_FILENAME=$(echo "${EXPERIMENT}" | jq -r '.config_file')
-APP_CONFIG_FILE="${APPS_CONFIG_DIR}/${APP_CONFIG_FILENAME}"
+APP_CONFIG_FILE="${APPS_CONFIG_DIR}/${APP}/${APP_CONFIG_FILENAME}"
 APP_DIR=$(jq -r ".apps[] | select(.app == \"${APP}\") | .app_dir" "${CONFIG_FILE}")
 APP_NAME="${APP}_${EXPERIMENT_NAME}"
 RESULTS_DIR="${OUTPUT_DIR}/results_${APP_NAME}"
@@ -122,8 +122,8 @@ cp "${APP_CONFIG_FILE}" "${PROVISIONING_DIR}/apps/${APP_DIR}/app_config.yml"
 # Add application if it doesn't exists
 python3 "${BIN_DIR}/add-app.py" "${APP_DIR}"
 
-echo "Ensure WattTrainer is deactivated"
-bash "${BIN_DIR}/deactivate-watt-trainer.sh"
+echo "Ensure WattTrainer is activated"
+bash "${BIN_DIR}/activate-watt-trainer.sh"
 
 #########################################################################################################
 # EXPERIMENTS
@@ -162,6 +162,7 @@ mkdir -p "${RESULTS_DIR}/serverless_fixed_value"
 register_logs_position
 
 bash "${BIN_DIR}/activate-serverless.sh"
+bash "${BIN_DIR}/change-shares-per-watt.sh" "5"
 bash "${BIN_DIR}/change-energy-rules-policy.sh" "fixed-ratio"
 run_app "${APP_NAME}" "serverless_fixed_value"
 
@@ -196,6 +197,7 @@ save_logs "proportional_scaling"
 mkdir -p "${RESULTS_DIR}/serverless_static_model"
 register_logs_position
 
+bash "${BIN_DIR}/change-model-reliability" "low"
 bash "${BIN_DIR}/change-energy-rules-policy.sh" "modelling"
 bash "${BIN_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
 run_app "${APP_NAME}" "serverless_static_model"
@@ -203,11 +205,25 @@ run_app "${APP_NAME}" "serverless_static_model"
 save_logs "serverless_static_model"
 
 #########################################################################################################
+# serverless_static_model_hr: Run app with ServerlessContainers using power modelling with high reliability
+#########################################################################################################
+mkdir -p "${RESULTS_DIR}/serverless_static_model_mr"
+register_logs_position
+
+bash "${BIN_DIR}/change-model-reliability.sh" "medium"
+bash "${BIN_DIR}/change-energy-rules-policy.sh" "modelling"
+bash "${BIN_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
+run_app "${APP_NAME}" "serverless_static_model_mr"
+
+save_logs "serverless_static_model_mr"
+
+#########################################################################################################
 # hw_aware_model: Run app with ServerlessContainers using HW aware power modelling
 #########################################################################################################
 mkdir -p "${RESULTS_DIR}/hw_aware_model"
 register_logs_position
 
+bash "${BIN_DIR}/change-model-reliability" "low"
 bash "${BIN_DIR}/change-energy-rules-policy.sh" "modelling"
 bash "${BIN_DIR}/change-model.sh" "${HW_AWARE_POWER_MODEL}"
 run_app "${APP_NAME}" "hw_aware_model"
@@ -221,6 +237,7 @@ mkdir -p "${RESULTS_DIR}/serverless_dynamic_model"
 register_logs_position
 
 bash "${BIN_DIR}/activate-watt-trainer.sh"
+bash "${BIN_DIR}/change-model-reliability.sh" "low"
 bash "${BIN_DIR}/change-energy-rules-policy.sh" "modelling"
 bash "${BIN_DIR}/change-model.sh" "${DYNAMIC_POWER_MODEL}"
 run_app "${APP_NAME}" "serverless_dynamic_model"

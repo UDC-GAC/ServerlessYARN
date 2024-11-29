@@ -97,4 +97,4 @@ subnet: 10.22.0.0/16
 # List of application configurations to load on startup, the provided name must match the name of an app folder
 # in the apps directory. Indicate multiple names in the app_config.yml of the app folder(s) specified here to deploy
 # various applications with the same configuration
-apps: npb_app
+apps: ""

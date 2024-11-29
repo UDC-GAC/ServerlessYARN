@@ -9,7 +9,7 @@ WEB_INTERFACE_URL = "http://localhost:9000"
 ORCHESTRATOR_URL = "http://localhost:5000"
 NUMBER_OF_CONTAINERS = "1"
 ASSIGNATION_POLICY = "Best-effort"
-BENEVOLENCE = "3"  # 1: "Lax", 2: "Medium", 3: "Strict"
+BENEVOLENCE = "-1"  # -1: "Manual", 1: "Lax", 2: "Medium", 3: "Strict"
 POLLING_FREQUENCY = 5
 
 
