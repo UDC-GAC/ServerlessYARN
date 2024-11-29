@@ -13,5 +13,5 @@ ansible/provisioning/apps/*
 !ansible/provisioning/apps/hadoop_app/
 !ansible/provisioning/apps/hadoop_sample/
 !ansible/provisioning/apps/spark_sample/
+!ansible/provisioning/apps/npb_app/
 !ansible/provisioning/apps/smusket_app/
-!ansible/provisioning/apps/distributed_smusket_app/

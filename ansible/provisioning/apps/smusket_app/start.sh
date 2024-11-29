@@ -1,50 +1,46 @@
 #!/usr/bin/env bash
 
+# CAUTION!! This script must only be executed from master container
+#export MASTER_IP_ADDRESS=$(hostname -I | awk '{print $1}')
 export SCRIPT_DIR=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
+export OUTPUT_FILE="output_smusket_app_`date +%H-%M-%S`"
+export RUNTIME_FILE="runtime_smusket_app_`date +%H-%M-%S`"
 
-. "${SCRIPT_DIR}/files_dir/spark_config.sh"
-. "${SCRIPT_DIR}/files_dir/get_available_threads.sh"
-. "${SCRIPT_DIR}/files_dir/get_env.sh"
+. "${SCRIPT_DIR}/files_dir/get-env.sh"
 
-function set_n_cores() {
-  MIN=$1
-  OFFSET=$2
-  MAX=$(( MIN + OFFSET ))
-  CURRENT_CORES=""
-  for (( i=MIN; i<MAX; i++ )); do
-    if [ "${i}" -ne "${MIN}" ]; then
-      CURRENT_CORES+=","
-    fi
-    CURRENT_CORES+="${i}"
-  done
-}
-
-if [ ! -f "${SPARK_DATA_FILE}" ]; then
-  echo "Spark data file doesn't exist: ${SPARK_DATA_FILE}"
-  echo "Please rename SPARK_DATA_DIR and SPARK_DATA_FILE vars in ${FILES_DIR}/spark_config.sh"
+mkdir -p "${SMUSKET_OUTPUT}"
+if [ ! -f "${SMUSKET_INPUT}" ]; then
+  echo "SMusket input doesn't exist: ${SMUSKET_INPUT}"
+  echo "Make sure to copy an input file to container bind directory"
   exit 1
 fi
 
-# Clean any previous Spark files
-rm -rf "${SPARK_DATA_DIR}"/blockmgr* "${SPARK_DATA_DIR}"/spark-*
-
-# Get the nearest power of 2 to MAX_THREADS as NUM_THREADS
-NEAREST_TWO_POWER=$(echo "l(${MAX_THREADS})/l(2)" | bc -l | awk '{printf("%d\n",$1)}')
-NUM_THREADS=$(echo "2^${NEAREST_TWO_POWER}" | bc -l)
+# Store data in HDFS for SMusket
+echo "Copying SMusket input to HDFS..."
+START=`date +%s.%N`
+${HADOOP_HOME}/bin/hdfs dfs -mkdir "${SMUSKET_HDFS_BASE_PATH}"
+${HADOOP_HOME}/bin/hdfs dfs -put "${SMUSKET_INPUT}" "${SMUSKET_HDFS_INPUT}"
+END=`date +%s.%N`
+echo "Smusket input successfully copied to HDFS"
+echo "HDFS PUT EXECUTION TIME: $( echo "${END} - ${START}" | bc -l )" | tee -a "${SMUSKET_OUTPUT}/${RUNTIME_FILE}"
 
 # Some sleep before start application
 sleep 10
 
-# Set cores list
-set_n_cores ${FIRST_THREAD} ${NUM_THREADS}
+# Run SMusket
+echo "Running SMusket"
+START=`date +%s.%N`
+"${SMUSKET_HOME}"/bin/smusketrun -sm "-i ${SMUSKET_HDFS_INPUT} -n 64 -k 25" \
+  --master yarn \
+  --deploy-mode cluster \
+  # --conf "spark.local.dir=${SPARK_DATA_DIR}" \
+  #--conf "spark.driver.host=${MASTER_IP_ADDRESS}"
+END=`date +%s.%N`
+echo "SMUSKET EXECUTION TIME: $( echo "${END} - ${START}" | bc -l )" | tee -a "${SMUSKET_OUTPUT}/${RUNTIME_FILE}"
 
-# Run SMusket using NUM_THREADS
-echo "Running SMusket with ${NUM_THREADS} threads using cores = ${CURRENT_CORES}"
-taskset -c "${CURRENT_CORES}" "${SMUSKET_HOME}"/bin/smusketrun -sm "-i ${SPARK_DATA_FILE} -n 64 -k 25" --conf "spark.local.dir=${SPARK_DATA_DIR}" --master local["${NUM_THREADS}"] --driver-memory 200g
+# Get results from HDFS
+START=`date +%s.%N`
+$HADOOP_HOME/bin/hdfs dfs -get "${SMUSKET_HDFS_OUTPUT}" "${SMUSKET_OUTPUT}/${OUTPUT_FILE}"
+END=`date +%s.%N`
+echo "HDFS GET TIME: $( echo "${END} - ${START}" | bc -l )" | tee -a "${SMUSKET_OUTPUT}/${RUNTIME_FILE}"
 
-# Some sleep after application execution
-sleep 10
-
-# Remove unnecesary files and make the remaining ones accessible from host
-rm -rf "${SPARK_DATA_DIR}"/blockmgr* "${SPARK_DATA_DIR}"/spark-*
-chmod -R 777 "${SPARK_DATA_DIR}"

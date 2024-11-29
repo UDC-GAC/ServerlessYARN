@@ -7,7 +7,7 @@ export FILES_DIR="${SCRIPT_DIR}/files_dir"
 
 # If some kernels are specified, overwrite default kernels
 if [ -n "${1}" ];then
-  IFS=',' read -ra NPB_KERNELS <<< "${1}"
+  IFS=',' read -ra NPB_KERNELS_TO_RUN <<< "${1}"
 fi
 
 # If a number of threads is specified, overwrite NUM_THREADS
@@ -20,7 +20,7 @@ rm -rf "${NPB_OUTPUT_DIR}/*"
 mkdir -p "${NPB_OUTPUT_DIR}"
 
 echo "Starting kernels execution"
-for KERNEL in "${NPB_KERNELS[@]}";do
+for KERNEL in "${NPB_KERNELS_TO_RUN[@]}";do
   # Set number of threads
   export OMP_NUM_THREADS="${NUM_THREADS}"
 
