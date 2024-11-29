@@ -30,11 +30,23 @@
           }
         },
         {
-          "name": "1cont_64threads",
-          "config_file": "1cont_64threads.yml",
+          "name": "1cont_1thread_higher_limit",
+          "config_file": "1cont_1thread_higher_limit.yml",
+          "params": {
+            "npb_kernel": "is",
+            "num_threads": 1,
+            "dynamic_shares_per_watt": 28,
+            "static_model": "polyreg_Single_Core",
+            "dynamic_model": "sgdregressor_Single_Core",
+            "hw_aware_model": "multisocket_hw_aware"
+          }
+        },
+        {
+          "name": "1cont_32threads_higher_limit",
+          "config_file": "1cont_32threads_higher_limit.yml",
           "params": {
             "npb_kernel": "ft",
-            "num_threads": 64,
+            "num_threads": 32,
             "dynamic_shares_per_watt": 28,
             "static_model": "polyreg_General",
             "dynamic_model": "sgdregressor_General",

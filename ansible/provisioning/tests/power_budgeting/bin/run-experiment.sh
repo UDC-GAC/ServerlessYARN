@@ -205,7 +205,7 @@ run_app "${APP_NAME}" "serverless_static_model"
 save_logs "serverless_static_model"
 
 #########################################################################################################
-# serverless_static_model_hr: Run app with ServerlessContainers using power modelling with high reliability
+# serverless_static_model_hr: Run app with ServerlessContainers using power modelling with medium reliability
 #########################################################################################################
 mkdir -p "${RESULTS_DIR}/serverless_static_model_mr"
 register_logs_position
@@ -216,6 +216,19 @@ bash "${BIN_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
 run_app "${APP_NAME}" "serverless_static_model_mr"
 
 save_logs "serverless_static_model_mr"
+
+#########################################################################################################
+# serverless_static_model_hr: Run app with ServerlessContainers using power modelling with high reliability
+#########################################################################################################
+mkdir -p "${RESULTS_DIR}/serverless_static_model_hr"
+register_logs_position
+
+bash "${BIN_DIR}/change-model-reliability.sh" "high"
+bash "${BIN_DIR}/change-energy-rules-policy.sh" "modelling"
+bash "${BIN_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
+run_app "${APP_NAME}" "serverless_static_model_hr"
+
+save_logs "serverless_static_model_hr"
 
 #########################################################################################################
 # hw_aware_model: Run app with ServerlessContainers using HW aware power modelling

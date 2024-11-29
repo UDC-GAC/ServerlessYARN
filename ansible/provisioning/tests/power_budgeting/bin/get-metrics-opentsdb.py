@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import requests
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
@@ -17,9 +18,10 @@ RESOURCE_METRICS = {
     "energy": ["structure.energy.usage", "structure.energy.max"]
 }
 
-LIMITS = {
-    "cpu": 3300,
-    "energy": 200,
+DEFAULT_LIMITS = {
+    "all": 6400,
+    "cpu": 6400,
+    "energy": 220,
 }
 
 COLORS = {
@@ -189,6 +191,9 @@ def plot_experiment_by_app(app_name, containers, exp_name, exp_df, out_dir):
     ax = plt.gca()
     max_plot_value = exp_df['value'].max()
 
+    if np.isnan(max_plot_value) or np.isinf(max_plot_value):
+        max_plot_value = DEFAULT_LIMITS["all"]
+
     for metric in RESOURCE_METRICS["all"]:
         filtered_df = exp_df.loc[exp_df['metric'] == metric]
         if metric in CONTAINER_METRICS:
@@ -223,12 +228,20 @@ def plot_experiment_by_resource_and_containers(resource, containers, exp_name, e
         if metric in CONTAINER_METRICS:
             for container in containers:
                 filtered_df = filtered_df.loc[filtered_df['container'] == container]
-                max_plot_value = max(filtered_df['value'].max(), max_plot_value)
+                new_max = filtered_df['value'].max()
+                if not (np.isnan(new_max) or np.isinf(new_max)):
+                    max_plot_value = max(new_max, max_plot_value)
+
                 plt.plot(filtered_df['elapsed_seconds'], filtered_df['value'], label=f"{LABELS[metric]} - {container}", color=COLORS[metric])
         elif metric in APPLICATION_METRICS:
             filtered_df = filtered_df.groupby(['container', 'elapsed_seconds'], as_index=False).sum()  # TODO: Check if we have to aggregate by sum or avg
-            max_plot_value = max(filtered_df['value'].max(), max_plot_value)
+            new_max = filtered_df['value'].max()
+            if not (np.isnan(new_max) or np.isinf(new_max)):
+                max_plot_value = max(new_max, max_plot_value)
             plt.plot(filtered_df['elapsed_seconds'], filtered_df['value'], label=f"{LABELS[metric]}", color=COLORS[metric])
+
+    if np.isnan(max_plot_value) or np.isinf(max_plot_value) or max_plot_value == 0:
+        max_plot_value = DEFAULT_LIMITS[resource]
 
     plt.xlabel('Execution time (s)', fontsize=12)
     plt.ylabel("CPU Metrics", fontsize=12)
@@ -248,9 +261,13 @@ def plot_experiment_by_resource_and_container(resource, container, exp_name, exp
     for metric in RESOURCE_METRICS[resource]:
         filtered_df = exp_df.loc[exp_df['metric'] == metric]
         filtered_df = filtered_df.loc[filtered_df['container'] == container]
-        max_plot_value = max(filtered_df['value'].max(), max_plot_value)
+        new_max = filtered_df['value'].max()
+        if not (np.isnan(new_max) or np.isinf(new_max)):
+            max_plot_value = max(new_max, max_plot_value)
         plt.plot(filtered_df['elapsed_seconds'], filtered_df['value'], label=f"{LABELS[metric]}", color=COLORS[metric])
 
+    if np.isnan(max_plot_value) or np.isinf(max_plot_value) or max_plot_value == 0:
+        max_plot_value = DEFAULT_LIMITS[resource]
     plt.xlabel('Execution time (s)', fontsize=12)
     plt.ylabel("CPU Metrics", fontsize=12)
     ax.set_ylim([0, max_plot_value * 1.1])
