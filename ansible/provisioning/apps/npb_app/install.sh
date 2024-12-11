@@ -22,6 +22,6 @@ cp config/make.def.template config/make.def
 sed -i 's/^CFLAGS\t=.*/CFLAGS\t= -O3 -fopenmp -mcmodel=medium/' config/make.def
 
 make clean
-for KERNEL in "${NPB_KERNELS[@]}";do
+for KERNEL in "${NPB_KERNELS_TO_INSTALL[@]}";do
     make "${KERNEL}" CLASS="${NPB_CLASS}"
 done

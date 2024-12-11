@@ -9,7 +9,8 @@ export NPB_HOME="${NPB_INSTALL_DIR}/NPB${NPB_VERSION}"
 export NPB_OMP_HOME="${NPB_HOME}/NPB${NPB_VERSION:0:3}-OMP"
 
 # NPB configuration
-export NPB_KERNELS=("is" "ft" "mg" "cg" "bt")
+export NPB_KERNELS_TO_INSTALL=("is" "ft" "mg" "cg" "bt")
+export NPB_KERNELS_TO_RUN=("is" "ft" "mg" "cg" "bt")
 export NPB_CLASS="D"
 export NUM_THREADS=1
 export NPB_OUTPUT_DIR={{ bind_dir_on_container }}/npb-output
