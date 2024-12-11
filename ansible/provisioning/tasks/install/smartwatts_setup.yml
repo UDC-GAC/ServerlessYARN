@@ -30,3 +30,9 @@
   with_items:
     - absent
     - directory
+
+- name: Create containers PID mapping file for PowerSender
+  file:
+    path: "{{ containers_pid_mapping_file }}"
+    state: touch
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"

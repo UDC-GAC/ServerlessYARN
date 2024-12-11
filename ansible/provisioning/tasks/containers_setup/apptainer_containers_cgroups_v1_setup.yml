@@ -191,6 +191,42 @@
       vars:
         extra_connection: "{{ ',ptp' if mode == 'ipvlan' else '' }}"
 
+    - name: Get containers PID mapping on each host
+      when: "power_budgeting"
+      shell: "
+        {% for item in containers_info %}
+          {% if item.host == inventory_hostname and item.container_name not in apptainer_list_output.stdout %}
+            echo -n \"{{ item.container_name }}:$(sudo {{ singularity_command_alias }} instance list {{ item.container_name }} | grep {{ item.container_name }} | awk '{print $2}'),\" &&
+          {% endif %}
+        {% endfor %}true"
+      args:
+        chdir: "{{ installation_path }}"
+        executable: /bin/bash
+      register: container_pid_output
+
+    - name: Declare containers PID mapping on each host
+      when: "power_budgeting"
+      set_fact:
+        containers_pid_mapping: "{{ container_pid_output.stdout | default('') }}"
+
+    - name: Concatenate all hosts PID mapping
+      delegate_to: localhost
+      run_once: yes
+      when: "power_budgeting"
+      set_fact:
+        all_containers_pid_mapping: "{{ all_containers_pid_mapping | default('') + hostvars[item].containers_pid_mapping }}"
+      loop: "{{ groups['nodes'] }}"
+
+    - name: Write containers PID mapping
+      delegate_to: localhost
+      run_once: yes
+      when: "power_budgeting and all_containers_pid_mapping != ''"
+      lineinfile:
+        path: "{{ containers_pid_mapping_file }}"
+        line: "{{ item }}"
+        create: yes
+      loop: "{{ all_containers_pid_mapping[:-1].split(',') }}"
+
     - name: Clean apptainer containers bind directory
       shell: "
       {% for item in containers_info %}
