@@ -269,13 +269,22 @@
           state: directory
         tags: stop_app
 
-      - name: Copy app files
-        when: "files_dir != ''"
-        synchronize:
-          src: "apps/{{ app_dir }}/{{ files_dir }}/"
-          dest: "{{ container_bind_dir }}/{{ files_dir | basename }}/"
-          recursive: true
-          perms: true
+      - name: Find config files to template in the app directory
+        delegate_to: localhost
+        run_once: yes
+        find:
+          paths: "apps/{{ app_dir }}/{{ files_dir }}/"
+          recurse: yes
+        register: found_config_files
+        tags: stop_app
+
+      - name: Process template for each config file
+        delegate_to: localhost
+        run_once: yes
+        template:
+          src: "{{ item.path }}"
+          dest: "{{ container_bind_dir }}/{{ files_dir | basename }}/{{ item.path | basename}}"
+        loop: "{{ found_config_files.files }}"
         tags: stop_app
 
       - name: Copy app start script
