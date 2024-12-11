@@ -7,8 +7,12 @@
       "experiments": [
         {
           "name": "1cont_1thread",
+          "include": "yes",
           "config_file": "1cont_1thread.yml",
+          "rules_file": "general_rules.py",
           "params": {
+            "num_containers": 1,
+            "assignation_policy":"Best-effort",
             "npb_kernel": "is",
             "num_threads": 1,
             "dynamic_shares_per_watt": 28,
@@ -18,9 +22,61 @@
           }
         },
         {
-          "name": "1cont_32threads",
-          "config_file": "1cont_32threads.yml",
+          "name": "1cont_1thread_higher_limit",
+          "include": "no",
+          "config_file": "1cont_1thread_higher_limit.yml",
+          "rules_file": "general_rules.py",
           "params": {
+            "num_containers": 1,
+            "assignation_policy": "Best-effort",
+            "npb_kernel": "is",
+            "num_threads": 1,
+            "dynamic_shares_per_watt": 28,
+            "static_model": "polyreg_Single_Core",
+            "dynamic_model": "sgdregressor_Single_Core",
+            "hw_aware_model": "multisocket_hw_aware"
+          }
+        },
+        {
+          "name": "2conts_1thread",
+          "include": "no",
+          "config_file": "2conts_1thread.yml",
+          "rules_file": "general_rules.py",
+          "params": {
+            "num_containers": 2,
+            "assignation_policy": "Best-effort",
+            "npb_kernel": "is",
+            "num_threads": 1,
+            "dynamic_shares_per_watt": 28,
+            "static_model": "polyreg_Single_Core",
+            "dynamic_model": "sgdregressor_Single_Core",
+            "hw_aware_model": "multisocket_hw_aware"
+          }
+        },
+        {
+          "name": "1cont_16threads",
+          "include": "yes",
+          "config_file": "1cont_16threads.yml",
+          "rules_file": "general_rules.py",
+          "params": {
+            "num_containers": 1,
+            "assignation_policy": "Best-effort",
+            "npb_kernel": "ft",
+            "num_threads": 16,
+            "dynamic_shares_per_watt": 28,
+            "static_model": "polyreg_General",
+            "dynamic_model": "sgdregressor_General",
+            "hw_aware_model": "multisocket_hw_aware"
+          }
+        },
+        {
+          "name": "1cont_32threads",
+          "include": "yes",
+          "config_file": "1cont_32threads.yml",
+          "rules_file": "general_rules.py",
+          "params": {
+            "num_containers": 1,
+            "assignation_policy": "Best-effort",
             "npb_kernel": "ft",
             "num_threads": 32,
             "dynamic_shares_per_watt": 28,
@@ -30,21 +86,29 @@
           }
         },
         {
-          "name": "1cont_1thread_higher_limit",
-          "config_file": "1cont_1thread_higher_limit.yml",
+          "name": "1cont_32threads_higher_limit",
+          "include": "no",
+          "config_file": "1cont_32threads_higher_limit.yml",
+          "rules_file": "general_rules.py",
           "params": {
-            "npb_kernel": "is",
-            "num_threads": 1,
+            "num_containers": 1,
+            "assignation_policy": "Best-effort",
+            "npb_kernel": "ft",
+            "num_threads": 32,
             "dynamic_shares_per_watt": 28,
-            "static_model": "polyreg_Single_Core",
-            "dynamic_model": "sgdregressor_Single_Core",
+            "static_model": "polyreg_General",
+            "dynamic_model": "sgdregressor_General",
             "hw_aware_model": "multisocket_hw_aware"
           }
         },
         {
-          "name": "1cont_32threads_higher_limit",
-          "config_file": "1cont_32threads_higher_limit.yml",
+          "name": "2conts_32threads",
+          "include": "no",
+          "config_file": "2conts_32threads.yml",
+          "rules_file": "general_rules.py",
           "params": {
+            "num_containers": 2,
+            "assignation_policy": "Best-effort",
             "npb_kernel": "ft",
             "num_threads": 32,
             "dynamic_shares_per_watt": 28,
@@ -62,8 +126,12 @@
       "experiments": [
         {
           "name": "2conts_nthreads",
+          "include": "yes",
           "config_file": "2conts_nthreads.yml",
+          "rules_file": "general_rules.py",
           "params": {
+            "num_containers": 2,
+            "assignation_policy": "Best-effort",
             "dynamic_shares_per_watt": 28,
             "static_model": "polyreg_Single_Core",
             "dynamic_model": "sgdregressor_Single_Core",

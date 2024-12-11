@@ -3,7 +3,7 @@ names: npb_1cont_1thread_higher_limit
 
 ## Resource configuration to load into State Database
 # CPU
-cpu_max: 400
+cpu_max: 200
 cpu_min: 5
 cpu_boundary: 5
 cpu_boundary_type: "percentage_of_max"

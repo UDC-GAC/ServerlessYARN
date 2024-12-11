@@ -1,11 +1,11 @@
 ## Name or list of names in case you want to create several apps with the same configuration
-names: npb_1cont_1thread
+names: npb_1cont_16threads
 
 ## Resource configuration to load into State Database
 # CPU
-cpu_max: 100
-cpu_min: 5
-cpu_boundary: 5
+cpu_max: 1600
+cpu_min: 100
+cpu_boundary: 15
 cpu_boundary_type: "percentage_of_max"
 # Memory
 mem_max: 102400
@@ -13,7 +13,7 @@ mem_min: 512
 mem_boundary: 1
 mem_boundary_type: "percentage_of_max"
 # Energy
-energy_max: 40
+energy_max: 120
 energy_min: 10
 energy_boundary: 5
 energy_boundary_type: "percentage_of_max"

@@ -7,8 +7,6 @@ from datetime import datetime, timezone
 
 WEB_INTERFACE_URL = "http://localhost:9000"
 ORCHESTRATOR_URL = "http://localhost:5000"
-NUMBER_OF_CONTAINERS = "1"
-ASSIGNATION_POLICY = "Best-effort"
 BENEVOLENCE = "-1"  # -1: "Manual", 1: "Lax", 2: "Medium", 3: "Strict"
 POLLING_FREQUENCY = 5
 
@@ -28,7 +26,7 @@ def get_csrf_token(session):
     raise Exception("CSRF token not found in cookies")
 
 
-def start_app(session, app_name):
+def start_app(session, app_name, number_of_containers, assignation_policy):
 
     # Get CSRF token
     csrf_token = get_csrf_token(session)
@@ -45,8 +43,8 @@ def start_app(session, app_name):
         "operation": "add",
         "structure_type": "containers_to_app",
         "name": app_name,
-        "number_of_containers": NUMBER_OF_CONTAINERS,
-        "assignation_policy": ASSIGNATION_POLICY,
+        "number_of_containers": number_of_containers,
+        "assignation_policy": assignation_policy,
         "benevolence": BENEVOLENCE,
         "save": "Start App",
     }
@@ -100,20 +98,24 @@ def wait_for_app_to_finish(session, redis_server, app_name):
 
 if __name__ == "__main__":
 
-    if len(sys.argv) < 3:
-        print("At least 1 argument is needed")
+    if len(sys.argv) < 5:
+        print("At least 4 arguments are needed")
         print("1 -> app name (e.g., npb_app)")
         print("2 -> containers file (e.g., ./out/containers)")
-        sys.exit(0)
+        print("3 -> number of containers (e.g., 1)")
+        print("4 -> assignation policy (e.g., Best-effort)")
+        sys.exit(1)
 
     app_name = sys.argv[1]
     containers_file = sys.argv[2]
+    number_of_containers = sys.argv[3]
+    assignation_policy = sys.argv[4]
 
     web_interface_session = requests.Session()
     orchestrator_session = requests.Session()
     redis_server = redis.StrictRedis()
 
-    start_app(web_interface_session, app_name)
+    start_app(web_interface_session, app_name, number_of_containers, assignation_policy)
     time.sleep(60)  # Wait some time for the app to be subscribed to SC
     containers = get_containers_from_app(orchestrator_session, app_name)
     update_containers_file(containers_file, containers)

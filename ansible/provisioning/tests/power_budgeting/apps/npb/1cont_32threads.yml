@@ -5,7 +5,7 @@ names: npb_1cont_32threads
 # CPU
 cpu_max: 3200
 cpu_min: 100
-cpu_boundary: 10
+cpu_boundary: 15
 cpu_boundary_type: "percentage_of_max"
 # Memory
 mem_max: 102400

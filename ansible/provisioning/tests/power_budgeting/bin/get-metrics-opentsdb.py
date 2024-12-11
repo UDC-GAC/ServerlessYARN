@@ -103,6 +103,11 @@ def map_containers_to_experiments(containers_file, experiments_dates):
     return experiment_containers_map
 
 
+def get_experiment_rescalings(dir):
+    # TODO: Read Guardian.log inside dir to filter experiment rescalings
+    return {"dir": dir}
+
+
 def get_tags(metric, containers):
     if metric in ["structure.energy.usage", "proc.cpu.user"]:
         field_name = "host"
@@ -356,12 +361,14 @@ if __name__ == "__main__":
         sys.exit(1)
 
     app_name = str(sys.argv[1])
-    experiments_dates = read_experiment_times(sys.argv[2])
-    experiment_containers_map = map_containers_to_experiments(sys.argv[3], experiments_dates)
+    experiments_log_file = sys.argv[2]
+    containers_file = sys.argv[3]
     results_dir = sys.argv[4]
-    create_dir(results_dir)
+
+    experiments_dates = read_experiment_times(experiments_log_file)
+    experiment_containers_map = map_containers_to_experiments(containers_file, experiments_dates)
+
     global_results = {}
-    print(experiment_containers_map)
     for experiment_name in experiments_dates:
 
         print(experiment_name.upper().replace("_", " "))
@@ -370,6 +377,8 @@ if __name__ == "__main__":
         exp_results_file = f"{exp_results_dir}/stats"
         create_dir(exp_results_dir)
         remove_file(exp_results_file)
+
+        experiment_rescalings = get_experiment_rescalings(exp_results_dir)
 
         # Get experiment dates
         start_time = int(experiments_dates[experiment_name]["start"].timestamp())
@@ -380,24 +389,17 @@ if __name__ == "__main__":
         containers = experiment_containers_map[experiment_name]
         data_dict = get_experiment_data(RESOURCE_METRICS["all"], containers, start_time, end_time)
         experiment_df = create_experiment_df(data_dict)
-        #df_pivoted = experiment_df.pivot(index='timestamp', columns='metric', values='value').join(experiment_df.set_index('timestamp')[['container', 'elapsed_seconds']])
+        # df_pivoted = experiment_df.pivot(index='timestamp', columns='metric', values='value').join(experiment_df.set_index('timestamp')[['container', 'elapsed_seconds']])
 
-        # Get experiment plots
-
+        ## Get experiment plots
         # Plot with all resources and all containers
         plot_experiment_by_app(app_name, containers, experiment_name, experiment_df, exp_results_dir)
-
         # Separated plot for each resource and container
         single_resources = list(filter(lambda x: x != "all", RESOURCE_METRICS.keys()))
         for resource in single_resources:
             for container in containers:
                 plot_experiment_by_resource_and_container(resource, container, experiment_name, experiment_df, exp_results_dir)
 
-        # Write experiment results
-        #
-        # if experiment_name in VALUES_TO_FIND_EXP:
-        #     first_found_point_with_value(experiment_name, data_dict, VALUES_TO_FIND_EXP[experiment_name])
-        #
         global_results[experiment_name] = write_experiment_results(experiment_name, experiment_df, exp_results_file)
 
     write_global_results(global_results, results_dir)
