@@ -5,6 +5,8 @@
 #########################################################################################################
 export SCRIPT_DIR=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 export BIN_DIR="${SCRIPT_DIR}/bin"
+export SC_MNG_DIR="${BIN_DIR}/sc_management"
+export APP_MNG_DIR="${BIN_DIR}/app_management"
 export CONF_DIR="${SCRIPT_DIR}/etc"
 export CONFIG_FILE="${CONF_DIR}/experiments.json"
 export OUTPUT_DIR="${SCRIPT_DIR}/out"
@@ -14,7 +16,8 @@ export TEST_DIR=$(dirname "${SCRIPT_DIR}")
 export PROVISIONING_DIR=$(dirname "${TEST_DIR}")
 export ANSIBLE_DIR=$(dirname "${PROVISIONING_DIR}")
 export ANSIBLE_INVENTORY="${ANSIBLE_DIR}/ansible.inventory"
-export SC_INSTALLATION_PATH="${HOME}/ServerlessYARN_install/ServerlessContainers/"
+export SC_YARN_PATH="${HOME}/ServerlessYARN_install"
+export SC_INSTALLATION_PATH="${SC_YARN_PATH}/ServerlessContainers"
 
 #########################################################################################################
 # PREREQUISITES

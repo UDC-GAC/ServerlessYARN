@@ -122,12 +122,22 @@ function log_timestamp() {
   echo "${EXPERIMENT_NAME} ${LABEL} $(date -u "+%Y-%m-%d %H:%M:%S%z")" | tee -a "${OUTPUT_DIR}/experiments.log"
 }
 
+function curl_wrapper() {
+  STATUS_CODE=$("$@" 2>&1 | grep -oE '^[0-9]{3}')
+  echo "${@} ${STATUS_CODE}"
+}
+
+function add_app() {
+  local APP_DIR="${1}"
+  python3 "${APP_MNG_DIR}/add-app.py" "${PROVISIONING_DIR}" "${APP_DIR}"
+}
+
 function run_app() {
   local APP_NAME="${1}"
   local EXPERIMENT_NAME="${2}"
   sleep 20
   log_timestamp "${EXPERIMENT_NAME}" "start"
-  python3 "${BIN_DIR}/run-app.py" "${APP_NAME}" "${OUTPUT_DIR}/containers" "${NUM_CONTAINERS}" "${ASSIGNATION_POLICY}"
+  python3 "${APP_MNG_DIR}/run-app.py" "${APP_NAME}" "${OUTPUT_DIR}/containers" "${RESULTS_DIR}/${EXPERIMENT_NAME}" "${NUM_CONTAINERS}" "${ASSIGNATION_POLICY}"
   log_timestamp "${EXPERIMENT_NAME}" "stop"
   sleep 60
 }
@@ -144,13 +154,13 @@ manage_app_details
 cp "${APP_CONFIG_FILE}" "${PROVISIONING_DIR}/apps/${APP_DIR}/app_config.yml"
 
 # Set specific rules for this experiment
-bash "${BIN_DIR}/overwrite-rules.sh" "${APP_RULES_FILE}"
+bash "${SC_MNG_DIR}/overwrite-rules.sh" "${APP_RULES_FILE}"
 
 # Add application if it doesn't exists
-python3 "${BIN_DIR}/add-app.py" "${APP_DIR}"
+add_app "${APP_DIR}"
 
 echo "Ensure WattTrainer is deactivated"
-bash "${BIN_DIR}/deactivate-watt-trainer.sh"
+curl_wrapper bash "${SC_MNG_DIR}/deactivate-watt-trainer.sh"
 
 #########################################################################################################
 # EXPERIMENTS
@@ -158,7 +168,6 @@ bash "${BIN_DIR}/deactivate-watt-trainer.sh"
 # Wait 2 minutes for cold start
 sleep 120
 echo "Running tests for app ${APP_NAME}"
-
 
 #########################################################################################################
 # no_serverless: Run app without ServerlessContainers
@@ -170,13 +179,13 @@ RESULTS_DIR="${BASE_RESULTS_DIR}"
 mkdir -p "${RESULTS_DIR}/no_serverless"
 register_logs_position
 
-bash "${BIN_DIR}/deactivate-serverless.sh"
+curl_wrapper bash "${SC_MNG_DIR}/deactivate-serverless.sh"
 run_app "${APP_NAME}" "no_serverless"
 
 save_logs "no_serverless"
 
-# Plot experiment
-python3 "${BIN_DIR}/get-metrics-opentsdb.py" "${APP_NAME}" "${OUTPUT_DIR}/experiments.log" "${OUTPUT_DIR}/containers" "${RESULTS_DIR}"
+# Generate experiments info (plots, stats,...)
+python3 "${BIN_DIR}/plots/ExperimentsProfiler.py" "${APP_NAME}" "${OUTPUT_DIR}/experiments.log" "${OUTPUT_DIR}/containers" "${RESULTS_DIR}"
 move_experiments_plot_info "no_serverless"
 
 # Run the remaining tests with min, medium and max as initial current values
@@ -196,9 +205,9 @@ for CURRENT_INIT_KEY in "${!CPU_CURRENT_VALUES[@]}"; do
   mkdir -p "${RESULTS_DIR}/serverless_fixed_value"
   register_logs_position
 
-  bash "${BIN_DIR}/activate-serverless.sh"
-  bash "${BIN_DIR}/change-shares-per-watt.sh" "5"
-  bash "${BIN_DIR}/change-energy-rules-policy.sh" "fixed-ratio"
+  curl_wrapper bash "${SC_MNG_DIR}/activate-serverless.sh"
+  curl_wrapper bash "${SC_MNG_DIR}/change-shares-per-watt.sh" "5"
+  curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "fixed-ratio"
   run_app "${APP_NAME}" "serverless_fixed_value"
 
   save_logs "serverless_fixed_value"
@@ -209,8 +218,8 @@ for CURRENT_INIT_KEY in "${!CPU_CURRENT_VALUES[@]}"; do
   mkdir -p "${RESULTS_DIR}/serverless_dynamic_value"
   register_logs_position
 
-  bash "${BIN_DIR}/change-shares-per-watt.sh" "${DYNAMIC_SHARES_PER_WATT}"
-  bash "${BIN_DIR}/change-energy-rules-policy.sh" "fixed-ratio"
+  curl_wrapper bash "${SC_MNG_DIR}/change-shares-per-watt.sh" "${DYNAMIC_SHARES_PER_WATT}"
+  curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "fixed-ratio"
   run_app "${APP_NAME}" "serverless_dynamic_value"
 
   save_logs "serverless_dynamic_value"
@@ -221,7 +230,7 @@ for CURRENT_INIT_KEY in "${!CPU_CURRENT_VALUES[@]}"; do
   mkdir -p "${RESULTS_DIR}/proportional_scaling"
   register_logs_position
 
-  bash "${BIN_DIR}/change-energy-rules-policy.sh" "proportional"
+  curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "proportional"
   run_app "${APP_NAME}" "proportional_scaling"
 
   save_logs "proportional_scaling"
@@ -232,9 +241,9 @@ for CURRENT_INIT_KEY in "${!CPU_CURRENT_VALUES[@]}"; do
   mkdir -p "${RESULTS_DIR}/serverless_static_model"
   register_logs_position
 
-  bash "${BIN_DIR}/change-model-reliability.sh" "low"
-  bash "${BIN_DIR}/change-energy-rules-policy.sh" "modelling"
-  bash "${BIN_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
+  curl_wrapper bash "${SC_MNG_DIR}/change-model-reliability.sh" "low"
+  curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "modelling"
+  curl_wrapper bash "${SC_MNG_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
   run_app "${APP_NAME}" "serverless_static_model"
 
   save_logs "serverless_static_model"
@@ -245,9 +254,9 @@ for CURRENT_INIT_KEY in "${!CPU_CURRENT_VALUES[@]}"; do
   mkdir -p "${RESULTS_DIR}/serverless_static_model_mr"
   register_logs_position
 
-  bash "${BIN_DIR}/change-model-reliability.sh" "medium"
-  bash "${BIN_DIR}/change-energy-rules-policy.sh" "modelling"
-  bash "${BIN_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
+  curl_wrapper bash "${SC_MNG_DIR}/change-model-reliability.sh" "medium"
+  curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "modelling"
+  curl_wrapper bash "${SC_MNG_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
   run_app "${APP_NAME}" "serverless_static_model_mr"
 
   save_logs "serverless_static_model_mr"
@@ -258,9 +267,9 @@ for CURRENT_INIT_KEY in "${!CPU_CURRENT_VALUES[@]}"; do
   mkdir -p "${RESULTS_DIR}/serverless_static_model_hr"
   register_logs_position
 
-  bash "${BIN_DIR}/change-model-reliability.sh" "high"
-  bash "${BIN_DIR}/change-energy-rules-policy.sh" "modelling"
-  bash "${BIN_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
+  curl_wrapper bash "${SC_MNG_DIR}/change-model-reliability.sh" "high"
+  curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "modelling"
+  curl_wrapper bash "${SC_MNG_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
   run_app "${APP_NAME}" "serverless_static_model_hr"
 
   save_logs "serverless_static_model_hr"
@@ -270,7 +279,7 @@ for CURRENT_INIT_KEY in "${!CPU_CURRENT_VALUES[@]}"; do
   #########################################################################################################
   # PLOT EXPERIMENTS
   #########################################################################################################
-  python3 "${BIN_DIR}/get-metrics-opentsdb.py" "${APP_NAME}" "${OUTPUT_DIR}/experiments.log" "${OUTPUT_DIR}/containers" "${RESULTS_DIR}"
+  python3 "${BIN_DIR}/plots/ExperimentsProfiler.py" "${APP_NAME}" "${OUTPUT_DIR}/experiments.log" "${OUTPUT_DIR}/containers" "${RESULTS_DIR}"
   move_experiments_plot_info ""
 
 done
@@ -285,7 +294,7 @@ done
 #mkdir -p "${RESULTS_DIR}/calibration"
 #register_logs_position
 #
-#bash "${BIN_DIR}/deactivate-serverless.sh"
+#curl_wrapper bash "${SC_MNG_DIR}/deactivate-serverless.sh"
 #run_app "${APP_NAME}" "calibration"
 #sleep 30
 #
@@ -297,9 +306,9 @@ done
 #mkdir -p "${RESULTS_DIR}/hw_aware_model"
 #register_logs_position
 #
-#bash "${BIN_DIR}/change-model-reliability.sh" "low"
-#bash "${BIN_DIR}/change-energy-rules-policy.sh" "modelling"
-#bash "${BIN_DIR}/change-model.sh" "${HW_AWARE_POWER_MODEL}"
+#curl_wrapper bash "${SC_MNG_DIR}/change-model-reliability.sh" "low"
+#curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "modelling"
+#curl_wrapper bash "${SC_MNG_DIR}/change-model.sh" "${HW_AWARE_POWER_MODEL}"
 #run_app "${APP_NAME}" "hw_aware_model"
 #
 #save_logs "hw_aware_model"
@@ -310,10 +319,10 @@ done
 #mkdir -p "${RESULTS_DIR}/serverless_dynamic_model"
 #register_logs_position
 #
-#bash "${BIN_DIR}/activate-watt-trainer.sh"
-#bash "${BIN_DIR}/change-model-reliability.sh" "low"
-#bash "${BIN_DIR}/change-energy-rules-policy.sh" "modelling"
-#bash "${BIN_DIR}/change-model.sh" "${DYNAMIC_POWER_MODEL}"
+#curl_wrapper bash "${SC_MNG_DIR}/activate-watt-trainer.sh"
+#curl_wrapper bash "${SC_MNG_DIR}/change-model-reliability.sh" "low"
+#curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "modelling"
+#curl_wrapper bash "${SC_MNG_DIR}/change-model.sh" "${DYNAMIC_POWER_MODEL}"
 #run_app "${APP_NAME}" "serverless_dynamic_model"
 #
 #save_logs "serverless_dynamic_model"

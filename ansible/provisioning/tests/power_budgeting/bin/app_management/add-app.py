@@ -3,7 +3,6 @@
 import yaml
 import sys
 import os
-from pathlib import Path
 import requests
 import json
 from bs4 import BeautifulSoup
@@ -16,16 +15,14 @@ OPTIONAL_APP_KEYS = ["files_dir", "install_script", "start_script", "stop_script
 
 if __name__ == "__main__":
 
-    scriptDir = os.path.realpath(os.path.dirname(__file__))
-    provisioningDir = Path(os.path.abspath(__file__)).parents[3]
-
-    if len(sys.argv) < 2:
-        print("At least 1 argument is needed")
+    if len(sys.argv) < 3:
+        print("At least 2 arguments are needed")
         print("1 -> Application directory")
         sys.exit(0)
 
-    app_dir = sys.argv[1]
-    general_config_file = "{0}/config/config.yml".format(provisioningDir)
+    provisioning_dir = sys.argv[1]
+    app_dir = sys.argv[2]
+    general_config_file = "{0}/config/config.yml".format(provisioning_dir)
     with open(general_config_file, "r") as f:
         general_config = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -36,7 +33,7 @@ if __name__ == "__main__":
 
 
     # Open app configuration file
-    app_config_file_path = "{0}/{1}/{2}/{3}".format(provisioningDir, APPS_DIR, app_dir, APP_CONFIG_FILENAME)
+    app_config_file_path = "{0}/{1}/{2}/{3}".format(provisioning_dir, APPS_DIR, app_dir, APP_CONFIG_FILENAME)
     with open(app_config_file_path, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -119,7 +116,7 @@ if __name__ == "__main__":
             error_message = "Error creating app {0} with directory {1}".format(app_config['app']['name'], app_dir)
 
             ## Process script
-            rc = subprocess.Popen(["{0}/services/serverless_containers_web/ui/scripts/create_app.sh".format(provisioningDir), *argument_list], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            rc = subprocess.Popen(["{0}/services/serverless_containers_web/ui/scripts/create_app.sh".format(provisioning_dir), *argument_list], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             out, err = rc.communicate()
 
             # Log ansible output
