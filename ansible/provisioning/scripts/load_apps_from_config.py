@@ -10,7 +10,7 @@ import subprocess
 APPS_DIR = "apps"
 APP_CONFIG_FILENAME = "app_config.yml"
 MANDATORY_APP_KEYS = ["name"]
-OPTIONAL_APP_KEYS = ["files_dir", "install_script", "start_script", "stop_script", "app_jar"]
+OPTIONAL_APP_KEYS = ["files_dir", "install_script", "start_script", "stop_script", "app_jar"] ## start and stop scripts are set to default values if left unset ('start.sh' and 'stop.sh')
 
 if __name__ == "__main__":
 
@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
     url = "http://{0}:{1}/structure/apps".format(general_config['server_ip'],general_config['orchestrator_port'])
 
-    if not general_config["apps"]:
+    if "apps" not in general_config or not general_config["apps"]:
         print("No application was specified in config.yml")
         exit(0)
 

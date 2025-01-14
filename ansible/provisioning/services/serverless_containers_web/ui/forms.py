@@ -833,7 +833,8 @@ class GuardianForm(forms.Form):
                 ("application", "Application"),
                 ("container", "Container"),
                 ),
-            required=True
+            required=True,
+            initial="container"
             )
 
     def __init__(self, *args, **kwargs):

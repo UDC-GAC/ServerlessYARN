@@ -1359,7 +1359,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     if config['disk_capabilities'] and config['disk_scaling']:
                         free_bw_host -= container_resources["bigger"]['disk_max']
                         for disk in disk_assignation[host['name']]:
-                            if disk_assignation[host['name']][disk]['free_bw'] > container_resources["bigger"]['disk_max']:
+                            if disk_assignation[host['name']][disk]['free_bw'] >= container_resources["bigger"]['disk_max']:
                                 disk_assignation[host['name']][disk]['free_bw'] -= container_resources["bigger"]['disk_max']
                                 disk_assignation[host['name']][disk]['new_containers'] += 1
                                 break
@@ -1373,7 +1373,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                 if config['disk_capabilities'] and config['disk_scaling']:
                     free_bw_host -= container_resources['regular']['disk_max']
                     for disk in disk_assignation[host['name']]:
-                        if disk_assignation[host['name']][disk]['free_bw'] > container_resources['regular']['disk_max']:
+                        if disk_assignation[host['name']][disk]['free_bw'] >= container_resources['regular']['disk_max']:
                             disk_assignation[host['name']][disk]['free_bw'] -= container_resources['regular']['disk_max']
                             disk_assignation[host['name']][disk]['new_containers'] += 1
                             break
@@ -1388,7 +1388,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     if config['disk_capabilities'] and config['disk_scaling']:
                         free_bw_host -= container_resources["smaller"]['disk_max']
                         for disk in disk_assignation[host['name']]:
-                            if disk_assignation[host['name']][disk]['free_bw'] > container_resources["smaller"]['disk_max']:
+                            if disk_assignation[host['name']][disk]['free_bw'] >= container_resources["smaller"]['disk_max']:
                                 disk_assignation[host['name']][disk]['free_bw'] -= container_resources["smaller"]['disk_max']
                                 disk_assignation[host['name']][disk]['new_containers'] += 1
                                 break
@@ -1439,7 +1439,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                                 host_disk = getFreestDisk(host)
                                 if host_disk == None: break
 
-                                if disk_assignation[host['name']][host_disk]['free_bw'] > container_resources[container_type]['disk_min']:
+                                if disk_assignation[host['name']][host_disk]['free_bw'] >= container_resources[container_type]['disk_min']:
                                     disk_assignation[host['name']][host_disk]['free_bw'] -= container_resources[container_type]['disk_min']
                                     disk_assignation[host['name']][host_disk]['new_containers'] += 1
                                     for disk_name in host['resources']['disks']:
@@ -1494,7 +1494,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                         host_disk = getFreestDisk(freest_host)
                         if host_disk == None: break
 
-                        if disk_assignation[freest_host['name']][host_disk]['free_bw'] > container_resources[container_type]['disk_min']:
+                        if disk_assignation[freest_host['name']][host_disk]['free_bw'] >= container_resources[container_type]['disk_min']:
                             disk_assignation[freest_host['name']][host_disk]['free_bw'] -= container_resources[container_type]['disk_min']
                             disk_assignation[freest_host['name']][host_disk]['new_containers'] += 1
                             for disk_name in freest_host['resources']['disks']:
