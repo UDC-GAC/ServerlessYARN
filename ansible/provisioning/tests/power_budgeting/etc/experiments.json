@@ -10,6 +10,7 @@
           "include": "yes",
           "config_file": "1cont_1thread.yml",
           "rules_file": "general_rules.py",
+          "dynamic_power_budgets": "30-500,50-500,80-250",
           "params": {
             "num_containers": 1,
             "assignation_policy":"Best-effort",
@@ -26,6 +27,7 @@
           "include": "no",
           "config_file": "1cont_1thread_higher_limit.yml",
           "rules_file": "general_rules.py",
+          "dynamic_power_budgets": "30-500,50-500,80-250",
           "params": {
             "num_containers": 1,
             "assignation_policy": "Best-effort",
@@ -42,6 +44,7 @@
           "include": "no",
           "config_file": "2conts_1thread.yml",
           "rules_file": "general_rules.py",
+          "dynamic_power_budgets": "30-500,50-500,80-250",
           "params": {
             "num_containers": 2,
             "assignation_policy": "Best-effort",
@@ -58,10 +61,11 @@
           "include": "yes",
           "config_file": "1cont_16threads.yml",
           "rules_file": "general_rules.py",
+          "dynamic_power_budgets": "110-100,130-100,90-100",
           "params": {
             "num_containers": 1,
             "assignation_policy": "Best-effort",
-            "npb_kernel": "ft",
+            "npb_kernel": "cg",
             "num_threads": 16,
             "dynamic_shares_per_watt": 28,
             "static_model": "polyreg_General",
@@ -74,6 +78,7 @@
           "include": "yes",
           "config_file": "1cont_32threads.yml",
           "rules_file": "general_rules.py",
+          "dynamic_power_budgets": "100-200,125-200,170-200",
           "params": {
             "num_containers": 1,
             "assignation_policy": "Best-effort",
@@ -90,6 +95,7 @@
           "include": "no",
           "config_file": "1cont_32threads_higher_limit.yml",
           "rules_file": "general_rules.py",
+          "dynamic_power_budgets": "120-100,170-200,150-200",
           "params": {
             "num_containers": 1,
             "assignation_policy": "Best-effort",
@@ -106,6 +112,7 @@
           "include": "no",
           "config_file": "2conts_32threads.yml",
           "rules_file": "general_rules.py",
+          "dynamic_power_budgets": "120-100,170-200,150-200",
           "params": {
             "num_containers": 2,
             "assignation_policy": "Best-effort",
@@ -129,6 +136,7 @@
           "include": "yes",
           "config_file": "2conts_nthreads.yml",
           "rules_file": "general_rules.py",
+          "dynamic_power_budgets": "120-100,170-200,150-200",
           "params": {
             "num_containers": 2,
             "assignation_policy": "Best-effort",

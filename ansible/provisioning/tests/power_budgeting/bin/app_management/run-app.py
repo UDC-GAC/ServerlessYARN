@@ -1,8 +1,11 @@
+
 import os
 import sys
 import time
+import stat
 import redis
 import requests
+import subprocess
 from urllib.parse import urljoin
 from datetime import datetime, timezone
 
@@ -58,11 +61,12 @@ def start_app(session, app_name, number_of_containers, assignation_policy):
 
 
 def get_app_redis_key(redis_server, app_name):
-    for key in redis_server.scan_iter("{0}:*".format("pending_tasks")):
+    pending_tasks_keys = redis_server.scan_iter("{0}:*".format("pending_tasks"))
+    for key in pending_tasks_keys:
         task_name = redis_server.hget(key, "task_name").decode("utf-8")
         if task_name.startswith(app_name):
             return key
-    raise Exception(f"Redis key for app {app_name} not found")
+    raise Exception(f"Redis key for app {app_name} not found. Current keys: {pending_tasks_keys}")
 
 
 def get_containers_from_app(session, app_name):
@@ -147,6 +151,46 @@ def copy_app_output(containers, installation_path, app_results_dir):
             copy_directory(app_output, app_output_dest)
 
 
+def get_pb_script_with_usr_perm(installation_path):
+    file = f"{installation_path}/ServerlessContainers/scripts/orchestrator/Structures/set_structure_energy_max.sh"
+    current_permissions = os.stat(file).st_mode
+    new_permissions = current_permissions | stat.S_IXUSR  # Add permissions for this user
+    os.chmod(file, new_permissions)  # Change file permissions
+
+    return file, current_permissions
+
+
+def change_power_budgets_dynamically(app_name, containers, power_budgets, app_results_dir, installation_path):
+    power_budgets_file = f"{app_results_dir}/power_budgets.log"
+    change_pb_script, original_permissions = get_pb_script_with_usr_perm(installation_path)
+    if len(containers) == 1:
+        # Power budget is applied at container-level in single-container applications as no rebalancing is done
+        run_args = [change_pb_script, containers[0]]
+    else:
+        run_args = [change_pb_script, app_name]
+    if power_budgets:
+        for i, pb_item in enumerate(power_budgets):
+            pb, wait_time = tuple(pb_item.split("-"))
+            time.sleep(int(wait_time))
+            try:
+                rc = subprocess.Popen(run_args + [pb], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S+0000')
+                out, err = rc.communicate()
+                if rc.returncode != 0:
+                    raise Exception(err.decode('utf-8'))
+
+                # Save timestamp of the power budget change
+                with open(power_budgets_file, 'a') as f:
+                    f.write(f"[{timestamp}] {pb}\n")
+            except Exception as e:
+                print(f"Error changing power budget of app {app_name} to {pb} W "
+                      f"using script {change_pb_script}: {str(e)}")
+    else:
+        print("There is no defined power budget")
+
+    os.chmod(change_pb_script, original_permissions)  # Reset original permissions
+
+
 if __name__ == "__main__":
 
     if len(sys.argv) < 6:
@@ -164,6 +208,12 @@ if __name__ == "__main__":
     number_of_containers = sys.argv[4]
     assignation_policy = sys.argv[5]
 
+    dynamic_pb = False
+    dynamic_power_budgets = None
+    if len(sys.argv) >= 7:
+        dynamic_pb = True
+        dynamic_power_budgets = sys.argv[6].split(",")
+
     installation_path = os.environ.get("SC_YARN_PATH", f"{os.environ.get('HOME')}/ServerlessYARN_install")
 
     web_interface_session = requests.Session()
@@ -175,6 +225,10 @@ if __name__ == "__main__":
     time.sleep(60)  # Wait some time for the app to be subscribed to SC
     containers = get_containers_from_app(orchestrator_session, app_name)
     update_containers_file(containers_file, containers)
+
+    # Change power budget in real time
+    if dynamic_pb:
+        change_power_budgets_dynamically(app_name, containers, dynamic_power_budgets, app_results_dir, installation_path)
 
     # Wait until the app is finished
     wait_for_app_to_finish(web_interface_session, redis_server, app_name)

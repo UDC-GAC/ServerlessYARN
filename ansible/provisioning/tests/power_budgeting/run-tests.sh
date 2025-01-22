@@ -5,8 +5,9 @@
 #########################################################################################################
 export SCRIPT_DIR=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 export BIN_DIR="${SCRIPT_DIR}/bin"
-export SC_MNG_DIR="${BIN_DIR}/sc_management"
+export SC_MNG_DIR="${BIN_DIR}/serverless_containers"
 export APP_MNG_DIR="${BIN_DIR}/app_management"
+export EXPERIMENTS_DIR="${BIN_DIR}/experiments"
 export CONF_DIR="${SCRIPT_DIR}/etc"
 export CONFIG_FILE="${CONF_DIR}/experiments.json"
 export OUTPUT_DIR="${SCRIPT_DIR}/out"

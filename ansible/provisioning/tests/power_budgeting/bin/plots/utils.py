@@ -12,6 +12,10 @@ def remove_file(f):
         os.remove(f)
 
 
+def file_exists(f):
+    return os.path.exists(f) and os.path.isfile(f)
+
+
 def get_tags(metric, containers):
     if metric in ["structure.energy.usage", "proc.cpu.user"]:
         field_name = "host"

@@ -1,7 +1,7 @@
 import os
 import re
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 DEFAULT_PATTERNS = {
     "found_structure_pattern": {"value": r"1\sStructures\sto\sprocess,\slaunching\sthreads", "get_amount": False},
@@ -29,7 +29,7 @@ class LogsParser:
     def __str_to_dt(self, _str):
         try:
             if _str and len(_str) > 0:
-                return datetime.strptime(_str, self.dates_fmt)
+                return datetime.strptime(_str, self.dates_fmt).astimezone(timezone.utc)
         except ValueError:
             print(f"Trying to convert bad string to datetime: {_str}")
         return None
