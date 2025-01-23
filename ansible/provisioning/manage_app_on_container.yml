@@ -279,8 +279,6 @@
         tags: stop_app
 
       - name: Process template for each config file
-        delegate_to: localhost
-        run_once: yes
         template:
           src: "{{ item.path }}"
           dest: "{{ container_bind_dir }}/{{ files_dir | basename }}/{{ item.path | basename}}"
