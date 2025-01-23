@@ -17,15 +17,15 @@
     shell: tmux ls
     register: tmux_output
     ignore_errors: yes
-    tags: never, stop_node_scaler
+    tags: never, stop_node_scaler, stop_services
 
   - name: Stop node scaler
-    shell: bash scripts/services/node_scaler/stop_node_rescaler.sh
+    shell: bash scripts/services/node_scaler/stop.sh
     when: "'node_scaler' in tmux_output.stdout"
     args:
       chdir: "{{ serverless_containers_path }}"
       executable: /bin/bash
-    tags: never, stop_node_scaler
+    tags: never, stop_node_scaler, stop_services
 
 # Stop services from server
 - hosts: localhost

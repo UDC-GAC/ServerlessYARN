@@ -1,26 +1,12 @@
 
-- name: Check if BDWatchdog directory is already there
-  stat:
-    path: "{{ bdwatchdog_source_path }}"
-    get_checksum: false
-    get_mime: false
-    get_attributes: false
-  register: stat_output
-  
-## get the user executing the playbook
-- name: get the username running the deploy
-  become: no
-  local_action: command whoami
-  register: username_on_the_host
-
 - name: Copy BDWatchdog
-  when: not stat_output.stat.exists
-  copy:
+  synchronize:
     src: BDWatchdog/
     dest: "{{ bdwatchdog_source_path }}"
-    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+    recursive: true
+  tags: restart_services
 
 # - name: Copy service aliases and port configuration to BDWatchdog dir
 #   template:
-#     src: templates/bdw_services_config.yml
+#     src: templates/bdw_config/services_config.yml
 #     dest: "{{ bdwatchdog_source_path }}/services_config.yml"

@@ -1,24 +1,12 @@
-        
-- name: Check if BDWatchdog directory is already there
-  stat:
-    path: "{{ item }}"
-    get_checksum: false
-    get_mime: false
-    get_attributes: false
-  with_items:
-    - "{{ bdwatchdog_path }}"
-    - "{{ bdwatchdog_source_path }}"
-  register: stat_output
 
 - name: Copy BDWatchdog
-  #when: not stat_output.stat.exists
-  when : not item.1.stat.exists
-  copy:
+  synchronize:
     src: BDWatchdog/
-    dest: "{{ item.0 }}"
-  with_together:
+    dest: "{{ item }}"
+    recursive: true
+  with_items:
     - ["{{ bdwatchdog_path }}", "{{ bdwatchdog_source_path }}"]
-    - "{{ stat_output.results }}"
+  tags: restart_services
 
 ## get the user executing the playbook
 - name: get the username running the deploy
@@ -34,6 +22,7 @@
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
     recurse: yes
 
+## TODO: refactor task to use templates in 'bdw_config'
 - name: Set BDWatchdog sampling frequency
   shell: sed -i s'/atop [0-9]\+/atop {{ sampling_frequency }}/' {{ item }}/MetricsFeeder/scripts/run_atop_stream.sh
   with_items:
@@ -102,8 +91,16 @@
 
 - name: Copy service aliases and port configuration to BDWatchdog dir
   template:
-    src: templates/bdw_services_config.yml
-    dest: "{{ item }}/services_config.yml"
+    src: templates/bdw_config/services_config.yml
+    dest: "{{ bdwatchdog_path }}/services_config.yml"
+  tags: restart_services
+
+- name: Copy BDWatchdog atop scripts to BDWatchdog source dir
+  template:
+    src: "templates/bdw_config/{{ item }}"
+    dest: "{{ bdwatchdog_source_path }}/MetricsFeeder/scripts/{{ item }}"
   with_items:
-    - "{{ bdwatchdog_path }}"
-    #- "{{ bdwatchdog_source_path }}"
+    - run_atop_stream.sh
+    - run_atop_stream_with_java_translation.sh
+  tags: restart_services
+

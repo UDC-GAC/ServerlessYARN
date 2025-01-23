@@ -1,35 +1,37 @@
 
 # Starting Node Rescaler
-- name: Verify gunicorn3 installation
-  command: "which gunicorn3"
-  register: gunicorn3_check
-  ignore_errors: true
+- block:
+  - name: Verify gunicorn3 installation
+    command: "which gunicorn3"
+    register: gunicorn3_check
+    ignore_errors: true
 
-- name: Verify gunicorn installation
-  command: "which gunicorn"
-  register: gunicorn_check
-  ignore_errors: true
+  - name: Verify gunicorn installation
+    command: "which gunicorn"
+    register: gunicorn_check
+    ignore_errors: true
 
-- name: Set gunicorn command alias
-  set_fact:
-    gunicorn_command_alias: "{%- if gunicorn3_check.rc == 0 -%}gunicorn3
-                           {%- elif gunicorn_check.rc == 0 -%}gunicorn
-                           {%- else -%}$HOME/.local/bin/gunicorn
-                           {%- endif -%}"
+  - name: Set gunicorn command alias
+    set_fact:
+      gunicorn_command_alias: "{%- if gunicorn3_check.rc == 0 -%}gunicorn3
+                            {%- elif gunicorn_check.rc == 0 -%}gunicorn
+                            {%- else -%}$HOME/.local/bin/gunicorn
+                            {%- endif -%}"
 
-- name: Copy Node Scaler start script
-  template:
-    src: "templates/node_scaler_start.sh"
-    dest: "{{ serverless_containers_path }}/scripts/services/node_scaler/start.sh"
+  - name: Copy Node Scaler start script
+    template:
+      src: "templates/node_scaler_start.sh"
+      dest: "{{ serverless_containers_path }}/scripts/services/node_scaler/start.sh"
 
-- name: Tmux session check
-  shell: tmux ls
-  register: tmux_output
-  ignore_errors: yes
+  - name: Tmux session check
+    shell: tmux ls
+    register: tmux_output
+    ignore_errors: yes
 
-- name: Starting Services - Node Scaler
-  shell: bash scripts/services/node_scaler/start_tmux.sh
-  when: "'node_scaler' not in tmux_output.stdout"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
+  - name: Starting Services - Node Scaler
+    shell: bash scripts/services/node_scaler/start_tmux.sh
+    when: "'node_scaler' not in tmux_output.stdout"
+    args:
+      chdir: "{{ serverless_containers_path }}"
+      executable: /bin/bash
+  tags: restart_services
