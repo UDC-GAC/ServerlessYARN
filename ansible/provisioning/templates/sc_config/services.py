@@ -76,7 +76,12 @@ rebalancer  = dict(
     type="service",
     heartbeat="",
     config=dict(
-        DEBUG=True
+        DEBUG=True,
+        RESOURCES_BALANCED=["cpu"{% if disk_capabilities and disk_rescaling %}, "disk"{% endif %}],
+        STRUCTURES_BALANCED=["applications"],
+        BALANCING_METHOD="pair_swapping"
+        WINDOW_DELAY=10,
+        WINDOW_TIMELAPSE=35,
     )
 )
 

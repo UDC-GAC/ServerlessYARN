@@ -57,11 +57,13 @@ if __name__ == "__main__":
             put_field_data['container']['resources']["cpu"]["current"] = int(cont['cpu_max'])
             put_field_data['container']['resources']["cpu"]["min"] = int(cont['cpu_min'])
             put_field_data['container']['resources']["cpu"]["guard"] = True
+            if 'cpu_weight' in cont: put_field_data['container']['resources']["cpu"]["weight"] = int(cont['cpu_weight'])
 
             put_field_data['container']['resources']["mem"]["max"] = int(cont['mem_max'])
             put_field_data['container']['resources']["mem"]["current"] = int(cont['mem_max'])
             put_field_data['container']['resources']["mem"]["min"] = int(cont['mem_min'])
             put_field_data['container']['resources']["mem"]["guard"] = True
+            if 'mem_weight' in cont: put_field_data['container']['resources']["mem"]["weight"] = int(cont['mem_weight'])
 
             # Energy
             if 'power_budgeting' in config and config['power_budgeting']:
@@ -71,6 +73,7 @@ if __name__ == "__main__":
                 put_field_data['container']['resources']["energy"]["current"] = int(cont['energy_max'])
                 put_field_data['container']['resources']["energy"]["min"] = int(cont['energy_min'])
                 put_field_data['container']['resources']["energy"]["guard"] = True
+                if 'energy_weight' in cont: put_field_data['container']['resources']["energy"]["weight"] = int(cont['energy_weight'])
 
             # Disk
             if 'disk' in cont and config['disk_capabilities'] and config['disk_scaling']:
@@ -82,6 +85,7 @@ if __name__ == "__main__":
                 put_field_data['container']['resources']["disk"]["current"] = int(cont['disk_min'])
                 put_field_data['container']['resources']["disk"]["min"] = int(cont['disk_min'])
                 put_field_data['container']['resources']["disk"]["guard"] = True
+                if 'disk_weight' in cont: put_field_data['container']['resources']["disk"]["weight"] = int(cont['disk_weight'])
 
             ## Limits
             for res in cont_resources:

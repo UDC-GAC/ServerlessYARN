@@ -4,7 +4,7 @@ from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormS
 from ui.forms import AddHostForm, AddAppForm, AddHadoopAppForm, StartAppForm, AddDisksToHostsForm
 from ui.forms import AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddContainersToAppForm
 from ui.forms import RemoveStructureForm, RemoveContainersFromAppForm
-from ui.forms import DEFAULT_BOUNDARY_PERCENTAGE, DEFAULT_BOUNDARY_TYPE
+from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES
 
 from django.forms import formset_factory
 from django.http import HttpResponse
@@ -35,14 +35,6 @@ max_load_dict = {}
 max_load_dict["HDD"] = 1
 max_load_dict["SSD"] = 4
 max_load_dict["LVM"] = 20
-
-DEFAULT_APP_VALUES = {
-    "app_jar": "",
-    "install_script": "install.sh",
-    "start_script": "start.sh",
-    "stop_script": "stop.sh",
-    "files_dir": "files_dir"
-}
 
 ## Auxiliary general methods
 def redirect_with_errors(redirect_url, errors):
@@ -403,7 +395,7 @@ def setStructureResourcesForm(structure, form_action):
     editable_data = 0
 
     full_resource_list = ["cpu","mem","disk","net","energy"]
-    structures_resources_field_list = ["guard","max","min"]
+    structures_resources_field_list = ["guard","max","min","weight"]
     host_resources_field_list = ["max"]
     form_initial_data_list = []
 
@@ -436,7 +428,7 @@ def setStructureResourcesForm(structure, form_action):
         StructureResourcesFormSet = formset_factory(StructureResourcesForm, extra = 0)
         structure['resources_form'] = StructureResourcesFormSet(initial = form_initial_data_list)
         structure['resources_form_helper'] = StructureResourcesFormSetHelper()
-        submit_button_disp = 7
+        submit_button_disp = 8
 
     structure['resources_form_helper'].form_action = form_action
     structure['resources_editable_data'] = editable_data
@@ -594,7 +586,7 @@ def guard_switch(request, structure_name):
 
 def processResources(request, url):
 
-    structures_resources_field_list = ["guard","max","min"]
+    structures_resources_field_list = ["guard","max","min","weight"]
     hosts_resources_field_list = ["max"]
 
     errors = []
@@ -616,8 +608,9 @@ def processResources(request, url):
     
                 for field in resources_field_list:
                     field_value = request.POST['form-' + str(i) + "-" + field]
-                    error = processResourcesFields(request, url, name, resource, field, field_value)
-                    if (len(error) > 0): errors.append(error)
+                    if field_value != "":
+                        error = processResourcesFields(request, url, name, resource, field, field_value)
+                        if (len(error) > 0): errors.append(error)
 
     return errors
 
@@ -794,13 +787,19 @@ def processAddContainers(request, url, structure_type, resources, host_list):
             else:
                 container_resources[resource + "_max"] = max_res
                 container_resources[resource + "_min"] = min_res
+        if (resource + "_weight" in request.POST):
+            if request.POST[resource + "_weight"] != "":
+                resource_weight = request.POST[resource + "_weight"]
+            else:
+                resource_weight = DEFAULT_RESOURCE_VALUES["weight"]
+            container_resources[resource + "_weight"] = resource_weight
         if (resource + "_boundary" in request.POST):
             if request.POST[resource + "_boundary"] != "":
                 resource_boundary = request.POST[resource + "_boundary"]
                 resource_boundary_type = request.POST[resource + "_boundary_type"]
             else:
-                resource_boundary = DEFAULT_BOUNDARY_PERCENTAGE
-                resource_boundary_type = DEFAULT_BOUNDARY_TYPE
+                resource_boundary = DEFAULT_LIMIT_VALUES["default_boundary_percentage"]
+                resource_boundary_type = DEFAULT_LIMIT_VALUES["default_boundary_type"]
             container_resources[resource + "_boundary"] = resource_boundary
             container_resources[resource + "_boundary_type"] = resource_boundary_type
 
@@ -883,13 +882,20 @@ def processAddApp(request, url, structure_name, structure_type, resources):
             resource_min = int(request.POST[resource + "_min"])
             put_field_data['app']['resources'][resource] = {'max': resource_max, 'min': resource_min, 'guard': 'false'}
 
+            if (resource + "_weight" in request.POST):
+                if request.POST[resource + "_weight"] != "":
+                    resource_weight = request.POST[resource + "_weight"]
+                else:
+                    resource_weight = DEFAULT_RESOURCE_VALUES["weight"]
+                put_field_data['app']['resources'][resource]['weight'] = int(resource_weight)
+
         if (resource + "_boundary" in request.POST):
             if request.POST[resource + "_boundary"] != "":
                 resource_boundary = request.POST[resource + "_boundary"]
                 resource_boundary_type = request.POST[resource + "_boundary_type"]
             else:
-                resource_boundary = DEFAULT_BOUNDARY_PERCENTAGE
-                resource_boundary_type = DEFAULT_BOUNDARY_TYPE
+                resource_boundary = DEFAULT_LIMIT_VALUES["default_boundary_percentage"]
+                resource_boundary_type = DEFAULT_LIMIT_VALUES["default_boundary_type"]
 
             put_field_data['limits']['resources'][resource] = {'boundary': resource_boundary, 'boundary_type': resource_boundary_type}
 
@@ -947,6 +953,7 @@ def processStartApp(request, url, app_name):
         app_resources[resource]['max'] = app['resources'][resource]['max']
         app_resources[resource]['current'] = 0 if 'current' not in app['resources'][resource] else app['resources'][resource]['current']
         app_resources[resource]['min'] = app['resources'][resource]['min']
+        app_resources[resource]['weight'] = DEFAULT_RESOURCE_VALUES["weight"] if 'weight' not in app['resources'][resource] else app['resources'][resource]['weight']
 
     ## Containers to create
     number_of_containers = int(request.POST['number_of_containers'])
@@ -964,7 +971,7 @@ def processStartApp(request, url, app_name):
 
     space_left_for_app = True
     for resource in free_resources:
-        if free_resources[resource] < app_resources[resource]['max'] - app_resources[resource]['current']:
+        if free_resources[resource] < app_resources[resource]['min'] - app_resources[resource]['current']:
             space_left_for_app = False
 
     ## TODO: replace/add disk load check for disk I/O bandwidth check
@@ -1170,14 +1177,14 @@ def getContainerResourcesForApp(number_of_containers, app_resources, app_limits,
             container_resources['regular'][boundary_key] = round(
                 ((container_resources['regular'][max_key] - container_resources['regular'][min_key]) * 100) /
                 (divider * container_resources['regular'][max_key]))
-            container_resources['regular'][boundary_type_key] = DEFAULT_BOUNDARY_TYPE
+            container_resources['regular'][boundary_type_key] = DEFAULT_LIMIT_VALUES["default_boundary_type"]
 
             if 'bigger' in container_resources or 'smaller' in container_resources:
                 irregular = 'bigger' if 'bigger' in container_resources else 'smaller'
                 container_resources[irregular][boundary_key] = round(
                     ((container_resources[irregular][max_key] - container_resources[irregular][min_key]) * 100) /
                     (divider * container_resources['regular'][max_key]))
-                container_resources[irregular][boundary_type_key] = DEFAULT_BOUNDARY_TYPE
+                container_resources[irregular][boundary_type_key] = DEFAULT_LIMIT_VALUES["default_boundary_type"]
 
     if not correctly_allocated:
         # use original resource allocation
@@ -1187,6 +1194,14 @@ def getContainerResourcesForApp(number_of_containers, app_resources, app_limits,
     container_resources["regular"]["cpu_max"] = round(container_resources["regular"]["cpu_max"])
     if "bigger" in container_resources: container_resources["bigger"]["cpu_max"] = round(container_resources["bigger"]["cpu_max"])
     if "smaller" in container_resources: container_resources["smaller"]["cpu_max"] = round(container_resources["smaller"]["cpu_max"])
+
+    # Weights
+    for resource in app_resources:
+        weight_key = '{0}_weight'.format(resource)
+        container_resources['regular'][weight_key] = app_resources[resource]['weight']
+        if 'bigger' in container_resources or 'smaller' in container_resources:
+            irregular = 'bigger' if 'bigger' in container_resources else 'smaller'
+            container_resources[irregular][weight_key] = app_resources[resource]['weight']
 
     return container_resources
 
@@ -1696,7 +1711,7 @@ def services(request):
     structures_snapshoter_options = ["polling_frequency","debug","persist_apps","resources_persisted"]
     sanity_checker_options = ["debug","delay"]
     refeeder_options = ["debug","generated_metrics","polling_frequency","window_delay","window_timelapse"]
-    rebalancer_options = ["debug","rebalance_users","energy_diff_percentage","energy_stolen_percentage","window_delay","window_timelapse"]
+    rebalancer_options = ["debug","rebalance_users","energy_diff_percentage","energy_stolen_percentage","window_delay","window_timelapse","resources_balanced","structures_balanced","balancing_method"]
     energy_manager_options = ["polling_frequency", "debug"]
     watt_trainer_options = ["window_timelapse", "window_delay", "generated_metrics", "models_to_train", "debug"]
 
@@ -1867,7 +1882,7 @@ def processServiceConfigPost(request, url, service_name, config_name):
     headers = {'Content-Type': 'application/json'}
 
     json_fields = []
-    multiple_choice_fields = ["guardable_resources","resources_persisted","generated_metrics","documents_persisted"]
+    multiple_choice_fields = ["guardable_resources","resources_persisted","generated_metrics","documents_persisted","resources_balanced","structures_balanced"]
 
     r = ""
 

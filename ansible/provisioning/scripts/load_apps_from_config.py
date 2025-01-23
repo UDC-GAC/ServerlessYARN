@@ -6,15 +6,29 @@ import requests
 import json
 from bs4 import BeautifulSoup
 import subprocess
+import sys
+
+scriptDir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(scriptDir + "/../services/serverless_containers_web/ui")
+from utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES
 
 APPS_DIR = "apps"
 APP_CONFIG_FILENAME = "app_config.yml"
-MANDATORY_APP_KEYS = ["name"]
-OPTIONAL_APP_KEYS = ["files_dir", "install_script", "start_script", "stop_script", "app_jar"] ## start and stop scripts are set to default values if left unset ('start.sh' and 'stop.sh')
+## Keys
+# Apps
+MANDATORY_APP_KEYS = [] # "name" (or "names") is also a mandatory key, but is handled differently
+OPTIONAL_APP_KEYS_WITH_DEFAULT = ["start_script", "stop_script"]
+OPTIONAL_APP_KEYS = ["files_dir", "install_script", "app_jar"]
+# Resources
+MANDATORY_RESOURCE_KEYS = ["max", "min"]
+OPTIONAL_RESOURCE_KEYS_WITH_DEFAULT = ["weight"]
+OPTIONAL_RESOURCE_KEYS = []
+# Limits
+MANDATORY_LIMIT_KEYS = []
+OPTIONAL_LIMIT_KEYS_WITH_DEFAULT = ["boundary", "boundary_type"]
+OPTIONAL_LIMIT_KEYS = []
 
 if __name__ == "__main__":
-
-    scriptDir = os.path.realpath(os.path.dirname(__file__))
 
     general_config_file = scriptDir + "/../config/config.yml"
     with open(general_config_file, "r") as f:
@@ -51,14 +65,21 @@ if __name__ == "__main__":
         app_config["app"]["guard"] = False
         app_config["app"]["subtype"] = "application"
 
-        ## Optional keys (files)
-        for key in OPTIONAL_APP_KEYS:
-            if key in config:
-                app_config["app"][key] = "{0}/{1}".format(app_dir, config[key])
-            else:
-                app_config["app"][key] = ""
+        ## App name (or names, if multiple apps are selected)
+        # Name or names of applications (we allow "name" or "names" as key)
+        if "name" in config and config["name"] != "": alias_name_key = "name"
+        elif "names" in config and config["names"] != "": alias_name_key = "names"
+        else: raise Exception("Missing mandatory parameter {0} or {1}".format("name", "names"))
+        app_names = config[alias_name_key].split(",")
 
-        ## Resources
+        ## App keys
+        for key in MANDATORY_APP_KEYS + OPTIONAL_APP_KEYS_WITH_DEFAULT + OPTIONAL_APP_KEYS:
+            if key in config: app_config["app"][key] = "{0}/{1}".format(app_dir, config[key])
+            elif key in MANDATORY_APP_KEYS: raise Exception("Missing mandatory parameter {0}".format(key))
+            elif key in OPTIONAL_APP_KEYS_WITH_DEFAULT: app_config["app"][key] = DEFAULT_APP_VALUES[key]
+            elif key in OPTIONAL_APP_KEYS: app_config["app"][key] = ""
+
+        ## Resources and limits
         app_config["app"]["resources"] = {}
         app_config["limits"]["resources"] = {}
         for resource in resources:
@@ -66,35 +87,23 @@ if __name__ == "__main__":
             if resource == "disk" and (not general_config['disk_capabilities'] or not general_config['disk_scaling']): continue
             if resource == "energy" and not general_config['power_budgeting']: continue
 
-            ## Max and min resources
             app_config["app"]["resources"][resource] = {}
             app_config["app"]["resources"][resource]['guard'] = False
-            for key in ["max", "min"]:
-                if "{0}_{1}".format(resource,key) in config:
-                    app_config["app"]["resources"][resource][key] = config["{0}_{1}".format(resource,key)]
-                else:
-                    if key in []:
-                        app_config["app"]["resources"][resource][key] = ""
-                    else:
-                        raise Exception("Missing mandatory parameter {0}".format(key))
 
-            ## Limits
+            # Resource keys
+            for key in MANDATORY_RESOURCE_KEYS + OPTIONAL_RESOURCE_KEYS_WITH_DEFAULT + OPTIONAL_RESOURCE_KEYS:
+                if "{0}_{1}".format(resource,key) in config: app_config["app"]["resources"][resource][key] = config["{0}_{1}".format(resource,key)]
+                elif key in MANDATORY_RESOURCE_KEYS: raise Exception("Missing mandatory parameter {0}".format(key))
+                elif key in OPTIONAL_RESOURCE_KEYS_WITH_DEFAULT: app_config["app"]["resources"][resource][key] = DEFAULT_RESOURCE_VALUES[key]
+                elif key in OPTIONAL_RESOURCE_KEYS: app_config["app"]["resources"][resource][key] = ""
+
+            ## Limit keys
             app_config["limits"]["resources"][resource] = {}
-            for key in ["boundary", "boundary_type"]:
-                if "{0}_{1}".format(resource,key) in config:
-                    app_config["limits"]["resources"][resource][key] = config["{0}_{1}".format(resource,key)]
-                else:
-                    if key in []:
-                        app_config["limits"]["resources"][resource][key] = ""
-                    else:
-                        raise Exception("Missing mandatory parameter {0}".format(key))
-
-        ## Name or names of applications (we allow "name" or "names" as key)
-        if "name" in config and config["name"] != "": alias_name_key = "name"
-        elif "names" in config and config["names"] != "": alias_name_key = "names"
-        else: raise Exception("Missing mandatory parameter {0} or {1}".format("name", "names"))
-
-        app_names = config[alias_name_key].split(",")
+            for key in MANDATORY_LIMIT_KEYS + OPTIONAL_LIMIT_KEYS_WITH_DEFAULT + OPTIONAL_LIMIT_KEYS:
+                if "{0}_{1}".format(resource,key) in config: app_config["limits"]["resources"][resource][key] = config["{0}_{1}".format(resource,key)]
+                elif key in MANDATORY_LIMIT_KEYS: raise Exception("Missing mandatory parameter {0}".format(key))
+                elif key in OPTIONAL_LIMIT_KEYS_WITH_DEFAULT: app_config["limits"]["resources"][resource][key] = DEFAULT_RESOURCE_VALUES[key]
+                elif key in OPTIONAL_LIMIT_KEYS: app_config["limits"]["resources"][resource][key] = ""
 
         for app_name in app_names:
             app_config["app"]["name"] = app_name

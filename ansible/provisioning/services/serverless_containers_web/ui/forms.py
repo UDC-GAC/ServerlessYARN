@@ -5,13 +5,11 @@ from crispy_forms.bootstrap import FormActions
 from django_json_widget.widgets import JSONEditorWidget
 import yaml
 from copy import deepcopy
+from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES
 
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file:
     config = yaml.load(config_file, Loader=yaml.FullLoader)
-
-DEFAULT_BOUNDARY_PERCENTAGE = 10
-DEFAULT_BOUNDARY_TYPE = "percentage_of_max"
 
 DEFAULT_COMMON_FIELDS = {
         ## Basic fields
@@ -22,18 +20,22 @@ DEFAULT_COMMON_FIELDS = {
         ## Resource limits
         'cpu_max': forms.IntegerField(label="CPU Max", required=True, min_value=1),
         'cpu_min': forms.IntegerField(label="CPU Min", required=True, min_value=1),
+        'cpu_weight': forms.IntegerField(label="CPU Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
         'mem_max': forms.IntegerField(label="Mem Max", required=True, min_value=1),
         'mem_min': forms.IntegerField(label="Mem Min", required=True, min_value=1),
+        'mem_weight': forms.IntegerField(label="Mem Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
         'disk_max': forms.IntegerField(label="Disk I/O Bandwidth Max", required=True, min_value=1),
         'disk_min': forms.IntegerField(label="Disk I/O Bandwidth Min", required=True, min_value=1),
+        'disk_weight': forms.IntegerField(label="Disk I/O Bandwidth Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
         'energy_max': forms.IntegerField(label="Energy Max", required=False, min_value=1),
         'energy_min': forms.IntegerField(label="Energy Min", required=False, min_value=1),
+        'energy_weight': forms.IntegerField(label="Energy Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
 
         ## Resource boundaries
-        'cpu_boundary': forms.IntegerField(label="CPU boundary ({0}% if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE), required=False, min_value=1, max_value=100),
-        'mem_boundary': forms.IntegerField(label="Mem boundary ({0}% if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE), required=False, min_value=1, max_value=100),
-        'disk_boundary': forms.IntegerField(label="Disk boundary ({0}% if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE), required=False, min_value=1, max_value=100),
-        'energy_boundary': forms.IntegerField(label="Energy boundary ({0}% if unset)".format(DEFAULT_BOUNDARY_PERCENTAGE), required=False, min_value=1, max_value=100),
+        'cpu_boundary': forms.IntegerField(label="CPU boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["default_boundary_percentage"]), required=False, min_value=1, max_value=100),
+        'mem_boundary': forms.IntegerField(label="Mem boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["default_boundary_percentage"]), required=False, min_value=1, max_value=100),
+        'disk_boundary': forms.IntegerField(label="Disk boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["default_boundary_percentage"]), required=False, min_value=1, max_value=100),
+        'energy_boundary': forms.IntegerField(label="Energy boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["default_boundary_percentage"]), required=False, min_value=1, max_value=100),
 
         # Resource boundary types
         'cpu_boundary_type': forms.ChoiceField(label="CPU boundary type (percentage of max or current)",
@@ -41,37 +43,37 @@ DEFAULT_COMMON_FIELDS = {
                                                    ("percentage_of_max", "Percentage of max"),
                                                    ("percentage_of_current", "Percentage of current"),
                                                ),
-                                               initial=DEFAULT_BOUNDARY_TYPE,
+                                               initial=DEFAULT_LIMIT_VALUES["default_boundary_type"],
                                                required=False),
         'mem_boundary_type': forms.ChoiceField(label="Mem boundary type (percentage of max or current)",
                                                choices=(
                                                    ("percentage_of_max", "Percentage of max"),
                                                    ("percentage_of_current", "Percentage of current"),
                                                ),
-                                               initial=DEFAULT_BOUNDARY_TYPE,
+                                               initial=DEFAULT_LIMIT_VALUES["default_boundary_type"],
                                                required=False),
         'disk_boundary_type': forms.ChoiceField(label="Disk boundary type (percentage of max or current)",
                                                choices=(
                                                    ("percentage_of_max", "Percentage of max"),
                                                    ("percentage_of_current", "Percentage of current"),
                                                ),
-                                               initial=DEFAULT_BOUNDARY_TYPE,
+                                               initial=DEFAULT_LIMIT_VALUES["default_boundary_type"],
                                                required=False),
         'energy_boundary_type': forms.ChoiceField(label="Energy boundary type (percentage of max or current)",
                                                choices=(
                                                    ("percentage_of_max", "Percentage of max"),
                                                    ("percentage_of_current", "Percentage of current"),
                                                ),
-                                               initial=DEFAULT_BOUNDARY_TYPE,
+                                               initial=DEFAULT_LIMIT_VALUES["default_boundary_type"],
                                                required=False),
 
         ## Application files
         'add_files_dir': forms.BooleanField(label="Add additional files directory?", required=False),
-        'files_dir': forms.CharField(label="Files directory ('files_dir' if unset)", required=False),
+        'files_dir': forms.CharField(label="Files directory ('{0}' if unset)".format(DEFAULT_APP_VALUES['files_dir']), required=False),
         'add_install': forms.BooleanField(label="Add install script?", required=False),
-        'install_script': forms.CharField(label="Install script ('install.sh' if unset)", required=False),
-        'start_script': forms.CharField(label="Start script ('start.sh' if unset)", required=False),
-        'stop_script': forms.CharField(label="Stop script ('stop.sh' if unset)", required=False),
+        'install_script': forms.CharField(label="Install script ('{0}' if unset)".format(DEFAULT_APP_VALUES['install_script']), required=False),
+        'start_script': forms.CharField(label="Start script ('{0}' if unset)".format(DEFAULT_APP_VALUES['start_script']), required=False),
+        'stop_script': forms.CharField(label="Stop script ('{0}' if unset)".format(DEFAULT_APP_VALUES['stop_script']), required=False),
 
         ## Services
         'debug': forms.ChoiceField(label="Debug",
@@ -144,6 +146,7 @@ class StructureResourcesFormSetHelper(FormHelper):
             Field('guard'),
             Field('max'),
             Field('min'),
+            Field('weight'),
             FormActions(
                 Submit('save-resources-', 'Save changes', css_class='caja'),
             )
@@ -180,6 +183,9 @@ class StructureResourcesForm(forms.Form):
             )
     min = forms.IntegerField(label="Minimum",
             required=True
+            )
+    weight = forms.IntegerField(label="Weight",
+            required=False
             )
 
 class LimitsForm(forms.Form):
@@ -222,7 +228,7 @@ class LimitsForm(forms.Form):
                                                ("percentage_of_max", "Percentage of max"),
                                                ("percentage_of_current", "Percentage of current"),
                                            ),
-                                           initial=DEFAULT_BOUNDARY_TYPE,
+                                           initial=DEFAULT_LIMIT_VALUES["default_boundary_type"],
                                            required=False)
 
     def __init__(self, *args, **kwargs):
@@ -397,15 +403,24 @@ class AddContainersForm(forms.Form):
     structure_type.initial = "container"
     name = common_fields['name']
 
+    # Resources
     cpu_max = common_fields['cpu_max']
     cpu_min = common_fields['cpu_min']
+    cpu_weight = common_fields['cpu_weight']
+
     mem_max = common_fields['mem_max']
     mem_min = common_fields['mem_min']
+    mem_weight = common_fields['mem_weight']
+
     disk_max = common_fields['disk_max']
     disk_min = common_fields['disk_min']
+    disk_weight = common_fields['disk_weight']
+
     energy_max = common_fields['energy_max']
     energy_min = common_fields['energy_min']
+    energy_weight = common_fields['energy_weight']
 
+    # Boundaries
     cpu_boundary = common_fields['cpu_boundary']
     mem_boundary = common_fields['mem_boundary']
     disk_boundary = common_fields['disk_boundary']
@@ -433,16 +448,20 @@ class AddContainersForm(forms.Form):
             Field('structure_type', type="hidden", readonly=True),
             Field('host_list'),
             Field('cpu_max'),
-            Field('cpu_min'),  
+            Field('cpu_min'),
+            Field('cpu_weight'),
             Field('mem_max'),
-            Field('mem_min')
+            Field('mem_min'),
+            Field('mem_weight')
         )
         if config['disk_capabilities'] and config['disk_scaling']:
             self.helper.layout.append(Field('disk_max'))
             self.helper.layout.append(Field('disk_min'))
+            self.helper.layout.append(Field('disk_weight'))
         if config['power_budgeting']:
             self.helper.layout.append(Field('energy_max'))
             self.helper.layout.append(Field('energy_min'))
+            self.helper.layout.append(Field('energy_weight'))
 
         # Boundaries and boundary types
         self.helper.layout.append(Field('cpu_boundary'))
@@ -502,15 +521,24 @@ class AddAppForm(forms.Form):
     structure_type.initial = "apps"
     name = common_fields['name']
 
+    # Resources
     cpu_max = common_fields['cpu_max']
     cpu_min = common_fields['cpu_min']
+    cpu_weight = common_fields['cpu_weight']
+
     mem_max = common_fields['mem_max']
     mem_min = common_fields['mem_min']
+    mem_weight = common_fields['mem_weight']
+
     disk_max = common_fields['disk_max']
     disk_min = common_fields['disk_min']
+    disk_weight = common_fields['disk_weight']
+
     energy_max = common_fields['energy_max']
     energy_min = common_fields['energy_min']
+    energy_weight = common_fields['energy_weight']
 
+    # Boundaries
     cpu_boundary = common_fields['cpu_boundary']
     mem_boundary = common_fields['mem_boundary']
     disk_boundary = common_fields['disk_boundary']
@@ -521,6 +549,7 @@ class AddAppForm(forms.Form):
     disk_boundary_type = common_fields['disk_boundary_type']
     energy_boundary_type = common_fields['energy_boundary_type']
 
+    # App config
     add_files_dir = common_fields['add_files_dir']
     files_dir = common_fields['files_dir']
     add_install = common_fields['add_install']
@@ -545,16 +574,20 @@ class AddAppForm(forms.Form):
             Field('name'),
             Field('cpu_max'),
             Field('cpu_min'),
+            Field('cpu_weight'),
             Field('mem_max'),
-            Field('mem_min')
+            Field('mem_min'),
+            Field('mem_weight')
         )
 
         if config['disk_capabilities'] and config['disk_scaling']:
             self.helper.layout.append(Field('disk_max'))
             self.helper.layout.append(Field('disk_min'))
+            self.helper.layout.append(Field('disk_weight'))
         if config['power_budgeting']:
             self.helper.layout.append(Field('energy_max'))
             self.helper.layout.append(Field('energy_min'))
+            self.helper.layout.append(Field('energy_weight'))
 
         # Boundaries and boundary types
         self.helper.layout.append(Field('cpu_boundary'))
@@ -597,16 +630,20 @@ class AddHadoopAppForm(AddAppForm):
             Field('name'),
             Field('cpu_max'),
             Field('cpu_min'),
+            Field('cpu_weight'),
             Field('mem_max'),
-            Field('mem_min')
+            Field('mem_min'),
+            Field('mem_weight')
         )
 
         if config['disk_capabilities'] and config['disk_scaling']:
             self.helper.layout.append(Field('disk_max'))
             self.helper.layout.append(Field('disk_min'))
+            self.helper.layout.append(Field('disk_weight'))
         if config['power_budgeting']:
             self.helper.layout.append(Field('energy_max'))
             self.helper.layout.append(Field('energy_min'))
+            self.helper.layout.append(Field('energy_weight'))
 
         # Boundaries and boundary types
         self.helper.layout.append(Field('cpu_boundary'))
@@ -1006,7 +1043,7 @@ class RefeederForm(forms.Form):
             )    
         )
 
-# CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 30, "WINDOW_DELAY": 10, "REBALANCE_USERS": False, "DEBUG": True, "ENERGY_DIFF_PERCENTAGE": 0.40, "ENERGY_STOLEN_PERCENTAGE": 0.40}
+# CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 30, "WINDOW_DELAY": 10, "REBALANCE_USERS": False, "DEBUG": True, "ENERGY_DIFF_PERCENTAGE": 0.40, "ENERGY_STOLEN_PERCENTAGE": 0.40, "RESOURCES_BALANCED": ["cpu"], "STRUCTURES_BALANCED": ["applications"], "BALANCING_METHOD": "pair_swapping"}
 class ReBalancerForm(forms.Form):
     common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
     name = common_fields['name']
@@ -1032,6 +1069,33 @@ class ReBalancerForm(forms.Form):
             required=False
             )
 
+    resources_balanced = forms.MultipleChoiceField(label="Resources to perform balancing",
+            choices = (
+                ("cpu", "CPU"),
+                #("mem", "Memory"),
+                ("disk", "Disk"),
+                #("net", "Network"),
+                #("energy", "Energy"),
+                ),
+            widget=forms.CheckboxSelectMultiple,
+            required=False
+            )
+    structures_balanced = forms.MultipleChoiceField(label="Structures to perform balancing",
+            choices = (
+                ("applications", "Applications"),
+                ("hosts", "Hosts"),
+                ),
+            widget=forms.CheckboxSelectMultiple,
+            required=False
+            )
+    balancing_method = forms.ChoiceField(label="Balancing method",
+            choices = (
+                ("pair_swapping", "Pair swapping"),
+                ("weights", "Weights"),
+                ),
+            required=False
+            )
+
     def __init__(self, *args, **kwargs):
         super(ReBalancerForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()            
@@ -1045,6 +1109,9 @@ class ReBalancerForm(forms.Form):
             Field('energy_diff_percentage'),
             Field('energy_stolen_percentage'),
             Field('rebalance_users'),
+            Field('resources_balanced'),
+            Field('structures_balanced'),
+            Field('balancing_method'),
             Field('window_delay'),
             Field('window_timelapse'),
             FormActions(
