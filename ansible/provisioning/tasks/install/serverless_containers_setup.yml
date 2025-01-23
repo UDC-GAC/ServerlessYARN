@@ -1,5 +1,5 @@
 
-## ServerlessContaienrs Requirements
+## ServerlessContainers Requirements
 - name: Install prerequisites for Serverless Containers (root)
   when: "virtual_mode"
   apt:
