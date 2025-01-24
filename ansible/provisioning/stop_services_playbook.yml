@@ -2,6 +2,7 @@
 - hosts: nodes
   become: "{{ 'no' if container_engine == 'apptainer' else 'yes' }}"
   gather_facts: no
+  ignore_unreachable: yes  # we ignore unreachable hosts because in SLURM environments (or similar) hosts might have been shut down before stopping services
 
   vars_files:
     - vars/main.yml
@@ -21,7 +22,7 @@
 
   - name: Stop node scaler
     shell: bash scripts/services/node_scaler/stop.sh
-    when: "'node_scaler' in tmux_output.stdout"
+    when: "'stdout' in tmux_output and 'node_scaler' in tmux_output.stdout"
     args:
       chdir: "{{ serverless_containers_path }}"
       executable: /bin/bash
