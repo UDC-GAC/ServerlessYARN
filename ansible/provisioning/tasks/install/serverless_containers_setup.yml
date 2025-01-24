@@ -57,7 +57,7 @@
 - name: Install specified python requirements
   throttle: 1
   pip:
-    requirements: "{{ serverless_containers_path }}/requirements.txt"
+    requirements: "{{ playbook_dir }}/ServerlessContainers/requirements.txt"
     executable: pip3
 
 - name: Check if OpenSSL is installed
