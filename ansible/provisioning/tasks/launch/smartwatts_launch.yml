@@ -78,7 +78,7 @@
   ignore_errors: yes
 
 - name: Start tmux session for SmartWatts power sender
-  shell: "bash scripts/PowerSender/start_power_sender_tmux.sh {{ installation_path }} {{ power_sampling_frequency }}"
+  shell: "bash scripts/PowerSender/start_power_sender_tmux.sh {{ installation_path }} {{ sampling_frequency }}"
   when: "'power_sender' not in tmux_output.stdout"
   args:
     executable: /bin/bash

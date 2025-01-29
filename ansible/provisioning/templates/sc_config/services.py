@@ -81,7 +81,7 @@ rebalancer  = dict(
         STRUCTURES_BALANCED=["applications"],
         BALANCING_METHOD="pair_swapping",
         WINDOW_DELAY=10,
-        WINDOW_TIMELAPSE=35,
+        WINDOW_TIMELAPSE=35
     )
 )
 
@@ -103,7 +103,7 @@ watt_trainer = dict(
     type="service",
     heartbeat="",
     config=dict(
-        WINDOW_TIMELAPSE={{ power_sampling_frequency }},
+        WINDOW_TIMELAPSE={{ sampling_frequency }},
         DEBUG=True
     )
 )

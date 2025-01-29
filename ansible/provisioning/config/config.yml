@@ -9,6 +9,9 @@ singularity_command_alias: apptainer # singularity or apptainer (only relevant w
 # Apptainer + cgroups V1 requires sudo privileges to some singularity commands at the moment
 cgroups_version: v1
 
+## Sampling frequency (in seconds) of all the monitoring tools involved in the platform (BDWatchdog, PowerSender,...)
+sampling_frequency: 5
+
 ## Server Node
 server_ip: 192.168.56.200
 cpus_server_node: 2
@@ -27,9 +30,6 @@ opentsdb_port: 4242
 mongodb_url: "{{ server_ip }}"
 mongodb_port: 27017
 
-## BDWatchdog Config
-bdwatchdog_sampling_frequency: 5 # If 'online_learning' is 'yes' then this value will be overwritten by 'power_sampling_frequency'
-
 ## Additional capabilites
 # Disk
 disk_capabilities: no # "yes" to allow disk capabilities, such as Logical Volumes creation
@@ -38,7 +38,7 @@ disk_scaling: no # "yes" to allow disk bandwidth scaling (only relevant when usi
 power_budgeting: no # "yes" to use power budgets, power will be accounted, restricted and shared among containers
 power_modelling: no # "yes" to use power models to get CPU Usage/Power proportionalities instead of using fixed values
 online_learning: no # "yes" to automatically retrain power models in real-time using OpenTSDB time series
-power_sampling_frequency: 5
+
 
 ## WattWizard Config
 structures: "host"
