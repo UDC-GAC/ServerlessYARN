@@ -13,7 +13,7 @@ guardian = dict(
         EVENT_TIMEOUT=60,
         WINDOW_DELAY=20,
         WINDOW_TIMELAPSE=10,
-        GUARDABLE_RESOURCES=["cpu"{% if disk_capabilities and disk_rescaling %}, "disk"{% endif %}{% if power_budgeting %}, "energy"{% endif %}]
+        GUARDABLE_RESOURCES=["cpu"{% if disk_capabilities and disk_scaling %}, "disk"{% endif %}{% if power_budgeting %}, "energy"{% endif %}]
     )
 )
 
@@ -46,7 +46,7 @@ structures_snapshoter = dict(
     config=dict(
         ACTIVE=False,
         DEBUG=True,
-        RESOURCES_PERSISTED=["cpu", "mem"{% if disk_capabilities and disk_rescaling %}, "disk"{% endif %}{% if power_budgeting %}, "energy"{% endif %}]
+        RESOURCES_PERSISTED=["cpu", "mem"{% if disk_capabilities and disk_scaling %}, "disk"{% endif %}{% if power_budgeting %}, "energy"{% endif %}]
     )
 )
 
@@ -57,7 +57,7 @@ refeeder = dict(
     config=dict(
         ACTIVE=False,
         DEBUG=True,
-        GENERATED_METRICS=["cpu", "mem"{% if disk_capabilities and disk_rescaling %}, "disk"{% endif %}{% if power_budgeting %}, "energy"{% endif %}]
+        GENERATED_METRICS=["cpu", "mem"{% if disk_capabilities and disk_scaling %}, "disk"{% endif %}{% if power_budgeting %}, "energy"{% endif %}]
     )
 )
 
@@ -77,7 +77,7 @@ rebalancer  = dict(
     heartbeat="",
     config=dict(
         DEBUG=True,
-        RESOURCES_BALANCED=["cpu"{% if disk_capabilities and disk_rescaling %}, "disk"{% endif %}],
+        RESOURCES_BALANCED=["cpu"{% if disk_capabilities and disk_scaling %}, "disk"{% endif %}],
         STRUCTURES_BALANCED=["applications"],
         BALANCING_METHOD="pair_swapping",
         WINDOW_DELAY=10,
