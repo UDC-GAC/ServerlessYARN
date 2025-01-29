@@ -44,19 +44,20 @@
       random_code: "{{ lookup('community.general.random_string', special=false) }}"
 
   - name: Create file with fio
-    when: "not create_lvm or item.key == 'lvm'"
-    shell: "$HOME/.local/bin/fio --name TEST --eta-newline=5s --filename={{ item.value.path }}/{{ tmp_file }}.{{ random_code }}.{{ item.key }} --rw=write --size={{ size }} --io_size=10g --blocksize={{ block_size }} --ioengine=libaio --fsync=10000 --iodepth=32 --direct={{ direct }} --numjobs=1 --runtime={{ runtime }} --group_reporting --output-format=json"
+    when: "(not create_lvm or item.key == 'lvm') and 'bw' not in item.value"
+    shell: "$HOME/.local/bin/fio --name TEST --eta-newline=5s --filename={{ item.value.path }}/{{ tmp_file }}.{{ random_code }}.{{ item.key }} --rw={{ rw }} --size={{ size }} --io_size=10g --blocksize={{ block_size }} --ioengine=libaio --fsync=10000 --iodepth=32 --direct={{ direct }} --numjobs=1 --runtime={{ runtime }} --group_reporting --output-format=json"
     vars:
       size: 500m
       block_size: 1024k
       runtime: 60s
       direct: 1
+      rw: write
     register: bw_output
     with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
     throttle: "{{ '1' if virtual_mode else (groups['nodes'] | length) }}"
 
   - name: Remove tmp file
-    when: "not create_lvm or item.key == 'lvm'"
+    when: "(not create_lvm or item.key == 'lvm') and 'bw' not in item.value"
     file:
       path: "{{ item.value.path }}/{{ tmp_file }}.{{ random_code }}.{{ item.key }}"
       state: absent
