@@ -15,3 +15,24 @@ class MyUtils:
                 log_file = os.path.join(log_dir, filename)
                 if os.path.isfile(log_file):
                     os.remove(log_file)
+
+
+class IterationLogger:
+
+    def __init__(self):
+        self.targets = 0
+        self.lines = 0
+
+    def get_targets(self):
+        return self.targets
+
+    def get_lines(self):
+        return self.lines
+
+    def add_info(self, lines):
+        self.targets += 1
+        self.lines += len(lines)
+
+    def reset(self):
+        self.targets = 0
+        self.lines = 0

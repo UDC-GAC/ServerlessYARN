@@ -13,7 +13,7 @@ from ansible.parsing.dataloader import DataLoader
 from ansible.inventory.manager import InventoryManager
 
 from src.opentsdb.OpenTSDBHandler import OpenTSDBHandler
-from src.utils.MyUtils import MyUtils
+from src.utils.MyUtils import MyUtils, IterationLogger
 
 SCRIPT_PATH = os.path.abspath(__file__)
 POWER_SENDER_DIR = os.path.dirname(os.path.dirname(SCRIPT_PATH))
@@ -24,25 +24,27 @@ ANSIBLE_INVENTORY_FILE = "{0}/../ansible.inventory".format(PROVISIONING_DIR)
 LOG_DIR = "{0}/log".format(POWER_SENDER_DIR)
 LOG_FILE = "{0}/power_sender.log".format(LOG_DIR)
 MAX_LOG_SIZE = 10  # Max log file size in MB
-ONLY_RAPL = False  # Set to True to use RAPL metrics instead of SmartWatts estimations
 
 
 class PowerSender:
 
-    def __init__(self, verbose, installation_path, sampling_frequency):
-        self.verbose = verbose
+    def __init__(self, _verbose, _installation_path, _power_meter, _sampling_frequency):
+        self.verbose = _verbose
 
         # Installation path of ServerlessYARN platform
-        self.installation_path = installation_path
+        self.__set_installation_path(_installation_path)
+
+        # Power meter (RAPL or SmartWatts)
+        self.__set_power_meter(_power_meter)
 
         # SmartWatts output directory
-        self.smartwatts_output = "{0}/smartwatts/output".format(installation_path)
+        self.__set_smartwatts_output("{0}/smartwatts/output".format(_installation_path))
+
+        # Sampling frequency to read and send data
+        self.__set_sampling_frequency(_sampling_frequency)
 
         # File mapping containers with their PIDs
         self.containers_pid_mapfile = None
-
-        # Sampling frequency to read and send data
-        self.sampling_frequency = sampling_frequency
 
         # CPU Sockets
         self.cpu_sockets = None
@@ -60,10 +62,30 @@ class PowerSender:
         self.cont_output_files = {}
 
         # Dictionary to store information about the current iteration
-        self.iter_info = {}
+        self.iter_logger = IterationLogger()
 
         # Delay between iterations
         self.delay = 0
+
+    def __set_installation_path(self, path):
+        if not (os.path.exists(path) and os.path.isdir(path)):
+            raise ValueError("Installation path doesn't exist or it isn't a directory: {0}".format(str(path)))
+        self.installation_path = path
+
+    def __set_power_meter(self, name):
+        if not (isinstance(name, str) and name in ["rapl", "smartwatts"]):
+            raise ValueError("Trying to set a bad power meter: {0}".format(str(name)))
+        self.power_meter = name
+
+    def __set_smartwatts_output(self, path):
+        if not (os.path.exists(path) and os.path.isdir(path)):
+            raise ValueError("Smartwatts output doesn't exist or it isn't a directory: {0}".format(str(path)))
+        self.smartwatts_output = path
+
+    def __set_sampling_frequency(self, n):
+        if not (isinstance(n, int) and n > 0):
+            raise ValueError("Trying to set a bad sampling frequency value: {0}".format(str(n)))
+        self.sampling_frequency = n
 
     def __set_logging_config(self):
         # Create/clean log directory and files
@@ -112,13 +134,6 @@ class PowerSender:
             self.logger.error("Information about number of sockets couldn\'t be found")
             exit(1)
 
-    def __add_iter_info(self, lines):
-        self.iter_info["targets"] += 1
-        self.iter_info["lines"] += len(lines)
-
-    def __reset_iter_info(self):
-        self.iter_info = {"targets": 0, "lines": 0}
-
     @staticmethod
     def get_ansible_info():
         with open(ANSIBLE_CONFIG_FILE, "r") as f:
@@ -150,24 +165,30 @@ class PowerSender:
     def aggregate_data(bulk_data, cont_name):
         # Aggregate data by cpu (mean) and timestamp (sum): All dps from the same CPU are averaged and all averaged dps
         # belonging to the same timestamp are summed up
-        agg_data = pd.DataFrame(bulk_data).groupby(['timestamp', 'cpu']).agg({'value': 'mean'}).reset_index().groupby('timestamp').agg({'value': 'sum'}).reset_index()
+        agg_data = pd.DataFrame(bulk_data).groupby(['timestamp', 'cpu']).agg({'value': 'mean'}).reset_index()\
+                                          .groupby('timestamp').agg({'value': 'sum'}).reset_index()
 
         # TODO: Set a buffer to take into account more metrics when computing the outliers
-        agg_data = PowerSender.remove_outliers(agg_data, 'value')
+        if power_meter == "smartwatts":
+            agg_data = PowerSender.remove_outliers(agg_data, 'value')
 
-        # This is an arbitrary value to substract the power of HWPC-Sensor included in RAPL metrics, this value (5W) was
-        # obtained measuring the isolated power of HWPC Sensor during an hour and a half and getting the average
-        sensor_power = 5 if ONLY_RAPL else 0
+        # If RAPL is used, the power overhead of HWPC Sensor should be taken into account
+        # Nevertheless, last experiments shown that this overhead is negligible
+        # hwpc_sensor_power = 5 if power_meter == "rapl" else 0
 
         # Format data into a dict to dump into a JSON
         return [
-            {"metric": "structure.energy.usage", "tags": {"host": cont_name}, "timestamp": int(row['timestamp'].timestamp() * 1000), "value": row['value'] - sensor_power}
+            {"metric": "structure.energy.usage",
+             "tags": {"host": cont_name},
+             "timestamp": int(row['timestamp'].timestamp() * 1000),
+             "value": row['value']  # - hwpc_sensor_power
+             }
             for _, row in agg_data .iterrows()
         ]
 
     def print_iter_info(self):
         self.logger.info("Processed {0} targets and {1} lines causing a delay of {2} seconds"
-                         .format(self.iter_info['targets'], self.iter_info['lines'], self.delay))
+                         .format(self.iter_logger.get_targets(), self.iter_logger.get_lines(), self.delay))
 
     def adjust_sleep_time(self):
         if self.delay > self.sampling_frequency:
@@ -178,18 +199,14 @@ class PowerSender:
     def get_container_output_file(self, name, pid):
         # If container is not registered, initialize it
         if pid not in self.cont_output_files:
+            target = "rapl" if self.power_meter == "rapl" else "apptainer-{0}".format(pid)
+            target_file = "{0}/sensor-{1}/PowerReport.csv".format(self.smartwatts_output, target)
+
             self.logger.info("Found new target with name {0} and pid {1}. Registered.".format(name, pid))
-            if ONLY_RAPL:
-                self.logger.warning("HARDCODED TO SEND ONLY RAPL METRICS!!! CHANGE THIS WHEN USING VARIOUS CONTAINERS")
-                self.cont_output_files[pid] = {
-                    "path": "{0}/sensor-rapl/PowerReport.csv".format(self.smartwatts_output),
-                    "position": os.path.getsize("{0}/sensor-rapl/PowerReport.csv".format(self.smartwatts_output))
-                }
-            else:
-                self.cont_output_files[pid] = {
-                    "path": "{0}/sensor-apptainer-{1}/PowerReport.csv".format(self.smartwatts_output, pid),
-                    "position": 0
-                }
+            self.cont_output_files[pid] = {
+                "path": target_file,
+                "position": os.path.getsize(target_file)
+            }
 
         return self.cont_output_files[pid]["path"]
 
@@ -299,12 +316,12 @@ class PowerSender:
         if not lines:
             return
 
-        self.__add_iter_info(lines)
+        # Log the amount of lines processed for this target
+        self.iter_logger.add_info(lines)
 
         # Gather data from target output
         bulk_data = self.process_lines(lines, cont_name)
         preprocessed_data = self.preprocess_data(bulk_data, cont_pid)
-        agg_data = None
         if len(preprocessed_data) > 0:
             try:
                 agg_data = self.aggregate_data(preprocessed_data, cont_name)
@@ -362,7 +379,7 @@ class PowerSender:
         while True:
             try:
                 # Reset iteration information about processed targets and lines
-                self.__reset_iter_info()
+                self.iter_logger.reset()
 
                 # Process current containers in separated threads
                 t_start = time.perf_counter_ns()
@@ -395,19 +412,21 @@ class PowerSender:
 if __name__ == "__main__":
 
     if len(sys.argv) < 3:
-        raise Exception("Missing some arguments: power_sender.py [-v] <INSTALLATION_PATH> <SAMPLING_FREQUENCY>")
+        raise Exception("Missing some arguments: power_sender.py [-v] <INSTALLATION_PATH> <POWER_METER> <SAMPLING_FREQUENCY>")
 
     if sys.argv[1] == "-v":
         verbose = True
         installation_path = sys.argv[2]
-        sampling_frequency = int(sys.argv[3])
+        power_meter = sys.argv[3]
+        sampling_frequency = int(sys.argv[4])
     else:
         verbose = False
         installation_path = sys.argv[1]
-        sampling_frequency = int(sys.argv[2])
+        power_meter = sys.argv[2]
+        sampling_frequency = int(sys.argv[3])
 
     try:
-        power_sender = PowerSender(verbose, installation_path, sampling_frequency)
+        power_sender = PowerSender(verbose, installation_path, power_meter, sampling_frequency)
         power_sender.send_power()
     except Exception as e:
         raise Exception("Error while trying to create PowerSender instance: {0}".format(str(e)))
