@@ -9,6 +9,9 @@ singularity_command_alias: apptainer # singularity or apptainer (only relevant w
 # Apptainer + cgroups V1 requires sudo privileges to some singularity commands at the moment
 cgroups_version: v1
 
+## Sampling frequency (in seconds) of all the monitoring tools involved in the platform (BDWatchdog, PowerSender,...)
+sampling_frequency: 5
+
 ## Server Node
 server_ip: 10.10.255.231
 cpus_server_node: 64
@@ -27,9 +30,6 @@ opentsdb_port: 4242
 mongodb_url: "{{ server_ip }}"
 mongodb_port: 27017
 
-## BDWatchdog Config
-bdwatchdog_sampling_frequency: 5 # If 'online_learning' is 'yes' then this value will be overwritten by 'power_sampling_frequency'
-
 ## Additional capabilites
 # Disk
 disk_capabilities: no # "yes" to allow disk capabilities, such as Logical Volumes creation
@@ -38,7 +38,7 @@ disk_scaling: no # "yes" to allow disk bandwidth scaling (only relevant when usi
 power_budgeting: yes # "yes" to use power budgets, power will be accounted, restricted and shared among containers
 power_modelling: yes # "yes" to use power models to get CPU Usage/Power proportionalities instead of using fixed values
 online_learning: yes # "yes" to automatically retrain power models in real-time using OpenTSDB time series
-power_sampling_frequency: 5
+power_meter: "rapl" # rapl or smartwatts, use the latter to measure power from applications composed of multiple containers
 
 ## WattWizard Config
 structures: "host"
@@ -72,19 +72,23 @@ number_of_containers_per_node: 0
 # CPU
 max_cpu_percentage_per_container: 200
 min_cpu_percentage_per_container: 50
-cpu_boundary: 20
+cpu_boundary: 5
+cpu_boundary_type: "percentage_of_max"
 # Memory
 max_memory_per_container: 2048
 min_memory_per_container: 512
-mem_boundary: 256
+mem_boundary: 10
+mem_boundary_type: "percentage_of_max"
 # Energy
 max_energy_per_container: 40
 min_energy_per_container: 10
 energy_boundary: 5
+energy_boundary_type: "percentage_of_max"
 # Disk (only relevant if disk_scaling is set to "yes")
-disk_boundary: 10
 max_diskbw_per_container: 100
 min_diskbw_per_container: 50
+disk_boundary: 10
+disk_boundary_type: "percentage_of_max"
 
 ## Container network configuration
 # host interface through which the containers of different nodes communicate with each other
@@ -95,6 +99,6 @@ subnet: 10.22.0.0/16
 
 ## Apps
 # List of application configurations to load on startup, the provided name must match the name of an app folder
-# in the apps directory. Indicate multiple names in the app_config.yml of the app folder(s) specified here to deploy
-# various applications with the same configuration
+# in the ansible/provisioning/apps directory. Indicate multiple names in the app_config.yml of the app folder(s)
+# specified here to deploy various applications with the same configuration
 apps: ""

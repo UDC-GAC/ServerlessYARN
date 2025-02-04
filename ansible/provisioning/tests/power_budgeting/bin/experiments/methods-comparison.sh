@@ -2,6 +2,10 @@
 
 . "${EXPERIMENTS_DIR}"/common.sh
 
+# Activate Serverless
+curl_wrapper bash "${SC_MNG_DIR}/activate-service.sh" "Guardian"
+curl_wrapper bash "${SC_MNG_DIR}/activate-service.sh" "Scaler"
+
 #########################################################################################################
 # COMPARE POWER CAPPING METHODS
 #########################################################################################################
@@ -24,7 +28,6 @@ for CURRENT_INIT_KEY in "${!CPU_CURRENT_VALUES[@]}"; do
   mkdir -p "${RESULTS_DIR}/fixed-value"
   register_logs_position
 
-  curl_wrapper bash "${SC_MNG_DIR}/activate-serverless.sh"
   curl_wrapper bash "${SC_MNG_DIR}/change-shares-per-watt.sh" "5"
   curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "fixed-ratio"
   run_app "${APP_NAME}" "fixed-value"

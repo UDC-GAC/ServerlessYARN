@@ -19,7 +19,9 @@ mkdir -p "${RESULTS_DIR}"
 mkdir -p "${RESULTS_DIR}/no-capping"
 register_logs_position
 
-curl_wrapper bash "${SC_MNG_DIR}/deactivate-serverless.sh"
+# Deactivate Serverless
+curl_wrapper bash "${SC_MNG_DIR}/deactivate-service.sh" "Guardian"
+curl_wrapper bash "${SC_MNG_DIR}/deactivate-service.sh" "Scaler"
 run_app "${APP_NAME}" "no-capping"
 
 save_logs "no-capping"

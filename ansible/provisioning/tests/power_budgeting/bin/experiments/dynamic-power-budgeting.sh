@@ -2,6 +2,10 @@
 
 . "${EXPERIMENTS_DIR}"/common.sh
 
+# Activate Serverless
+curl_wrapper bash "${SC_MNG_DIR}/activate-service.sh" "Guardian"
+curl_wrapper bash "${SC_MNG_DIR}/activate-service.sh" "Scaler"
+
 #########################################################################################################
 # DYNAMIC POWER BUDGETING: CHANGE POWER BUDGET IN REAL TIME
 #########################################################################################################
