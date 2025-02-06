@@ -844,12 +844,19 @@ def processAddApp(request, url, structure_name, structure_type, resources):
     if 'app_dir' in request.POST: app_files['app_dir'] = request.POST['app_dir']
     else: raise Exception("Missing mandatory parameter: {0}".format('app_dir'))
 
-    # Optional parameters
-    for f in ['start_script', 'stop_script', 'app_jar']:
+    # Optional parameters with default value
+    for f in ['start_script', 'stop_script']:
         if f in request.POST and request.POST[f] != "":
             app_files[f] = request.POST[f]
         else:
             app_files[f] = DEFAULT_APP_VALUES[f]
+
+    # Pure optional parameters
+    for f in ['app_jar']:
+        if f in request.POST and request.POST[f] != "":
+            app_files[f] = request.POST[f]
+        else:
+            app_files[f] = ""
 
     # Additional files
     for condition, additional_file in [('add_files_dir', 'files_dir'), ('add_install', 'install_script')]:
@@ -861,8 +868,24 @@ def processAddApp(request, url, structure_name, structure_type, resources):
         else:
             app_files[additional_file] = ""
 
+    # App type
+    if "app_type" in request.POST and request.POST["app_type"] != "": app_files["app_type"] = request.POST["app_type"]
+    elif "install_script" in app_files and app_files["install_script"] != "": app_files["app_type"] = "generic_app"
+    else: app_files["app_type"] = "base"
+
+    ## Hadoop apps specific config
+    if app_files["app_type"] == "hadoop_app":
+        if "add_extra_framework" in request.POST and request.POST["add_extra_framework"] and "framework" in request.POST:
+            ## An extra framework has been selected (e.g., Spark), we change the app_type to build the corresponding container image
+            app_files["framework"] = request.POST["framework"]
+            if app_files["framework"] == "spark": app_files["app_type"] = "spark_app"
+        else:
+            ## If no extra framework has been selected, we select Hadoop to differentiate hadoop apps when retrieving them later from the StateDB
+            app_files["framework"] = "hadoop"
+
     put_field_data = {
         'app': {
+            ## Regular app data
             'name': structure_name,
             'resources': {},
             'guard': False,
@@ -871,7 +894,9 @@ def processAddApp(request, url, structure_name, structure_type, resources):
             'install_script': "{0}/{1}".format(app_files['app_dir'], app_files['install_script']) if app_files['install_script'] != "" else "",
             'start_script': "{0}/{1}".format(app_files['app_dir'], app_files['start_script']) if app_files['start_script'] != "" else "",
             'stop_script': "{0}/{1}".format(app_files['app_dir'], app_files['stop_script']) if app_files['stop_script'] != "" else "",
-            'app_jar': "{0}/{1}".format(app_files['app_dir'], app_files['app_jar']) if app_files['app_jar'] != "" else ""
+            ## Hadoop app data
+            'app_jar': "{0}/{1}".format(app_files['app_dir'], app_files['app_jar']) if "app_jar" in app_files and app_files['app_jar'] != "" else "",
+            'framework': app_files["framework"] if "framework" in app_files else ""
         },
         'limits': {'resources': {}}
     }
@@ -941,7 +966,7 @@ def processStartApp(request, url, app_name):
     if 'start_script' in app and app['start_script']: app_files['app_dir'] = os.path.dirname(app['start_script'])
     else: return "Error: there is no start script for app {0}".format(app_name)
 
-    for f in ['files_dir', 'install_script', 'start_script', 'stop_script', 'app_jar']:
+    for f in ['files_dir', 'install_script', 'start_script', 'stop_script', 'app_jar', 'framework']:
         if f in app:
             app_files[f] = os.path.basename(app[f])
         else:
@@ -989,7 +1014,15 @@ def processStartApp(request, url, app_name):
         error = "There is no space left for app {0}".format(app_name)
         return error
 
-    is_hadoop_app = app_files['app_jar'] != ""
+    ## App type
+    if 'framework' in app_files and app_files['framework'] != "":
+        if app_files['framework'] == "hadoop": app_type = "hadoop_app"
+        elif app_files['framework'] == "spark": app_type = "spark_app"
+        else: raise Exception("{0} framework not supported, currently supported frameworks: {1}".format(app_files['framework'], ["hadoop", "spark"]))
+    elif 'install_script' in app_files and app_files['install_script'] != "": app_type = "generic_app"
+    else: app_type = "base"
+
+    is_hadoop_app = app_type in ["hadoop_app", "spark_app"]
 
     if is_hadoop_app:
         ## ResourceManager/NameNode resources
@@ -1017,14 +1050,20 @@ def processStartApp(request, url, app_name):
         container_resources['rm-nn'] = {}
         container_resources['rm-nn']['cpu_max'] = rm_maximum_cpu
         container_resources['rm-nn']['cpu_min'] = rm_minimum_cpu
+        container_resources['rm-nn']['cpu_weight'] = DEFAULT_RESOURCE_VALUES['weight']
         container_resources['rm-nn']['cpu_boundary'] = rm_cpu_boundary
+        container_resources['rm-nn']['cpu_boundary_type'] = "percentage_of_max"
         container_resources['rm-nn']['mem_max'] = rm_maximum_mem
         container_resources['rm-nn']['mem_min'] = rm_minimum_mem
+        container_resources['rm-nn']['mem_weight'] = DEFAULT_RESOURCE_VALUES['weight']
         container_resources['rm-nn']['mem_boundary'] = rm_mem_boundary
+        container_resources['rm-nn']['mem_boundary_type'] = "percentage_of_max"
         if config['power_budgeting']:
             container_resources['rm-nn']['energy_max'] = rm_maximum_energy
             container_resources['rm-nn']['energy_min'] = rm_minimum_energy
+            container_resources['rm-nn']['energy_weight'] = DEFAULT_RESOURCE_VALUES['weight']
             container_resources['rm-nn']['energy_boundary'] = rm_energy_boundary
+            container_resources['rm-nn']['energy_boundary_type'] = "percentage_of_max"
 
         number_of_containers += 1
 
@@ -1046,9 +1085,9 @@ def processStartApp(request, url, app_name):
     virtual_cluster = config['virtual_mode']
 
     if is_hadoop_app:
-        task = start_hadoop_app_task.delay(url, headers, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster)
+        task = start_hadoop_app_task.delay(url, headers, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type)
     else:
-        task = start_app_task.delay(url, headers, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq)
+        task = start_app_task.delay(url, headers, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, app_type)
 
     print("Starting task with id {0}".format(task.id))
     register_task(task.id, "{0}_app_task".format(app_name))

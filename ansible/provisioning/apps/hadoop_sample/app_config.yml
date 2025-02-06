@@ -1,5 +1,6 @@
 ## Name or list of names in case you want to create several apps with the same configuration
 names: hadoop_sample
+app_type: hadoop_app
 
 ## Resource configuration to load into State Database
 cpu_max: 400

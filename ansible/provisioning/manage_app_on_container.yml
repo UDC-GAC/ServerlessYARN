@@ -109,6 +109,7 @@
             loop: "{{ hadoop_file_list }}"
 
           - name: Copy spark config files to master
+            when: app_type is defined and app_type == 'spark_app'
             delegate_to: localhost
             run_once: yes
             template:
@@ -136,6 +137,7 @@
               executable: /bin/bash
 
           - name: Copy and update spark config files to containers
+            when: app_type is defined and app_type == 'spark_app'
             shell: "{% for item in containers_info %}
               {% if item.host == inventory_hostname %}
               {% for file in spark_file_list %}

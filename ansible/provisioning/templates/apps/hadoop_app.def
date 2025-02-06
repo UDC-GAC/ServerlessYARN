@@ -1,5 +1,5 @@
 Bootstrap: localimage
-From: apps/base/{{ app_base_image_file }}
+From: apps/{{ app_base_type }}/{{ app_base_image_file }}
 
 %files
     {{ app_directory }}/files_dir /opt/files_dir
@@ -8,8 +8,6 @@ From: apps/base/{{ app_base_image_file }}
 
     # To avoid repeating hadoop download while debugging
     #"{{ installation_path }}/apps/hadoop_app/hadoop-{{ hadoop_version }}.tar.gz" /opt/hadoop-{{ hadoop_version }}.tar.gz
-    # To avoid repeating spark download while debugging
-    #"{{ installation_path }}/apps/hadoop_app/spark-{{ spark_version }}-bin-without-hadoop.tgz" /opt/spark-{{ spark_version }}-bin-without-hadoop.tgz
 
 %post
     # Install basic software and Java
@@ -36,7 +34,6 @@ From: apps/base/{{ app_base_image_file }}
 
     # Setup hadoop
     cd /opt
-
     export HADOOP_CONF_DIR=/opt/files_dir/hadoop_conf
     export DATA_DIR="{{ bind_dir_on_container }}/files_dir/data_dir"
     mkdir -p files_dir/data_dir
@@ -50,13 +47,6 @@ From: apps/base/{{ app_base_image_file }}
     cp files_dir/config/mapred-site.xml $HADOOP_CONF_DIR/mapred-site.xml
     cp files_dir/config/yarn-site.xml $HADOOP_CONF_DIR/yarn-site.xml
     cp files_dir/config/workers $HADOOP_CONF_DIR/workers
-
-    # Setup Spark
-    export SPARK_CONF_DIR=/opt/files_dir/spark_conf
-    wget https://archive.apache.org/dist/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-without-hadoop.tgz
-    mkdir spark && tar xf "spark-{{ spark_version }}-bin-without-hadoop.tgz" -C spark --strip-components 1
-    chown -R $(whoami):$(whoami) spark
-    mkdir -p $SPARK_CONF_DIR && cp -r spark/conf/* $SPARK_CONF_DIR/
 
 %environment
     export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
@@ -74,10 +64,6 @@ From: apps/base/{{ app_base_image_file }}
     export HDFS_SECONDARYNAMENODE_USER=$(whoami)
     export YARN_RESOURCEMANAGER_USER=$(whoami)
     export YARN_NODEMANAGER_USER=$(whoami)
-    # Spark
-    export SPARK_HOME=/opt/spark
-    export SPARK_DIST_CLASSPATH=$($HADOOP_HOME/bin/hadoop classpath)
-    export SPARK_CONF_DIR="{{ bind_dir_on_container }}/files_dir/spark_conf"
 
 %startscript
     #cd /opt/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream_tmux.sh && \

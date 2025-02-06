@@ -1,0 +1,23 @@
+Bootstrap: localimage
+From: apps/{{ app_base_type }}/{{ app_base_image_file }}
+
+%files
+    # To avoid repeating spark download while debugging
+    #"{{ installation_path }}/apps/hadoop_app/spark-{{ spark_version }}-bin-without-hadoop.tgz" /opt/spark-{{ spark_version }}-bin-without-hadoop.tgz
+
+%post
+    export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+
+    # Setup Spark
+    cd /opt
+    export SPARK_CONF_DIR=/opt/files_dir/spark_conf
+    wget https://archive.apache.org/dist/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-without-hadoop.tgz
+    mkdir spark && tar xf "spark-{{ spark_version }}-bin-without-hadoop.tgz" -C spark --strip-components 1
+    chown -R $(whoami):$(whoami) spark
+    mkdir -p $SPARK_CONF_DIR && cp -r spark/conf/* $SPARK_CONF_DIR/
+
+%environment
+    # Spark
+    export SPARK_HOME=/opt/spark
+    export SPARK_DIST_CLASSPATH=$($HADOOP_HOME/bin/hadoop classpath)
+    export SPARK_CONF_DIR="{{ bind_dir_on_container }}/files_dir/spark_conf"

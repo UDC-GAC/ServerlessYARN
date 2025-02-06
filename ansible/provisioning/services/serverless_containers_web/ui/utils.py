@@ -1,5 +1,4 @@
 DEFAULT_APP_VALUES = {
-    "app_jar": "",
     "install_script": "install.sh",
     "start_script": "start.sh",
     "stop_script": "stop.sh",

@@ -205,9 +205,10 @@ def add_app_task(full_url, headers, put_field_data, app, app_files):
         app_dir = app_files['app_dir']
         files_dir = app_files['files_dir']
         install_script = app_files['install_script']
+        app_type = app_files['app_type']
         app_jar = app_files['app_jar']
 
-        argument_list = [app_dir, files_dir, install_script, app_jar]
+        argument_list = [app_dir, files_dir, install_script, app_type, app_jar]
         error_message = "Error creating app {0}".format(app)
         process_script("create_app", argument_list, error_message)
 
@@ -309,7 +310,7 @@ def start_containers_task_v2(new_containers, container_resources, disks):
     error_message = "Error starting containers {0}".format(formatted_containers_info)
     process_script("start_containers", argument_list, error_message)
 
-def start_containers_with_app_task_v2(url, headers, new_containers, app, app_files, container_resources, disk_assignation):
+def start_containers_with_app_task_v2(url, headers, new_containers, app, app_files, container_resources, disk_assignation, app_type=None):
 
     added_containers = {}
 
@@ -348,7 +349,7 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
                                 disk_assignation[host][disk]['new_containers'] -= 1
                                 container_info['disk'] = disk
                                 container_info['disk_path'] = disk_assignation[host][disk]['disk_path']
-                                for resource in ['disk_max' 'disk_min', 'disk_weight', 'disk_boundary', 'disk_boundary_type']:
+                                for resource in ['disk_max', 'disk_min', 'disk_weight', 'disk_boundary', 'disk_boundary_type']:
                                     container_info[resource] = container_resources[container_type][resource]
                                 break
 
@@ -377,7 +378,7 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
     #     image_file = "ubuntu_container.sif"
     # argument_list = [hosts, formatted_containers_info, app, template_definition_file, definition_file, image_file, app_files['files_dir'], app_files['install_script'], app_files['app_jar']]
 
-    argument_list = [hosts, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar']]
+    argument_list = [hosts, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar'], app_type]
     error_message = "Error starting containers {0}".format(formatted_containers_info)
     process_script("start_containers_with_app", argument_list, error_message)
 
@@ -386,11 +387,11 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
 
 ## Start Apps
 @shared_task(bind=True)
-def start_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq):
+def start_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, app_type=None):
 
     start_time = timeit.default_timer()
 
-    app_containers = start_containers_with_app_task_v2(url, headers, new_containers, app, app_files, container_resources, disk_assignation)
+    app_containers = start_containers_with_app_task_v2(url, headers, new_containers, app, app_files, container_resources, disk_assignation, app_type)
     setup_containers_network_task(app_containers, url, headers, app, app_files, new_containers)
 
     end_time = timeit.default_timer()
@@ -400,7 +401,7 @@ def start_app_task(self, url, headers, app, app_files, new_containers, container
     remove_containers_from_app(url, headers, app_containers, app, app_files, scaler_polling_freq)
 
 @shared_task(bind=True)
-def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster):
+def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type="hadoop_app"):
 
     # Calculate resources for Hadoop cluster
     hadoop_resources = {}
@@ -514,8 +515,8 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
 
     start_time = timeit.default_timer()
 
-    app_containers = start_containers_with_app_task_v2(url, headers, new_containers, app, app_files, container_resources, disk_assignation)
-    rm_host, rm_container = setup_containers_hadoop_network_task(app_containers, url, headers, app, app_files, hadoop_resources, new_containers)
+    app_containers = start_containers_with_app_task_v2(url, headers, new_containers, app, app_files, container_resources, disk_assignation, app_type)
+    rm_host, rm_container = setup_containers_hadoop_network_task(app_containers, url, headers, app, app_files, hadoop_resources, new_containers, app_type)
 
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)
@@ -612,7 +613,7 @@ def setup_containers_network_task(app_containers, url, headers, app, app_files, 
 
 
 @shared_task
-def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_files, hadoop_resources, new_containers):
+def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_files, hadoop_resources, new_containers, app_type="hadoop_app"):
 
     # Get rm-nn container (it is the first container from the host that got that container)
     for host in new_containers:
@@ -644,7 +645,7 @@ def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_
     datanode_d_heapsize = hadoop_resources["regular"]["datanode_d_heapsize"]
     nodemanager_d_heapsize =  hadoop_resources["regular"]["nodemanager_d_heapsize"]
 
-    argument_list = [hosts, app, formatted_app_containers, rm_host, rm_container['container_name'],
+    argument_list = [hosts, app, app_type, formatted_app_containers, rm_host, rm_container['container_name'],
         vcores, min_vcores, scheduler_maximum_memory, scheduler_minimum_memory, nodemanager_memory,
         map_memory, map_memory_java_opts, reduce_memory, reduce_memory_java_opts, mapreduce_am_memory,
         mapreduce_am_memory_java_opts, datanode_d_heapsize, nodemanager_d_heapsize]

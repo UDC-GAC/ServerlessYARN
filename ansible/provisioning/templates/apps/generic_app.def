@@ -1,5 +1,5 @@
 Bootstrap: localimage
-From: apps/base/{{ app_base_image_file }}
+From: apps/{{ app_base_type }}/{{ app_base_image_file }}
 
 %files
     apps/{{ app_dir }} /opt/{{ app_dir }}

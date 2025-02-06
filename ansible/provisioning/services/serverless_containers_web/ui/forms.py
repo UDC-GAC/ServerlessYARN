@@ -615,7 +615,15 @@ class AddAppForm(forms.Form):
 
 
 class AddHadoopAppForm(AddAppForm):
+    app_type = forms.CharField(label="App type", required=True, initial="hadoop_app")
     app_jar = forms.CharField(label="App JAR", required=True)
+    add_extra_framework = forms.BooleanField(label="Add additional framework?", required=False)
+    framework = forms.ChoiceField(label="Additional framework",
+            choices = (
+                ("spark", "Spark"),
+                ),
+            required=False
+            )
 
     def __init__(self, *args, **kwargs):
         super(AddHadoopAppForm, self).__init__(*args, **kwargs)
@@ -627,6 +635,7 @@ class AddHadoopAppForm(AddAppForm):
         self.helper.layout = Layout(
             Field('operation', type="hidden", readonly=True),
             Field('structure_type', type="hidden", readonly=True),
+            Field('app_type', type="hidden", readonly=True),
             Field('name'),
             Field('cpu_max'),
             Field('cpu_min'),
@@ -665,6 +674,8 @@ class AddHadoopAppForm(AddAppForm):
         self.helper.layout.append(Field('files_dir', css_class='additional_files_dir'))
         self.helper.layout.append(Field('add_install', css_class='add_install_condition'))
         self.helper.layout.append(Field('install_script', css_class='additional_install'))
+        self.helper.layout.append(Field('add_extra_framework', css_class='add_extra_framework_condition'))
+        self.helper.layout.append(Field('framework', css_class='framework'))
         self.helper.layout.append(Field('app_jar'))
 
         # Submit button

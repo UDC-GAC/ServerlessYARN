@@ -16,9 +16,12 @@ APPS_DIR = "apps"
 APP_CONFIG_FILENAME = "app_config.yml"
 ## Keys
 # Apps
-MANDATORY_APP_KEYS = [] # "name" (or "names") is also a mandatory key, but is handled differently
+MANDATORY_APP_KEYS = []
 OPTIONAL_APP_KEYS_WITH_DEFAULT = ["start_script", "stop_script"]
 OPTIONAL_APP_KEYS = ["files_dir", "install_script", "app_jar"]
+OTHER_APP_KEYS = ["name", "names", "app_type", "framework"] # Other keys that are handled differently. This list is for documentation purposes only, it is not meant to be used in the script
+SUPPORTED_APP_TYPES = ["base", "generic_app", "hadoop_app", "spark_app"]
+SUPPORTED_EXTRA_FRAMEWORKS = ["spark"]
 # Resources
 MANDATORY_RESOURCE_KEYS = ["max", "min"]
 OPTIONAL_RESOURCE_KEYS_WITH_DEFAULT = ["weight"]
@@ -79,6 +82,20 @@ if __name__ == "__main__":
             elif key in OPTIONAL_APP_KEYS_WITH_DEFAULT: app_config["app"][key] = DEFAULT_APP_VALUES[key]
             elif key in OPTIONAL_APP_KEYS: app_config["app"][key] = ""
 
+        # App type and extra frameworks
+        if "app_type" in config and config["app_type"] != "":
+            app_type = config["app_type"]
+            if app_type not in SUPPORTED_APP_TYPES: raise Exception("{0} is not a supported app type. Currently supported app types: {1}".format(app_type, SUPPORTED_APP_TYPES))
+        elif "install_script" in app_config["app"] and app_config["app"]["install_script"] != "": app_type = "generic_app"
+        else: app_type = "base"
+
+        if "framework" in config and config["framework"] != "":
+            app_config["app"]["framework"] = config["framework"]
+            if app_config["app"]["framework"] not in SUPPORTED_EXTRA_FRAMEWORKS: raise Exception("{0} is not a supported extra framework. Currently supported extra frameworks: {1}".format(app_config["app"]["framework"], SUPPORTED_EXTRA_FRAMEWORKS))
+            if app_config["app"]["framework"] == "spark": app_type = "spark_app" # we update app_type based on extra framework to build the corresponding container image
+        elif app_type == "hadoop_app": app_config["app"]["framework"] = "hadoop"
+        else: app_config["app"]["framework"] = ""
+
         ## Resources and limits
         app_config["app"]["resources"] = {}
         app_config["limits"]["resources"] = {}
@@ -124,12 +141,11 @@ if __name__ == "__main__":
 
             if (error == ""):
 
-                #if app_config["app"]['install_script'] != "":
                 files_dir = os.path.basename(app_config['app']['files_dir'])
                 install_script = os.path.basename(app_config['app']['install_script'])
                 app_jar = os.path.basename(app_config['app']['app_jar'])
 
-                argument_list = [app_dir, files_dir, install_script, app_jar]
+                argument_list = [app_dir, files_dir, install_script, app_type, app_jar]
                 error_message = "Error creating app {0} with directory {1}".format(app_config['app']['name'], app_dir)
 
                 ## Process script

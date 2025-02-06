@@ -1,20 +1,8 @@
 
-- name: Copy apptainer containers definition file
-  template:
-    src: "templates/{{ definition_file }}"
-    dest: "{{ installation_path }}/{{ definition_file }}"
-
 - name: Copy apptainer containers cgroup config
   template:
     src: "templates/{{ cgroups_file }}"
     dest: "{{ installation_path }}/{{ cgroups_file }}"
-
-- name: Build image
-  shell: "{{ singularity_command_alias }} build {{ image_file }} {{ definition_file }}"
-  args:
-    chdir: "{{ installation_path }}"
-    executable: /bin/bash
-    creates: "{{ image_file }}"
 
 ### Fix to add controllers to cgroups V2
 - name: Start dummy container
