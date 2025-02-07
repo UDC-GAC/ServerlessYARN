@@ -18,15 +18,16 @@ RESOURCE_METRICS = {
 class ExperimentsProfiler:
 
     def __init__(self, app_name, experiments_log_file, containers_file, results_dir, dynamic_power_budgeting=False):
-        self.parser = LogsParser()
-        self.writer = ResultsWriter()
-        self.plotter = ExperimentsPlotter()
         self.app_name = app_name
-        self.app_type = app_name.split('_')[0]  # (e.g., npb_1cont_1thread -> npb)
         self.experiments_log_file = experiments_log_file
         self.containers_file = containers_file
         self.results_dir = results_dir
+        self.app_type = app_name.split('_')[0]  # (e.g., npb_1cont_1thread -> npb)
+        self.experiments_group = results_dir.split("/")[-1].strip()  # (e.g.,./out/results_npb_1cont_1thread/min -> min)
         self.dynamic_power_budgeting = dynamic_power_budgeting
+        self.parser = LogsParser()
+        self.writer = ResultsWriter()
+        self.plotter = ExperimentsPlotter(self.app_name, self.experiments_group)
 
     @staticmethod
     def get_experiment_metrics(metrics, containers, start, end):
@@ -69,9 +70,9 @@ class ExperimentsProfiler:
 
     @staticmethod
     def create_experiment_times_dict(start, end, start_app, end_app):
-        experiments_dict = None
+        _dict = None
         if start and end and start_app and end_app:
-            experiments_dict = {
+            _dict = {
                 "start": start,
                 "end": end,
                 "start_app": start_app,
@@ -81,7 +82,7 @@ class ExperimentsProfiler:
                 "start_app_s": (start_app - start).seconds,
                 "end_app_s": (end_app - start).seconds
             }
-        return experiments_dict
+        return _dict
 
     @staticmethod
     def get_rescalings_average_power(rescalings, df):
@@ -118,11 +119,11 @@ class ExperimentsProfiler:
             if 'avg_power' in rescalings[timestamp] and rescalings[timestamp]['elapsed_seconds'] > 0:
                 if power_budget * 0.95 < rescalings[timestamp]['avg_power'] < power_budget * 1.05:
                     cpu_limit = cpu_limit_df.loc[cpu_limit_df['elapsed_seconds'] >
-                                                 rescalings[timestamp]['elapsed_seconds'] + 5].iloc[0]['value']
+                                                 rescalings[timestamp]['elapsed_seconds'] + 5]
                     return {
                         "time": int(rescalings[timestamp]['elapsed_seconds']),
                         "value": rescalings[timestamp]['avg_power'],
-                        "cpu_limit": cpu_limit
+                        "cpu_limit": None if cpu_limit.empty else cpu_limit.iloc[0]['value']
                     }
         return None
 
@@ -152,8 +153,8 @@ class ExperimentsProfiler:
                     # If pattern is matched we add the extracted info from line and don't check other patterns
                     if timestamp and line_info:
                         # If rescaling was made before app has started the start_app point is removed from the dict
-                        if timestamp < experiment_times["start_app"] and experiment_times["start_app"] in experiment_rescalings:
-                            del experiment_rescalings[experiment_times["start_app"]]
+                        #if timestamp < experiment_times["start_app"] and experiment_times["start_app"] in experiment_rescalings:
+                            #del experiment_rescalings[experiment_times["start_app"]]
                         # Ensure the rescaling has not been made after the application has finished
                         if timestamp < experiment_times["end"]:
                             self.parser.update_timestamp_key_dict(experiment_rescalings, timestamp, line_info)
@@ -221,16 +222,19 @@ class ExperimentsProfiler:
             # Create dictionary with useful time info for this experiment
             experiment_times = self.create_experiment_times_dict(start_time, end_time, start_app, end_app)
             if not experiment_times:
-                print(f"Experiment times couldn't be retrieved for experiment {experiment_name}, ignoring...")
+                print(f"Experiment times couldn't be retrieved for method {experiment_name}, ignoring...")
                 continue
 
             # First, try getting data from CSV file
             experiment_df = None
             try:
                 experiment_df = pd.read_csv(exp_data_file, index_col=0)
+            except FileNotFoundError:
+                print(f"Getting method {experiment_name} data from OpenTSDB")
             except Exception as e:
-                print(f"Some error has occurred while reading experiment {experiment_name} "
-                      f"data from file {exp_data_file}: {str(e)}")
+                print(f"An error occurred reading experiment {experiment_name} data from file {exp_data_file}: {str(e)}. "
+                      f"Getting data from OpenTSDB")
+
             # If metrics couldn't be retrieved from CSV file they are collected from OpenTSDB
             if experiment_df is None:
                 # Gather metrics for these period and create DataFrame
@@ -263,22 +267,24 @@ class ExperimentsProfiler:
 
             # Plot application metrics (all containers + all metrics)
             self.plotter.plot_application_metrics(experiment_name, containers, RESOURCE_METRICS["all"], experiment_df,
-                                                 experiment_times, experiment_rescalings, convergence_point)
+                                                  experiment_times, experiment_rescalings, convergence_point)
 
             # Create separated plots for each resource and container
             single_resources = list(filter(lambda x: x != "all", RESOURCE_METRICS.keys()))
             for resource in single_resources:
                 for container in containers:
                     if power_budgets:
-                        self.plotter.plot_container_metrics(RESOURCE_METRICS[resource], container, experiment_df,
-                                                            power_budgets, experiment_times, power_budgets_file)
+                        self.plotter.plot_application_metrics(experiment_name, [container], RESOURCE_METRICS[resource],
+                                                              experiment_df, experiment_times, power_budgets,
+                                                              convergence_point)
                     else:
-                        self.plotter.plot_container_metrics(RESOURCE_METRICS[resource], container, experiment_df,
-                                                            experiment_rescalings, experiment_times, power_budgets_file)
+                        self.plotter.plot_application_metrics(experiment_name, [container], RESOURCE_METRICS[resource],
+                                                              experiment_df, experiment_times, experiment_rescalings,
+                                                              convergence_point)
 
             self.writer.set_output_dir(exp_results_dir)
             global_results[experiment_name] = self.writer.write_experiment_results(experiment_name, experiment_df,
-                                                                                   experiment_times, convergence_point)
+                                                                                  experiment_times, convergence_point)
 
         self.writer.set_output_dir(self.results_dir)
         self.writer.write_global_results(global_results)
@@ -288,7 +294,7 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 5:
         print("Usage: python get-metrics-opentsdb.py <app-name> <experiments-log-file> <containers-file> "
-              "<results-directory> [<power-budgets-file>]")
+              "<results-directory> [dynamic_budgets]")
         sys.exit(1)
 
     app_name = str(sys.argv[1])
