@@ -1727,7 +1727,7 @@ def services(request):
     url = base_url + "/service/"
 
     database_snapshoter_options = ["debug","documents_persisted","polling_frequency"]
-    guardian_options = ["cpu_shares_per_watt", "debug", "event_timeout","guardable_resources","structure_guarded","window_delay","window_timelapse","energy_model_name","use_energy_model"]
+    guardian_options = ["cpu_shares_per_watt", "debug", "event_timeout","guardable_resources","structure_guarded","window_delay","window_timelapse"]
     scaler_options = ["check_core_map","debug","polling_frequency","request_timeout"]
     structures_snapshoter_options = ["polling_frequency","debug","persist_apps","resources_persisted"]
     sanity_checker_options = ["debug","delay"]
@@ -1735,6 +1735,9 @@ def services(request):
     rebalancer_options = ["debug","rebalance_users","energy_diff_percentage","energy_stolen_percentage","window_delay","window_timelapse","resources_balanced","structures_balanced","balancing_method"]
     energy_manager_options = ["polling_frequency", "debug"]
     watt_trainer_options = ["window_timelapse", "window_delay", "generated_metrics", "models_to_train", "debug"]
+
+    ## Optional options based on config
+    if config['power_budgeting']: guardian_options.extend(["energy_model_name", "use_energy_model"])
 
     if (len(request.POST) > 0):
         if ("name" in request.POST):

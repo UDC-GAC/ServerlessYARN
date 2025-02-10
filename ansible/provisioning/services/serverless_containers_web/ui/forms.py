@@ -885,6 +885,13 @@ class GuardianForm(forms.Form):
             initial="container"
             )
 
+    energy_model_name = forms.CharField(label= "Energy model name",
+            required=False
+            )
+    use_energy_model = forms.BooleanField(label= "Use energy model?",
+            required=False
+            )
+
     def __init__(self, *args, **kwargs):
         super(GuardianForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()            
@@ -905,6 +912,10 @@ class GuardianForm(forms.Form):
                 Submit('save', 'Save changes', css_class='caja'),
             )    
         )
+
+        if config['power_budgeting']:
+            self.helper.layout.append(Field('energy_model_name'))
+            self.helper.layout.append(Field('use_energy_model'))
 
 # CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 5, "REQUEST_TIMEOUT": 60, "self.debug": True, "CHECK_CORE_MAP": True, "ACTIVE": True}
 class ScalerForm(forms.Form):
