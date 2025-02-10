@@ -107,6 +107,7 @@
     disks: "{{ (hostvars[item].disks | replace(' ','') | quote) if (disk_capabilities and disk_scaling) else 'None' }}"
     resources: "{{ {'cpu': hostvars[item].cpu, 'mem': hostvars[item].mem} | combine(({'energy': hostvars[item].energy} if power_budgeting else {})) }}"
   with_items: "{{ nodes }}"
+  tags: add_hosts
 
 - name: Initializing State Database - add individual disks to hosts
   when: disk_capabilities and disk_scaling
