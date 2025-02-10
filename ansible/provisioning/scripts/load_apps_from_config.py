@@ -4,13 +4,12 @@ import yaml
 import os
 import requests
 import json
-from bs4 import BeautifulSoup
 import subprocess
 import sys
 
 scriptDir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(scriptDir + "/../services/serverless_containers_web/ui")
-from utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES
+from utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, request_to_state_db
 
 APPS_DIR = "apps"
 APP_CONFIG_FILENAME = "app_config.yml"
@@ -126,18 +125,14 @@ if __name__ == "__main__":
             app_config["app"]["name"] = app_name
 
             full_url = "{0}/{1}".format(url, app_config["app"]["name"])
-            headers = {'Content-Type': 'application/json'}
 
-            r = requests.put(full_url, data=json.dumps(app_config), headers=headers)
+            error_message = "Error adding app {0}".format(app_config['app']['name'])
+            error, _ = request_to_state_db(full_url, "put", error_message, app_config)
 
-            error = ""
-            if (r != "" and r.status_code != requests.codes.ok):
-                soup = BeautifulSoup(r.text, features="html.parser")
-                if "already exists" in soup.get_text().strip():
+            if error:
+                if "already exists" in error:
                     print("App {0} already exists".format(app_config['app']['name']))
                     continue
-                else:
-                    error = "Error adding app {0}: {1}".format(app_config['app']['name'],soup.get_text().strip())
 
             if (error == ""):
 

@@ -4,7 +4,6 @@ import yaml
 import requests
 import json
 import os
-from bs4 import BeautifulSoup
 
 scriptDir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(scriptDir + "/../services/serverless_containers_web/ui")

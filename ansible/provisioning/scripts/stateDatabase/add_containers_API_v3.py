@@ -3,11 +3,10 @@ import sys
 import yaml
 import requests
 import json
-from bs4 import BeautifulSoup
+import os
 from copy import deepcopy
 
 rescaler_port = "8000"
-
 
 base_container_to_API = dict(
     container = dict(
@@ -27,6 +26,10 @@ base_container_to_API = dict(
     )
 )
 
+scriptDir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(scriptDir + "/../../services/serverless_containers_web/ui")
+from utils import request_to_state_db
+
 # usage example: add_containers_API_v3.py [{'container_name': 'host1-cont1', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'energy_max': 100, 'energy_min': 30, 'cpu_boundary': 25, 'mem_boundary': 256, 'energy_boundary': 10, 'disk': 'hdd_0', 'disk_path: '$HOME/hdd', 'disk_max': 200, 'disk_min': 50}, {'container_name': 'host1-cont1'...}] config/config.yml
 
 if __name__ == "__main__":
@@ -37,8 +40,6 @@ if __name__ == "__main__":
             config = yaml.load(f, Loader=yaml.FullLoader)
 
         orchestrator_url = "http://{0}:{1}".format(config['server_ip'], config['orchestrator_port'])
-        headers = {'Content-Type': 'application/json'}
-
         session = requests.Session()
 
         ## Add containers
@@ -97,12 +98,9 @@ if __name__ == "__main__":
                     put_field_data['limits']["resources"][res]["boundary"] = int(cont[f'{res}_boundary'])
                     put_field_data['limits']["resources"][res]["boundary_type"] = str(cont[f'{res}_boundary_type'])
 
-            r = session.put(full_url, data=json.dumps(put_field_data), headers=headers)
+            error_message = "Error adding container {0} | Data: {1}".format(cont['container_name'], put_field_data)
+            error, response = request_to_state_db(full_url, "put", error_message, put_field_data, session=session)
 
-            if r != "" and r.status_code != requests.codes.ok:
-                soup = BeautifulSoup(r.text, features="html.parser")
-                if r.status_code == 400 and "already exists" in soup.get_text().strip():
-                    # Container already exists
-                    print("Container {0} already exists".format(cont['container_name']))
-                else:
-                    raise Exception("Error adding container {0}: {1} | Data: {2}".format(cont['container_name'], soup.get_text().strip(), put_field_data))
+            if response != "" and error:
+                if response.status_code == 400 and "already exists" in error: print("Container {0} already exists".format(cont['container_name']))
+                else: raise Exception(error)

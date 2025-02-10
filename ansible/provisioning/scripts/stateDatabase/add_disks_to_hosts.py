@@ -4,7 +4,6 @@ import yaml
 import requests
 import json
 import os
-from bs4 import BeautifulSoup
 
 # usage example: add_disks_to_hosts.py {"host0":{"new_0":{"path":"$HOME/new_0"}}} config/config.yml
 
@@ -15,6 +14,9 @@ from ansible.inventory.manager import InventoryManager
 scriptDir = os.path.realpath(os.path.dirname(__file__))
 inventory_file = scriptDir + "/../../../ansible.inventory"
 
+sys.path.append(scriptDir + "/../../services/serverless_containers_web/ui")
+from utils import request_to_state_db
+
 if __name__ == "__main__":
 
     if (len(sys.argv) > 2):
@@ -23,7 +25,6 @@ if __name__ == "__main__":
             config = yaml.load(f, Loader=yaml.FullLoader)
 
         orchestrator_url = "http://{0}:{1}".format(config['server_ip'],config['orchestrator_port'])
-        headers = {'Content-Type': 'application/json'}
 
         session = requests.Session()
 
@@ -66,8 +67,7 @@ if __name__ == "__main__":
 
                 put_field_data['resources']["disks"].append(new_disk)
 
-            r = session.put(full_url, data=json.dumps(put_field_data), headers=headers)
+            error_message = "Error adding disks {0} to host '{1}'".format(new_disk[host], host)
+            error, _ = request_to_state_db(full_url, "put", error_message, put_field_data, session=session)
 
-            if (r != "" and r.status_code != requests.codes.ok):
-                soup = BeautifulSoup(r.text, features="html.parser")
-                raise Exception("Error adding disks {0} to host '{1}' disk information: {2}".format(new_disks[host],host, soup.get_text().strip()))
+            if error: raise Exception(error)

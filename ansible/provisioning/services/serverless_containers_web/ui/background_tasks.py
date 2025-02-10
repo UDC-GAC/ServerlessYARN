@@ -1,7 +1,7 @@
 import time
 import subprocess
-import requests
 from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host, add_disks_to_hosts
+from ui.utils import request_to_state_db
 from celery import shared_task, chain, chord, group
 from celery.result import AsyncResult, allow_join_result
 from bs4 import BeautifulSoup
@@ -187,16 +187,12 @@ def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk):
         process_script("add_disks", argument_list, error_message)
 
 @shared_task
-def add_app_task(full_url, headers, put_field_data, app, app_files):
+def add_app_task(full_url, put_field_data, app, app_files):
 
-    r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
+    error_message = "Error adding app {0}".format(app)
+    error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
 
-    error = ""
-    if (r != "" and r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error adding app " + app + ": " + soup.get_text().strip()
-
-    if (error == ""):
+    if (not error):
 
         ## TODO: discuss which of the following versions should be used
         ## V1: send install_script, files_dir, etc into create_app script as args
@@ -220,27 +216,20 @@ def add_app_task(full_url, headers, put_field_data, app, app_files):
     else:
         raise Exception(error)
 
-def add_container_to_app_in_db(full_url, headers, container, app):
+def add_container_to_app_in_db(full_url, container, app):
 
     max_retries = 10
     actual_try = 0
 
     while actual_try < max_retries:
 
-        r = requests.put(full_url, headers=headers)
+        error_message = "Error adding container {0} to app {1}".format(container, app)
+        error, response = request_to_state_db(full_url, "put", error_message)
 
-        # Check response is not empty
-        if r != "":
-            # Check container has been successfully subscribed
-            if r.ok and r.status_code == 200:
-                break
-            elif not r.ok:
-                response_text = BeautifulSoup(r.text, features="html.parser").get_text().strip()
-                # Check container is already subscribed
-                if r.status_code == 400 and "already subscribed" in response_text:
-                    break
-                else:
-                    raise Exception("Error adding container {0} to app {1}: {2}".format(container, app, response_text))
+        if response != "":
+            if not error: break
+            elif response.status_code == 400 and "already subscribed" in error: break # Container is already subscribed
+            else: raise Exception(error)
 
         actual_try += 1
 
@@ -248,7 +237,7 @@ def add_container_to_app_in_db(full_url, headers, container, app):
         raise Exception("Reached max tries when adding {0} to app {1}".format(container, app))
 
 @shared_task
-def add_container_to_app_task(full_url, headers, host, container, app, app_files):
+def add_container_to_app_task(full_url, host, container, app, app_files):
 
     app_dir = app_files['app_dir']
     files_dir = app_files['files_dir']
@@ -310,7 +299,7 @@ def start_containers_task_v2(new_containers, container_resources, disks):
     error_message = "Error starting containers {0}".format(formatted_containers_info)
     process_script("start_containers", argument_list, error_message)
 
-def start_containers_with_app_task_v2(url, headers, new_containers, app, app_files, container_resources, disk_assignation, app_type=None):
+def start_containers_with_app_task_v2(url, new_containers, app, app_files, container_resources, disk_assignation, app_type=None):
 
     added_containers = {}
 
@@ -363,21 +352,6 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
     formatted_containers_info = str(containers_info).replace(' ','')
 
     # Start containers
-    # TODO: Add application types (e.g., default, hadoop, spark,...)
-    # if app_files['install_script'] and app_files['install_script'] != "":
-    #     template_definition_file="app_container.def"
-    #     definition_file = "{0}_container.def".format(app.replace(" ", "_"))
-    #     image_file = "{0}_container.sif".format(app.replace(" ", "_"))
-    # elif app_files['app_jar'] and app_files['app_jar'] != "":
-    #     template_definition_file="hadoop_container.def"
-    #     definition_file = "hadoop_container.def"
-    #     image_file = "hadoop_container.sif"
-    # else:
-    #     template_definition_file="ubuntu_container.def"
-    #     definition_file = "ubuntu_container.def"
-    #     image_file = "ubuntu_container.sif"
-    # argument_list = [hosts, formatted_containers_info, app, template_definition_file, definition_file, image_file, app_files['files_dir'], app_files['install_script'], app_files['app_jar']]
-
     argument_list = [hosts, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar'], app_type]
     error_message = "Error starting containers {0}".format(formatted_containers_info)
     process_script("start_containers_with_app", argument_list, error_message)
@@ -387,21 +361,21 @@ def start_containers_with_app_task_v2(url, headers, new_containers, app, app_fil
 
 ## Start Apps
 @shared_task(bind=True)
-def start_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, app_type=None):
+def start_app_task(self, url, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, app_type=None):
 
     start_time = timeit.default_timer()
 
-    app_containers = start_containers_with_app_task_v2(url, headers, new_containers, app, app_files, container_resources, disk_assignation, app_type)
-    setup_containers_network_task(app_containers, url, headers, app, app_files, new_containers)
+    app_containers = start_containers_with_app_task_v2(url, new_containers, app, app_files, container_resources, disk_assignation, app_type)
+    setup_containers_network_task(app_containers, url, app, app_files, new_containers)
 
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)
     update_task_runtime(self.request.id, runtime)
 
-    remove_containers_from_app(url, headers, app_containers, app, app_files, scaler_polling_freq)
+    remove_containers_from_app(url, app_containers, app, app_files, scaler_polling_freq)
 
 @shared_task(bind=True)
-def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type="hadoop_app"):
+def start_hadoop_app_task(self, url, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type="hadoop_app"):
 
     # Calculate resources for Hadoop cluster
     hadoop_resources = {}
@@ -515,8 +489,8 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
 
     start_time = timeit.default_timer()
 
-    app_containers = start_containers_with_app_task_v2(url, headers, new_containers, app, app_files, container_resources, disk_assignation, app_type)
-    rm_host, rm_container = setup_containers_hadoop_network_task(app_containers, url, headers, app, app_files, hadoop_resources, new_containers, app_type)
+    app_containers = start_containers_with_app_task_v2(url, new_containers, app, app_files, container_resources, disk_assignation, app_type)
+    rm_host, rm_container = setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type)
 
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)
@@ -536,7 +510,7 @@ def start_hadoop_app_task(self, url, headers, app, app_files, new_containers, co
     errors = []
     for container in app_containers:
         full_url = url + "container/{0}/{1}".format(container['container_name'],app)
-        error = remove_container_from_app_db(full_url, headers, container['container_name'], app)
+        error = remove_container_from_app_db(full_url, container['container_name'], app)
         if error != "": errors.append(error)
     end_time = timeit.default_timer()
 
@@ -582,7 +556,7 @@ def set_hadoop_logs_timestamp(app, app_files, rm_host, rm_container):
 
 ## Setup network for apps
 @shared_task
-def setup_containers_network_task(app_containers, url, headers, app, app_files, new_containers):
+def setup_containers_network_task(app_containers, url, app, app_files, new_containers):
 
     # app_containers example = [{'container_name':'host1-cont0','host':'host1','cpu_max':200,'disk':'ssd_0',...},{'container_name':'host2-cont0','host':'host2',...}]
     hosts = ','.join(list(new_containers.keys()))
@@ -595,13 +569,13 @@ def setup_containers_network_task(app_containers, url, headers, app, app_files, 
     # Add containers to app
     for container in app_containers:
         full_url = url + "container/{0}/{1}".format(container['container_name'], app)
-        add_container_to_app_in_db(full_url, headers, container['container_name'], app)
+        add_container_to_app_in_db(full_url, container['container_name'], app)
 
     # Start app on containers
     start_containers_task = []
     for container in app_containers:
         full_url = url + "container/{0}/{1}".format(container['container_name'],app)
-        start_task = add_container_to_app_task.si(full_url, headers, container['host'], container, app, app_files)
+        start_task = add_container_to_app_task.si(full_url, container['host'], container, app, app_files)
         start_containers_task.append(start_task)
 
     start_group_task = group(start_containers_task)
@@ -613,7 +587,7 @@ def setup_containers_network_task(app_containers, url, headers, app, app_files, 
 
 
 @shared_task
-def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_files, hadoop_resources, new_containers, app_type="hadoop_app"):
+def setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type="hadoop_app"):
 
     # Get rm-nn container (it is the first container from the host that got that container)
     for host in new_containers:
@@ -656,27 +630,23 @@ def setup_containers_hadoop_network_task(app_containers, url, headers, app, app_
     # Add containers to app
     for container in app_containers:
         full_url = url + "container/{0}/{1}".format(container['container_name'], app)
-        add_container_to_app_in_db(full_url, headers, container['container_name'], app)
+        add_container_to_app_in_db(full_url, container['container_name'], app)
 
     # Lastly, start app on RM container
     full_url = url + "container/{0}/{1}".format(rm_container['container_name'],app)
-    add_container_to_app_task(full_url, headers, rm_host, rm_container, app, app_files)
+    add_container_to_app_task(full_url, rm_host, rm_container, app, app_files)
 
     return rm_host, rm_container['container_name']
 
 ## Removes
 @shared_task
-def remove_host_task(full_url, headers, host_name):
+def remove_host_task(full_url, host_name):
 
-    r = requests.delete(full_url, headers=headers)
-    
-    error = ""
-    if (r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error removing host " + host_name + ": " + soup.get_text().strip()
+    error_message = "Error removing host {0}".format(host_name)
+    error, _ = request_to_state_db(full_url, "delete", error_message)
 
     ## remove host
-    if (error == ""):
+    if (not error):
             
         # stop node scaler service in host
         argument_list = [host_name]
@@ -690,7 +660,7 @@ def remove_host_task(full_url, headers, host_name):
         raise Exception(error)
 
 @shared_task
-def remove_app_task(url, structure_type_url, headers, app_name, container_list, app_files):
+def remove_app_task(url, structure_type_url, app_name, container_list, app_files):
 
     # first, remove all containers from app
     if len(container_list) > 0:
@@ -701,7 +671,7 @@ def remove_app_task(url, structure_type_url, headers, app_name, container_list, 
         errors = []
         for container in container_list:
             full_url = url + "container/{0}/{1}".format(container['name'], app_name)
-            error = remove_container_from_app_db(full_url, headers, container['name'], app_name)
+            error = remove_container_from_app_db(full_url, container['name'], app_name)
             if error != "": errors.append(error)
 
         argument_list = []
@@ -717,20 +687,14 @@ def remove_app_task(url, structure_type_url, headers, app_name, container_list, 
 
     # then, actually remove app
     full_url = url + structure_type_url + "/" + app_name
-    r = requests.delete(full_url, headers=headers)
-    
-    error = ""
-    if (r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error removing app " + app_name + ": " + soup.get_text().strip()
 
-    if (error == ""):
-        pass
-    else:
-        raise Exception(error)
+    error_message = "Error removing app {0}".format(app_name)
+    error, _ = request_to_state_db(full_url, "delete", error_message)
+
+    if (error): raise Exception(error)
 
 @shared_task
-def remove_containers(url, headers, container_list):
+def remove_containers(url, container_list):
 
     ## Disable scaler, remove all containers from StateDB and re-enable scaler
     argument_list = []
@@ -740,7 +704,7 @@ def remove_containers(url, headers, container_list):
     errors = []
     for container in container_list:
         full_url = url + "container/{0}".format(container['container_name'])
-        error = remove_container_from_db(full_url, headers, container['container_name'])
+        error = remove_container_from_db(full_url, container['container_name'])
         if error != "": errors.append(error)
 
     argument_list = []
@@ -759,7 +723,7 @@ def remove_containers(url, headers, container_list):
     if len(errors) > 0: raise Exception(str(errors))
 
 @shared_task
-def remove_containers_from_app(url, headers, container_list, app, app_files, scaler_polling_freq):
+def remove_containers_from_app(url, container_list, app, app_files, scaler_polling_freq):
 
     ## Disable scaler, remove all containers from StateDB and re-enable scaler
     argument_list = []
@@ -770,7 +734,7 @@ def remove_containers_from_app(url, headers, container_list, app, app_files, sca
     errors = []
     for container in container_list:
         full_url = url + "container/{0}/{1}".format(container['container_name'],app)
-        error = remove_container_from_app_db(full_url, headers, container['container_name'], app)
+        error = remove_container_from_app_db(full_url, container['container_name'], app)
         if error != "": errors.append(error)
     end_time = timeit.default_timer()
 
@@ -800,19 +764,15 @@ def remove_containers_from_app(url, headers, container_list, app, app_files, sca
 
     if len(errors) > 0: raise Exception(str(errors))
 
-def remove_container_from_db(full_url, headers, container_name):
+def remove_container_from_db(full_url, container_name):
 
     # Remove container from DB
-    r = requests.delete(full_url, headers=headers)
-
-    error = ""
-    if (r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error removing container {0}: {1}".format(container_name,soup.get_text().strip())
+    error_message = "Error removing container {0}".format(container_name)
+    error, _ = request_to_state_db(full_url, "delete", error_message)
 
     return error
 
-def remove_container_from_app_db(full_url, headers, container_name, app):
+def remove_container_from_app_db(full_url, container_name, app):
 
     max_retries = 10
     actual_try = 0
@@ -822,30 +782,22 @@ def remove_container_from_app_db(full_url, headers, container_name, app):
     while actual_try < max_retries:
 
         # Remove container from app
-        r = requests.delete(full_url, headers=headers)
+        error_message = "Error removing container {0} from app {1}".format(container_name, app)
+        error, response = request_to_state_db(full_url, "delete", error_message)
 
-        # Check response is not empty
-        if r != "":
-            # Check container has been successfully removed
-            if r.ok and r.status_code == 200:
-                break
-            elif not r.ok:
-                response_text = BeautifulSoup(r.text, features="html.parser").get_text().strip()
-                # Check container was already removed from app
-                if r.status_code == 400 and "missing in app" in response_text:
-                    break
-                else:
-                    error = "Error removing container {0} from app {1}: {2}".format(container_name, app, response_text)
-                    break
+        if response != "":
+            if not error: break
+            elif response.status_code == 400 and "missing in app" in error: break # Container was already removed from app
+            else: break
 
         actual_try += 1
 
     if actual_try >= max_retries:
         error = "Reached max tries when removing {0} from app {1}".format(container_name, app)
 
-    remove_error = remove_container_from_db(full_url[:full_url.rfind('/')], headers, container_name)
-    if remove_error != "":
-        error = remove_error
+    # Remove the container itself
+    remove_error = remove_container_from_db(full_url[:full_url.rfind('/')], container_name)
+    if remove_error: error = remove_error
 
     return error
 
@@ -907,7 +859,7 @@ def start_containers_task(host, new_containers, container_resources):
 
 ## Not used ATM
 #@shared_task
-def start_containers_with_app_task(already_added_containers, url, headers, host, new_containers, app, app_files, container_resources):
+def start_containers_with_app_task(already_added_containers, url, host, new_containers, app, app_files, container_resources):
     #TODO: merge function with start_containers_task
 
     if new_containers == 0:
@@ -949,11 +901,11 @@ def start_containers_with_app_task(already_added_containers, url, headers, host,
     return mergeDictionary(already_added_containers,added_containers)
 
 ## Not used ATM
-def start_app(url, headers, app, app_files, new_containers, container_resources, disk_assignation):
+def start_app(url, app, app_files, new_containers, container_resources, disk_assignation):
 
     # TODO: setup network before starting app on containers -> first start containers (without starting app) then setup network and start app on the same task
 
-    setup_network_task = setup_containers_network_task.s(url, headers, app, app_files)
+    setup_network_task = setup_containers_network_task.s(url, app, app_files)
     start_containers_tasks = []
 
     # Start containers with app
@@ -961,22 +913,22 @@ def start_app(url, headers, app, app_files, new_containers, container_resources,
     for host in new_containers:
         if "irregular" in new_containers[host]:
             # Start a chain of tasks so that containers of same host are started sequentially
-            # tasks = chain(start_containers_with_app_task.si(url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.si(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])).apply_async()
+            # tasks = chain(start_containers_with_app_task.si(url, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.si(url, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])).apply_async()
             # register_task(tasks.id,"start_containers_with_app_task")
-            # start_containers_tasks.append(chain(start_containers_with_app_task.si({},url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
+            # start_containers_tasks.append(chain(start_containers_with_app_task.si({},url, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
             if i == 0:
-                start_containers_tasks.append(chain(start_containers_with_app_task.s({},url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
+                start_containers_tasks.append(chain(start_containers_with_app_task.s({},url, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
             else:
-                start_containers_tasks.append(chain(start_containers_with_app_task.s(url, headers, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
+                start_containers_tasks.append(chain(start_containers_with_app_task.s(url, host, new_containers[host]["irregular"], app, app_files, container_resources["irregular"]), start_containers_with_app_task.s(url, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])))
 
         else:
-            # task = start_containers_with_app_task.delay(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])
+            # task = start_containers_with_app_task.delay(url, host, new_containers[host]["regular"], app, app_files, container_resources["regular"])
             # register_task(task.id,"start_containers_with_app_task")
-            # start_containers_tasks.append(start_containers_with_app_task.si({},url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
+            # start_containers_tasks.append(start_containers_with_app_task.si({},url, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
             if i == 0:
-                start_containers_tasks.append(start_containers_with_app_task.s({},url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
+                start_containers_tasks.append(start_containers_with_app_task.s({},url, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
             else:
-                start_containers_tasks.append(start_containers_with_app_task.s(url, headers, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
+                start_containers_tasks.append(start_containers_with_app_task.s(url, host, new_containers[host]["regular"], app, app_files, container_resources["regular"]))
 
         i += 1
 
@@ -988,7 +940,7 @@ def start_app(url, headers, app, app_files, new_containers, container_resources,
         register_task(task.id,"setup_containers_network_task")
 
 ## Not used ATM
-def start_hadoop_app(url, headers, app, app_files, new_containers, container_resources, disk_assignation):
+def start_hadoop_app(url, app, app_files, new_containers, container_resources, disk_assignation):
 
     # Calculate resources for Hadoop cluster
     hadoop_resources = {}
@@ -1044,7 +996,7 @@ def start_hadoop_app(url, headers, app, app_files, new_containers, container_res
             hadoop_resources[container_type]["mapreduce_am_memory_java_opts"] = str(mapreduce_am_memory_java_opts)
 
     start_time = timeit.default_timer()
-    setup_network_task = setup_containers_hadoop_network_task.s(url, headers, app, app_files, hadoop_resources, new_containers, start_time)
+    setup_network_task = setup_containers_hadoop_network_task.s(url, app, app_files, hadoop_resources, new_containers, start_time)
     start_containers_tasks = []
 
     # Start containers with app
@@ -1056,9 +1008,9 @@ def start_hadoop_app(url, headers, app, app_files, new_containers, container_res
             # NOTE: 'irregular' container won't be created due to a previous workaround
             if container_type in new_containers[host]:
                 if i == 0:
-                    start_host_containers_taks.append(start_containers_with_app_task.s({}, url, headers, host, new_containers[host][container_type], app, app_files, container_resources[container_type]))
+                    start_host_containers_taks.append(start_containers_with_app_task.s({}, url, host, new_containers[host][container_type], app, app_files, container_resources[container_type]))
                 else:
-                    start_host_containers_taks.append(start_containers_with_app_task.s(url, headers, host, new_containers[host][container_type], app, app_files, container_resources[container_type]))
+                    start_host_containers_taks.append(start_containers_with_app_task.s(url, host, new_containers[host][container_type], app, app_files, container_resources[container_type]))
                 i += 1
 
         start_containers_tasks.append(chain(*start_host_containers_taks))
@@ -1070,14 +1022,10 @@ def start_hadoop_app(url, headers, app, app_files, new_containers, container_res
 
 ## Not used ATM
 #@shared_task
-def remove_container_task(full_url, headers, host_name, cont_name):
+def remove_container_task(full_url, host_name, cont_name):
 
-    r = requests.delete(full_url, headers=headers)
-
-    error = ""
-    if (r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error removing container " + cont_name + ": " + soup.get_text().strip()
+    error_message = "Error removing container {0}".format(cont_name)
+    error, _ = request_to_state_db(full_url, "delete", error_message)
 
     ## stop container
     if (error == ""):
@@ -1094,7 +1042,7 @@ def remove_container_task(full_url, headers, host_name, cont_name):
 
 ## Not used ATM
 #@shared_task
-def remove_container_from_app_task(full_url, headers, host, container_name, bind_path, app, app_files, rm_container):
+def remove_container_from_app_task(full_url, host, container_name, bind_path, app, app_files, rm_container):
 
     files_dir = app_files['files_dir']
     install_script = app_files['install_script']
@@ -1107,4 +1055,4 @@ def remove_container_from_app_task(full_url, headers, host, container_name, bind
     process_script("stop_app_on_container", argument_list, error_message)
 
     # full_url[:full_url.rfind('/')] removes the last part of url -> .../container/host0-cont0/app1 -> .../container/host0-cont0
-    remove_container_task(full_url[:full_url.rfind('/')], headers, host, container_name)
+    remove_container_task(full_url[:full_url.rfind('/')], host, container_name)

@@ -5,6 +5,11 @@ import sys
 import itertools
 import time
 import src.StateDatabase.couchdb as couchDB
+import os
+
+scriptDir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(scriptDir + "/../../services/serverless_containers_web/ui")
+from utils import request_to_state_db
 
 # usage example: init_host_node_rescaler_v3.py host1 [{'container_name': 'host1-cont0', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'disk': 'ssd_0', 'disk_path': '$HOME/ssd', 'disk_max': 200, 'disk_min': 50, 'energy_max': 100, 'energy_min': 30}, {'container_name': 'host1-cont1'...}] ['cpu','mem','disk','energy']
 
@@ -31,7 +36,6 @@ if __name__ == "__main__":
         resources = json.loads(sys.argv[3].replace('\'', '"'))
 
         base_url = "http://{0}:{1}/container/".format(host, str(NODE_RESCALER_PORT))
-        headers = {'Content-Type': 'application/json'}
 
         # No containers requested
         if len(containers) == 0:
@@ -206,10 +210,13 @@ if __name__ == "__main__":
             #         put_field_data["energy"] = {"energy_limit": cont_energy_limit, "unit": "W"}
 
             if not_initialized_resources > 0:
-                r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
-                if r.ok:
-                    print("Container " + c['container_name'] + " updated with: " + str(put_field_data))
+
+                error_message = "Error initializing {0} value for {1} in host {2}".format(', '.join(resources), c['container_name'], host)
+                error, response = request_to_state_db(full_url, "put", error_message, put_field_data)
+
+                if not error:
+                    print("Container {0} updated with {1}".format(c['container_name'], put_field_data))
                 else:
                     # For some reason, the first initialization always results in an error, but it actually works
-                    print("Response from node scaler: " + str(r.content))
-                    print("Error initializing " + ', '.join(resources) + " value for " + c['container_name'] + " in host " + host)
+                    print("Response from node scaler: {0}".format(response.content))
+                    print(error_message)

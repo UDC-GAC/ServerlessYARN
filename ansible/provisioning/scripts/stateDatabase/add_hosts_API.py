@@ -3,7 +3,7 @@ import sys
 import yaml
 import requests
 import json
-from bs4 import BeautifulSoup
+import os
 
 rescaler_port = "8000"
 
@@ -15,6 +15,10 @@ base_host_to_API = dict(
     host_rescaler_port = rescaler_port,
     resources = dict()
 )
+
+scriptDir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(scriptDir + "/../../services/serverless_containers_web/ui")
+from utils import request_to_state_db
 
 # usage example: add_hosts_API.py host0 {'cpu': 4, 'mem': 4096, 'energy': 200} {'ssd_0':{'path':'$HOME/ssd','bw':500},'hdd_0':{'path':'$HOME/hdd','bw':100}} config/config.yml
 
@@ -31,7 +35,6 @@ if __name__ == "__main__":
             config = yaml.load(f, Loader=yaml.FullLoader)
 
         orchestrator_url = "http://{0}:{1}".format(config['server_ip'],config['orchestrator_port'])
-        headers = {'Content-Type': 'application/json'}
 
         session = requests.Session()
 
@@ -71,12 +74,9 @@ if __name__ == "__main__":
                     else: raise Exception("Disk {0} has an invalid type".format(disk))
                     put_field_data['resources']["disks"].append(new_disk)
 
-        r = session.put(full_url, data=json.dumps(put_field_data), headers=headers)
+        error_message = "Error adding host {0}".format(new_host)
+        error, response = request_to_state_db(full_url, "put", error_message, put_field_data, session=session)
 
-        if (r != "" and r.status_code != requests.codes.ok):
-            soup = BeautifulSoup(r.text, features="html.parser")
-            if r.status_code == 400 and "already exists" in soup.get_text().strip():
-                # Host already exists
-                print("Host {0} already exists".format(new_host))
-            else:
-                raise Exception("Error adding host {0}: {1}".format(new_host, soup.get_text().strip()))
+        if response != "" and error:
+            if response.status_code == 400 and "already exists" in error: print("Host {0} already exists".format(new_host))
+            else: raise Exception(error)

@@ -4,7 +4,7 @@ from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormS
 from ui.forms import AddHostForm, AddAppForm, AddHadoopAppForm, StartAppForm, AddDisksToHostsForm
 from ui.forms import AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddContainersToAppForm
 from ui.forms import RemoveStructureForm, RemoveContainersFromAppForm
-from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES
+from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, request_to_state_db
 
 from django.forms import formset_factory
 from django.http import HttpResponse
@@ -12,7 +12,6 @@ import urllib.request
 import urllib.parse
 import os
 import json
-import requests
 import time
 import yaml
 import re
@@ -621,22 +620,17 @@ def processResourcesFields(request, url, structure_name, resource, field, field_
     if (field == "guard"):
         if (field_value == "True"): full_url += "guard"
         else:                       full_url += "unguard"
-    
-        r = requests.put(full_url)
+
+        put_field_data = None
 
     else:
         full_url += field
-        headers = {'Content-Type': 'application/json'}
 
         new_value = field_value
         put_field_data = {'value': new_value.lower()}
 
-        r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
-
-    error = ""
-    if (r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error submiting " + field + " for structure " + structure_name + ": " + soup.get_text().strip()
+    error_message = "Error submitting {0} for structure {1}".format(field, structure_name)
+    error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
 
     return error
 
@@ -660,20 +654,15 @@ def processLimits(request, url):
 def processLimitsBoundary(request, url, structure_name, resource, boundary_name):
 
     full_url = url + structure_name + "/limits/" + resource + "/boundary"
-    headers = {'Content-Type': 'application/json'}
 
     new_value = request.POST[boundary_name]
 
-    r = ""
+    error = ""
     if (new_value != ''):
         put_field_data = {'value': new_value.lower()}
 
-        r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
-
-    error = ""
-    if (r != "" and r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error submiting " + boundary_name + " for structure " + structure_name + ": " + soup.get_text().strip()
+        error_message = "Error submitting {0} for structure {1}".format(boundary_name, structure_name)
+        error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
 
     return error
 
@@ -836,7 +825,6 @@ def processAddContainers(request, url, structure_type, resources, host_list):
 def processAddApp(request, url, structure_name, structure_type, resources):
 
     full_url = url + structure_type + "/" + structure_name
-    headers = {'Content-Type': 'application/json'}
 
     ## APP info
     app_files = {}
@@ -925,15 +913,13 @@ def processAddApp(request, url, structure_name, structure_type, resources):
             put_field_data['limits']['resources'][resource] = {'boundary': resource_boundary, 'boundary_type': resource_boundary_type}
 
     error = ""
-    task = add_app_task.delay(full_url, headers, put_field_data, structure_name, app_files)
+    task = add_app_task.delay(full_url, put_field_data, structure_name, app_files)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"add_app_task")
 
     return error
 
 def processStartApp(request, url, app_name):
-
-    headers = {'Content-Type': 'application/json'}
 
     # Get existing hosts
     try:
@@ -1085,9 +1071,9 @@ def processStartApp(request, url, app_name):
     virtual_cluster = config['virtual_mode']
 
     if is_hadoop_app:
-        task = start_hadoop_app_task.delay(url, headers, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type)
+        task = start_hadoop_app_task.delay(url, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type)
     else:
-        task = start_app_task.delay(url, headers, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, app_type)
+        task = start_app_task.delay(url, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, app_type)
 
     print("Starting task with id {0}".format(task.id))
     register_task(task.id, "{0}_app_task".format(app_name))
@@ -1574,7 +1560,6 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
 def apps_stop_switch(request, structure_name):
 
     url = base_url + "/structure/"
-    headers = {'Content-Type': 'application/json'}
 
     app_containers, app_files = getContainersFromApp(url, structure_name)
 
@@ -1624,7 +1609,6 @@ def processRemoves(request, url, structure_type):
 def processRemoveStructures(request, url, structure_list, structure_type):
 
     structure_type_url = ""
-    headers = {'Content-Type': 'application/json'}
 
     if (structure_type == "containers"):
         structure_type_url = "container"
@@ -1637,7 +1621,7 @@ def processRemoveStructures(request, url, structure_list, structure_type):
 
             container_list.append({'container_name': container, 'host': host})
 
-        task = remove_containers.delay(url, headers, container_list)
+        task = remove_containers.delay(url, container_list)
         print("Starting task with id {0}".format(task.id))
         register_task(task.id,"remove_containers_task")
 
@@ -1652,7 +1636,7 @@ def processRemoveStructures(request, url, structure_list, structure_type):
 
             full_url = url + structure_type_url + "/" + host
 
-            task = remove_host_task.delay(full_url, headers, host)
+            task = remove_host_task.delay(full_url, host)
             print("Starting task with id {0}".format(task.id))
             register_task(task.id,"remove_host_task")
 
@@ -1662,7 +1646,7 @@ def processRemoveStructures(request, url, structure_list, structure_type):
         for app in structure_list:
             container_list, app_files = getContainersFromApp(url, app)
 
-            task = remove_app_task.delay(url, structure_type_url, headers, app, container_list, app_files)
+            task = remove_app_task.delay(url, structure_type_url, app, container_list, app_files)
             print("Starting task with id {0}".format(task.id))
             register_task(task.id,"remove_app_task")
 
@@ -1680,11 +1664,9 @@ def processRemoveContainersFromApp(url, container_host_duples, app, app_files):
 
         container_list.append({'container_name': container, 'host': host, 'disk_path': disk_path})
 
-    headers = {'Content-Type': 'application/json'}
-
     scaler_polling_freq = getScalerPollFreq()
 
-    task = remove_containers_from_app.delay(url, headers, container_list, app, app_files, scaler_polling_freq)
+    task = remove_containers_from_app.delay(url, container_list, app, app_files, scaler_polling_freq)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"remove_containers_from_app")
 
@@ -1904,41 +1886,36 @@ def service_switch(request,service_name):
     else:
         activate = "true"
 
-    headers = {'Content-Type': 'application/json'}
-
     put_field_data = {'value': activate}
-    r = requests.put(url, data=json.dumps(put_field_data), headers=headers)
 
-    if (r.status_code != requests.codes.ok):
-        ## shouldn't happen
-        print(r.content)
+    error_message = ""
+    error, response = request_to_state_db(url, "put", error_message, put_field_data)
+    if error: print(response.content) ## should not happen
 
     return redirect('services')
 
 def processServiceConfigPost(request, url, service_name, config_name):
 
     full_url = url + service_name + "/" + config_name.upper()
-    headers = {'Content-Type': 'application/json'}
 
     json_fields = []
     multiple_choice_fields = ["guardable_resources","resources_persisted","generated_metrics","documents_persisted","resources_balanced","structures_balanced"]
 
-    r = ""
+    error = ""
+    error_message = "Error submiting {0} for service {1}".format(config_name, service_name)
 
     if (config_name in json_fields):
         ## JSON field request (not used at the moment)
         new_value = request.POST[config_name]
         new_values_list = new_value.strip("[").strip("]").split(",")
-        put_field_data = json.dumps({"value":[v.strip().strip('"') for v in new_values_list]})
-
-        r = requests.put(full_url, data=put_field_data, headers=headers)
+        put_field_data = {"value":[v.strip().strip('"') for v in new_values_list]}
+        error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
 
     elif (config_name in multiple_choice_fields):
         ## MultipleChoice field request
         new_values_list = request.POST.getlist(config_name)
-        put_field_data = json.dumps({"value":[v.strip().strip('"') for v in new_values_list]})
-
-        r = requests.put(full_url, data=put_field_data, headers=headers)
+        put_field_data = {"value":[v.strip().strip('"') for v in new_values_list]}
+        error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
 
     else:
         ## Other field request
@@ -1946,12 +1923,7 @@ def processServiceConfigPost(request, url, service_name, config_name):
         
         if (new_value != ''):
             put_field_data = {'value': new_value.lower()}
-            r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
-
-    error = ""
-    if (r != "" and r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error submiting " + config_name + " for service " + service_name + ": " + soup.get_text().strip()
+            error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
 
     return error
 
@@ -2103,11 +2075,10 @@ def rule_switch(request,rule_name):
 def processRulesPost(request, url, rule_name, field, field_put_url):
 
     full_url = url + rule_name + "/" + field_put_url
-    headers = {'Content-Type': 'application/json'}
 
     new_value = request.POST[field]
 
-    r = ""
+    error = ""
     if (new_value != ''):
         put_field_data = {'value': new_value}
 
@@ -2119,12 +2090,8 @@ def processRulesPost(request, url, rule_name, field, field_put_url):
 
             put_field_data['event_type'] = event_type
                 
-        r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
-
-    error = ""
-    if (r != "" and r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error submiting " + field + " for rule " + rule_name + ": " + soup.get_text().strip()
+        error_message = "Error submitting {0} for rule {1}".format(field, rule_name)
+        error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
 
     return error
 
@@ -2164,7 +2131,6 @@ def checkInvalidConfig():
     error_lines.reverse()
 
     return error_lines
-
 
 ## Deprecated functions
 ## Not used ATM
@@ -2247,7 +2213,6 @@ def processFillWithNewContainers(request, url, app):
     newContainers = getNewPossibleContainers(url, app)
 
     # Start new containers (with app image if necessary) and start app on them
-    headers = {'Content-Type': 'application/json'}
     app_files = {}
     app_files['files_dir'] = request.POST['files_dir']
     app_files['install_script'] = request.POST['install_script']
@@ -2255,7 +2220,7 @@ def processFillWithNewContainers(request, url, app):
     app_files['stop_script'] = request.POST['stop_script']
 
     for host in newContainers:
-        task = start_containers_with_app_task.delay(url, headers, host, newContainers[host], app, app_files)
+        task = start_containers_with_app_task.delay(url, host, newContainers[host], app, app_files)
         print("Starting task with id {0}".format(task.id))
         register_task(task.id,"add_container_to_app_task")
 
@@ -2266,7 +2231,6 @@ def processFillWithNewContainers(request, url, app):
 def processAddHost_via_API(request, url, structure_name, structure_type, resources):
 
     full_url = url + structure_type + "/" + structure_name
-    headers = {'Content-Type': 'application/json'}
 
     put_field_data = {
         'name': structure_name,
@@ -2282,12 +2246,8 @@ def processAddHost_via_API(request, url, structure_name, structure_type, resourc
             resource_max = request.POST[resource + "_max"]
             put_field_data['resources'][resource] = {'max': int(resource_max), 'free': int(resource_max)}
 
-    r = requests.put(full_url, data=json.dumps(put_field_data), headers=headers)
-
-    error = ""
-    if (r != "" and r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error adding host " + structure_name + ": " + soup.get_text().strip()
+    error_message = "Error adding host {0}".format(structure_name)
+    error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
 
     return error
 
@@ -2317,10 +2277,9 @@ def processAddContainerToApp(request, url, app, container_host_duple):
     app_files['start_script'] = request.POST['start_script']
     app_files['stop_script'] = request.POST['stop_script']
 
-    headers = {'Content-Type': 'application/json'}
     full_url = url + "container/{0}/{1}".format(container,app)
 
-    task = add_container_to_app_task.delay(full_url, headers, host, container, app, app_files)
+    task = add_container_to_app_task.delay(full_url, host, container, app, app_files)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"add_container_to_app_task")
 
@@ -2436,14 +2395,9 @@ def processRemoveStructure_sync(request, url, structure_name, structure_type):
     elif (structure_type == "apps"): structure_type_url = "apps"
 
     full_url = url + structure_type_url + "/" + structure_name
-    headers = {'Content-Type': 'application/json'}
 
-    r = requests.delete(full_url, headers=headers)
-
-    error = ""
-    if (r.status_code != requests.codes.ok):
-        soup = BeautifulSoup(r.text, features="html.parser")
-        error = "Error removing structure " + structure_name + ": " + soup.get_text().strip()
+    error_message = "Error removing structure {0}".format(structure_name)
+    error, _ = request_to_state_db(full_url, "delete", error_message)
 
     ## stop container
     if (structure_type == "containers" and error == ""):
@@ -2470,7 +2424,6 @@ def processRemoveStructure_sync(request, url, structure_name, structure_type):
 def processRemoveStructure(request, url, structure_name, structure_type):
 
     structure_type_url = ""
-    headers = {'Content-Type': 'application/json'}
 
     if (structure_type == "containers"):
         structure_type_url = "container"
@@ -2480,7 +2433,7 @@ def processRemoveStructure(request, url, structure_name, structure_type):
 
         full_url = url + structure_type_url + "/" + structure_name
 
-        task = remove_container_task.delay(full_url, headers, host_name, structure_name)
+        task = remove_container_task.delay(full_url, host_name, structure_name)
         print("Starting task with id {0}".format(task.id))
         register_task(task.id,"remove_container_task")
 
@@ -2493,7 +2446,7 @@ def processRemoveStructure(request, url, structure_name, structure_type):
 
         full_url = url + structure_type_url + "/" + structure_name
 
-        task = remove_host_task.delay(full_url, headers, structure_name)
+        task = remove_host_task.delay(full_url, structure_name)
         print("Starting task with id {0}".format(task.id))
         register_task(task.id,"remove_host_task")
 
@@ -2501,7 +2454,7 @@ def processRemoveStructure(request, url, structure_name, structure_type):
         structure_type_url = "apps"
         containerList, app_files = getContainersFromApp(url, structure_name)
 
-        task = remove_app_task.delay(url, structure_type_url, headers, structure_name, containerList, app_files)
+        task = remove_app_task.delay(url, structure_type_url, structure_name, containerList, app_files)
         print("Starting task with id {0}".format(task.id))
         register_task(task.id,"remove_app_task")
 
@@ -2517,9 +2470,8 @@ def processRemoveContainerFromApp(url, container_host_duple, app, app_files):
     disk_path = cont_host[2].strip().strip("'")
 
     full_url = url + "container/{0}/{1}".format(container_name, app)
-    headers = {'Content-Type': 'application/json'}
 
-    task = remove_container_from_app_task.delay(full_url, headers, host, container_name, disk_path , app, app_files, "")
+    task = remove_container_from_app_task.delay(full_url, host, container_name, disk_path , app, app_files, "")
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"remove_container_from_app_task")
 

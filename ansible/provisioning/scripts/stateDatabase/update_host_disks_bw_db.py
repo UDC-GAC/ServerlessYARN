@@ -3,7 +3,11 @@ import sys
 import yaml
 import requests
 import json
-from bs4 import BeautifulSoup
+import os
+
+scriptDir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(scriptDir + "/../../services/serverless_containers_web/ui")
+from utils import request_to_state_db
 
 bandwidth_conversion = {}
 bandwidth_conversion["B/s"] =  0.00000095367432
@@ -25,7 +29,6 @@ if __name__ == "__main__":
             config = yaml.load(f, Loader=yaml.FullLoader)
 
         orchestrator_url = "http://{0}:{1}".format(config['server_ip'],config['orchestrator_port'])
-        headers = {'Content-Type': 'application/json'}
 
         session = requests.Session()
 
@@ -39,8 +42,7 @@ if __name__ == "__main__":
         put_field_data['resources']['disks'] = []
         put_field_data['resources']['disks'].append({'name':disk, 'max': bandwidth_MB})
 
-        r = session.post(full_url, data=json.dumps(put_field_data), headers=headers)
+        error_message = "Error updating host '{0}' disk information".format(host)
+        error, _ = request_to_state_db(full_url, "post", error_message, put_field_data, session=session)
 
-        if (r != "" and r.status_code != requests.codes.ok):
-            soup = BeautifulSoup(r.text, features="html.parser")
-            raise Exception("Error updating host '{0}' disk information: {1}".format(host, soup.get_text().strip()))
+        if error: raise Exception(error)
