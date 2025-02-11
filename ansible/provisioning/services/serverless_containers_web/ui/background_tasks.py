@@ -4,7 +4,6 @@ from ui.update_inventory_file import add_containers_to_hosts,remove_container_fr
 from ui.utils import request_to_state_db
 from celery import shared_task, chain, chord, group
 from celery.result import AsyncResult, allow_join_result
-from bs4 import BeautifulSoup
 import redis
 import json
 import timeit

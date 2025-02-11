@@ -16,7 +16,6 @@ import time
 import yaml
 import re
 import functools
-from bs4 import BeautifulSoup
 
 from ui.background_tasks import start_containers_task_v2, add_host_task, add_app_task, add_container_to_app_task, add_disks_to_hosts_task
 from ui.background_tasks import remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task, start_app_task, start_hadoop_app_task
