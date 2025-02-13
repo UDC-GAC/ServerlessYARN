@@ -1,4 +1,5 @@
 import sys
+import platform
 import pandas as pd
 
 from utils import file_exists, get_opentsdb_data
@@ -14,17 +15,19 @@ RESOURCE_METRICS = {
     "energy": ["structure.energy.usage", "structure.energy.max"]
 }
 
+DIRECTORY_SEP = "\\" if platform.system() == "Windows" else "/"
+
 
 class ExperimentsProfiler:
 
-    def __init__(self, app_name, experiments_log_file, containers_file, results_dir, dynamic_power_budgeting=False):
+    def __init__(self, app_name, experiments_log_file, containers_file, results_dir):
         self.app_name = app_name
         self.experiments_log_file = experiments_log_file
         self.containers_file = containers_file
         self.results_dir = results_dir
         self.app_type = app_name.split('_')[0]  # (e.g., npb_1cont_1thread -> npb)
-        self.experiments_group = results_dir.split("/")[-1].strip()  # (e.g.,./out/results_npb_1cont_1thread/min -> min)
-        self.dynamic_power_budgeting = dynamic_power_budgeting
+        self.experiments_group = results_dir.split(DIRECTORY_SEP)[-1].strip()  # (e.g.,./out/results_npb_1cont_1thread/min -> min)
+        self.dynamic_power_budgeting = (self.experiments_group == "dynamic_power_budget")
         self.parser = LogsParser()
         self.writer = ResultsWriter()
         self.plotter = ExperimentsPlotter(self.app_name, self.experiments_group)
@@ -105,7 +108,7 @@ class ExperimentsProfiler:
             seconds_start = pbs[start]['elapsed_seconds']
             seconds_end = pbs[end]['elapsed_seconds']
             filtered_df = power_df.loc[(power_df['elapsed_seconds'] >= seconds_start) &
-                                       (power_df['elapsed_seconds'] <= seconds_end)]
+                                       (power_df['elapsed_seconds'] <= seconds_end)] # -3 (Arbitrary added if average is biased by the final edge)
             pbs[start]['avg_power'] = filtered_df['value'].mean()
 
         return pbs
@@ -154,9 +157,10 @@ class ExperimentsProfiler:
                     if timestamp and line_info:
                         # If rescaling was made before app has started the start_app point is removed from the dict
                         #if timestamp < experiment_times["start_app"] and experiment_times["start_app"] in experiment_rescalings:
-                            #del experiment_rescalings[experiment_times["start_app"]]
+                        #   del experiment_rescalings[experiment_times["start_app"]]
+
                         # Ensure the rescaling has not been made after the application has finished
-                        if timestamp < experiment_times["end"]:
+                        if timestamp < experiment_times["end"] and line_info["amount"] != 0:
                             self.parser.update_timestamp_key_dict(experiment_rescalings, timestamp, line_info)
                         break
 
@@ -194,10 +198,10 @@ class ExperimentsProfiler:
                     print(f"Error reading line from power budget file: {file}. Line is: {line}. Error: {str(e)}")
 
         pbs[experiment_times["end_app"]] = {
-                "ts_str": experiment_times["end_app"].strftime("%Y-%m-%d %H:%M:%S%z"),
-                "elapsed_seconds": experiment_times["end_app_s"],
-                "power_budget": 0
-            }
+            "ts_str": experiment_times["end_app"].strftime("%Y-%m-%d %H:%M:%S%z"),
+            "elapsed_seconds": experiment_times["end_app_s"],
+            "power_budget": 0
+        }
 
         return pbs
 
@@ -252,7 +256,6 @@ class ExperimentsProfiler:
             experiment_rescalings = self.get_experiment_rescalings(guardian_file, experiment_times)
             experiment_rescalings = self.get_rescalings_average_power(experiment_rescalings, experiment_df)
             convergence_point = self.get_convergence_point(experiment_rescalings, experiment_df)
-            #print(experiment_rescalings)
 
             power_budgets = None
             power_budgets_file = None
@@ -260,10 +263,14 @@ class ExperimentsProfiler:
                 power_budgets_file = f"{exp_results_dir}/power_budgets.log"
                 power_budgets = self.read_pbs_timestamps(power_budgets_file, experiment_times)
                 power_budgets = self.get_average_between_pbs(power_budgets, experiment_df)
-                print(power_budgets)
+                for date, pb_value in power_budgets.items():
+                    print(f"{date}: {pb_value}")
 
             # Set output directory to store plots
             self.plotter.set_output_dir(exp_results_dir)
+
+            if power_budgets:
+                experiment_rescalings = power_budgets
 
             # Plot application metrics (all containers + all metrics)
             self.plotter.plot_application_metrics(experiment_name, containers, RESOURCE_METRICS["all"], experiment_df,
@@ -273,18 +280,13 @@ class ExperimentsProfiler:
             single_resources = list(filter(lambda x: x != "all", RESOURCE_METRICS.keys()))
             for resource in single_resources:
                 for container in containers:
-                    if power_budgets:
-                        self.plotter.plot_application_metrics(experiment_name, [container], RESOURCE_METRICS[resource],
-                                                              experiment_df, experiment_times, power_budgets,
-                                                              convergence_point)
-                    else:
-                        self.plotter.plot_application_metrics(experiment_name, [container], RESOURCE_METRICS[resource],
-                                                              experiment_df, experiment_times, experiment_rescalings,
-                                                              convergence_point)
+                    self.plotter.plot_application_metrics(experiment_name, [container], RESOURCE_METRICS[resource],
+                                                          experiment_df, experiment_times, experiment_rescalings,
+                                                          convergence_point)
 
             self.writer.set_output_dir(exp_results_dir)
             global_results[experiment_name] = self.writer.write_experiment_results(experiment_name, experiment_df,
-                                                                                  experiment_times, convergence_point)
+                                                                                   experiment_times, convergence_point)
 
         self.writer.set_output_dir(self.results_dir)
         self.writer.write_global_results(global_results)
@@ -294,14 +296,13 @@ if __name__ == "__main__":
 
     if len(sys.argv) < 5:
         print("Usage: python get-metrics-opentsdb.py <app-name> <experiments-log-file> <containers-file> "
-              "<results-directory> [dynamic_budgets]")
+              "<results-directory>")
         sys.exit(1)
 
     app_name = str(sys.argv[1])
     experiments_log_file = sys.argv[2]
     containers_file = sys.argv[3]
     results_dir = sys.argv[4]
-    dynamic_power_budgeting = True if len(sys.argv) >= 6 and sys.argv[5] == "dynamic_budgets" else False
 
-    profiler = ExperimentsProfiler(app_name, experiments_log_file, containers_file, results_dir, dynamic_power_budgeting)
+    profiler = ExperimentsProfiler(app_name, experiments_log_file, containers_file, results_dir)
     profiler.profile()

@@ -69,10 +69,12 @@ class ResultsWriter:
 
         if convergence_point:
             results["Convergence time (s)"] = convergence_point["time"] - exp_times["start_app_s"]
+            results["Average Scaling Power (ASP)"] = convergence_point["value"]
             results["Power budget respected (%)"] = ((exp_times["end_app_s"] - convergence_point["time"]) / execution_time) * 100
             results["Convergence CPU limit (shares)"] = convergence_point["cpu_limit"]
         else:
             results["Convergence time (s)"] = "N/A"
+            results["Average Scaling Power (ASP)"] = "N/A"
             results["Power budget respected (%)"] = 0
             results["Convergence CPU limit (shares)"] = "N/A"
 
