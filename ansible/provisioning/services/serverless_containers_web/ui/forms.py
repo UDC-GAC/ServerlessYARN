@@ -431,7 +431,7 @@ class AddContainersForm(forms.Form):
     disk_boundary_type = common_fields['disk_boundary_type']
     energy_boundary_type = common_fields['energy_boundary_type']
 
-    host_list = forms.CharField(label= "Hosts",
+    host_list = forms.CharField(label= "Number of containers to be deployed on each host",
             required=True,
             widget=JSONEditorWidget(width="50%", height="50%", options={'mode':'form', 'name': 'hosts', 'maxVisibleChilds': 10, 'modes': []})
             )
