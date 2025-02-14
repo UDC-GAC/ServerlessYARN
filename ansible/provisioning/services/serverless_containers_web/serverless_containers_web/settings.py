@@ -28,10 +28,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 ## Key read from file
 scriptDir = os.path.realpath(os.path.dirname(__file__))
+config_file = scriptDir + "/../../../config/config.yml"
 vars_file = scriptDir + "/../../../vars/main.yml"
-with open(vars_file, "r") as f:
-    config = yaml.load(f, Loader=yaml.FullLoader)
-installation_path = config['installation_path']
+
+with open(config_file, "r") as f: general_config = yaml.load(f, Loader=yaml.FullLoader)
+with open(vars_file, "r") as f: vars_config = yaml.load(f, Loader=yaml.FullLoader)
+
+installation_path = vars_config['installation_path']
 
 if installation_path.startswith("{{ lookup('env', 'HOME') }}"):
     home_directory = os.path.expanduser("~")
@@ -43,7 +46,7 @@ with open(installation_path + '/.django_secret_key.txt', "r") as f:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [general_config['server_ip'], "127.0.0.1", "localhost"]
 
 
 # Application definition
