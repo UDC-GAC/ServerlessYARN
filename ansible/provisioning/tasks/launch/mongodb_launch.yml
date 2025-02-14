@@ -26,7 +26,7 @@
       with_items:
         - absent
         - directory
-      when: "'\"instance\": \"{{ container_name }}\",' not in apptainer_list_output.stdout"
+      when: "container_name not in apptainer_list_output.stdout"
 
     - name: Start mongodb apptainer container
       shell: "{{ singularity_command_alias }} instance start -C --bind {{ mongodb_data_path }}:/data/db image/{{ image_file }} {{ container_name }}"

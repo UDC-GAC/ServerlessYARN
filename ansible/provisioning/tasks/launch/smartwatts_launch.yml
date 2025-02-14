@@ -84,3 +84,4 @@
     executable: /bin/bash
   vars:
     - smartwatts_output: "{{ smartwatts_path }}/output"
+  tags: restart_services
