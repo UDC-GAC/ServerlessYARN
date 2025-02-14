@@ -76,6 +76,7 @@
   shell: tmux ls
   register: tmux_output
   ignore_errors: yes
+  tags: restart_services
 
 - name: Start tmux session for SmartWatts power sender
   shell: "bash scripts/PowerSender/start_power_sender_tmux.sh {{ installation_path }} {{ power_meter }} {{ sampling_frequency }}"
