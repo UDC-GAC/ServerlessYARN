@@ -2,7 +2,7 @@ import sys
 import platform
 import pandas as pd
 
-from utils import file_exists, get_opentsdb_data
+from utils import file_exists, get_opentsdb_data, compute_avg_per_interval, print_dict, value_is_near_limit, filter_df_by_period, filter_df_by_metric, get_df_col_avg
 from LogsParser import LogsParser
 from ResultsWriter import ResultsWriter
 from ExperimentsPlotter import ExperimentsPlotter
@@ -73,60 +73,34 @@ class ExperimentsProfiler:
 
     @staticmethod
     def create_experiment_times_dict(start, end, start_app, end_app):
-        _dict = None
         if start and end and start_app and end_app:
-            _dict = {
-                "start": start,
-                "end": end,
-                "start_app": start_app,
-                "end_app": end_app,
-                "start_s": 0,
-                "end_s": (end - start).seconds,
-                "start_app_s": (start_app - start).seconds,
-                "end_app_s": (end_app - start).seconds
+            return {
+                "start": start,                                 # Start of the plot
+                "end": end,                                     # End of the plot
+                "start_app": start_app,                         # Start of the application execution
+                "end_app": end_app,                             # End of the application execution
+                "start_s": 0,                                   # Start of the plot (in seconds)
+                "end_s": (end - start).seconds,                 # End of the plot (in seconds)
+                "start_app_s": (start_app - start).seconds,     # Start of the application execution (in seconds)
+                "end_app_s": (end_app - start).seconds          # End of the application execution (in seconds)
             }
-        return _dict
+        return None
 
     @staticmethod
-    def get_rescalings_average_power(rescalings, df):
-        timestamps = sorted(rescalings.keys())
-        power_df = df.loc[df['metric'] == "structure.energy.usage"]
-        for start, end in zip(timestamps, timestamps[1:]):
-            seconds_start = rescalings[start]['elapsed_seconds']
-            seconds_end = rescalings[end]['elapsed_seconds']
-            filtered_df = power_df.loc[(power_df['elapsed_seconds'] >= seconds_start) &
-                                       (power_df['elapsed_seconds'] <= seconds_end)]
-            rescalings[start]['avg_power'] = filtered_df['value'].mean()
-
-        return rescalings
-
-    @staticmethod
-    def get_average_between_pbs(pbs, df):
-        timestamps = sorted(pbs.keys())
-        power_df = df.loc[df['metric'] == "structure.energy.usage"]
-        for start, end in zip(timestamps, timestamps[1:]):
-            seconds_start = pbs[start]['elapsed_seconds']
-            seconds_end = pbs[end]['elapsed_seconds']
-            filtered_df = power_df.loc[(power_df['elapsed_seconds'] >= seconds_start) &
-                                       (power_df['elapsed_seconds'] <= seconds_end)] # -3 (Arbitrary added if average is biased by the final edge)
-            pbs[start]['avg_power'] = filtered_df['value'].mean()
-
-        return pbs
-
-    @staticmethod
-    def get_convergence_point(rescalings, df):
-        power_budget_df = df.loc[df['metric'] == "structure.energy.max"]
-        power_budget = int(power_budget_df['value'].mean())
-        cpu_limit_df = df.loc[df['metric'] == "structure.cpu.current"]
+    def search_convergence_point(rescalings, df, offset):
+        power_budget = int(get_df_col_avg(filter_df_by_metric(df, "structure.energy.max"), 'value'))
+        cpu_limit_df = filter_df_by_metric(df, "structure.cpu.current")
         for timestamp in rescalings:
+            # Check scaling is valid
             if 'avg_power' in rescalings[timestamp] and rescalings[timestamp]['elapsed_seconds'] > 0:
-                if power_budget * 0.95 < rescalings[timestamp]['avg_power'] < power_budget * 1.05:
-                    cpu_limit = cpu_limit_df.loc[cpu_limit_df['elapsed_seconds'] >
-                                                 rescalings[timestamp]['elapsed_seconds'] + 5]
+                # Check scaling average power is near the power budget (convergence)
+                if value_is_near_limit(rescalings[timestamp]['avg_power'], power_budget, offset):
+                    # Return convergence point
+                    cpu_limit_df = filter_df_by_period(cpu_limit_df, start=(rescalings[timestamp]['elapsed_seconds'] + 5))
                     return {
                         "time": int(rescalings[timestamp]['elapsed_seconds']),
                         "value": rescalings[timestamp]['avg_power'],
-                        "cpu_limit": None if cpu_limit.empty else cpu_limit.iloc[0]['value']
+                        "cpu_limit": None if cpu_limit_df.empty else cpu_limit_df.iloc[0]['value']
                     }
         return None
 
@@ -134,20 +108,20 @@ class ExperimentsProfiler:
         return [f"{base_dir}/{c}-{self.app_type}-output/results.log" for c in containers]
 
     def get_experiment_rescalings(self, guardian_file, experiment_times):
+        # Plot start + App start
         experiment_rescalings = {
             experiment_times["start"]: {
                 "ts_str": experiment_times["start"].strftime("%Y-%m-%d %H:%M:%S%z"),
                 "elapsed_seconds": 0,
                 "amount": 0
             },
-            # Add start app timestamp as a rescaling to compute avg power between this point and the first rescaling
-            # This avoids computing average power before first rescaling using biased data not belonging to app execution
             experiment_times["start_app"]: {
                 "ts_str": experiment_times["start_app"].strftime("%Y-%m-%d %H:%M:%S%z"),
                 "elapsed_seconds": experiment_times["start_app_s"],
                 "amount": 0
             }
         }
+        # Search all the performed scalings in Guardian logs
         with open(guardian_file, "r") as f:
             for line in f.readlines():
                 for pattern_name in ["power_budgeting_pattern", "amount_pattern", "adjust_amount_pattern"]:
@@ -155,16 +129,11 @@ class ExperimentsProfiler:
                     timestamp, line_info = self.parser.search_pattern(pattern_name, line, experiment_times["start"])
                     # If pattern is matched we add the extracted info from line and don't check other patterns
                     if timestamp and line_info:
-                        # If rescaling was made before app has started the start_app point is removed from the dict
-                        #if timestamp < experiment_times["start_app"] and experiment_times["start_app"] in experiment_rescalings:
-                        #   del experiment_rescalings[experiment_times["start_app"]]
-
                         # Ensure the rescaling has not been made after the application has finished
                         if timestamp < experiment_times["end"] and line_info["amount"] != 0:
                             self.parser.update_timestamp_key_dict(experiment_rescalings, timestamp, line_info)
                         break
-
-        # Add end app timestamp to avoid computing last rescaling power with data not corresponding to app execution
+        # App end + Plot end
         experiment_rescalings[experiment_times["end_app"]] = {
             "ts_str": experiment_times["end_app"].strftime("%Y-%m-%d %H:%M:%S%z"),
             "elapsed_seconds": experiment_times["end_app_s"],
@@ -178,6 +147,7 @@ class ExperimentsProfiler:
         return experiment_rescalings
 
     def read_pbs_timestamps(self, file, experiment_times):
+        # App start
         pbs = {
             experiment_times["start_app"]: {
                 "ts_str": experiment_times["start_app"].strftime("%Y-%m-%d %H:%M:%S%z"),
@@ -185,6 +155,7 @@ class ExperimentsProfiler:
                 "power_budget": 0
             }
         }
+        # The start and end of the power budgets is provided in a file (power_budgets.log)
         with open(file, "r") as f:
             for line in f.readlines():
                 try:
@@ -196,7 +167,7 @@ class ExperimentsProfiler:
                     }
                 except Exception as e:
                     print(f"Error reading line from power budget file: {file}. Line is: {line}. Error: {str(e)}")
-
+        # App end
         pbs[experiment_times["end_app"]] = {
             "ts_str": experiment_times["end_app"].strftime("%Y-%m-%d %H:%M:%S%z"),
             "elapsed_seconds": experiment_times["end_app_s"],
@@ -252,38 +223,35 @@ class ExperimentsProfiler:
                       f"file nor from OpenTSDB. Ignoring...")
                 continue
 
-            # Get experiment rescaling timestamps and average power
-            experiment_rescalings = self.get_experiment_rescalings(guardian_file, experiment_times)
-            experiment_rescalings = self.get_rescalings_average_power(experiment_rescalings, experiment_df)
-            convergence_point = self.get_convergence_point(experiment_rescalings, experiment_df)
-
-            power_budgets = None
-            power_budgets_file = None
+            convergence_point = None
             if self.dynamic_power_budgeting:
-                power_budgets_file = f"{exp_results_dir}/power_budgets.log"
-                power_budgets = self.read_pbs_timestamps(power_budgets_file, experiment_times)
-                power_budgets = self.get_average_between_pbs(power_budgets, experiment_df)
-                for date, pb_value in power_budgets.items():
-                    print(f"{date}: {pb_value}")
+                # Get power budgets timestamps and average between PBs
+                intervals = self.read_pbs_timestamps(f"{exp_results_dir}/power_budgets.log", experiment_times)
+                intervals = compute_avg_per_interval(intervals, experiment_df, "structure.energy.usage")
+            else:
+                # Get experiment rescaling timestamps and average power
+                intervals = self.get_experiment_rescalings(guardian_file, experiment_times)
+                intervals = compute_avg_per_interval(intervals, experiment_df, "structure.energy.usage")
+                convergence_point = self.search_convergence_point(intervals, experiment_df, 0.05)
+
+            # Print intervals (all the performed scalings or all the power budgets)
+            print_dict(intervals)
 
             # Set output directory to store plots
             self.plotter.set_output_dir(exp_results_dir)
 
-            if power_budgets:
-                experiment_rescalings = power_budgets
-
             # Plot application metrics (all containers + all metrics)
             self.plotter.plot_application_metrics(experiment_name, containers, RESOURCE_METRICS["all"], experiment_df,
-                                                  experiment_times, experiment_rescalings, convergence_point)
+                                                  experiment_times, intervals, convergence_point)
 
             # Create separated plots for each resource and container
             single_resources = list(filter(lambda x: x != "all", RESOURCE_METRICS.keys()))
             for resource in single_resources:
                 for container in containers:
                     self.plotter.plot_application_metrics(experiment_name, [container], RESOURCE_METRICS[resource],
-                                                          experiment_df, experiment_times, experiment_rescalings,
-                                                          convergence_point)
+                                                          experiment_df, experiment_times, intervals, convergence_point)
 
+            # Write experiment results
             self.writer.set_output_dir(exp_results_dir)
             global_results[experiment_name] = self.writer.write_experiment_results(experiment_name, experiment_df,
                                                                                    experiment_times, convergence_point)

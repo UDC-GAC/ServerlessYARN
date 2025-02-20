@@ -11,16 +11,17 @@ curl_wrapper bash "${SC_MNG_DIR}/activate-service.sh" "Scaler"
 #########################################################################################################
 
 # Test all the power capping methods with three initial CPU limits: min, medium and max
-for CURRENT_INIT_KEY in "${!CPU_CURRENT_VALUES[@]}"; do
-  CURRENT_INIT_VALUE="${CPU_CURRENT_VALUES[$CURRENT_INIT_KEY]}"
+CPU_LIMITS=("min" "medium" "max")
+for INITIAL_CPU_LIMIT in "${!CPU_LIMITS[@]}"; do
+  CURRENT_INIT_VALUE="${CPU_CURRENT_VALUES[INITIAL_CPU_LIMIT]}"
 
   # Set results directory for this experiments
-  RESULTS_DIR="${BASE_RESULTS_DIR}/${CURRENT_INIT_KEY}"
+  RESULTS_DIR="${BASE_RESULTS_DIR}/${INITIAL_CPU_LIMIT}"
   mkdir -p "${RESULTS_DIR}"
 
   # Change initial CPU limit
   change_cpu_current_init_value "${CURRENT_INIT_VALUE}"
-  echo "Running tests setting ${CURRENT_INIT_KEY} CPU as initial current CPU value (${CURRENT_INIT_VALUE})"
+  echo "Running tests setting ${INITIAL_CPU_LIMIT} CPU as initial current CPU value (${CURRENT_INIT_VALUE})"
 
   #########################################################################################################
   # fixed-value: Run app with ServerlessContainers using a fixed shares per watt value
