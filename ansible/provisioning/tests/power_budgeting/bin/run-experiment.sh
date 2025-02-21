@@ -50,16 +50,16 @@ manage_app_details
 cp "${APP_CONFIG_FILE}" "${PROVISIONING_DIR}/apps/${APP_DIR}/app_config.yml"
 
 # Set specific rules for this app
-bash "${SC_MNG_DIR}/overwrite-rules.sh" "${APP_RULES_FILE}"
+bash "${SC_SCRIPTS_DIR}/overwrite-rules.sh" "${APP_RULES_FILE}"
 
 # Add application if it doesn't exists
 add_app "${APP_DIR}"
 
 echo "Ensure WattTrainer is deactivated"
-curl_wrapper bash "${SC_MNG_DIR}/deactivate-service.sh" "WattTrainer"
+curl_wrapper bash "${SC_SCRIPTS_DIR}/deactivate-service.sh" "WattTrainer"
 
 echo "Ensure Rebalancer is deactivated"
-curl_wrapper bash "${SC_MNG_DIR}/deactivate-service.sh" "Rebalancer"
+curl_wrapper bash "${SC_SCRIPTS_DIR}/deactivate-service.sh" "Rebalancer"
 
 #########################################################################################################
 # EXPERIMENTS

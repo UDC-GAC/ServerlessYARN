@@ -6,7 +6,7 @@ import matplotlib.colors as mcolors
 import matplotlib.patches as patches
 
 from copy import deepcopy
-from CustomExperimentsPlots import PLOT_PARAMETERS
+from plots.CustomExperimentsPlots import PLOT_PARAMETERS
 
 CONTAINER_METRICS = ["proc.cpu.user", "structure.energy.usage"]
 APPLICATION_METRICS = ["structure.cpu.current", "structure.energy.max"]
@@ -68,11 +68,16 @@ class ExperimentsPlotter:
             return None
 
     @staticmethod
-    def __rescalings_can_be_plotted(containers, metrics, exp_rescalings):
+    def __scalings_can_be_plotted(containers, metrics, exp_rescalings):
         return len(containers) == 1 and len(metrics) == 2 and "structure.energy.usage" in metrics and exp_rescalings
 
     @staticmethod
     def __get_nearest_limit(n):
+        # Check n has a valid value
+        if not n:
+            return None
+
+        # Returns the nearest limit from a list of predefined limits
         for lim in [100, 200, 400, 800, 1600]:
             if n <= lim:
                 return lim
@@ -93,18 +98,71 @@ class ExperimentsPlotter:
 
         return mcolors.to_hex(adjusted_rgb)  # Convert RGB back to hex
 
-    def __get_potential_limits(self, max_values):
-        if self.__config.get("SEPARATE_AXES", False):
-            return self.__get_nearest_limit(max_values["cpu"]) if "cpu" in max_values else None, \
-                self.__get_nearest_limit(max_values["energy"]) if "energy" in max_values else None
-        else:
-            return self.__get_nearest_limit(max_values["all"]), None
+    @staticmethod
+    def __generate_ticks(limit, ticks_frequency):
+        # It adds an offset if limit is between one tick and the next
+        # Example: limit=107, ticks_frequency=20 -> 107 + (20 - (107 % 20)) % 20 = 107 + 13 % 20 = 120
+        #          limit=100, ticks_frequency=20 -> 100 + (20 - (100 % 20)) % 20 = 107 + 20 % 20 = 100
+        return np.arange(0, limit + (ticks_frequency - (limit % ticks_frequency)) % ticks_frequency + 1, ticks_frequency)
 
-    def __set_plot_basic_config(self, axes):
-        plt.grid(True)
-        axes[0].tick_params(axis='both', labelsize=self.__config.get("DEFAULT_FONTSIZE", 20))
+    @staticmethod
+    def __create_rectangle(left_corner, width, height, color, pattern):
+        return patches.Rectangle(
+            left_corner, width, height, color=color, alpha=0.2, hatch=pattern, linewidth=0, edgecolor=None)
+
+    def __get_potential_limits(self, max_values):
+        y1_limit, y2_limit = None, None
+        # If axis are separated use axis 1 (y1) for CPU values and axis 2 (y2) for energy values
         if self.__config.get("SEPARATE_AXES", False):
-            axes[1].tick_params(axis='both', labelsize=self.__config["DEFAULT_FONTSIZE"])
+            y1_limit = self.__get_nearest_limit(max_values.get("cpu", None))
+            y2_limit = self.__get_nearest_limit(max_values.get("energy", None))
+        else:
+            y1_limit = self.__get_nearest_limit(max_values.get("all", None))
+        return y1_limit, y2_limit
+
+    def __set_grid_and_fontsize(self, axes):
+        # Always add grid
+        plt.grid(True)
+        # Set fontsize for first axis (y1)
+        axes[0].tick_params(axis='both', labelsize=self.__config.get("DEFAULT_FONTSIZE", 20))
+        # If axes are separated, also set fontsize for second axis (y2)
+        if self.__config.get("SEPARATE_AXES", False):
+            axes[1].tick_params(axis='both', labelsize=self.__config.get("DEFAULT_FONTSIZE", 20))
+
+    def __set_plot_ticks(self, axes, xlim, ylims):
+
+        # If configured set a custom X-axis scale defined by a tuple of functions (forward, inverse)
+        # e.g. (lambda x: x**(1/2), lambda x: x**2)
+        if self.__config.get("CUSTOM_X_AXIS_FUNCTIONS", None):
+            axes[0].set_xscale('function', functions=self.__config.get("CUSTOM_X_AXIS_FUNCTIONS", None))
+
+        # If configured set a list of custom X ticks
+        # e.g. [0, 50, 125, 250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250]
+        if self.__config.get("CUSTOM_X_AXIS_VALUES", None):
+            axes[0].set_xticks(self.__config.get("CUSTOM_X_AXIS_VALUES", None))
+        else:
+            # Generate X ticks based on X limit and X ticks frequency
+            axes[0].set_xticks(self.__generate_ticks(self.__config.get("HARD_X_LIMIT", xlim),
+                                                     self.__config.get("X_TICKS_FREQUENCY", 20)))
+
+        # If axis are separated take into account two different limits and y ticks frequencies
+        if self.__config.get("SEPARATE_AXES", False):
+            axes[0].set_yticks(self.__generate_ticks(self.__config.get("HARD_Y_LIMIT", ylims[0]),
+                                                     self.__config.get("Y_TICKS_FREQUENCY", 20)))
+            axes[1].set_yticks(self.__generate_ticks(self.__config.get("HARD_Y_LIMIT_2", ylims[1]),
+                                                     self.__config.get("Y_TICKS_FREQUENCY_2", 20)))
+        else:
+            axes[0].set_yticks(self.__generate_ticks(self.__config.get("HARD_Y_LIMIT", ylims[0]),
+                                                     self.__config.get("Y_TICKS_FREQUENCY", 20)))
+
+    def __set_plot_limits(self, axes, xlim, ylims):
+        if self.__config.get("SEPARATE_AXES", False):
+            axes[0].set_xlim(0, self.__config.get("HARD_X_LIMIT", xlim))
+            axes[0].set_ylim(0, self.__config.get("HARD_Y_LIMIT", ylims[0]))
+            axes[1].set_ylim(0, self.__config.get("HARD_Y_LIMIT_2", ylims[1]))
+        else:
+            axes[0].set_xlim(0, self.__config.get("HARD_X_LIMIT", xlim))
+            axes[0].set_ylim(0, self.__config.get("HARD_Y_LIMIT", ylims[0]))
 
     def __set_plot_labels(self, axes, labels):
         fontsize = self.__config.get("DEFAULT_FONTSIZE", 20)
@@ -120,30 +178,6 @@ class ExperimentsPlotter:
             axes[0].set_xlabel(labels["x"], fontsize=fontsize)
             axes[0].set_ylabel(labels['y1'], fontsize=fontsize)
 
-    def __set_plot_limits(self, axes, xlim, ylims):
-        if self.__config.get("SEPARATE_AXES", False):
-            axes[0].set_xlim(0, self.__config.get("HARD_X_LIMIT", xlim))
-            axes[0].set_ylim(0, self.__config.get("HARD_Y_LIMIT", ylims[0]))
-            axes[1].set_ylim(0, self.__config.get("HARD_Y_LIMIT_2", ylims[1]))
-        else:
-            axes[0].set_xlim(0, self.__config.get("HARD_X_LIMIT", xlim))
-            axes[0].set_ylim(0, self.__config.get("HARD_Y_LIMIT", ylims[0]))
-
-    @staticmethod
-    def __generate_ticks(limit, ticks_frequency):
-        # It adds an offset if limit is between one tick and the next
-        # Example: limit=107, ticks_frequency=20 -> 107 + (20 - (107 % 20)) % 20 = 107 + 13 % 20 = 120
-        #          limit=100, ticks_frequency=20 -> 100 + (20 - (100 % 20)) % 20 = 107 + 20 % 20 = 100
-        return np.arange(0, limit + (ticks_frequency - (limit % ticks_frequency)) % ticks_frequency + 1, ticks_frequency)
-
-    def __set_plot_ticks(self, axes, xlim, ylims):
-        axes[0].set_xticks(self.__generate_ticks(self.__config.get("HARD_X_LIMIT", xlim), self.__config.get("X_TICKS_FREQUENCY", 20)))
-        if self.__config.get("SEPARATE_AXES", False):
-            axes[0].set_yticks(self.__generate_ticks(self.__config.get("HARD_Y_LIMIT", ylims[0]), self.__config.get("Y_TICKS_FREQUENCY", 20)))
-            axes[1].set_yticks(self.__generate_ticks(self.__config.get("HARD_Y_LIMIT_2", ylims[1]), self.__config.get("Y_TICKS_FREQUENCY_2", 20)))
-        else:
-            axes[0].set_yticks(self.__generate_ticks(self.__config.get("HARD_Y_LIMIT", ylims[0]), self.__config.get("Y_TICKS_FREQUENCY", 20)))
-
     def __set_legend(self, ax):
         ax.legend(loc='upper center',
                   bbox_to_anchor=(0.66, 0.60),
@@ -153,42 +187,38 @@ class ExperimentsPlotter:
                   facecolor="lightblue",
                   framealpha=0.75)
 
-    def __configure_plot(self, axes, xlim, ylims, labels):
-        self.__set_plot_basic_config(axes)
-        self.__set_plot_limits(axes, xlim, ylims)
+    def __adjust_plot_to_config(self, axes, xlim, ylims, labels):
+        self.__set_grid_and_fontsize(axes)
         self.__set_plot_ticks(axes, xlim, ylims)
+        self.__set_plot_limits(axes, xlim, ylims)
         self.__set_plot_labels(axes, labels)
         if self.__config.get("PLOT_LEGEND", False):
             self.__set_legend(axes[0])
 
-    @staticmethod
-    def __create_rectangle(left_corner, width, height, color, pattern):
-        return patches.Rectangle(
-            left_corner, width, height, color=color, alpha=0.2, hatch=pattern, linewidth=0, edgecolor=None)
-
     def __plot_convergence_point(self, ax, ylim, convergence_point, times):
+        # Get the y limit of the figure (higher y tick)
         fig_ylim = self.__generate_ticks(self.__config.get("HARD_Y_LIMIT", ylim),
                                          self.__config.get("Y_TICKS_FREQUENCY", 20))[-1]
         if convergence_point:
-            # Red pattern
+            # Draw a rectangle with red pattern (before convergence)
             ax.add_patch(self.__create_rectangle(
                 (times["start_app_s"], 0), convergence_point["time"] - times["start_app_s"], fig_ylim, "red", "x"))
 
-            # Convergence point
-            self.__set_vline_plot(ax, convergence_point["time"], label=None)
+            # Plot vertical line at the convergence point
+            self.__plot_vertical_line(ax, convergence_point["time"], label=None)
 
-            # Green pattern
+            # Draw a rectangle with green pattern (after convergence)
             ax.add_patch(self.__create_rectangle(
                 (convergence_point["time"], 0), times["end_app_s"] - convergence_point["time"], fig_ylim, "green", "o"))
         else:
-            # Red pattern
+            # Draw a rectangle with red pattern
             ax.add_patch(self.__create_rectangle(
                 (times["start_app_s"], 0), times["end_app_s"] - times["start_app_s"], fig_ylim, "red", "x"))
 
-    def __set_vline_plot(self, ax, point, label):
+    def __plot_vertical_line(self, ax, point, label=None):
         ax.axvline(x=point, color='black', linestyle='--', linewidth=1.5, zorder=-2)
         # Add text on the X axis if provided
-        if self.__config["PLOT_APP_LABELS"] and label:
+        if label:
             ylim = ax.get_ylim()[1]
             ax.annotate(label, xy=(point+5, ylim - 10), xytext=(point+5, ylim - 10), fontsize=self.__config["DEFAULT_FONTSIZE"])
 
@@ -209,6 +239,20 @@ class ExperimentsPlotter:
     def __get_metric_config(self, metric):
         return self._metrics_config.get(metric, {"color": "#000000", "label": "", "linestyle": "-", "marker": "", "limit": 0})
 
+    def __get_axes(self):
+        ax1 = plt.gca()
+        ax2 = ax1.twinx() if self.__config.get("SEPARATE_AXES", False) else None
+        return ax1, ax2
+
+    def __plot_metric_in_axis(self, ax, x, y, label, color, linestyle, marker, marker_frequency=None):
+        ax.plot(x, y,
+                label=label,
+                color=color,
+                linestyle=linestyle,
+                marker=marker,
+                markersize=12,
+                markevery=self.__config.get("MARKER_FREQUENCY", marker_frequency))
+
     def __plot_metric(self, axes, df, metric, container=None):
         config = self.__get_metric_config(metric)
         label = f"{config['label']} - {container}" if container else config['label']
@@ -220,13 +264,8 @@ class ExperimentsPlotter:
         ax_index = config['axis'] if self.__config.get("SEPARATE_AXES", False) else 0
 
         # Plot line
-        axes[ax_index].plot(df["elapsed_seconds"], df["value"],
-                            label=label,
-                            color=color,
-                            linestyle=config['linestyle'],
-                            marker=config['marker'],
-                            markersize=12,
-                            markevery=self.__config.get("MARKER_FREQUENCY", None))
+        self.__plot_metric_in_axis(axes[ax_index], df["elapsed_seconds"], df["value"], label, color,
+                                   config['linestyle'], config['marker'])
 
     def __generate_plot_name(self, experiment_name, metrics, containers):
         resource = None
@@ -244,19 +283,26 @@ class ExperimentsPlotter:
         plt.savefig(path, bbox_inches='tight')
 
     @staticmethod
-    def plot_experiment_rescalings(ax, rescalings):
-        timestamps = sorted(rescalings.keys())
+    def plot_power_between_periods(ax, periods, label=None):
+        # Periods must have the form:
+        # {
+        #   <datetime>: {
+        #       "elapsed_seconds": <int>,
+        #       "avg_power": <float>
+        #       }
+        # }
+        timestamps = sorted(periods.keys())
         offset = 0.00001
 
         x_points = []
         y_points = []
         for start, end in zip(timestamps, timestamps[1:]):
-            seconds_start = rescalings[start]['elapsed_seconds']
-            seconds_end = rescalings[end]['elapsed_seconds']
+            seconds_start = periods[start]['elapsed_seconds']
+            seconds_end = periods[end]['elapsed_seconds']
             x_points.extend([seconds_start, seconds_end - offset])
-            y_points.extend([rescalings[start]['avg_power'], rescalings[start]['avg_power']])
+            y_points.extend([periods[start]['avg_power'], periods[start]['avg_power']])
 
-        ax.plot(x_points, y_points, linestyle=':', label=f"Avg rescaling power", color="black", linewidth=2)
+        ax.plot(x_points, y_points, linestyle=':', label=label, color="black", linewidth=2)
 
     def get_output_dir(self):
         return self._output_dir
@@ -265,30 +311,51 @@ class ExperimentsPlotter:
         if os.path.isdir(d) and os.path.exists(d):
             self._output_dir = d
 
-    def plot_application_metrics(self, experiment_name, containers, metrics, exp_df, exp_times, exp_rescalings, convergence_point):
-        plt.figure(figsize=(15, 5))
+    def __adjust_config_to_metrics(self, metrics):
         labels = {"x": "Time (s)"}
+        original_values = {}
 
-        # If only one resource is plotted (usage metric + limit metric) don't separate axes and set
-        # secondary axis as main axis if energy is plotted
         if len(metrics) <= 2:
-            og_y_limit, og_y_ticks_freq = self.__config["HARD_Y_LIMIT"], self.__config["Y_TICKS_FREQUENCY"]
+            # If only one resource is plotted (usage metric + limit metric)
+            #   1. Don't separate axes
+            #   2. Set secondary axis as main axis if energy is plotted and axes were separated
+
+            # Save original config values
+            original_values["HARD_Y_LIMIT"] = self.__config["HARD_Y_LIMIT"]
+            original_values["Y_TICKS_FREQUENCY"] = self.__config["Y_TICKS_FREQUENCY"]
+            original_values["SEPARATE_AXES"] = self.__config.get("SEPARATE_AXES", False)
+
+            # Check energy is plotted
             if "structure.energy.usage" in metrics:
                 labels["y1"] = "Power (W)"
+                # Check axes are separated
                 if self.__config["SEPARATE_AXES"]:
                     self.__config["HARD_Y_LIMIT"] = self.__config["HARD_Y_LIMIT_2"]
                     self.__config["Y_TICKS_FREQUENCY"] = self.__config["Y_TICKS_FREQUENCY_2"]
             else:
                 labels["y1"] = "CPU (shares)"
-            og_separate_axes_value = self.__config.get("SEPARATE_AXES", False)
+            # Don't separate axes
             self.__config["SEPARATE_AXES"] = False
         else:
+            # If both resources are plotted set default labels and leave config untouched
             labels["y1"] = "Power (W)"
             labels["y2"] = "CPU (shares)"
 
-        ax1 = plt.gca()
-        ax2 = ax1.twinx() if self.__config.get("SEPARATE_AXES", False) else None
-        axes = (ax1, ax2)
+        return labels, original_values
+
+    def __restore_config(self, original_values):
+        for modified_value in original_values:
+            self.__config[modified_value] = original_values[modified_value]
+
+    def plot_application_metrics(self, experiment_name, containers, metrics, exp_df, exp_times, scalings, convergence_point):
+        plt.figure(figsize=(15, 5))
+
+        # If only one resource is plotted (usage metric + limit metric) don't separate axes and set
+        # secondary axis as main axis if energy is plotted
+        labels, original_values = self.__adjust_config_to_metrics(metrics)
+
+        # Get axes tuple (y1, y2): y2 is used only if axes are separated
+        axes = self.__get_axes()
 
         max_values = {"all": 0}
         for metric in metrics:
@@ -303,14 +370,17 @@ class ExperimentsPlotter:
                 self.__plot_metric(axes, cont_df, metric)
 
         # Add vertical lines when app starts and finishes
-        self.__set_vline_plot(axes[0], exp_times["start_app_s"], "Start app")
-        self.__set_vline_plot(axes[0], exp_times["end_app_s"], "End app")
+        self.__plot_vertical_line(axes[0], exp_times["start_app_s"], "Start app" if self.__config["PLOT_APP_LABELS"] else None)
+        self.__plot_vertical_line(axes[0], exp_times["end_app_s"], "End app" if self.__config["PLOT_APP_LABELS"] else None)
 
-        # Plot experiment rescalings only when plotting energy for a single container
-        if self.__rescalings_can_be_plotted(containers, metrics, exp_rescalings):
-            self.plot_experiment_rescalings(axes[0], exp_rescalings)
+        # Plot experiment scalings only when plotting energy for a single container
+        if self.__scalings_can_be_plotted(containers, metrics, scalings):
+            self.plot_power_between_periods(axes[0], scalings)
 
-        # Get y limits based on max y value found in plotted data
+        # Get end of the plot as potential x limit
+        xlim = exp_times["end_s"]
+
+        # Get potential y limits based on max y value found in plotted data
         ylims = self.__get_potential_limits(max_values)
 
         # Plot convergence point
@@ -318,13 +388,10 @@ class ExperimentsPlotter:
             self.__plot_convergence_point(axes[0], ylims[0], convergence_point, exp_times)
 
         # Configure and save plot
-        self.__configure_plot(axes, exp_times["end_s"], ylims, labels)
+        self.__adjust_plot_to_config(axes, xlim, ylims, labels)
         self.__save_plot(self.__generate_plot_name(experiment_name, metrics, containers))
 
-        # Restore original value
-        if len(metrics) <= 2:
-            self.__config["HARD_Y_LIMIT"] = og_y_limit
-            self.__config["Y_TICKS_FREQUENCY"] = og_y_ticks_freq
-            self.__config["SEPARATE_AXES"] = og_separate_axes_value
+        # Restore original config values
+        self.__restore_config(original_values)
 
         plt.close()

@@ -4,21 +4,7 @@
 # ENVIRONMENT
 #########################################################################################################
 export SCRIPT_DIR=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
-export BIN_DIR="${SCRIPT_DIR}/bin"
-export SC_MNG_DIR="${BIN_DIR}/serverless_containers"
-export APP_MNG_DIR="${BIN_DIR}/app_management"
-export EXPERIMENTS_DIR="${BIN_DIR}/experiments"
-export CONF_DIR="${SCRIPT_DIR}/etc"
-export CONFIG_FILE="${CONF_DIR}/experiments.json"
-export OUTPUT_DIR="${SCRIPT_DIR}/out"
-export APPS_CONFIG_DIR="${SCRIPT_DIR}/apps"
-export APPS_RULES_DIR="${SCRIPT_DIR}/rules"
-export TEST_DIR=$(dirname "${SCRIPT_DIR}")
-export PROVISIONING_DIR=$(dirname "${TEST_DIR}")
-export ANSIBLE_DIR=$(dirname "${PROVISIONING_DIR}")
-export ANSIBLE_INVENTORY="${ANSIBLE_DIR}/ansible.inventory"
-export SC_YARN_PATH="${HOME}/ServerlessYARN_install"
-export SC_INSTALLATION_PATH="${SC_YARN_PATH}/ServerlessContainers"
+. "${SCRIPT_DIR}/bin/load-env.sh"
 
 #########################################################################################################
 # PREREQUISITES

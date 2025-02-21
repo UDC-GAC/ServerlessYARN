@@ -3,8 +3,8 @@
 . "${EXPERIMENTS_DIR}"/common.sh
 
 # Activate Serverless
-curl_wrapper bash "${SC_MNG_DIR}/activate-service.sh" "Guardian"
-curl_wrapper bash "${SC_MNG_DIR}/activate-service.sh" "Scaler"
+curl_wrapper bash "${SC_SCRIPTS_DIR}/activate-service.sh" "Guardian"
+curl_wrapper bash "${SC_SCRIPTS_DIR}/activate-service.sh" "Scaler"
 
 #########################################################################################################
 # COMPARE POWER CAPPING METHODS
@@ -29,8 +29,8 @@ for INITIAL_CPU_LIMIT in "${!CPU_LIMITS[@]}"; do
   mkdir -p "${RESULTS_DIR}/fixed-value"
   register_logs_position
 
-  curl_wrapper bash "${SC_MNG_DIR}/change-shares-per-watt.sh" "5"
-  curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "fixed-ratio"
+  curl_wrapper bash "${SC_SCRIPTS_DIR}/change-shares-per-watt.sh" "5"
+  curl_wrapper bash "${SC_SCRIPTS_DIR}/change-energy-rules-policy.sh" "fixed-ratio"
   run_app "${APP_NAME}" "fixed-value"
 
   save_logs "fixed-value"
@@ -41,8 +41,8 @@ for INITIAL_CPU_LIMIT in "${!CPU_LIMITS[@]}"; do
   mkdir -p "${RESULTS_DIR}/tdp-value"
   register_logs_position
 
-  curl_wrapper bash "${SC_MNG_DIR}/change-shares-per-watt.sh" "${DYNAMIC_SHARES_PER_WATT}"
-  curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "fixed-ratio"
+  curl_wrapper bash "${SC_SCRIPTS_DIR}/change-shares-per-watt.sh" "${DYNAMIC_SHARES_PER_WATT}"
+  curl_wrapper bash "${SC_SCRIPTS_DIR}/change-energy-rules-policy.sh" "fixed-ratio"
   run_app "${APP_NAME}" "tdp-value"
 
   save_logs "tdp-value"
@@ -53,7 +53,7 @@ for INITIAL_CPU_LIMIT in "${!CPU_LIMITS[@]}"; do
   mkdir -p "${RESULTS_DIR}/ppe-proportional"
   register_logs_position
 
-  curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "proportional"
+  curl_wrapper bash "${SC_SCRIPTS_DIR}/change-energy-rules-policy.sh" "proportional"
   run_app "${APP_NAME}" "ppe-proportional"
 
   save_logs "ppe-proportional"
@@ -64,9 +64,9 @@ for INITIAL_CPU_LIMIT in "${!CPU_LIMITS[@]}"; do
   mkdir -p "${RESULTS_DIR}/boosted-model"
   register_logs_position
 
-  curl_wrapper bash "${SC_MNG_DIR}/change-model-reliability.sh" "low"
-  curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "modelling"
-  curl_wrapper bash "${SC_MNG_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
+  curl_wrapper bash "${SC_SCRIPTS_DIR}/change-model-reliability.sh" "low"
+  curl_wrapper bash "${SC_SCRIPTS_DIR}/change-energy-rules-policy.sh" "modelling"
+  curl_wrapper bash "${SC_SCRIPTS_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
   run_app "${APP_NAME}" "boosted-model"
 
   save_logs "boosted-model"
@@ -77,9 +77,9 @@ for INITIAL_CPU_LIMIT in "${!CPU_LIMITS[@]}"; do
   mkdir -p "${RESULTS_DIR}/boosted-model-mr"
   register_logs_position
 
-  curl_wrapper bash "${SC_MNG_DIR}/change-model-reliability.sh" "medium"
-  curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "modelling"
-  curl_wrapper bash "${SC_MNG_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
+  curl_wrapper bash "${SC_SCRIPTS_DIR}/change-model-reliability.sh" "medium"
+  curl_wrapper bash "${SC_SCRIPTS_DIR}/change-energy-rules-policy.sh" "modelling"
+  curl_wrapper bash "${SC_SCRIPTS_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
   run_app "${APP_NAME}" "boosted-model-mr"
 
   save_logs "boosted-model-mr"
@@ -90,9 +90,9 @@ for INITIAL_CPU_LIMIT in "${!CPU_LIMITS[@]}"; do
   mkdir -p "${RESULTS_DIR}/boosted-model-hr"
   register_logs_position
 
-  curl_wrapper bash "${SC_MNG_DIR}/change-model-reliability.sh" "high"
-  curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "modelling"
-  curl_wrapper bash "${SC_MNG_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
+  curl_wrapper bash "${SC_SCRIPTS_DIR}/change-model-reliability.sh" "high"
+  curl_wrapper bash "${SC_SCRIPTS_DIR}/change-energy-rules-policy.sh" "modelling"
+  curl_wrapper bash "${SC_SCRIPTS_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
   run_app "${APP_NAME}" "boosted-model-hr"
 
   save_logs "boosted-model-hr"
@@ -100,9 +100,9 @@ for INITIAL_CPU_LIMIT in "${!CPU_LIMITS[@]}"; do
   sleep 30
 
   #########################################################################################################
-  # PLOT EXPERIMENTS
+  # PROFILE EXPERIMENTS
   #########################################################################################################
-  python3 "${BIN_DIR}/plots/ExperimentsProfiler.py" "${APP_NAME}" "${OUTPUT_DIR}/experiments.log" "${OUTPUT_DIR}/containers" "${RESULTS_DIR}"
+  bash "${PROFILER_PATH}" "${APP_NAME}" "${OUTPUT_DIR}/experiments.log" "${OUTPUT_DIR}/containers" "${RESULTS_DIR}"
   move_experiments_plot_info ""
 
 done

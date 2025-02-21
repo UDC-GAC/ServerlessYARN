@@ -2,10 +2,10 @@ import sys
 import platform
 import pandas as pd
 
-from utils import file_exists, get_opentsdb_data, compute_avg_per_interval, print_dict, value_is_near_limit, filter_df_by_period, filter_df_by_metric, get_df_col_avg
-from LogsParser import LogsParser
-from ResultsWriter import ResultsWriter
-from ExperimentsPlotter import ExperimentsPlotter
+import utils.utils as utils
+from logs.LogsParser import LogsParser
+from writer.ResultsWriter import ResultsWriter
+from plots.ExperimentsPlotter import ExperimentsPlotter
 
 OPENTSDB_URL = "http://127.0.0.1:4242/api/query"
 
@@ -39,7 +39,7 @@ class ExperimentsProfiler:
         for container in containers:
             data[container] = {}
             for metric in metrics:
-                opentsdb_data = get_opentsdb_data(OPENTSDB_URL, metric, [container], start_timestamp, end_timestamp)
+                opentsdb_data = utils.get_opentsdb_data(OPENTSDB_URL, metric, [container], start_timestamp, end_timestamp)
 
                 if opentsdb_data and any(d['dps'] for d in opentsdb_data):
                     data[container][metric] = opentsdb_data
@@ -68,7 +68,7 @@ class ExperimentsProfiler:
 
     @staticmethod
     def save_experiment_df(df, csv_file):
-        if not file_exists(csv_file):
+        if not utils.file_exists(csv_file):
             df.to_csv(csv_file)
 
     @staticmethod
@@ -88,15 +88,15 @@ class ExperimentsProfiler:
 
     @staticmethod
     def search_convergence_point(rescalings, df, offset):
-        power_budget = int(get_df_col_avg(filter_df_by_metric(df, "structure.energy.max"), 'value'))
-        cpu_limit_df = filter_df_by_metric(df, "structure.cpu.current")
+        power_budget = int(utils.get_df_col_avg(utils.filter_df_by_metric(df, "structure.energy.max"), 'value'))
+        cpu_limit_df = utils.filter_df_by_metric(df, "structure.cpu.current")
         for timestamp in rescalings:
             # Check scaling is valid
             if 'avg_power' in rescalings[timestamp] and rescalings[timestamp]['elapsed_seconds'] > 0:
                 # Check scaling average power is near the power budget (convergence)
-                if value_is_near_limit(rescalings[timestamp]['avg_power'], power_budget, offset):
+                if utils.value_is_near_limit(rescalings[timestamp]['avg_power'], power_budget, offset):
                     # Return convergence point
-                    cpu_limit_df = filter_df_by_period(cpu_limit_df, start=(rescalings[timestamp]['elapsed_seconds'] + 5))
+                    cpu_limit_df = utils.filter_df_by_period(cpu_limit_df, start=(rescalings[timestamp]['elapsed_seconds'] + 5))
                     return {
                         "time": int(rescalings[timestamp]['elapsed_seconds']),
                         "value": rescalings[timestamp]['avg_power'],
@@ -227,15 +227,15 @@ class ExperimentsProfiler:
             if self.dynamic_power_budgeting:
                 # Get power budgets timestamps and average between PBs
                 intervals = self.read_pbs_timestamps(f"{exp_results_dir}/power_budgets.log", experiment_times)
-                intervals = compute_avg_per_interval(intervals, experiment_df, "structure.energy.usage")
+                intervals = utils.compute_avg_per_interval(intervals, experiment_df, "structure.energy.usage")
             else:
                 # Get experiment rescaling timestamps and average power
                 intervals = self.get_experiment_rescalings(guardian_file, experiment_times)
-                intervals = compute_avg_per_interval(intervals, experiment_df, "structure.energy.usage")
+                intervals = utils.compute_avg_per_interval(intervals, experiment_df, "structure.energy.usage")
                 convergence_point = self.search_convergence_point(intervals, experiment_df, 0.05)
 
             # Print intervals (all the performed scalings or all the power budgets)
-            print_dict(intervals)
+            utils.print_dict(intervals)
 
             # Set output directory to store plots
             self.plotter.set_output_dir(exp_results_dir)
