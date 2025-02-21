@@ -1,6 +1,6 @@
 import time
 import subprocess
-from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host, add_disks_to_hosts
+from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host, add_disks_to_hosts, add_containers_to_inventory
 from ui.utils import request_to_state_db
 from celery import shared_task, chain, chord, group
 from celery.result import AsyncResult, allow_join_result
@@ -636,6 +636,140 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
     add_container_to_app_task(full_url, rm_host, rm_container, app, app_files)
 
     return rm_host, rm_container['container_name']
+
+@shared_task(bind=True)
+def create_dir_on_hdfs(self, namenode_host, namenode_container, dir_to_create):
+
+    argument_list = [namenode_host, namenode_container, dir_to_create]
+    error_message = "Error creating directory {0} on HDFS".format(dir_to_create)
+    process_script("hdfs/create_dir_on_hdfs", argument_list, error_message)
+
+@shared_task(bind=True)
+def add_file_to_hdfs(self, namenode_host, namenode_container, file_to_add, dest_path, bind_path):
+
+    argument_list = [namenode_host, namenode_container, file_to_add, dest_path, bind_path]
+    error_message = "Error uploading {0} to {1} on HDFS".format(file_to_add, dest_path)
+    process_script("hdfs/add_file_to_hdfs", argument_list, error_message)
+
+@shared_task(bind=True)
+def get_file_from_hdfs(self, namenode_host, namenode_container, file_to_download, dest_path, bind_path):
+
+    argument_list = [namenode_host, namenode_container, file_to_download, dest_path, bind_path]
+    error_message = "Error downloading {0} from {1} on HDFS".format(file_to_download, dest_path)
+    process_script("hdfs/get_file_from_hdfs", argument_list, error_message)
+
+@shared_task(bind=True)
+def remove_file_from_hdfs(self, namenode_host, namenode_container, path_to_delete):
+
+    argument_list = [namenode_host, namenode_container, path_to_delete]
+    error_message = "Error removing path {0} from HDFS".format(path_to_delete)
+    process_script("hdfs/remove_file_from_hdfs", argument_list, error_message)
+
+@shared_task(bind=True)
+def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluster, put_field_data, hosts):
+
+    # Calculate resources for HDFS cluster
+    hdfs_resources = {}
+    if virtual_cluster: datanode_d_heapsize = 128
+    else: datanode_d_heapsize = 1024
+    hdfs_resources["datanode_d_heapsize"] = str(datanode_d_heapsize)
+
+    # Check assigned resources are valid
+    for resource in hdfs_resources:
+        value = int(hdfs_resources[resource])
+        if value <= 0:
+            bottleneck_resource = "CPU" if resource in ["vcores", "min_vcores"] else "memory"
+            raise Exception("Error allocating resources for containers in Hadoop application. "
+                            "Value for '{0}' is negative ({1}). The application may have been assigned "
+                            "too low {2} values.".format(resource, value, bottleneck_resource))
+
+    start_time = timeit.default_timer()
+
+    ## Create HDFS app
+    add_app_task(url, put_field_data, app, app_files)
+
+    ## Create and start containers
+    # update inventory file
+    with redis_server.lock(lock_key): add_containers_to_inventory(containers)
+
+    host_list = []
+    for host in hosts: host_list.append(host['name'])
+    formatted_host_list = ",".join(host_list)
+    formatted_containers_info = str(containers).replace(' ','')
+
+    # Start containers
+    argument_list = [formatted_host_list, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar'], app_files['app_type']]
+    error_message = "Error starting containers {0}".format(formatted_containers_info)
+    process_script("start_containers_with_app", argument_list, error_message)
+
+    ## Setup network and start HDFS
+    nn_container = None
+    nn_host = None
+    for container in containers:
+        if "namenode" in container['container_name']:
+            nn_container = container['container_name']
+            nn_host = container['host']
+            break
+
+    if not nn_container: raise Exception("Namenode container not found in container list") # should not happen
+
+    argument_list = [formatted_host_list, app, app_files['app_type'], formatted_containers_info, nn_host, nn_container, hdfs_resources["datanode_d_heapsize"]]
+    error_message = "Error setting HDFS network"
+    process_script("hdfs/setup_hdfs_network", argument_list, error_message)
+
+    # Add containers to app
+    url = url[:url[:url.rfind('/')].rfind('/')]
+    for container in containers:
+        full_url = url + "/container/{0}/{1}".format(container['container_name'], app)
+        add_container_to_app_in_db(full_url, container['container_name'], app)
+
+    end_time = timeit.default_timer()
+    runtime = "{:.2f}".format(end_time-start_time)
+    update_task_runtime(self.request.id, runtime)
+
+@shared_task(bind=True)
+def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_freq, rm_host, rm_container):
+
+    # Stop hadoop cluster
+    argument_list = [rm_host, rm_container]
+    error_message = "Error stopping hadoop cluster for app {0}".format(app)
+    process_script("stop_hadoop_cluster", argument_list, error_message)
+
+    ## Disable scaler, remove all containers from StateDB and re-enable scaler
+    argument_list = []
+    error_message = "Error disabling scaler"
+    process_script("disable_scaler", argument_list, error_message)
+
+    start_time = timeit.default_timer()
+    errors = []
+    for container in app_containers:
+        full_url = url + "container/{0}/{1}".format(container['name'],app)
+        error = remove_container_from_app_db(full_url, container['name'], app)
+        if error != "": errors.append(error)
+    end_time = timeit.default_timer()
+
+    ## Wait at least for the scaler polling frequency time before re-enabling it
+    time.sleep(scaler_polling_freq - (end_time - start_time))
+
+    argument_list = []
+    error_message = "Error re-enabling scaler"
+    process_script("enable_scaler", argument_list, error_message)
+
+    # Remove app from db
+    full_url = url + "apps" + "/" + app
+    error_message = "Error removing app {0}".format(app)
+    error, _ = request_to_state_db(full_url, "delete", error_message)
+
+    # Stop containers
+    stop_containers_task = []
+    for container in app_containers:
+        stop_task = stop_container.si(container['host'], container['name'])
+        stop_containers_task.append(stop_task)
+
+    # Collect logs
+    set_hadoop_logs_timestamp_task = set_hadoop_logs_timestamp.si(app, app_files, rm_host, rm_container)
+    log_task = chord(stop_containers_task)(set_hadoop_logs_timestamp_task)
+    register_task(log_task.id,"stop_containers_task")
 
 ## Removes
 @shared_task
