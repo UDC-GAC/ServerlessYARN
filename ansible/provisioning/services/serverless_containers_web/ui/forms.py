@@ -1260,3 +1260,108 @@ class RuleForm(forms.Form):
                 Submit('save', 'Save changes', css_class='caja'),
             )    
         )
+
+### Global HDFS
+class AddHdfsFileForm(forms.Form):
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "add_file"
+
+    origin_path = forms.CharField(label= "Origin path of file or directory to upload (relative to 'hdfs_data')",
+            required=True
+            )
+    dest_path = forms.CharField(label= "Destination directory on the HDFS",
+            required=True
+            )
+
+    def __init__(self, *args, **kwargs):
+        super(AddHdfsFileForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-addhdfsfileform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'hdfs'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('origin_path'),
+            Field('dest_path'),
+            FormActions(
+                Submit('save', 'Upload file/directory (put)', css_class='caja'),
+            )
+        )
+
+class GetHdfsFileForm(forms.Form):
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "get_file"
+
+    origin_path = forms.CharField(label= "Origin path of file or directory to download from HDFS",
+            required=True
+            )
+    dest_path = forms.CharField(label= "Destination directory (relative to 'hdfs_data')",
+            required=False
+            )
+
+    def __init__(self, *args, **kwargs):
+        super(GetHdfsFileForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-gethdfsfileform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'hdfs'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('origin_path', readonly=True),
+            Field('dest_path'),
+            FormActions(
+                Submit('save', 'Download file/directory (get)', css_class='caja'),
+            )
+        )
+
+class AddHdfsDirForm(forms.Form):
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "add_dir"
+
+    dest_path = forms.CharField(label= "Directory(es) to be created on the HDFS",
+            required=True
+            )
+
+    def __init__(self, *args, **kwargs):
+        super(AddHdfsDirForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-addhdfsdirform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'hdfs'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('dest_path'),
+            FormActions(
+                Submit('save', 'Add directory (mkdir -p)', css_class='caja'),
+            )
+        )
+
+class DeleteHdfsFileForm(forms.Form):
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "del_file"
+
+    dest_path = forms.CharField(label= "File or directory path to be deleted on the HDFS",
+            required=True
+            )
+
+    def __init__(self, *args, **kwargs):
+        super(DeleteHdfsFileForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-deletehdfsfileform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'hdfs'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('dest_path', readonly=True),
+            FormActions(
+                Submit('save', 'Delete file/directory (rm)', css_class='caja'),
+            )
+        )
