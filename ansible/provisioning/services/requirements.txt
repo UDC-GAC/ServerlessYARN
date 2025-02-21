@@ -7,3 +7,4 @@ ansible_runner
 celery
 redis
 gevent
+selenium

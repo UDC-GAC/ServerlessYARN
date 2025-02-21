@@ -17,9 +17,22 @@ import yaml
 import re
 import functools
 
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.common.exceptions import WebDriverException
+from selenium.webdriver import FirefoxOptions
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import socket
+import atexit
+from ui.forms import AddHdfsFileForm, GetHdfsFileForm, AddHdfsDirForm, DeleteHdfsFileForm
+
 from ui.background_tasks import start_containers_task_v2, add_host_task, add_app_task, add_container_to_app_task, add_disks_to_hosts_task
 from ui.background_tasks import remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task, start_app_task, start_hadoop_app_task
 from ui.background_tasks import register_task, get_pendings_tasks_to_string, remove_containers, remove_containers_from_app
+from ui.background_tasks import start_global_hdfs_task, stop_hdfs_task, create_dir_on_hdfs, add_file_to_hdfs, get_file_from_hdfs, remove_file_from_hdfs
+from ui.update_inventory_file import host_container_separator
 
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file:
@@ -33,6 +46,53 @@ max_load_dict = {}
 max_load_dict["HDD"] = 1
 max_load_dict["SSD"] = 4
 max_load_dict["LVM"] = 20
+
+class State(object):
+
+    def __init__(self):
+        self.web_driver = None
+        self.closing_webdriver = False
+
+    def __del__(self):
+        if self.web_driver:
+            self.web_driver.quit()
+            self.web_driver = None
+            self.closing_webdriver = True
+
+    def __webdriver_is_closed__(self):
+        if not self.web_driver: return True
+        try:
+            self.web_driver.get('https://example.com/')
+        except WebDriverException:
+            return True
+        return False
+
+    def __start_webdriver__(self):
+        if self.__webdriver_is_closed__():
+            opts = FirefoxOptions()
+            opts.add_argument("--headless")
+            self.web_driver = webdriver.Firefox(options=opts)
+            self.closing_webdriver = False
+
+    def __stop_webdriver__(self):
+        if not self.__webdriver_is_closed__():
+            self.web_driver.quit()
+            self.web_driver = None
+            self.closing_webdriver = True
+
+    def __get_webdriver__(self):
+        return self.web_driver
+
+    def __is_webdriver_closing__(self):
+        return self.closing_webdriver
+
+state = State()
+
+## we force the instance to be the first to cleanup when closing (or reloading) server
+# otherwise, webdriver may not quit before closing server and keep browser tabs open
+# solution based on: https://stackoverflow.com/questions/14986568/python-how-to-ensure-that-del-method-of-an-object-is-called-before-the-mod
+atexit.register(state.__stop_webdriver__)
+
 
 ## Auxiliary general methods
 def redirect_with_errors(redirect_url, errors):
@@ -2133,6 +2193,360 @@ def checkInvalidConfig():
     error_lines.reverse()
 
     return error_lines
+
+def hdfs(request):
+
+    def get_entries(url, driver, parent_directory=""):
+
+        hdfs_entries = []
+
+        try:
+            driver.get(url)
+            driver.refresh() # this refresh is key to avoid getting data from older url and producing an infinite loop
+            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, "table-explorer")))
+        except WebDriverException:
+            return []
+        finally:
+            content = driver.page_source.encode('utf-8').strip()
+            soup = BeautifulSoup(content,"html.parser")
+
+            found_entries = soup.findAll(class_="explorer-entry")
+
+            for entry in found_entries:
+                entry_elements = []
+
+                if parent_directory: entry_elements.append(parent_directory)
+                else: entry_elements.append("/")
+
+                entry_path = entry.get('inode-path')
+                entry_full_path = "/".join([parent_directory, entry_path])
+
+                for element in entry:
+
+                    if element.text.strip():
+
+                        inner_element = element.text.encode('utf-8').decode()
+                        inner_entries = []
+
+                        if 'inode-type="DIRECTORY"' in str(element):
+                            inner_url = "/".join([url,inner_element])
+                            link_tag = '<a inode-type="DIRECTORY" href="{0}">{1}</a>'.format(inner_url, inner_element)
+                            entry_elements.append(link_tag)
+                            inner_entries = get_entries(inner_url, driver, "/".join([parent_directory, inner_element]))
+                        else:
+                            entry_elements.append(inner_element)
+
+                ## Add delete form
+                entry_elements.append({'get_hdfs_file': GetHdfsFileForm(initial={'origin_path': entry_full_path})})
+                entry_elements.append({'del_hdfs_file': DeleteHdfsFileForm(initial={'dest_path': entry_full_path})})
+
+                hdfs_entries.append(entry_elements)
+                hdfs_entries.extend(inner_entries)
+
+            return hdfs_entries
+
+
+    ## Get global hdfs app and its containers
+    try:
+        response = urllib.request.urlopen(base_url + "/structure/")
+        data_json = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data_json = {}
+
+    apps = getApps(data_json)
+
+    global_hdfs_app = None
+    namenode_host = None
+
+    for app in apps:
+        if app['name'] == "global_hdfs":
+            global_hdfs_app = app
+            break
+
+    if global_hdfs_app:
+        for container in global_hdfs_app['containers_full']:
+            if 'namenode' in container['name']:
+                namenode_container_info = container
+                namenode_container = container['name']
+                namenode_host = container['host']
+                break
+
+    global_hdfs_ready = global_hdfs_app and namenode_host and not state.__is_webdriver_closing__()
+
+    context = {
+        'global_hdfs_app': global_hdfs_app,
+        'global_hdfs_ready': global_hdfs_ready
+    }
+
+    if global_hdfs_ready:
+
+        if (len(request.POST) > 0):
+            error = None
+            errors = []
+
+            if 'operation' in request.POST:
+                if request.POST['operation'] == 'add_dir': error = addDirHDFS(request, namenode_host, namenode_container)
+                elif request.POST['operation'] == 'add_file': error = addFileHDFS(request, namenode_host, namenode_container, namenode_container_info)
+                elif request.POST['operation'] == 'get_file': error = getFileHDFS(request, namenode_host, namenode_container, namenode_container_info)
+                elif request.POST['operation'] == 'del_file': error = removeFileHDFS(request, namenode_host, namenode_container)
+
+            if error: errors.append(error)
+
+            return redirect_with_errors('hdfs', error)
+
+        namenode_url = 'http://{0}:9870/explorer.html#'.format(socket.gethostbyname(namenode_host))
+
+        state.__start_webdriver__() ## will only start webdriver if not started yet
+        driver = state.__get_webdriver__()
+
+        hdfs_entries = get_entries(namenode_url, driver)
+
+        context['data'] = hdfs_entries
+        context['namenode_url'] = namenode_url
+
+        context['addDirForm'] = AddHdfsDirForm()
+        context['addFileForm'] = AddHdfsFileForm()
+
+    ## Pending tasks
+    requests_errors = request.GET.getlist("errors", None)
+    requests_successes = request.GET.getlist("success", None)
+    requests_info = []
+    still_pending_tasks, successful_tasks, failed_tasks = get_pendings_tasks_to_string()
+    requests_errors.extend(failed_tasks)
+    requests_successes.extend(successful_tasks)
+    requests_info.extend(still_pending_tasks)
+
+    context['requests_errors'] = requests_errors
+    context['requests_successes'] = requests_successes
+    context['requests_info'] = requests_info
+
+    return render(request, 'hdfs.html', context)
+
+
+def addDirHDFS(request, namenode_host, namenode_container):
+
+    error = ""
+
+    ## Get path from request
+    if 'dest_path' in request.POST and request.POST['dest_path'] != "":
+        dir_to_create = request.POST['dest_path']
+        task = create_dir_on_hdfs.delay(namenode_host, namenode_container, dir_to_create)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"create_dir_on_hdfs")
+    else:
+        error = "Missing or empty directory path to create"
+    return error
+
+def addFileHDFS(request, namenode_host, namenode_container, namenode_container_info):
+
+    error = ""
+
+    bind_path = ""
+    if 'disk_path' in namenode_container_info:
+        bind_path = namenode_container_info['disk_path']
+
+    ## Get path from request
+    if 'dest_path' in request.POST and request.POST['dest_path'] != "" and 'origin_path' in request.POST and request.POST['origin_path'] != "":
+        file_to_add = request.POST['origin_path']
+        dest_path = request.POST['dest_path']
+        task = add_file_to_hdfs.delay(namenode_host, namenode_container, file_to_add, dest_path, bind_path)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"add_file_to_hdfs")
+    else:
+        error = "Missing or empty file path to upload or destination path on HDFS"
+    return error
+
+def getFileHDFS(request, namenode_host, namenode_container, namenode_container_info):
+
+    error = ""
+
+    bind_path = ""
+    if 'disk_path' in namenode_container_info:
+        bind_path = namenode_container_info['disk_path']
+
+    ## Get path from request
+    if 'origin_path' in request.POST and request.POST['origin_path'] != "":
+        if 'dest_path' in request.POST: dest_path = request.POST['dest_path']
+        else: dest_path = ""
+        file_to_download = request.POST['origin_path']
+        task = get_file_from_hdfs.delay(namenode_host, namenode_container, file_to_download, dest_path, bind_path)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"get_file_from_hdfs")
+    else:
+        error = "Missing or empty file path to download from HDFS or destination path"
+    return error
+
+def removeFileHDFS(request, namenode_host, namenode_container):
+
+    error = ""
+
+    ## Get path from request
+    if 'dest_path' in request.POST and request.POST['dest_path'] != "":
+        path_to_delete = request.POST['dest_path']
+        task = remove_file_from_hdfs.delay(namenode_host, namenode_container, path_to_delete)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"remove_file_from_hdfs")
+    else:
+        error = "Missing or empty path to delete"
+    return error
+
+def manage_global_hdfs(request):
+
+    # Common parameters
+    resources = ["cpu", "mem", "disk"]
+    url = base_url + "/structure/"
+    app_name = "global_hdfs"
+    nn_container_prefix = "namenode"
+    dn_container_prefix = "datanode"
+
+    state = request.POST['manage_global_hdfs']
+
+    if state == "hdfs_on":
+        error = start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn_container_prefix)
+    else:
+        error = stop_global_hdfs(request, app_name, url, resources, nn_container_prefix)
+
+    return redirect('hdfs')
+
+def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn_container_prefix):
+
+    # Get host data
+    try:
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data_json = {}
+
+    hosts = getHostsNames(data_json)
+    containers = []
+
+    # Container resources for HDFS cluster
+    def_weight = DEFAULT_RESOURCE_VALUES['weight']
+    def_boundary = DEFAULT_LIMIT_VALUES['default_boundary_percentage']
+    def_boundary_type = DEFAULT_LIMIT_VALUES["default_boundary_type"]
+
+    hdfs_container_resources = {
+        'namenode': {
+            'cpu': {'max': 100, 'min': 100, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type},
+            'mem': {'max': 1024, 'min': 512, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type}
+        },
+        'datanode': {
+            'cpu': {'max': 100, 'min': 50, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type},
+            'mem': {'max': 1024, 'min': 512, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type},
+            'disk': {'min': 10, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type}
+        }
+    }
+
+    if len(hosts) > 0:
+        ## Create NameNode
+        host = hosts[0]
+        container = {}
+        container["container_name"] = nn_container_prefix + host_container_separator + host['name']
+        container["host"] = host['name']
+        for resource in ["cpu", "mem"]:
+            for key in ["max", "min", "weight", "boundary", "boundary_type"]:
+                container["{0}_{1}".format(resource,key)] = hdfs_container_resources['namenode'][resource][key]
+        containers.append(container)
+
+    for host in hosts:
+        ## Create DataNodes
+        container = {}
+        container["container_name"] = dn_container_prefix + host_container_separator + host['name']
+        container["host"] = host['name']
+        for resource in ["cpu", "mem"]:
+            for key in ["max", "min", "weight", "boundary", "boundary_type"]:
+                container["{0}_{1}".format(resource,key)] = hdfs_container_resources['datanode'][resource][key]
+        if config['disk_capabilities'] and config['disk_scaling'] and 'disks' in host["resources"] and len(host["resources"]['disks']) > 0:
+            disk = next(iter(host["resources"]["disks"]))
+            container["disk"] = disk
+            container['disk_path'] = host["resources"]['disks'][disk]["path"] # verificar que funciona
+            container["disk_max"] = host["resources"]['disks'][disk]["max"]
+            for key in ["min", "weight", "boundary", "boundary_type"]:
+                container["{0}_{1}".format("disk",key)] = hdfs_container_resources['datanode']["disk"][key]
+
+        containers.append(container)
+
+    if len(containers) == 0: raise Exception("Cannot create any containers for HDFS cluster")
+
+    virtual_cluster = config['virtual_mode']
+    app_name = "global_hdfs"
+    app_directory = "apps/" + app_name
+    url = url + "apps/" + app_name
+
+    ## APP info
+    app_files = {}
+    app_files['app_dir'] = app_name
+    app_files['app_type'] = "hadoop_app"
+    for key in ['start_script', 'stop_script', 'files_dir', 'install_script', 'app_jar']: app_files[key] = ""
+
+    put_field_data = {
+        'app': {
+            'name': app_name,
+            'resources': {},
+            'guard': False,
+            'subtype': "application",
+            'files_dir': "",
+            'install_script': "",
+            'start_script': "",
+            'stop_script': "",
+            'app_jar': "",
+            'framework': "hadoop"
+        },
+        'limits': {'resources': {}}
+    }
+
+    for resource in resources:
+        resource_max = 0
+        resource_min = 0
+
+        for container in containers:
+            if "{0}_max".format(resource) in container and "{0}_min".format(resource) in container:
+                resource_max += container["{0}_max".format(resource)]
+                resource_min += container["{0}_min".format(resource)]
+
+        put_field_data['app']['resources'][resource] = {'max': resource_max, 'min': resource_min, 'guard': 'false'}
+        put_field_data['app']['resources'][resource]['weight'] = def_weight
+        put_field_data['limits']['resources'][resource] = {'boundary': def_boundary, 'boundary_type': def_boundary_type}
+
+    state.__start_webdriver__()
+
+    task = start_global_hdfs_task.delay(url, app_name, app_files, containers, virtual_cluster, put_field_data, hosts)
+    print("Starting task with id {0}".format(task.id))
+    register_task(task.id, "{0}_app_task".format(app_name))
+
+    error = ""
+    return error
+
+def stop_global_hdfs(request, app_name, url, resources, nn_container_prefix):
+
+    container_list, app_files = getContainersFromApp(url, app_name)
+    scaler_polling_freq = getScalerPollFreq()
+
+    rm_host = None
+    rm_container = None
+    for container in container_list:
+        if nn_container_prefix in container['name']:
+            rm_container = container['name']
+            rm_host = container['host']
+            break
+
+    state.__stop_webdriver__()
+
+    error = ""
+    if not rm_container:
+        error = "Missing namenode container on hdfs app"
+        # Just remove the app and its containers
+        task = remove_app_task.delay(url, "apps", app_name, container_list, app_files)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"remove_app_task")
+    else:
+        # First stop the cluster and then remove the app and its containers
+        task = stop_hdfs_task.delay(url, app_name, app_files, container_list, scaler_polling_freq, rm_host, rm_container)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"stop_hdfs_task")
+
+    return error
+
 
 ## Deprecated functions
 ## Not used ATM
