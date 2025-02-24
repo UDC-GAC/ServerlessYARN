@@ -3,8 +3,8 @@
 . "${EXPERIMENTS_DIR}"/common.sh
 
 # Activate Serverless
-curl_wrapper bash "${SC_MNG_DIR}/activate-service.sh" "Guardian"
-curl_wrapper bash "${SC_MNG_DIR}/activate-service.sh" "Scaler"
+curl_wrapper bash "${SC_SCRIPTS_DIR}/activate-service.sh" "Guardian"
+curl_wrapper bash "${SC_SCRIPTS_DIR}/activate-service.sh" "Scaler"
 
 #########################################################################################################
 # DYNAMIC POWER BUDGETING: CHANGE POWER BUDGET IN REAL TIME
@@ -23,7 +23,7 @@ mkdir -p "${RESULTS_DIR}"
 mkdir -p "${RESULTS_DIR}/ppe-proportional"
 register_logs_position
 
-curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "proportional"
+curl_wrapper bash "${SC_SCRIPTS_DIR}/change-energy-rules-policy.sh" "proportional"
 run_app_dynamic_pb "${APP_NAME}" "ppe-proportional" "${DYNAMIC_POWER_BUDGETS}"
 
 save_logs "ppe-proportional"
@@ -34,15 +34,15 @@ save_logs "ppe-proportional"
 mkdir -p "${RESULTS_DIR}/boosted-model-hr"
 register_logs_position
 
-curl_wrapper bash "${SC_MNG_DIR}/change-model-reliability.sh" "high"
-curl_wrapper bash "${SC_MNG_DIR}/change-energy-rules-policy.sh" "modelling"
-curl_wrapper bash "${SC_MNG_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
+curl_wrapper bash "${SC_SCRIPTS_DIR}/change-model-reliability.sh" "high"
+curl_wrapper bash "${SC_SCRIPTS_DIR}/change-energy-rules-policy.sh" "modelling"
+curl_wrapper bash "${SC_SCRIPTS_DIR}/change-model.sh" "${STATIC_POWER_MODEL}"
 run_app_dynamic_pb "${APP_NAME}" "boosted-model-hr" "${DYNAMIC_POWER_BUDGETS}"
 
 save_logs "boosted-model-hr"
 
 #########################################################################################################
-# PLOT EXPERIMENTS
+# PROFILE EXPERIMENTS
 #########################################################################################################
-python3 "${BIN_DIR}/plots/ExperimentsProfiler.py" "${APP_NAME}" "${OUTPUT_DIR}/experiments.log" "${OUTPUT_DIR}/containers" "${RESULTS_DIR}" "dynamic_budgets"
+bash "${PROFILER_PATH}" "${APP_NAME}" "${OUTPUT_DIR}/experiments.log" "${OUTPUT_DIR}/containers" "${RESULTS_DIR}" "dynamic_budgets"
 move_experiments_plot_info ""

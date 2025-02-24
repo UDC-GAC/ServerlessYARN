@@ -22,6 +22,13 @@ def print_dict(d):
         print(f"{key}: {value}")
 
 
+def get_resource_from_metric(metric):
+    try:
+        return metric.split(".")[1].strip()
+    except IndexError:
+        return None
+
+
 def value_is_near_limit(value, limit, offset):
     return limit * (1 - offset) < value < limit * (1 + offset)
 
