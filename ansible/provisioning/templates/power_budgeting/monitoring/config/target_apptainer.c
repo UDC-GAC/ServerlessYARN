@@ -45,29 +45,85 @@
 #define CONTAINER_ID_REGEX "perf_event/system.slice/apptainer-([0-9]+)\\.scope"
 #define CONTAINER_ID_REGEX_EXPECTED_MATCHES 2
 
+/*
+ * CONTAINER_NAME_REGEX is the regex used to extract the Apptainer container name from its environment file.
+ * CONTAINER_NAME_REGEX_EXPECTED_MATCHES is the number of expected matches from the regex. (num groups + 1)
+ */
+#define CONTAINER_NAME_REGEX "\"containerID\":\"([^\"]+)\""
+#define CONTAINER_NAME_REGEX_EXPECTED_MATCHES 2
+
+/*
+ * ENV_FILE_RELEVANT_CHARACTERS is the number of characters to read from environment files of Apptainer containers.
+ */
+#define ENV_FILE_RELEVANT_CHARACTERS 512
+
+
+static char *
+build_container_config_path(const char *cgroup_path)
+{
+    regex_t re;
+    regmatch_t matches[CONTAINER_ID_REGEX_EXPECTED_MATCHES];
+    char *target_id = NULL;
+    char buffer[PATH_MAX];
+    char *config_path = NULL;
+
+    if (!regcomp(&re, CONTAINER_ID_REGEX, REG_EXTENDED | REG_NEWLINE)) {
+        if (!regexec(&re, cgroup_path, CONTAINER_ID_REGEX_EXPECTED_MATCHES, matches, 0)) {
+            target_id = strndup(cgroup_path + matches[1].rm_so, matches[1].rm_eo - matches[1].rm_so);
+            if (target_id != NULL) {
+                snprintf(buffer, PATH_MAX, "/proc/%s/environ", target_id);
+                config_path = strdup(buffer);
+                free(target_id);
+            }
+        }
+        regfree(&re);
+    }
+    return config_path;
+}
+
 
 char *
 target_apptainer_resolve_name(struct target *target)
 {
     regex_t re;
     regmatch_t matches[CONTAINER_ID_REGEX_EXPECTED_MATCHES];
-    char *target_id = NULL;
+    FILE *env_file = NULL;
+    char *env_data = NULL;
     char *target_name = NULL;
-    size_t target_name_size;
+    char *config_path = NULL;
+    size_t env_len;
 
+    /* Get path from process environment file belonging to the container (e.g., /proc/<pid>/environ) */
+    config_path = build_container_config_path(target->cgroup_path);
+    if (!config_path)
+        return NULL;
 
-    if (!regcomp(&re, CONTAINER_ID_REGEX, REG_EXTENDED | REG_NEWLINE)) {
-        if (!regexec(&re, target->cgroup_path, CONTAINER_ID_REGEX_EXPECTED_MATCHES, matches, 0)) {
-            target_id = strndup(target->cgroup_path + matches[1].rm_so, matches[1].rm_eo - matches[1].rm_so);
-            if (target_id != NULL) {
-                target_name_size = strlen("apptainer-") + strlen(target_id) + 1;
-                target_name = (char *)malloc(target_name_size * sizeof(char));
-                snprintf(target_name, target_name_size, "apptainer-%s", target_id);
-                free(target_id);
-            }
+    /* Open container environment file */
+    env_file = fopen(config_path, "r");
+    free(config_path);
+    if (!env_file)
+        return NULL;
+
+    /* Read container environment file */
+    env_data = malloc(sizeof(char) * (ENV_FILE_RELEVANT_CHARACTERS + 1));
+    env_len = fread(env_data, 1, ENV_FILE_RELEVANT_CHARACTERS, env_file);
+    if (env_len > 0) {
+        /* Replace null bytes '\0' with break lines '\n', as env file separates environment variables with '\0'*/
+        env_data[env_len] = '\0';
+        for (size_t i = 0; i < env_len; i++) {
+            if (env_data[i] == '\0')
+                env_data[i] = '\n';
         }
-        regfree(&re);
+        /* Search container name in environment data */
+        if (!regcomp(&re, CONTAINER_NAME_REGEX, REG_EXTENDED | REG_NEWLINE)) {
+            if (!regexec(&re, env_data, CONTAINER_NAME_REGEX_EXPECTED_MATCHES, matches, 0)) {
+                target_name = strndup(env_data + matches[1].rm_so, matches[1].rm_eo - matches[1].rm_so);
+            }
+            regfree(&re);
+        }
     }
+    fclose(env_file);
+    free(env_data);
 
     return target_name;
 }

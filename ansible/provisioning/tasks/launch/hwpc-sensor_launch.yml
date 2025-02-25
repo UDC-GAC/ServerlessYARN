@@ -59,7 +59,7 @@
       tags: never, restart_hwpc_sensor
 
     - name: Start HWPC Sensor apptainer container
-      shell: "sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --bind /sys:/sys --bind {{ hwpc_sensor_reporting_path }}:/reporting image/{{ image_file }} {{ container_name }}"
+      shell: "sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --bind /proc:/proc --bind /sys:/sys --bind {{ hwpc_sensor_reporting_path }}:/reporting image/{{ image_file }} {{ container_name }}"
       when: "container_name not in apptainer_list_output.stdout"
       args:
         chdir: "{{ hwpc_sensor_path }}"

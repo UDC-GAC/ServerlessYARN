@@ -40,4 +40,4 @@
  */
 char *target_apptainer_resolve_name(struct target *target);
 
-#endif /* TARGET_DOCKER_H */
+#endif /* TARGET_APPTAINER_H */
