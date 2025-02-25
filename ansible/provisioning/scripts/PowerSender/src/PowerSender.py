@@ -43,9 +43,6 @@ class PowerSender:
         # Sampling frequency to read and send data
         self.__set_sampling_frequency(_sampling_frequency)
 
-        # File mapping containers with their PIDs
-        self.containers_pid_mapfile = None
-
         # CPU Sockets
         self.cpu_sockets = None
 
@@ -147,7 +144,6 @@ class PowerSender:
             "opentsdb_addr": ansible_config['server_ip'],
             "opentsdb_port": ansible_config['opentsdb_port'],
             "nodes": ansible_inventory.get_groups_dict()['nodes'],
-            "containers_pid_mapfile": ansible_vars['containers_pid_mapping_file']
         }
 
     @staticmethod
@@ -169,12 +165,12 @@ class PowerSender:
                                           .groupby('timestamp').agg({'value': 'sum'}).reset_index()
 
         # TODO: Set a buffer to take into account more metrics when computing the outliers
-        if power_meter == "smartwatts":
+        if cont_name != "rapl":
             agg_data = PowerSender.remove_outliers(agg_data, 'value')
 
         # If RAPL is used, the power overhead of HWPC Sensor should be taken into account
         # Nevertheless, last experiments shown that this overhead is negligible
-        # hwpc_sensor_power = 5 if power_meter == "rapl" else 0
+        # hwpc_sensor_power = 5 if cont_name == "rapl" else 0
 
         # Format data into a dict to dump into a JSON
         return [
@@ -196,21 +192,27 @@ class PowerSender:
                                 .format(self.delay, self.sampling_frequency))
             self.delay = self.delay % self.sampling_frequency
 
-    def get_container_output_file(self, name, pid):
-        # If container is not registered, initialize it
-        if pid not in self.cont_output_files:
-            target = "rapl" if self.power_meter == "rapl" else "apptainer-{0}".format(pid)
-            target_file = "{0}/sensor-{1}/PowerReport.csv".format(self.smartwatts_output, target)
+    def container_is_running(self, name):
+        return self.cont_output_files[name]["iters_without_data"] < 5
 
-            self.logger.info("Found new target with name {0} and pid {1}. Registered.".format(name, pid))
-            self.cont_output_files[pid] = {
-                "path": target_file,
-                "position": os.path.getsize(target_file)
-            }
+    def get_container_output_file(self, name, cont_dir):
+        # If container directory is not registered, initialize it
+        if name not in self.cont_output_files:
+            #target = "rapl" if self.power_meter == "rapl" else name
+            target_file = "{0}/{1}/PowerReport.csv".format(self.smartwatts_output, cont_dir)
+            if os.path.isfile(target_file) and os.access(target_file, os.R_OK):
+                self.logger.info("Registering new container with name {0}. Registered.".format(name))
+                self.cont_output_files[name] = {
+                    "path": target_file,
+                    "position": os.path.getsize(target_file),
+                    "iters_without_data": 0
+                }
+            else:
+                return None
 
-        return self.cont_output_files[pid]["path"]
+        return self.cont_output_files[name]["path"]
 
-    def read_container_output(self, path, cont_name, cont_pid):
+    def read_container_output(self, path, cont_name):
         with open(path, 'r', encoding='utf-8') as file:
             # If file is empty, skip
             if os.path.getsize(path) <= 0:
@@ -218,32 +220,34 @@ class PowerSender:
                 return None
 
             # Go to last read position
-            file.seek(self.cont_output_files[cont_pid]["position"])
+            file.seek(self.cont_output_files[cont_name]["position"])
 
             # Skip header
-            if self.cont_output_files[cont_pid]["position"] == 0:
+            if self.cont_output_files[cont_name]["position"] == 0:
                 next(file)
 
             lines = file.readlines()
             if len(lines) == 0:
+                self.cont_output_files[cont_name]["iters_without_data"] += 1
                 self.logger.warning("There aren't new lines to process for target {0}".format(cont_name))
                 return None
 
-            # Update last position and save last line length in bytes
-            self.cont_output_files[cont_pid]["position"] = file.tell()
-            self.cont_output_files[cont_pid]["last_line_bytes"] = len(lines[-1].encode('utf-8'))
+            # Update last position, save last line length in bytes and reset iterations without data
+            self.cont_output_files[cont_name]["position"] = file.tell()
+            self.cont_output_files[cont_name]["last_line_bytes"] = len(lines[-1].encode('utf-8'))
+            self.cont_output_files[cont_name]["iters_without_data"] = 0
 
         return lines
 
-    def update_position_to_previous_line(self, cont_pid):
-        last_line_bytes = self.cont_output_files[cont_pid]["last_line_bytes"]
+    def update_position_to_previous_line(self, cont_name):
+        last_line_bytes = self.cont_output_files[cont_name]["last_line_bytes"]
         if last_line_bytes > 0:
-            self.cont_output_files[cont_pid]["position"] -= (last_line_bytes + 1)
-            self.cont_output_files[cont_pid]["last_line_bytes"] = -1
+            self.cont_output_files[cont_name]["position"] -= (last_line_bytes + 1)
+            self.cont_output_files[cont_name]["last_line_bytes"] = -1
         else:
             self.logger.warning("No information about the last line bytes when trying to find previous line")
 
-    def preprocess_data(self, bulk_data, cont_pid):
+    def preprocess_data(self, bulk_data, cont_name):
         # Check for missing CPU values in any timestamp
         check_list = [True for _ in range(self.cpu_sockets)]
         preprocessed_data = []
@@ -269,7 +273,7 @@ class PowerSender:
 
         # If we ignored the last dp we try to process it in the next iteration
         if last_dp_was_ignored:
-            self.update_position_to_previous_line(cont_pid)
+            self.update_position_to_previous_line(cont_name)
 
         return preprocessed_data
 
@@ -301,18 +305,20 @@ class PowerSender:
 
         return bulk_data
 
-    def process_container(self, container):
-        cont_pid = container["pid"]
-        cont_name = container["name"]
-        cont_output = self.get_container_output_file(cont_name, cont_pid)
+    def process_container(self, cont_name, cont_dir):
+        cont_output = self.get_container_output_file(cont_name, cont_dir)
 
-        # If file is not yet accessible, skip
-        if not os.path.isfile(cont_output) or not os.access(cont_output, os.R_OK):
+        # If file is not accessible, skip
+        if not cont_output:
             self.logger.warning("Couldn't access file from target {0}: {1}".format(cont_name, cont_output))
             return
 
+        # When a container doesn't generate data for 5 iterations, it is ignored
+        if not self.container_is_running(cont_name):
+            return
+
         # Read target output
-        lines = self.read_container_output(cont_output, cont_name, cont_pid)
+        lines = self.read_container_output(cont_output, cont_name)
         if not lines:
             return
 
@@ -321,7 +327,7 @@ class PowerSender:
 
         # Gather data from target output
         bulk_data = self.process_lines(lines, cont_name)
-        preprocessed_data = self.preprocess_data(bulk_data, cont_pid)
+        preprocessed_data = self.preprocess_data(bulk_data, cont_name)
         if len(preprocessed_data) > 0:
             try:
                 agg_data = self.aggregate_data(preprocessed_data, cont_name)
@@ -329,29 +335,9 @@ class PowerSender:
             except Exception as e:
                 self.logger.error("Error sending {0} data to OpenTSDB: {1}".format(cont_name, str(e)))
 
-    def get_running_containers(self):
-        running_containers = []
-
-        if not os.path.isfile(self.containers_pid_mapfile) or not os.access(self.containers_pid_mapfile, os.R_OK):
-            self.logger.warning("Couldn't access containers mapping file: {0}".format(self.containers_pid_mapfile))
-            self.logger.warning("No container will be processed in this iteration")
-            return running_containers
-
-        with open(self.containers_pid_mapfile, 'r') as file:
-            # If file is empty, skip
-            if os.path.getsize(self.containers_pid_mapfile) <= 0:
-                self.logger.warning("Containers mapping file is empty: {0}".format(self.containers_pid_mapfile))
-                self.logger.warning("No container will be processed in this iteration")
-                return running_containers
-
-            for line in file.readlines():
-                try:
-                    name, pid = line.strip().split(":")
-                    running_containers.append({"name": name, "pid": pid})
-                except Exception as e:
-                    self.logger.warning("Invalid line in containers mapping file: {0} ({1})".format(line, str(e)))
-
-        return running_containers
+    def get_current_smartwatts_dirs(self):
+        return [d for d in os.listdir(self.smartwatts_output)
+                if os.path.isdir(os.path.join(self.smartwatts_output, d))]
 
     def send_power(self):
 
@@ -368,10 +354,6 @@ class PowerSender:
         # Set start timestamp
         self.__set_start_timestamp()
 
-        # Set containers PID mapping file
-        self.__set_containers_pid_mapfile(
-            ansible_info['containers_pid_mapfile'].replace("{{ installation_path }}", self.installation_path))
-
         # Set OpenTSDB handler
         self.__set_opentsdb_handler(ansible_info['opentsdb_addr'], ansible_info['opentsdb_port'])
 
@@ -384,9 +366,10 @@ class PowerSender:
                 # Process current containers in separated threads
                 t_start = time.perf_counter_ns()
                 threads = []
-                for container in self.get_running_containers():
-                    thread = Thread(name="process_{0}".format(container["name"]), target=self.process_container,
-                                    args=(container,))
+                for container_dir in self.get_current_smartwatts_dirs():
+                    container_name = container_dir[7:]  # e.g., sensor-compute-2-5-cont0 -> compute-2-5-cont0
+                    thread = Thread(name="process_{0}".format(container_name), target=self.process_container,
+                                    args=(container_name, container_dir))
                     thread.start()
                     threads.append(thread)
 

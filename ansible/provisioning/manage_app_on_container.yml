@@ -362,16 +362,6 @@
           path: "{{ container_bind_dir }}/{{ container }}.pub"
           state: absent
 
-      - name: Remove container from container-PID mapping
-        delegate_to: localhost
-        run_once: yes
-        when: "power_budgeting"
-        lineinfile:
-          path: "{{ containers_pid_mapping_file }}"
-          regexp: "^{{ container }}"
-          create: yes
-          state: absent
-
       # Stop java snitcher
       - name: Stop java snitcher
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \

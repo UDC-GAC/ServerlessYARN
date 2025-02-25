@@ -67,29 +67,6 @@
       vars:
         extra_connection: "{{ ',ptp' if mode == 'ipvlan' else '' }}"
 
-    - name: Get sensors PID mapping
-      shell: "sudo {{ singularity_command_alias }} instance list {{ container_name }} | grep {{ container_name }} | awk '{print $2}'"
-      when: "container_name not in apptainer_list_output.stdout"
-      args:
-        chdir: "{{ installation_path }}"
-        executable: /bin/bash
-      register: sensor_pid
-
-    - name: Declare sensors PID mapping on each host
-      when: "container_name not in apptainer_list_output.stdout"
-      set_fact:
-        sensor_pid_mapping: "{{ inventory_hostname }}-sensor:{{ sensor_pid.stdout }}"
-
-    - name: Write sensors PID mappings
-      delegate_to: localhost
-      run_once: true
-      when: "container_name not in apptainer_list_output.stdout"
-      lineinfile:
-        path: "{{ containers_pid_mapping_file }}"
-        line: "{{ hostvars[item]['sensor_pid_mapping'] }}"
-        create: yes
-      loop: "{{ groups['nodes'] }}"
-
   when: "container_engine == 'apptainer'"
   vars:
     - definition_file: "hwpc-sensor.def"
