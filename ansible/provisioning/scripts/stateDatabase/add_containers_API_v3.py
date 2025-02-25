@@ -55,13 +55,13 @@ if __name__ == "__main__":
             put_field_data['container']['host'] = cont['host']
 
             put_field_data['container']['resources']["cpu"]["max"] = int(cont['cpu_max'])
-            put_field_data['container']['resources']["cpu"]["current"] = int(cont['cpu_max'])
+            put_field_data['container']['resources']["cpu"]["current"] = int(cont['cpu_min'])
             put_field_data['container']['resources']["cpu"]["min"] = int(cont['cpu_min'])
             put_field_data['container']['resources']["cpu"]["guard"] = True
             if 'cpu_weight' in cont: put_field_data['container']['resources']["cpu"]["weight"] = int(cont['cpu_weight'])
 
             put_field_data['container']['resources']["mem"]["max"] = int(cont['mem_max'])
-            put_field_data['container']['resources']["mem"]["current"] = int(cont['mem_max'])
+            put_field_data['container']['resources']["mem"]["current"] = int(cont['mem_min'])
             put_field_data['container']['resources']["mem"]["min"] = int(cont['mem_min'])
             put_field_data['container']['resources']["mem"]["guard"] = True
             if 'mem_weight' in cont: put_field_data['container']['resources']["mem"]["weight"] = int(cont['mem_weight'])
@@ -71,7 +71,7 @@ if __name__ == "__main__":
                 cont_resources.append("energy")
                 put_field_data['container']['resources']["energy"] = dict()
                 put_field_data['container']['resources']["energy"]["max"] = int(cont['energy_max'])
-                put_field_data['container']['resources']["energy"]["current"] = int(cont['energy_max'])
+                put_field_data['container']['resources']["energy"]["current"] = int(cont['energy_min'])
                 put_field_data['container']['resources']["energy"]["min"] = int(cont['energy_min'])
                 put_field_data['container']['resources']["energy"]["guard"] = True
                 if 'energy_weight' in cont: put_field_data['container']['resources']["energy"]["weight"] = int(cont['energy_weight'])
