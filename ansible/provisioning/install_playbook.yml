@@ -28,6 +28,9 @@
     - block:
       - import_tasks: tasks/install/mongodb_setup.yml
       - import_tasks: tasks/install/smartwatts_setup.yml
+        when: "power_meter == 'smartwatts'"
+      - import_tasks: tasks/install/selfwatts_setup.yml
+        when: "power_meter == 'selfwatts'"
       when: "container_engine == 'apptainer' and power_budgeting"
       tags: setup_smartwatts
 

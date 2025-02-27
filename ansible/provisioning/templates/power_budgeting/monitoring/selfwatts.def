@@ -1,0 +1,45 @@
+Bootstrap: docker
+From: python:3-slim
+
+%files
+    {{ selfwatts_path }}/config/selfwatts-config.json /selfwatts-config.json
+
+%post
+    export POWERAPI_REPOSITORY="https://github.com/powerapi-ng/powerapi.git"
+    export SELFWATTS_REPOSITORY="https://github.com/powerapi-ng/selfwatts-formula.git"
+    export POWERAPI_VERSION="v0.9.3"
+    export POWERAPI_DIR=/powerapi
+    export SELFWATTS_DIR=/selfwatts
+
+    # Install git
+    apt update && apt install -y git
+
+    # Clone repositories
+    git clone --depth 1 --branch "${POWERAPI_VERSION}" "${POWERAPI_REPOSITORY}" "${POWERAPI_DIR}"
+    git clone -b master "${SELFWATTS_REPOSITORY}" "${SELFWATTS_DIR}"
+
+    # Change required PowerAPI version for SelfWatts
+    # TODO: Change this through file templates if needed
+    #sed -i 's/powerapi \[mongodb, influxdb, opentsdb\] == [0-9.]\+/powerapi [mongodb, influxdb, opentsdb] == 2.5.0/' "${SELFWATTS_DIR}/requirements.txt"
+    #sed -i 's/powerapi \[mongodb, influxdb, opentsdb\] == [0-9.]\+/powerapi [mongodb, influxdb, opentsdb] == 2.5.0/' "${SELFWATTS_DIR}/setup.cfg"
+    #sed -i 's/from powerapi\.backendsupervisor import BackendSupervisor/from powerapi.backend_supervisor import BackendSupervisor/' "${SELFWATTS_DIR}/selfwatts/__main__.py"
+
+    # Install PowerAPI and SelfWatts
+    pip3 install --no-cache-dir "${POWERAPI_DIR}[everything]"
+    pip3 install --no-cache-dir "${SELFWATTS_DIR}"
+
+    # Clean repositories
+    rm -r ${POWERAPI_DIR} ${SELFWATTS_DIR}
+
+    # TODO: Add fixed-controller events in config file (paper suggests UNHALTED_REFERENCE_CYCLES, UNHALTED_CORE_CYCLES, INSTRUCTION_RETIRED)
+    # In Cascade Lake the following counters change their names:
+    #   UNHALTED_REFERENCE_CYCLES -> CPU_CLK_THREAD_UNHALTED:REF_P
+    #   UNHALTED_CORE_CYCLES -> CPU_CLK_THREAD_UNHALTED:THREAD_P
+
+%runscript
+    echo "Starting SelfWatts..."
+    python3 -m selfwatts --config-file /selfwatts-config.json > /dev/null 2>&1
+
+%startscript
+    echo "Starting SelfWatts..."
+    python3 -m selfwatts  --config-file /selfwatts-config.json > /dev/null 2>&1

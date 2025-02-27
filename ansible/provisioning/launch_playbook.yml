@@ -54,8 +54,12 @@
       tags: start_mongodb
 
     - import_tasks: tasks/launch/smartwatts_launch.yml
-      when: "power_budgeting"
+      when: "power_budgeting and power_meter == 'smartwatts'"
       tags: start_smartwatts
+
+    - import_tasks: tasks/launch/selfwatts_launch.yml
+      when: "power_budgeting and power_meter == 'selfwatts'"
+      tags: start_selfwatts
 
 # Setup nodes
 - name: Launch services from hosts

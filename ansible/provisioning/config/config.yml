@@ -38,7 +38,7 @@ disk_scaling: no # "yes" to allow disk bandwidth scaling (only relevant when usi
 power_budgeting: no # "yes" to use power budgets, power will be accounted, restricted and shared among containers
 power_modelling: no # "yes" to use power models to get CPU Usage/Power proportionalities instead of using fixed values
 online_learning: no # "yes" to automatically retrain power models in real-time using OpenTSDB time series
-power_meter: "rapl" # rapl or smartwatts, use the latter to measure power from applications composed of multiple containers
+power_meter: "smartwatts" # smartwatts or selfwatts, currently just smartwatts is fully supported
 
 ## WattWizard Config
 structures: "host"

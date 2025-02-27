@@ -1,0 +1,14 @@
+
+- name: Start SelfWatts inside an apptainer/singularity container
+  debug:
+    msg: 'SelfWatts inside an apptainer container not yet supported'
+  when: "container_engine == 'apptainer'"
+  vars:
+    - definition_file: "selfwatts.def"
+    - image_file: "selfwatts.sif"
+    - container_name: "selfwatts"
+
+- name: Start SelfWatts inside a lxc container
+  debug:
+    msg: 'SelfWatts inside a lxc container not yet supported'
+  when: "container_engine == 'lxc'"
