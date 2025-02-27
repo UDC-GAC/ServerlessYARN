@@ -12,8 +12,12 @@
   },
   "output": {
     "pusher_power": {
-      "type": "csv",
-      "directory": "/sensor-output"
+      "type": "opentsdb",
+      "uri": "{{ opentsdb_url }}",
+      "port": {{ opentsdb_port }},
+      "metric-name": "structure.energy.usage",
+      "name": "pusher_opentsdb",
+      "model": "PowerReport"
     }
   },
   "cpu-base-freq": 2300,

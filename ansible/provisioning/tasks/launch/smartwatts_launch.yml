@@ -22,6 +22,7 @@
         dest: "{{ smartwatts_path }}/config/{{ item }}"
       with_items:
         - smartwatts-config.json
+        - opentsdb.py
 
     - name: Build image
       when: not stat_output.stat.exists
@@ -37,24 +38,8 @@
       args:
         executable: /bin/bash
 
-    - name: Stop current SmartWatts apptainer container
-      shell: "{{ singularity_command_alias }} instance stop {{ container_name }}"
-      when: "container_name in apptainer_list_output.stdout"
-      args:
-        chdir: "{{ smartwatts_path }}"
-        executable: /bin/bash
-      tags: never, restart_smartwatts
-
-    - name: Check containers status again
-      shell: "{{ singularity_command_alias }} instance list -j"
-      when: "container_name in apptainer_list_output.stdout"
-      register: apptainer_list_output
-      args:
-        executable: /bin/bash
-      tags: never, restart_smartwatts
-
     - name: Start SmartWatts apptainer container
-      shell: "{{ singularity_command_alias }} instance start -C --bind {{ smartwatts_output }}:/sensor-output image/{{ image_file }} {{ container_name }}"
+      shell: "{{ singularity_command_alias }} instance start -C image/{{ image_file }} {{ container_name }}"
       when: "container_name not in apptainer_list_output.stdout"
       args:
         chdir: "{{ smartwatts_path }}"
@@ -62,7 +47,6 @@
 
   when: "container_engine == 'apptainer'"
   vars:
-    - smartwatts_output: "{{ smartwatts_path }}/output"
     - definition_file: "smartwatts.def"
     - image_file: "smartwatts.sif"
     - container_name: "smartwatts"
@@ -71,18 +55,3 @@
   debug:
     msg: 'SmartWatts inside a lxc container not yet supported'
   when: "container_engine == 'lxc'"
-
-- name: Tmux session check
-  shell: tmux ls
-  register: tmux_output
-  ignore_errors: yes
-  tags: restart_services
-
-- name: Start tmux session for SmartWatts power sender
-  shell: "bash scripts/PowerSender/start_power_sender_tmux.sh {{ installation_path }} {{ power_meter }} {{ sampling_frequency }}"
-  when: "'power_sender' not in tmux_output.stdout"
-  args:
-    executable: /bin/bash
-  vars:
-    - smartwatts_output: "{{ smartwatts_path }}/output"
-  tags: restart_services
