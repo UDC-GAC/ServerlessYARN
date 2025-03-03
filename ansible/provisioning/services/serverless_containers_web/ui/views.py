@@ -4,7 +4,7 @@ from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormS
 from ui.forms import AddHostForm, AddAppForm, AddHadoopAppForm, StartAppForm, AddDisksToHostsForm
 from ui.forms import AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddContainersToAppForm
 from ui.forms import RemoveStructureForm, RemoveContainersFromAppForm
-from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, request_to_state_db
+from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, DEFAULT_HDFS_VALUES, request_to_state_db
 
 from django.forms import formset_factory
 from django.http import HttpResponse
@@ -544,6 +544,10 @@ def setStartAppForm(structure, form_action, started_app):
 
     structure['start_app_form'] = startAppForm
     structure['started_app'] = started_app
+
+    if config['global_hdfs'] and 'framework' in structure and structure['framework'] in ["hadoop", "spark"]:
+        structure['start_app_form'].helper['read_from_global'].update_attributes(type="show")
+        structure['start_app_form'].helper['write_to_global'].update_attributes(type="show")
 
 
 def setAddContainersForm(structures, hosts, form_action):
@@ -1130,7 +1134,42 @@ def processStartApp(request, url, app_name):
     virtual_cluster = config['virtual_mode']
 
     if is_hadoop_app:
-        task = start_hadoop_app_task.delay(url, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type)
+
+        global_hdfs_data = None
+        if config['global_hdfs']:
+
+            use_global_hdfs = False
+            for condition in ['read_from_global', 'write_to_global']:
+                if condition in request.POST and request.POST[condition]:
+                    use_global_hdfs = True
+                    break
+
+            global_hdfs_app = None
+            if use_global_hdfs:
+
+                global_hdfs_data = {}
+                ## Add global Namenode
+                global_hdfs_app, namenode_container = retrieve_global_hdfs_app(data_json)
+                if   not global_hdfs_app:    return "Global HDFS requested but not found"
+                elif not namenode_container: return "Namenode not found in global HDFS"
+                else:
+                    global_hdfs_data['namenode_container_name'] = namenode_container['name']
+                    global_hdfs_data['namenode_host'] = namenode_container['host']
+
+
+                ## Get additional info (read/write data from/to hdfs)
+                for condition, additional_info in [
+                    ('read_from_global', ['global_input', 'local_output']), 
+                    ('write_to_global', ['local_input', 'global_output'])
+                ]:
+                    if condition in request.POST and request.POST[condition]:
+                        for info in additional_info:
+                            if info in request.POST and request.POST[info] != "": global_hdfs_data[info] = request.POST[info]
+                            else: global_hdfs_data[info] = DEFAULT_HDFS_VALUES[info]
+                    else:
+                        for info in additional_info: global_hdfs_data[info] = ""
+
+        task = start_hadoop_app_task.delay(url, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type, global_hdfs_data)
     else:
         task = start_app_task.delay(url, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, app_type)
 
@@ -2194,6 +2233,25 @@ def checkInvalidConfig():
 
     return error_lines
 
+def retrieve_global_hdfs_app(data):
+
+    global_hdfs_app = None
+    namenode_container_info = None
+
+    apps = getApps(data)
+    for app in apps:
+        if app['name'] == "global_hdfs":
+            global_hdfs_app = app
+            break
+
+    if global_hdfs_app:
+        for container in global_hdfs_app['containers_full']:
+            if 'namenode' in container['name']:
+                namenode_container_info = container
+                break
+
+    return global_hdfs_app, namenode_container_info
+
 def hdfs(request):
 
     def get_entries(url, driver, parent_directory=""):
@@ -2253,23 +2311,13 @@ def hdfs(request):
     except urllib.error.HTTPError:
         data_json = {}
 
-    apps = getApps(data_json)
+    global_hdfs_app, namenode_container_info = retrieve_global_hdfs_app(data_json)
 
-    global_hdfs_app = None
+    namenode_container = None
     namenode_host = None
-
-    for app in apps:
-        if app['name'] == "global_hdfs":
-            global_hdfs_app = app
-            break
-
-    if global_hdfs_app:
-        for container in global_hdfs_app['containers_full']:
-            if 'namenode' in container['name']:
-                namenode_container_info = container
-                namenode_container = container['name']
-                namenode_host = container['host']
-                break
+    if namenode_container_info:
+        namenode_container = namenode_container_info['name']
+        namenode_host = namenode_container_info['host']
 
     global_hdfs_ready = global_hdfs_app and namenode_host and not state.__is_webdriver_closing__()
 

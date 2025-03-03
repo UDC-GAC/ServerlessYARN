@@ -141,6 +141,131 @@ def get_min_container_size(node_memory):
 
     return min_container_size
 
+def set_hadoop_resources(container_resources, virtual_cluster, number_of_workers):
+
+    hadoop_resources = {}
+
+    total_cores = max(int(container_resources["cpu_max"])//100,1)
+    min_cores = max(int(container_resources["cpu_min"])//100,1)
+    total_memory = int(container_resources["mem_max"])
+    total_disks = 1
+    heapsize_factor = 0.9
+
+    ## 'Classic' way of calculating resources:
+    #reserved_memory = get_node_reserved_memory(total_memory)
+    #available_memory = total_memory - reserved_memory
+    #min_container_size = get_min_container_size(total_memory)
+
+    #number_of_hadoop_containers = int(min(2*total_cores, 1.8*total_disks, available_memory/min_container_size))
+    # mem_per_container = max(min_container_size, available_memory/number_of_hadoop_containers)
+
+    # scheduler_maximum_memory = int(number_of_hadoop_containers * mem_per_container)
+    # scheduler_minimum_memory = int(mem_per_container)
+    # nodemanager_memory = scheduler_maximum_memory
+    # map_memory = scheduler_minimum_memory
+    # reduce_memory = int(min(2*mem_per_container, available_memory))
+    # mapreduce_am_memory = reduce_memory
+
+
+    ## 'BDEv' way of calculating resources:
+    #number_of_hadoop_containers = int(min(2*total_cores, available_memory/min_container_size))
+
+    if virtual_cluster:
+        ## Virtual cluster config (test environment with low resources)
+        hyperthreading = False
+        app_master_heapsize = 128
+        datanode_d_heapsize = 128
+        nodemanager_d_heapsize = 128
+    else:
+        ## Physical cluster config (real environment with (presumably) high resources)
+        hyperthreading = True
+        app_master_heapsize = 1024
+        datanode_d_heapsize = 1024
+        nodemanager_d_heapsize = 1024
+
+    ## adjust total_cores to hyperthreading system
+    ## TODO: check if system actually has hyperthreading
+    if hyperthreading:
+        total_cores = total_cores // 2
+
+    app_master_memory_overhead = int(app_master_heapsize * 0.1)
+    if app_master_memory_overhead < 384:
+        app_master_memory_overhead = 384
+    mapreduce_am_memory = app_master_heapsize + app_master_memory_overhead
+
+    memory_per_container_factor = 0.95
+    available_memory = int(total_memory * memory_per_container_factor)
+    nodemanager_memory = available_memory - nodemanager_d_heapsize - datanode_d_heapsize
+
+    mem_per_container = int((nodemanager_memory - mapreduce_am_memory) / total_cores)
+
+    map_memory_ratio = 1
+    reduce_memory_ratio = 1
+    map_memory = int(min(mem_per_container * map_memory_ratio, available_memory))
+    reduce_memory = int(min(mem_per_container * reduce_memory_ratio, available_memory))
+
+    scheduler_maximum_memory = nodemanager_memory
+    #scheduler_minimum_memory = int(mem_per_container)
+    scheduler_minimum_memory = 256
+
+    # total_available_memory = 0
+    # for host in new_containers:
+    #     if container_type in new_containers[host]:
+    #         total_available_memory += available_memory * new_containers[host][container_type]
+    total_available_memory = available_memory * number_of_workers
+
+    if total_available_memory < map_memory + reduce_memory + mapreduce_am_memory:
+        memory_slice = nodemanager_memory/3.5
+        scheduler_minimum_memory = int(memory_slice)
+        map_memory = scheduler_minimum_memory
+        reduce_memory = scheduler_minimum_memory
+        mapreduce_am_memory = int(1.5 * memory_slice)
+
+    map_memory_java_opts = int(heapsize_factor * map_memory)
+    reduce_memory_java_opts = int(heapsize_factor * reduce_memory)
+    #mapreduce_am_memory_java_opts = int(heapsize_factor * mapreduce_am_memory)
+    mapreduce_am_memory_java_opts = app_master_heapsize
+
+    hadoop_resources = {
+        "vcores": str(total_cores),
+        "min_vcores": str(min_cores),
+        "scheduler_maximum_memory": str(scheduler_maximum_memory),
+        "scheduler_minimum_memory": str(scheduler_minimum_memory),
+        "nodemanager_memory": str(nodemanager_memory),
+        "map_memory": str(map_memory),
+        "map_memory_java_opts": str(map_memory_java_opts),
+        "reduce_memory": str(reduce_memory),
+        "reduce_memory_java_opts": str(reduce_memory_java_opts),
+        "mapreduce_am_memory": str(mapreduce_am_memory),
+        "mapreduce_am_memory_java_opts": str(mapreduce_am_memory_java_opts),
+        "datanode_d_heapsize": str(datanode_d_heapsize),
+        "nodemanager_d_heapsize": str(nodemanager_d_heapsize)
+    }
+
+    # Check assigned resources are valid
+    for resource in hadoop_resources:
+        value = int(hadoop_resources[resource])
+        if value <= 0:
+            bottleneck_resource = "CPU" if resource in ["vcores", "min_vcores"] else "memory"
+            raise Exception("Error allocating resources for containers in Hadoop application. "
+                            "Value for '{0}' is negative ({1}). The application may have been assigned "
+                            "too low {2} values.".format(resource, value, bottleneck_resource))
+
+    return hadoop_resources
+
+def extract_hadoop_resources(hadoop_resources):
+
+    resources_to_extract = ["vcores", "min_vcores", "scheduler_maximum_memory", "scheduler_minimum_memory", "nodemanager_memory", 
+                            "map_memory", "map_memory_java_opts", "reduce_memory", "reduce_memory_java_opts", "mapreduce_am_memory", 
+                            "mapreduce_am_memory_java_opts", "datanode_d_heapsize", "nodemanager_d_heapsize"]
+    extracted_resources = []
+
+    for resource in resources_to_extract:
+        extracted_resources.append(hadoop_resources[resource])
+
+    return extracted_resources
+
+
 def process_script(script_name, argument_list, error_message):
 
     rc = subprocess.Popen(["./ui/scripts/{0}.sh".format(script_name), *argument_list], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -374,122 +499,24 @@ def start_app_task(self, url, app, app_files, new_containers, container_resource
     remove_containers_from_app(url, app_containers, app, app_files, scaler_polling_freq)
 
 @shared_task(bind=True)
-def start_hadoop_app_task(self, url, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type="hadoop_app"):
+def start_hadoop_app_task(self, url, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type="hadoop_app", global_hdfs_data=None):
 
     # Calculate resources for Hadoop cluster
     hadoop_resources = {}
     for container_type in ["regular", "irregular"]:
         # NOTE: 'irregular' container won't be created due to a previous workaround
         if container_type in container_resources:
-            hadoop_resources[container_type] = {}
 
-            total_cores = max(int(container_resources[container_type]["cpu_max"])//100,1)
-            min_cores = max(int(container_resources[container_type]["cpu_min"])//100,1)
-            total_memory = int(container_resources[container_type]["mem_max"])
-            total_disks = 1
-            heapsize_factor = 0.9
-
-            ## 'Classic' way of calculating resources:
-            #reserved_memory = get_node_reserved_memory(total_memory)
-            #available_memory = total_memory - reserved_memory
-            #min_container_size = get_min_container_size(total_memory)
-
-            #number_of_hadoop_containers = int(min(2*total_cores, 1.8*total_disks, available_memory/min_container_size))
-            # mem_per_container = max(min_container_size, available_memory/number_of_hadoop_containers)
-
-            # scheduler_maximum_memory = int(number_of_hadoop_containers * mem_per_container)
-            # scheduler_minimum_memory = int(mem_per_container)
-            # nodemanager_memory = scheduler_maximum_memory
-            # map_memory = scheduler_minimum_memory
-            # reduce_memory = int(min(2*mem_per_container, available_memory))
-            # mapreduce_am_memory = reduce_memory
-
-
-            ## 'BDEv' way of calculating resources:
-            #number_of_hadoop_containers = int(min(2*total_cores, available_memory/min_container_size))
-
-            if virtual_cluster:
-                ## Virtual cluster config (test environment with low resources)
-                hyperthreading = False
-                app_master_heapsize = 128
-                datanode_d_heapsize = 128
-                nodemanager_d_heapsize = 128
-            else:
-                ## Physical cluster config (real environment with (presumably) high resources)
-                hyperthreading = True
-                app_master_heapsize = 1024
-                datanode_d_heapsize = 1024
-                nodemanager_d_heapsize = 1024
-
-            ## adjust total_cores to hyperthreading system
-            ## TODO: check if system actually has hyperthreading
-            if hyperthreading:
-                total_cores = total_cores // 2
-
-            app_master_memory_overhead = int(app_master_heapsize * 0.1)
-            if app_master_memory_overhead < 384:
-                app_master_memory_overhead = 384
-            mapreduce_am_memory = app_master_heapsize + app_master_memory_overhead
-
-            memory_per_container_factor = 0.95
-            available_memory = int(total_memory * memory_per_container_factor)
-            nodemanager_memory = available_memory - nodemanager_d_heapsize - datanode_d_heapsize
-
-            mem_per_container = int((nodemanager_memory - mapreduce_am_memory) / total_cores)
-
-            map_memory_ratio = 1
-            reduce_memory_ratio = 1
-            map_memory = int(min(mem_per_container * map_memory_ratio, available_memory))
-            reduce_memory = int(min(mem_per_container * reduce_memory_ratio, available_memory))
-
-            scheduler_maximum_memory = nodemanager_memory
-            #scheduler_minimum_memory = int(mem_per_container)
-            scheduler_minimum_memory = 256
-
-            total_available_memory = 0
+            number_of_workers = 0
             for host in new_containers:
-                if container_type in new_containers[host]:
-                    total_available_memory += available_memory * new_containers[host][container_type]
+                if container_type in new_containers[host]: number_of_workers += new_containers[host][container_type]
 
-            if total_available_memory < map_memory + reduce_memory + mapreduce_am_memory:
-                memory_slice = nodemanager_memory/3.5
-                scheduler_minimum_memory = int(memory_slice)
-                map_memory = scheduler_minimum_memory
-                reduce_memory = scheduler_minimum_memory
-                mapreduce_am_memory = int(1.5 * memory_slice)
-
-            map_memory_java_opts = int(heapsize_factor * map_memory)
-            reduce_memory_java_opts = int(heapsize_factor * reduce_memory)
-            #mapreduce_am_memory_java_opts = int(heapsize_factor * mapreduce_am_memory)
-            mapreduce_am_memory_java_opts = app_master_heapsize
-
-            hadoop_resources[container_type]["vcores"] = str(total_cores)
-            hadoop_resources[container_type]["min_vcores"] = str(min_cores)
-            hadoop_resources[container_type]["scheduler_maximum_memory"] = str(scheduler_maximum_memory)
-            hadoop_resources[container_type]["scheduler_minimum_memory"] = str(scheduler_minimum_memory)
-            hadoop_resources[container_type]["nodemanager_memory"] = str(nodemanager_memory)
-            hadoop_resources[container_type]["map_memory"] = str(map_memory)
-            hadoop_resources[container_type]["map_memory_java_opts"] = str(map_memory_java_opts)
-            hadoop_resources[container_type]["reduce_memory"] = str(reduce_memory)
-            hadoop_resources[container_type]["reduce_memory_java_opts"] = str(reduce_memory_java_opts)
-            hadoop_resources[container_type]["mapreduce_am_memory"] = str(mapreduce_am_memory)
-            hadoop_resources[container_type]["mapreduce_am_memory_java_opts"] = str(mapreduce_am_memory_java_opts)
-            hadoop_resources[container_type]["datanode_d_heapsize"] = str(datanode_d_heapsize)
-            hadoop_resources[container_type]["nodemanager_d_heapsize"] = str(nodemanager_d_heapsize)
-
-            # Check assigned resources are valid
-            for resource in hadoop_resources[container_type]:
-                value = int(hadoop_resources[container_type][resource])
-                if value <= 0:
-                    bottleneck_resource = "CPU" if resource in ["vcores", "min_vcores"] else "memory"
-                    raise Exception("Error allocating resources for containers in Hadoop application. "
-                                    "Value for '{0}' is negative ({1}). The application may have been assigned "
-                                    "too low {2} values.".format(resource, value, bottleneck_resource))
+            hadoop_resources[container_type] = set_hadoop_resources(container_resources[container_type], virtual_cluster, number_of_workers)
 
     start_time = timeit.default_timer()
 
     app_containers = start_containers_with_app_task_v2(url, new_containers, app, app_files, container_resources, disk_assignation, app_type)
-    rm_host, rm_container = setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type)
+    rm_host, rm_container = setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type, global_hdfs_data)
 
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)
@@ -586,7 +613,7 @@ def setup_containers_network_task(app_containers, url, app, app_files, new_conta
 
 
 @shared_task
-def setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type="hadoop_app"):
+def setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type="hadoop_app", global_hdfs_data=None):
 
     # Get rm-nn container (it is the first container from the host that got that container)
     for host in new_containers:
@@ -604,27 +631,22 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
     formatted_app_containers = str(app_containers).replace(' ','')
 
     # NOTE: 'irregular' container won't be created due to a previous workaround
-    vcores = hadoop_resources["regular"]["vcores"]
-    min_vcores = hadoop_resources["regular"]["min_vcores"]
-    scheduler_maximum_memory = hadoop_resources["regular"]["scheduler_maximum_memory"]
-    scheduler_minimum_memory = hadoop_resources["regular"]["scheduler_minimum_memory"]
-    nodemanager_memory = hadoop_resources["regular"]["nodemanager_memory"]
-    map_memory = hadoop_resources["regular"]["map_memory"]
-    map_memory_java_opts = hadoop_resources["regular"]["map_memory_java_opts"]
-    reduce_memory = hadoop_resources["regular"]["reduce_memory"]
-    reduce_memory_java_opts = hadoop_resources["regular"]["reduce_memory_java_opts"]
-    mapreduce_am_memory = hadoop_resources["regular"]["mapreduce_am_memory"]
-    mapreduce_am_memory_java_opts = hadoop_resources["regular"]["mapreduce_am_memory_java_opts"]
-    datanode_d_heapsize = hadoop_resources["regular"]["datanode_d_heapsize"]
-    nodemanager_d_heapsize =  hadoop_resources["regular"]["nodemanager_d_heapsize"]
+    extracted_hadoop_resources = extract_hadoop_resources(hadoop_resources["regular"])
 
-    argument_list = [hosts, app, app_type, formatted_app_containers, rm_host, rm_container['container_name'],
-        vcores, min_vcores, scheduler_maximum_memory, scheduler_minimum_memory, nodemanager_memory,
-        map_memory, map_memory_java_opts, reduce_memory, reduce_memory_java_opts, mapreduce_am_memory,
-        mapreduce_am_memory_java_opts, datanode_d_heapsize, nodemanager_d_heapsize]
+    argument_list = [hosts, app, app_type, formatted_app_containers, rm_host, rm_container['container_name']]
+    argument_list.extend(extracted_hadoop_resources)
 
-    error_message = "Error setting network for app {0}".format(app)
-    process_script("setup_hadoop_network_on_containers", argument_list, error_message)
+    if not global_hdfs_data:
+        error_message = "Error setting network for app {0}".format(app)
+        process_script("setup_hadoop_network_on_containers", argument_list, error_message)
+    else:
+        ## Download required input data from global HDFS to local one
+        argument_list.append(global_hdfs_data['namenode_container_name'])
+        argument_list.append(global_hdfs_data['namenode_host'])
+        argument_list.append(global_hdfs_data['global_input'])
+        argument_list.append(global_hdfs_data['local_output'])
+        error_message = "Error setting network for app {0} with global HDFS".format(app)
+        process_script("hdfs/setup_hadoop_network_with_global_hdfs", argument_list, error_message)
 
     # Add containers to app
     for container in app_containers:
@@ -634,6 +656,15 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
     # Lastly, start app on RM container
     full_url = url + "container/{0}/{1}".format(rm_container['container_name'],app)
     add_container_to_app_task(full_url, rm_host, rm_container, app, app_files)
+
+    if global_hdfs_data:
+        ## Upload generated output data from local HDFS to global one
+        argument_list = [rm_host, rm_container['container_name']]
+        argument_list.append(global_hdfs_data['namenode_container_name'])
+        argument_list.append(global_hdfs_data['local_input'])
+        argument_list.append(global_hdfs_data['global_output'])
+        error_message = "Error uploading output data from {0} in local HDFS to {1} in global one".format(global_hdfs_data['local_input'], global_hdfs_data['global_output'])
+        process_script("hdfs/upload_local_hdfs_data_to_global", argument_list, error_message)
 
     return rm_host, rm_container['container_name']
 
@@ -669,19 +700,16 @@ def remove_file_from_hdfs(self, namenode_host, namenode_container, path_to_delet
 def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluster, put_field_data, hosts):
 
     # Calculate resources for HDFS cluster
-    hdfs_resources = {}
-    if virtual_cluster: datanode_d_heapsize = 128
-    else: datanode_d_heapsize = 1024
-    hdfs_resources["datanode_d_heapsize"] = str(datanode_d_heapsize)
+    number_of_workers = len(hosts) # or len(containers) - 1
 
-    # Check assigned resources are valid
-    for resource in hdfs_resources:
-        value = int(hdfs_resources[resource])
-        if value <= 0:
-            bottleneck_resource = "CPU" if resource in ["vcores", "min_vcores"] else "memory"
-            raise Exception("Error allocating resources for containers in Hadoop application. "
-                            "Value for '{0}' is negative ({1}). The application may have been assigned "
-                            "too low {2} values.".format(resource, value, bottleneck_resource))
+    worker_resources = None
+    for container in containers:
+        if "datanode" in container['container_name']:
+            worker_resources = container
+            break
+    if not worker_resources: raise Exception("Worker container not found when starting global hdfs: {0}".format(containers))
+
+    hdfs_resources = set_hadoop_resources(worker_resources, virtual_cluster, number_of_workers)
 
     start_time = timeit.default_timer()
 

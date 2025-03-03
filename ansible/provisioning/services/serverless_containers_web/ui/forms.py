@@ -5,7 +5,7 @@ from crispy_forms.bootstrap import FormActions
 from django_json_widget.widgets import JSONEditorWidget
 import yaml
 from copy import deepcopy
-from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES
+from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, DEFAULT_HDFS_VALUES
 
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file:
@@ -711,6 +711,14 @@ class StartAppForm(forms.Form):
             initial=3,
             required=True
             )
+
+    read_from_global = forms.BooleanField(label="Read files from global HDFS?", required=False)
+    global_input = forms.CharField(label="Input file (or directory) to read from global HDFS", required=False)
+    local_output = forms.CharField(label="Output directory to write to local HDFS ('{0}' if unset)".format(DEFAULT_HDFS_VALUES["local_output"]), required=False)
+    write_to_global = forms.BooleanField(label="Write files to global HDFS?", required=False)
+    local_input = forms.CharField(label="Input file (or directory) to read from local HDFS", required=False)
+    global_output = forms.CharField(label="Output directory to write to global HDFS ('{0}' if unset)".format(DEFAULT_HDFS_VALUES["global_output"]), required=False)
+
     def __init__(self, *args, **kwargs):
         super(StartAppForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -724,10 +732,18 @@ class StartAppForm(forms.Form):
             Field('number_of_containers'),
             Field('assignation_policy'),
             Field('benevolence'),
-            FormActions(
-                Submit('save', 'Start App', css_class='caja'),
-            )
         )
+
+        if config['global_hdfs']:
+            self.helper.layout.append(Field('read_from_global', type="hidden", css_class='read_from_global_condition'))
+            self.helper.layout.append(Field('global_input', css_class='global_input'))
+            self.helper.layout.append(Field('local_output', css_class='local_output'))
+            self.helper.layout.append(Field('write_to_global', type="hidden", css_class='write_to_global_condition'))
+            self.helper.layout.append(Field('local_input', css_class='local_input'))
+            self.helper.layout.append(Field('global_output', css_class='global_output'))
+
+        # Submit button
+        self.helper.layout.append(FormActions(Submit('save', 'Start App', css_class='caja')))
 
 # Not used ATM
 class AddContainersToAppForm(forms.Form):

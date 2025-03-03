@@ -18,6 +18,11 @@ DEFAULT_RESOURCE_VALUES = {
     "weight": 1
 }
 
+DEFAULT_HDFS_VALUES = {
+    "local_output": "/user/root",
+    "global_output": "/user/root"
+}
+
 DEFAULT_HEADERS = {'Content-Type': 'application/json'}
 
 def request_to_state_db(url, operation, error_message, data=None, headers=DEFAULT_HEADERS, session=None):
