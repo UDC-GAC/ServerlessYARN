@@ -99,7 +99,8 @@ class OpenTSDB(BaseDB):
         :param report: Report to save
         """
         self.client.send(self.metric_name, report.power,
-                         timestamp=int(report.timestamp.replace(tzinfo=timezone.utc).timestamp()), host=report.target)
+                         timestamp=int(report.timestamp.replace(tzinfo=timezone.utc).timestamp()),
+                         host=report.target, socket=report.metadata.get("socket", 0))
 
     def save_many(self, reports: List[Report]):
         """
