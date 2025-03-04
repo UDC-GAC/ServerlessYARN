@@ -9,7 +9,7 @@
 
   vars:
     - container_bind_dir: "{{ bind_dir }}/{{ container }}"
-    - hdfs_file_list: ["core-site.xml", "hdfs-site.xml", "hadoop-env.sh"]
+    - hdfs_file_list: ["core-site.xml", "hdfs-site.xml", "hadoop-env.sh", "rack_topology.py"]
     - hadoop_file_list: ["yarn-site.xml", "mapred-site.xml", "yarn-env.sh"]
     - spark_file_list: ["spark-defaults.conf"]
 
@@ -134,6 +134,7 @@
             template:
               src: "templates/hadoop/{{ item }}"
               dest: "{{ tmpdir }}/{{ item }}"
+              mode: preserve
             loop: "{{ hdfs_file_list }}"
             tags: setup_hdfs
 
