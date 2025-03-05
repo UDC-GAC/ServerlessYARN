@@ -36,7 +36,7 @@
         # Install script
         - name: Copy app install script if applicable
           when: install_script is defined and install_script != ''
-          synchronize:
+          copy:
             src: "{{ app_directory }}/{{ install_script }}"
             dest: "{{ installation_path }}/{{ app_directory }}/"
 
@@ -45,7 +45,7 @@
           when: files_dir is defined and files_dir != ''
           block:
             - name: Copy app optional files directory
-              synchronize:
+              copy:
                 src: "{{ app_directory }}/{{ files_dir }}"
                 dest: "{{ installation_path }}/{{ app_directory }}/"
 
@@ -66,7 +66,7 @@
         # Hadoop files
         - name: Copy necessary files for hadoop apps
           when: "item == 'hadoop_app'"
-          synchronize:
+          copy:
             src: "{{ app_directory }}/{{ file }}"
             dest: "{{ installation_path }}/{{ app_directory }}/"
           with_items:
