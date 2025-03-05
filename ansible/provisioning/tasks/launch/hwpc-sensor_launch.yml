@@ -77,3 +77,22 @@
   debug:
     msg: 'HWPC Sensor inside a lxc container not yet supported'
   when: "container_engine == 'lxc'"
+
+# Subscribe the sensors to ServerlessContainers so that the Guardian accounts for their power consumption
+- name: Change cgroups v1 permissions for HWPC sensor containers
+  shell: "
+    {% for sensor in hwpc_sensors_info %}
+      {% if sensor.host == inventory_hostname %}
+        python3 change_cgroupsv1_permissions.py {{ singularity_command_alias }} {{ singularity_cgroups_group }} {{ sensor.container_name }} &&
+      {% endif  %}
+    {% endfor %}true"
+  args:
+    chdir: "{{ installation_path }}"
+    executable: /bin/bash
+
+- name: Subscribe HWPC sensor containers to ServerlessContainers
+  delegate_to: localhost
+  run_once: yes
+  shell: "python3 scripts/stateDatabase/add_containers_API_v3.py {{ hwpc_sensors_info | replace(' ','') | quote }} config/config.yml"
+  args:
+    executable: /bin/bash

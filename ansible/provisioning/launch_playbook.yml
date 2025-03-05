@@ -73,5 +73,15 @@
   tasks:
     - import_tasks: tasks/launch/hwpc-sensor_launch.yml
       when: "power_budgeting"
-      tags: 
-      - start_hwpc_sensor
+      tags: start_hwpc_sensor
+      vars:
+        - nodes: "{{ host_list | split(',') if host_list is defined else groups['nodes'] }}"
+        - hwpc_sensors_info_str: >
+            {%- set hwpc_sensors_info=[] -%}
+            {%- for host in nodes -%}
+              {%- set sensor_info = dict() -%}
+              {{ sensor_info.update({'container_name': 'hwpc-sensor-' ~ host, 'host': host, 'cpu_max': 0, 'cpu_min': 0, 'mem_max': 64, 'mem_min': 0, 'energy_max': 0, 'energy_min': 0, 'cpu_boundary': 10, 'cpu_boundary_type': 'percentage_of_max', 'cpu_guard': 'false', 'mem_boundary': 10, 'mem_boundary_type': 'percentage_of_max', 'mem_guard': 'false', 'energy_boundary': 10, 'energy_boundary_type': 'percentage_of_max', 'energy_guard': 'false'}) }}
+              {{ hwpc_sensors_info.append(sensor_info) }}
+            {%- endfor -%}
+            {{ hwpc_sensors_info }}
+        - hwpc_sensors_info: "{{ hwpc_sensors_info_str | replace('\n','') | replace(' ','') }}"
