@@ -49,17 +49,18 @@
 
     - import_tasks: tasks/launch/serverlessyarn_services_launch.yml
 
-    - import_tasks: tasks/launch/mongodb_launch.yml
+    - block:
+      - import_tasks: tasks/launch/mongodb_launch.yml
+        tags: start_mongodb,start_smartwatts,start_selfwatts
+
+      - import_tasks: tasks/launch/smartwatts_launch.yml
+        when: "power_meter == 'smartwatts'"
+        tags: start_smartwatts
+
+      - import_tasks: tasks/launch/selfwatts_launch.yml
+        when: "power_meter == 'selfwatts'"
+        tags: start_selfwatts
       when: "power_budgeting"
-      tags: start_mongodb
-
-    - import_tasks: tasks/launch/smartwatts_launch.yml
-      when: "power_budgeting and power_meter == 'smartwatts'"
-      tags: start_smartwatts
-
-    - import_tasks: tasks/launch/selfwatts_launch.yml
-      when: "power_budgeting and power_meter == 'selfwatts'"
-      tags: start_selfwatts
 
 # Setup nodes
 - name: Launch services from hosts
