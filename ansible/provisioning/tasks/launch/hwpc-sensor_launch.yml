@@ -71,7 +71,7 @@
   vars:
     - definition_file: "hwpc-sensor.def"
     - image_file: "hwpc-sensor.sif"
-    - container_name: "hwpc-sensor"
+    - container_name: "hwpc-sensor-{{ inventory_hostname }}"
 
 - name: Start HWPC Sensor inside a lxc container
   debug:
