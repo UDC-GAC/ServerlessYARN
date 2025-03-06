@@ -786,8 +786,8 @@ def processAddContainers(request, url, structure_type, resources, host_list):
                 resource_boundary = request.POST[resource + "_boundary"]
                 resource_boundary_type = request.POST[resource + "_boundary_type"]
             else:
-                resource_boundary = DEFAULT_LIMIT_VALUES["default_boundary_percentage"]
-                resource_boundary_type = DEFAULT_LIMIT_VALUES["default_boundary_type"]
+                resource_boundary = DEFAULT_LIMIT_VALUES["boundary"]
+                resource_boundary_type = DEFAULT_LIMIT_VALUES["boundary_type"]
             container_resources[resource + "_boundary"] = resource_boundary
             container_resources[resource + "_boundary_type"] = resource_boundary_type
 
@@ -906,8 +906,8 @@ def processAddApp(request, url, structure_name, structure_type, resources):
                 resource_boundary = request.POST[resource + "_boundary"]
                 resource_boundary_type = request.POST[resource + "_boundary_type"]
             else:
-                resource_boundary = DEFAULT_LIMIT_VALUES["default_boundary_percentage"]
-                resource_boundary_type = DEFAULT_LIMIT_VALUES["default_boundary_type"]
+                resource_boundary = DEFAULT_LIMIT_VALUES["boundary"]
+                resource_boundary_type = DEFAULT_LIMIT_VALUES["boundary_type"]
 
             put_field_data['limits']['resources'][resource] = {'boundary': resource_boundary, 'boundary_type': resource_boundary_type}
 
@@ -1201,14 +1201,14 @@ def getContainerResourcesForApp(number_of_containers, app_resources, app_limits,
             container_resources['regular'][boundary_key] = round(
                 ((container_resources['regular'][max_key] - container_resources['regular'][min_key]) * 100) /
                 (divider * container_resources['regular'][max_key]))
-            container_resources['regular'][boundary_type_key] = DEFAULT_LIMIT_VALUES["default_boundary_type"]
+            container_resources['regular'][boundary_type_key] = DEFAULT_LIMIT_VALUES["boundary_type"]
 
             if 'bigger' in container_resources or 'smaller' in container_resources:
                 irregular = 'bigger' if 'bigger' in container_resources else 'smaller'
                 container_resources[irregular][boundary_key] = round(
                     ((container_resources[irregular][max_key] - container_resources[irregular][min_key]) * 100) /
                     (divider * container_resources['regular'][max_key]))
-                container_resources[irregular][boundary_type_key] = DEFAULT_LIMIT_VALUES["default_boundary_type"]
+                container_resources[irregular][boundary_type_key] = DEFAULT_LIMIT_VALUES["boundary_type"]
 
     if not correctly_allocated:
         # use original resource allocation
