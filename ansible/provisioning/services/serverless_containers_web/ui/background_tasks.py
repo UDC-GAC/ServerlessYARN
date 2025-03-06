@@ -150,7 +150,10 @@ def process_script(script_name, argument_list, error_message):
     print(out.decode("utf-8"))
 
     if rc.returncode != 0:
-        error = "{0}: {1}".format(error_message, err.decode("utf-8"))
+        extracted_error = err.decode("utf-8")
+        if extracted_error.strip() == "": extracted_error = "Please consult Celery log under services/celery for further details"
+
+        error = "{0}: {1}".format(error_message, extracted_error)
         raise Exception(error)
 
 ## Adds
