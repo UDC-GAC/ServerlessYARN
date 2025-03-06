@@ -118,7 +118,7 @@ if __name__ == "__main__":
             for key in MANDATORY_LIMIT_KEYS + OPTIONAL_LIMIT_KEYS_WITH_DEFAULT + OPTIONAL_LIMIT_KEYS:
                 if "{0}_{1}".format(resource,key) in config: app_config["limits"]["resources"][resource][key] = config["{0}_{1}".format(resource,key)]
                 elif key in MANDATORY_LIMIT_KEYS: raise Exception("Missing mandatory parameter {0}".format(key))
-                elif key in OPTIONAL_LIMIT_KEYS_WITH_DEFAULT: app_config["limits"]["resources"][resource][key] = DEFAULT_RESOURCE_VALUES[key]
+                elif key in OPTIONAL_LIMIT_KEYS_WITH_DEFAULT: app_config["limits"]["resources"][resource][key] = DEFAULT_LIMIT_VALUES[key]
                 elif key in OPTIONAL_LIMIT_KEYS: app_config["limits"]["resources"][resource][key] = ""
 
         for app_name in app_names:
