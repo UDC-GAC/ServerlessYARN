@@ -12,13 +12,13 @@
     - name: Copy HWPC Sensor container definition file
       when: not stat_output.stat.exists
       template:
-        src: "templates/power_budgeting/monitoring/{{ definition_file }}"
+        src: "templates/power_budgeting/monitoring/sensor/{{ definition_file }}"
         dest: "{{ hwpc_sensor_path }}/image/{{ definition_file }}"
 
     - name: Copy HWPC Sensor configuration files
       when: not stat_output.stat.exists
       template:
-        src: "templates/power_budgeting/monitoring/config/{{ item }}"
+        src: "templates/power_budgeting/monitoring/sensor/config/{{ item }}"
         dest: "{{ hwpc_sensor_path }}/config/{{ item }}"
       with_items:
         - hwpc-sensor-config.json

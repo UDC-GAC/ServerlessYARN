@@ -3,7 +3,7 @@
   block:
     - name: Copy mongodb container definition file
       template:
-        src: "templates/power_budgeting/monitoring/{{ definition_file }}"
+        src: "templates/power_budgeting/monitoring/db/{{ definition_file }}"
         dest: "{{ mongodb_path }}/image/{{ definition_file }}"
 
     - name: Build image
