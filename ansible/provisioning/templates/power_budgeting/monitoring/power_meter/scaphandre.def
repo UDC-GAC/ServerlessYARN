@@ -1,0 +1,18 @@
+Bootstrap: docker
+From: hubblo/scaphandre
+
+# TODO: Complete definition and config output properly
+# Maybe a definition file is not needed, just run:
+#   sudo apptainer instance start --bind /sys/class/powercap:/sys/class/powercap --bind /proc:/proc docker://hubblo/scaphandre scaphandre stdout -t 15
+# To check HW compatibility:
+#   modprobe intel_rapl_common # or intel_rapl for kenerls < 5
+# To automatically install Rust:
+#   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile default
+
+%runscript
+    echo "Starting Scaphandre..."
+    /usr/local/bin/scaphandre stdout -t 15
+
+%startscript
+    echo "Starting Scaphandre..."
+    /usr/local/bin/scaphandre stdout -t 15
