@@ -36,7 +36,7 @@
         # Install script
         - name: Copy app install script if applicable
           when: install_script is defined and install_script != ''
-          copy:
+          template:
             src: "{{ app_directory }}/{{ install_script }}"
             dest: "{{ installation_path }}/{{ app_directory }}/"
 
