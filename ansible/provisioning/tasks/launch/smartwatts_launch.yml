@@ -22,7 +22,7 @@
         dest: "{{ smartwatts_path }}/config/{{ item }}"
       with_items:
         - smartwatts-config.json
-        - opentsdb.py
+        - opentsdb-smartwatts.py
 
     - name: Build image
       when: not stat_output.stat.exists

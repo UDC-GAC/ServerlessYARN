@@ -1,8 +1,11 @@
 Bootstrap: docker
-From: python:3-slim
+From: python:3.8
 
 %files
-    {{ selfwatts_path }}/config/selfwatts-config.json /selfwatts-config.json
+    {{ selfwatts_path }}/config/opentsdb-selfwatts.py /opentsdb.py
+    {{ selfwatts_path }}/config/context-selfwatts.py /context.py
+    {{ selfwatts_path }}/config/handler-selfwatts.py /handler.py
+    {{ selfwatts_path }}/config/powerapi-0.9.3-setup.cfg /powerapi-setup.cfg
 
 %post
     export POWERAPI_REPOSITORY="https://github.com/powerapi-ng/powerapi.git"
@@ -18,14 +21,20 @@ From: python:3-slim
     git clone --depth 1 --branch "${POWERAPI_VERSION}" "${POWERAPI_REPOSITORY}" "${POWERAPI_DIR}"
     git clone -b master "${SELFWATTS_REPOSITORY}" "${SELFWATTS_DIR}"
 
-    # Change required PowerAPI version for SelfWatts
-    # TODO: Change this through file templates if needed
-    #sed -i 's/powerapi \[mongodb, influxdb, opentsdb\] == [0-9.]\+/powerapi [mongodb, influxdb, opentsdb] == 2.5.0/' "${SELFWATTS_DIR}/requirements.txt"
-    #sed -i 's/powerapi \[mongodb, influxdb, opentsdb\] == [0-9.]\+/powerapi [mongodb, influxdb, opentsdb] == 2.5.0/' "${SELFWATTS_DIR}/setup.cfg"
-    #sed -i 's/from powerapi\.backendsupervisor import BackendSupervisor/from powerapi.backend_supervisor import BackendSupervisor/' "${SELFWATTS_DIR}/selfwatts/__main__.py"
+    # Change OpenTSDB module in PowerAPI to fix bad timezone interpreting and send socket info
+    mv /opentsdb.py "${POWERAPI_DIR}/powerapi/database/opentsdb.py"
+
+    # Fix typo in setup.cfg (numpy >=1.11.O -> numpy >=1.11.0) + Add scipy==1.8.0 as a requirement
+    mv /powerapi-setup.cfg "${POWERAPI_DIR}/setup.cfg"
+
+    # Pass "metadata" argument as None to FormulaState to avoid errors (and the argument is not used)
+    mv /context.py "${SELFWATTS_DIR}/selfwatts/context.py"
+
+    # Remove multiplexing ratio check (probably this comes from older versions of HWPC Sensor)
+    mv /handler.py "${SELFWATTS_DIR}/selfwatts/handler.py"
 
     # Install PowerAPI and SelfWatts
-    pip3 install --no-cache-dir "${POWERAPI_DIR}[everything]"
+    pip3 install --no-cache-dir "${POWERAPI_DIR}[mongodb, influxdb, opentsdb]"
     pip3 install --no-cache-dir "${SELFWATTS_DIR}"
 
     # Clean repositories
@@ -35,11 +44,22 @@ From: python:3-slim
     # In Cascade Lake the following counters change their names:
     #   UNHALTED_REFERENCE_CYCLES -> CPU_CLK_THREAD_UNHALTED:REF_P
     #   UNHALTED_CORE_CYCLES -> CPU_CLK_THREAD_UNHALTED:THREAD_P
+    #   INSTRUCTIONS_RETIRED remains the same
 
+# SelfWatts doesn't accept a config file as a parameter, so we configure the tool through CLI parameters
 %runscript
     echo "Starting SelfWatts..."
-    python3 -m selfwatts --config-file /selfwatts-config.json > /dev/null 2>&1
+    python3 -m selfwatts -v -s \
+        --input mongodb --uri "mongodb://{{ mongodb_url }}" --db "cont_metrics" --collection "collection_0" --model "HWPCReport" \
+        --output opentsdb --uri "{{ opentsdb_url }}" --port {{ opentsdb_port }} --metric_name "structure.energy.usage" --model "PowerReport" --name "pusher_opentsdb" \
+        --formula selfwatts --disable-dram-formula --cpu-base-clock 100 --cpu-ratio-min 8 --cpu-ratio-base 23 --cpu-ratio-max 32 \
+        --cpu-error-threshold 2.0 --sensor-reports-frequency 1000 --controller-fixed-events " " > /dev/null 2>&1
+
 
 %startscript
     echo "Starting SelfWatts..."
-    python3 -m selfwatts  --config-file /selfwatts-config.json > /dev/null 2>&1
+    python3 -m selfwatts -v -s \
+        --input mongodb --uri "mongodb://{{ mongodb_url }}" --db "cont_metrics" --collection "collection_0" --model "HWPCReport" \
+        --output opentsdb --uri "{{ opentsdb_url }}" --port {{ opentsdb_port }} --metric_name "structure.energy.usage" --model "PowerReport" --name "pusher_opentsdb" \
+        --formula selfwatts --disable-dram-formula --cpu-base-clock 100 --cpu-ratio-min 8 --cpu-ratio-base 23 --cpu-ratio-max 32 \
+        --cpu-error-threshold 2.0 --sensor-reports-frequency 1000 --controller-fixed-events " " > /dev/null 2>&1

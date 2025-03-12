@@ -3,7 +3,7 @@ From: python:3-slim
 
 %files
     {{ smartwatts_path }}/config/smartwatts-config.json /smartwatts-config.json
-    {{ smartwatts_path }}/config/opentsdb.py /opentsdb.py
+    {{ smartwatts_path }}/config/opentsdb-smartwatts.py /opentsdb.py
 
 %post
     export POWERAPI_REPOSITORY="https://github.com/powerapi-ng/powerapi.git"
