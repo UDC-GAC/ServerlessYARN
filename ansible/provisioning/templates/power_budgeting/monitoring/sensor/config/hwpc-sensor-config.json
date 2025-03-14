@@ -6,8 +6,8 @@
   "output": {
     "type": "mongodb",
     "uri": "mongodb://{{ mongodb_url }}",
-    "database": "cont_metrics",
-    "collection": "collection_0"
+    "database": "{{ mongodb_db }}",
+    "collection": "{{ mongodb_hwpc_collection }}"
   },
   "system": {
     "rapl": {

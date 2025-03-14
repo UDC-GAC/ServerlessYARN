@@ -49,17 +49,19 @@ From: python:3.8
 # SelfWatts doesn't accept a config file as a parameter, so we configure the tool through CLI parameters
 %runscript
     echo "Starting SelfWatts..."
-    python3 -m selfwatts -v -s \
-        --input mongodb --uri "mongodb://{{ mongodb_url }}" --db "cont_metrics" --collection "collection_0" --model "HWPCReport" \
-        --output opentsdb --uri "{{ opentsdb_url }}" --port {{ opentsdb_port }} --metric_name "structure.energy.usage" --model "PowerReport" --name "pusher_opentsdb" \
+    python3 -m selfwatts -s \
+        --input mongodb --uri "mongodb://{{ mongodb_url }}" --db "{{ mongodb_db }}" --collection "{{ mongodb_hwpc_collection }}" --model "HWPCReport" \
+        --output opentsdb --uri "{{ opentsdb_url }}" --port {{ opentsdb_port }} --metric_name "structure.energy.usage" --model "PowerReport" \
+        --output mongodb --uri "mongodb://{{ mongodb_url }}" --db "{{ mongodb_db }}" --collection "{{ mongodb_control_collection }}" --model "ControlReport" \
         --formula selfwatts --disable-dram-formula --cpu-base-clock 100 --cpu-ratio-min 8 --cpu-ratio-base 23 --cpu-ratio-max 32 \
         --cpu-error-threshold 2.0 --sensor-reports-frequency 1000 --controller-fixed-events " " > /dev/null 2>&1
 
 
 %startscript
     echo "Starting SelfWatts..."
-    python3 -m selfwatts -v -s \
-        --input mongodb --uri "mongodb://{{ mongodb_url }}" --db "cont_metrics" --collection "collection_0" --model "HWPCReport" \
-        --output opentsdb --uri "{{ opentsdb_url }}" --port {{ opentsdb_port }} --metric_name "structure.energy.usage" --model "PowerReport" --name "pusher_opentsdb" \
+    python3 -m selfwatts -s \
+        --input mongodb --uri "mongodb://{{ mongodb_url }}" --db "{{ mongodb_db }}" --collection "{{ mongodb_hwpc_collection }}" --model "HWPCReport" \
+        --output opentsdb --uri "{{ opentsdb_url }}" --port {{ opentsdb_port }} --metric_name "structure.energy.usage" --model "PowerReport" \
+        --output mongodb --uri "mongodb://{{ mongodb_url }}" --db "{{ mongodb_db }}" --collection "{{ mongodb_control_collection }}" --model "ControlReport" \
         --formula selfwatts --disable-dram-formula --cpu-base-clock 100 --cpu-ratio-min 8 --cpu-ratio-base 23 --cpu-ratio-max 32 \
         --cpu-error-threshold 2.0 --sensor-reports-frequency 1000 --controller-fixed-events " " > /dev/null 2>&1

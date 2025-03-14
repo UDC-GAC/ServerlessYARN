@@ -6,8 +6,8 @@
       "model": "HWPCReport",
       "type": "mongodb",
       "uri": "mongodb://{{ mongodb_url }}",
-      "db": "cont_metrics",
-      "collection": "collection_0"
+      "db": "{{ mongodb_db }}",
+      "collection": "{{ mongodb_hwpc_collection }}"
     }
   },
   "output": {

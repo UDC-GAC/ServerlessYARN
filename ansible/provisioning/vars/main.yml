@@ -11,6 +11,9 @@ tmpdir: "{{ installation_path }}/tmpdir"
 # MongoDB
 mongodb_path: "{{ installation_path }}/mongodb"
 mongodb_data_path: "{{ installation_path }}/mongodb/data"
+mongodb_db: "metrics"
+mongodb_hwpc_collection: "hwpc-reports"
+mongodb_control_collection: "control-reports"
 # SmartWatts / SelfWatts
 smartwatts_path: "{{ installation_path }}/smartwatts"
 selfwatts_path: "{{ installation_path }}/selfwatts"

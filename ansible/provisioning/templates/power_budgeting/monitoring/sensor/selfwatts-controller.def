@@ -153,9 +153,9 @@ Stage: selfwatts-runner
 %runscript
     echo "Running SelfWatts controller..."
     python3 -m selfwatts.controller --hostname "sensor-{{ inventory_hostname }}" --frequency 1000 --pmu "clx" \
-               --mongodb-uri "mongodb://{{ mongodb_url }}" --mongodb-database "{{ mongodb_db }}" --mongodb-collection "{{ mongodb_control_collection }}"
+               --mongodb-uri "mongodb://{{ mongodb_url }}" --mongodb-database "{{ mongodb_db }}" --mongodb-collection "{{ mongodb_control_collection }}" > /dev/null 2>&1
 
 %startscript
     echo "Running SelfWatts controller..."
     python3 -m selfwatts.controller --hostname "sensor-{{ inventory_hostname }}" --frequency 1000 --pmu "clx" \
-               --mongodb-uri "mongodb://{{ mongodb_url }}" --mongodb-database "{{ mongodb_db }}" --mongodb-collection "{{ mongodb_control_collection }}"
+               --mongodb-uri "mongodb://{{ mongodb_url }}" --mongodb-database "{{ mongodb_db }}" --mongodb-collection "{{ mongodb_control_collection }}" > /dev/null 2>&1
