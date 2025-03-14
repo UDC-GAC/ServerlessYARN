@@ -4,14 +4,35 @@ From: mongo:latest
 %environment
     export MONGODB_DATA=/data/db
 
+%files
+    {{ mongodb_path }}/config/mongodb.conf /etc/mongodb.conf
+
 %runscript
+    # Clean MongoDB data directory
     mkdir -p ${MONGODB_DATA}
     rm -rf ${MONGODB_DATA}/*
-    echo "Running MongoDB..."
-    mongod --bind_ip_all
+
+    # Start MongoBD in ReplicaSet mode
+    echo "Starting MongoDB..."
+    mongod --bind_ip_all --config /etc/mongodb.conf > /dev/null 2>&1 &
+
+    # Give some time for MongoDB to initialise
+    sleep 2
+
+    # Initiate Replica Set (only one node, so it will be the Primary)
+    mongosh --host {{ mongodb_url }} --port {{ mongodb_port }} --eval "rs.initiate()"
 
 %startscript
+    # Clean MongoDB data directory
     mkdir -p ${MONGODB_DATA}
     rm -rf ${MONGODB_DATA}/*
+
+    # Start MongoBD in ReplicaSet mode
     echo "Starting MongoDB..."
-    mongod --bind_ip_all > /dev/null 2>&1
+    mongod --bind_ip_all --config /etc/mongodb.conf > /dev/null 2>&1 &
+
+    # Give some time for MongoDB to initialise
+    sleep 2
+
+    # Initiate Replica Set (as only one node is used, it will always be the Primary node)
+    mongosh --host {{ mongodb_url }} --port {{ mongodb_port }} --eval "rs.initiate()"

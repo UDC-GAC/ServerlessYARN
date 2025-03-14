@@ -14,3 +14,9 @@
     path: "{{ mongodb_data_path }}"
     state: directory
     owner: "{{ username_on_the_host.stdout_lines[0] }}"
+
+- name: Create mongodb config directory
+  file:
+    path: "{{ mongodb_path }}/config"
+    state: directory
+    owner: "{{ username_on_the_host.stdout_lines[0] }}"

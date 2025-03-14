@@ -1,12 +1,30 @@
 
-- name: Start mongodb inside an apptainer/singularity container
+- name: Start MongoDB inside an apptainer/singularity container
   block:
-    - name: Copy mongodb container definition file
+    - name: Check if MongoDB image already exists
+      stat:
+        path: "{{ mongodb_path }}/image/{{ image_file }}"
+        get_checksum: false
+        get_mime: false
+        get_attributes: false
+      register: stat_output
+
+    - name: Copy MongoDB container definition file
+      when: not stat_output.stat.exists
       template:
         src: "templates/power_budgeting/monitoring/db/{{ definition_file }}"
         dest: "{{ mongodb_path }}/image/{{ definition_file }}"
 
+    - name: Copy MongoDB configuration files
+      when: not stat_output.stat.exists
+      template:
+        src: "templates/power_budgeting/monitoring/db/config/{{ item }}"
+        dest: "{{ mongodb_path }}/config/{{ item }}"
+      with_items:
+        - mongodb.conf
+
     - name: Build image
+      when: not stat_output.stat.exists
       shell: "{{ singularity_command_alias }} build {{ image_file }} {{ definition_file }}"
       args:
         chdir: "{{ mongodb_path }}/image"
@@ -20,15 +38,15 @@
         executable: /bin/bash
 
     - name: Remove any file from MongoDB data directory
+      when: "container_name not in apptainer_list_output.stdout"
       file:
         path: "{{ mongodb_path }}/data"
         state: "{{ item }}"
       with_items:
         - absent
         - directory
-      when: "container_name not in apptainer_list_output.stdout"
 
-    - name: Start mongodb apptainer container
+    - name: Start MongoDB apptainer container
       shell: "{{ singularity_command_alias }} instance start -C --bind {{ mongodb_data_path }}:/data/db image/{{ image_file }} {{ container_name }}"
       when: "container_name not in apptainer_list_output.stdout"
       args:
@@ -41,7 +59,7 @@
     - image_file: "mongodb_container.sif"
     - container_name: "mongodb"
 
-- name: Start mongodb inside a lxc container
+- name: Start MongoDB inside a lxc container
   debug:
     msg: 'MongoDB inside a lxc container not yet supported'
   when: "container_engine == 'lxc'"
