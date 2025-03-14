@@ -72,5 +72,9 @@
 
   tasks:
     - import_tasks: tasks/launch/hwpc-sensor_launch.yml
-      when: "power_budgeting"
+      when: "power_budgeting and power_meter == 'smartwatts'"
       tags: start_hwpc_sensor
+
+    - import_tasks: tasks/launch/selfwatts-controller_launch.yml
+      when: "power_budgeting and power_meter == 'selfwatts'"
+      tags: start_selfwatts_controller

@@ -1,0 +1,161 @@
+##############################################################################################################
+# LIBPFM DEPENDENCY BUILDER IMAGE
+##############################################################################################################
+Bootstrap: docker
+From: ubuntu:focal
+Stage: libpfm-builder
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    export LIBPFM4_REPOSITORY="https://github.com/gfieni/libpfm4.git"
+    export LIBPFM4_DIR=/var/lib/libpfm4
+    #export LIBPFM4_COMMIT="27da20650617b3bd01882e35d8918cc23f6cd80c"
+
+    # Install dependencies
+    apt update && apt install -y curl build-essential git devscripts debhelper dpatch python3-dev libncurses-dev swig
+
+    # Set python3 as python (priority 1)
+    update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+
+    # Clone libpfm4 git repository and compile (.deb files are generated)
+    mkdir -p "${LIBPFM4_DIR}"
+    git clone -b selfwatts "${LIBPFM4_REPOSITORY}" "${LIBPFM4_DIR}"
+    cd "${LIBPFM4_DIR}" && rm -rf debian
+    curl -s http://archive.ubuntu.com/ubuntu/pool/main/libp/libpfm4/libpfm4_4.10.1+git20-g7700f49-2.debian.tar.xz | tar xvJ
+    patch -p1 < debian/patches/reproducible.patch
+    debian/rules binary
+    mv "${LIBPFM4_DIR}"/../*.deb "${LIBPFM4_DIR}"
+
+##############################################################################################################
+# SENSOR BUILDER IMAGE (BUILD TOOLS + COMPILATION DEPENDENCIES)
+##############################################################################################################
+Bootstrap: docker
+From: ubuntu:24.04
+Stage: sensor-builder
+
+%files from libpfm-builder
+    /var/lib/libpfm4/libpfm4_4.10.1+git20-g7700f49-2_amd64.deb /
+    /var/lib/libpfm4/libpfm4-dev_4.10.1+git20-g7700f49-2_amd64.deb /
+
+%files
+    {{ selfwatts_controller_path }}/config/CMakeLists.txt /CMakeLists.txt
+    {{ selfwatts_controller_path }}/config/target.h /target.h
+    {{ selfwatts_controller_path }}/config/target.c /target.c
+    {{ selfwatts_controller_path }}/config/target_apptainer.h /target_apptainer.h
+    {{ selfwatts_controller_path }}/config/target_apptainer.c /target_apptainer.c
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    export HWPC_SENSOR_REPOSITORY="https://github.com/powerapi-ng/hwpc-sensor.git"
+    export HWPC_SENSOR_COMMIT="34cd6eefde22385872869640c54ca05a0e39afb4"
+    export HWPC_SENSOR_SRC=/usr/src/hwpc-sensor
+
+    # Install dependencies
+    apt update
+    apt install -y build-essential git clang-tidy cmake pkg-config libczmq-dev libjson-c-dev libsystemd-dev uuid-dev libmongoc-dev
+    dpkg -i /libpfm4_4.10.1+git20-g7700f49-2_amd64.deb
+    dpkg -i /libpfm4-dev_4.10.1+git20-g7700f49-2_amd64.deb
+
+    # Clone HWPC Sensor repository
+    mkdir -p "${HWPC_SENSOR_SRC}"
+    git clone -b master "${HWPC_SENSOR_REPOSITORY}" "${HWPC_SENSOR_SRC}"
+    cd "${HWPC_SENSOR_SRC}" && git checkout "${HWPC_SENSOR_COMMIT}"
+
+    # Add support for Apptainer containers to HWPC Sensor
+    mv /CMakeLists.txt "${HWPC_SENSOR_SRC}/CMakeLists.txt"
+    mv /target.h "${HWPC_SENSOR_SRC}/src/target.h"
+    mv /target.c "${HWPC_SENSOR_SRC}/src/target.c"
+    mv /target_apptainer.h "${HWPC_SENSOR_SRC}/src/target_apptainer.h"
+    mv /target_apptainer.c "${HWPC_SENSOR_SRC}/src/target_apptainer.c"
+
+    # Build HWPC Sensor
+    # mkdir build && cd build
+    GIT_TAG=$(git describe --tags --dirty 2>/dev/null || echo "unknown")
+    GIT_REV=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+    cmake -B build -DCMAKE_BUILD_TYPE="debug" -DCMAKE_C_CLANG_TIDY="clang-tidy" -DWITH_MONGODB="ON"
+    cmake --build build --parallel $(getconf _NPROCESSORS_ONLN)
+
+##############################################################################################################
+# SELFWATTS BUILDER IMAGE (BUILD TOOLS + SETUP REQUIREMENTS)
+##############################################################################################################
+Bootstrap: docker
+From: ubuntu:24.04
+Stage: selfwatts-builder
+
+%files
+    {{ selfwatts_controller_path }}/config/controller.py /controller.py
+    {{ selfwatts_controller_path }}/config/invoker.py /invoker.py
+    {{ selfwatts_controller_path }}/config/database.py /database.py
+
+%files from libpfm-builder
+    /var/lib/libpfm4/libpfm4_4.10.1+git20-g7700f49-2_amd64.deb /
+    /var/lib/libpfm4/libpfm4-dev_4.10.1+git20-g7700f49-2_amd64.deb /
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    export SELFWATTS_CONTROLLER_REPOSITORY="https://github.com/powerapi-ng/selfwatts-controller.git"
+    export SELFWATTS_CONTROLLER_COMMIT="0eb75dced897730b9157de8ce6f148153da7a79b"
+    export SELFWATTS_CONTROLLER_SRC=/usr/src/selfwatts-controller
+
+    # Install dependencies
+    apt update
+    apt install -y python3 python3-dev python3-virtualenv python3-setuptools python3-wheel build-essential git
+    dpkg -i /libpfm4_4.10.1+git20-g7700f49-2_amd64.deb
+    dpkg -i /libpfm4-dev_4.10.1+git20-g7700f49-2_amd64.deb
+    rm -rf /var/lib/apt/lists/*
+    rm -rf /libpfm4*.deb
+
+    # Clone SelfWatts controller repository
+    mkdir -p "${SELFWATTS_CONTROLLER_SRC}"
+    git clone -b master "${SELFWATTS_CONTROLLER_REPOSITORY}" "${SELFWATTS_CONTROLLER_SRC}"
+    cd "${SELFWATTS_CONTROLLER_SRC}"
+    git checkout "${SELFWATTS_CONTROLLER_COMMIT}"
+
+    # Custom SelfWatts controller, HWPC Sensor invoker and MongoDB adapter
+    mv /controller.py "${SELFWATTS_CONTROLLER_SRC}/selfwatts/controller/controller.py"
+    mv /invoker.py "${SELFWATTS_CONTROLLER_SRC}/selfwatts/controller/invoker.py"
+    mv /database.py "${SELFWATTS_CONTROLLER_SRC}/selfwatts/controller/database.py"
+
+    # Build SelfWatts controller
+    python3 setup.py bdist_wheel
+
+##############################################################################################################
+# SELFWATTS RUNNER IMAGE (ONLY RUNTIME DEPENDENCIES)
+##############################################################################################################
+Bootstrap: docker
+From: ubuntu:24.04
+Stage: selfwatts-runner
+
+%files from libpfm-builder
+    /var/lib/libpfm4/libpfm4_4.10.1+git20-g7700f49-2_amd64.deb /
+
+%files from sensor-builder
+    /usr/src/hwpc-sensor/build/hwpc-sensor /usr/bin/hwpc-sensor
+
+%files from selfwatts-builder
+    /usr/src/selfwatts-controller/dist/selfwatts_controller-1.0.0-cp312-cp312-linux_x86_64.whl /
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+
+    # Install runtime dependencies. Maybe needed: libjson-c5 libcap2-bin libasan8 libubsan1
+    apt update
+    apt install -y libczmq4 python3 python3-pip libmongoc-1.0-0 libjson-c5
+    dpkg -i /libpfm4_4.10.1+git20-g7700f49-2_amd64.deb
+    pip3 install --break-system-packages /selfwatts_controller-1.0.0-cp312-cp312-linux_x86_64.whl
+
+    # Clean source files
+    rm -rf /var/lib/apt/lists/*
+    rm -rf /libpfm4*.deb
+    rm -rf /selfwatts_controller-*.whl
+
+# TODO: Customise PMUs depending on the underlying CPU architecture
+%runscript
+    echo "Running SelfWatts controller..."
+    python3 -m selfwatts.controller --hostname "sensor-{{ inventory_hostname }}" --frequency 1000 --pmu "clx" \
+               --mongodb-uri "mongodb://{{ mongodb_url }}" --mongodb-database "{{ mongodb_db }}" --mongodb-collection "{{ mongodb_control_collection }}"
+
+%startscript
+    echo "Running SelfWatts controller..."
+    python3 -m selfwatts.controller --hostname "sensor-{{ inventory_hostname }}" --frequency 1000 --pmu "clx" \
+               --mongodb-uri "mongodb://{{ mongodb_url }}" --mongodb-database "{{ mongodb_db }}" --mongodb-collection "{{ mongodb_control_collection }}"

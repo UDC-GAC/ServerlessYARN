@@ -78,5 +78,9 @@
       when: disk_capabilities
 
     - import_tasks: tasks/install/hwpc-sensor_setup.yml
-      when: "container_engine == 'apptainer' and power_budgeting"
+      when: "container_engine == 'apptainer' and power_budgeting and power_meter == 'smartwatts'"
       tags: setup_hwpc_sensor
+
+    - import_tasks: tasks/install/selfwatts-controller_setup.yml
+      when: "container_engine == 'apptainer' and power_budgeting and power_meter == 'selfwatts'"
+      tags: setup_selfwatts_controller

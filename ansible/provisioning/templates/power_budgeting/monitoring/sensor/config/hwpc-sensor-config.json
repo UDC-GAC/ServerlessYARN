@@ -1,5 +1,5 @@
 {
-  "name": "sensor",
+  "name": "sensor-{{ inventory_hostname }}",
   "verbose": true,
   "cgroup_basepath": "/sys/fs/cgroup/perf_event",
   "frequency": 1000,

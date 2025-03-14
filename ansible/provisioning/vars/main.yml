@@ -7,14 +7,17 @@ apptainer_repo_path: "{{ installation_path }}/apptainer"
 lxd_key_path: "{{ serverless_containers_path }}"
 tmpdir: "{{ installation_path }}/tmpdir"
 
-# SmartWatts
+## Power budgeting
+# MongoDB
 mongodb_path: "{{ installation_path }}/mongodb"
 mongodb_data_path: "{{ installation_path }}/mongodb/data"
-hwpc_sensor_path: "{{ installation_path }}/hwpc_sensor"
-hwpc_sensor_reporting_path : /tmp/powerapi-sensor-reporting
+# SmartWatts / SelfWatts
 smartwatts_path: "{{ installation_path }}/smartwatts"
 selfwatts_path: "{{ installation_path }}/selfwatts"
-
+# Sensor
+hwpc_sensor_path: "{{ installation_path }}/hwpc_sensor"
+selfwatts_controller_path: "{{ installation_path }}/selfwatts_controller"
+sensor_reporting_path : /tmp/powerapi-sensor-reporting
 # WattWizard
 host_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/host"
 container_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/container"

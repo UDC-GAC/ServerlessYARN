@@ -1,28 +1,29 @@
 
-- name: Start HWPC Sensor inside an apptainer/singularity container
+- name: Start SelfWatts controller inside an apptainer/singularity container
   block:
-    - name: Check if HWPC Sensor image already exists
+    - name: Check if SelfWatts controller image already exists
       stat:
-        path: "{{ hwpc_sensor_path }}/image/{{ image_file }}"
+        path: "{{ selfwatts_controller_path }}/image/{{ image_file }}"
         get_checksum: false
         get_mime: false
         get_attributes: false
       register: stat_output
 
-    - name: Copy HWPC Sensor container definition file
+    - name: Copy SelfWatts controller container definition file
       when: not stat_output.stat.exists
       template:
         src: "templates/power_budgeting/monitoring/sensor/{{ definition_file }}"
-        dest: "{{ hwpc_sensor_path }}/image/{{ definition_file }}"
+        dest: "{{ selfwatts_controller_path }}/image/{{ definition_file }}"
 
-    - name: Copy HWPC Sensor configuration files
+    - name: Copy SelfWatts controller configuration files
       when: not stat_output.stat.exists
       template:
         src: "templates/power_budgeting/monitoring/sensor/config/{{ item }}"
-        dest: "{{ hwpc_sensor_path }}/config/{{ item }}"
+        dest: "{{ selfwatts_controller_path }}/config/{{ item }}"
       with_items:
-        - hwpc-sensor-config.json
-        - hwpc-sensor-entrypoint.sh
+        - controller.py
+        - database.py
+        - invoker.py
         - CMakeLists.txt
         - target.h
         - target.c
@@ -33,9 +34,24 @@
       when: not stat_output.stat.exists
       shell: "{{ singularity_command_alias }} build image/{{ image_file }} image/{{ definition_file }}"
       args:
-        chdir: "{{ hwpc_sensor_path }}"
+        chdir: "{{ selfwatts_controller_path }}"
         executable: /bin/bash
         creates: "image/{{ image_file }}"
+
+    - name: Check containers status when restarting
+      shell: "sudo {{ singularity_command_alias }} instance list -j"
+      register: apptainer_list_output
+      args:
+        executable: /bin/bash
+      tags: never, restart_selfwatts_controller
+
+    - name: Stop current SelfWatts controller apptainer container
+      shell: "sudo {{ singularity_command_alias }} instance stop {{ container_name }}"
+      when: "container_name in apptainer_list_output.stdout"
+      args:
+        chdir: "{{ selfwatts_controller_path }}"
+        executable: /bin/bash
+      tags: never, restart_selfwatts_controller
 
     - name: Check containers status
       shell: "sudo {{ singularity_command_alias }} instance list -j"
@@ -43,37 +59,22 @@
       args:
         executable: /bin/bash
 
-    - name: Stop current HWPC Sensor apptainer container
-      shell: "sudo {{ singularity_command_alias }} instance stop {{ container_name }}"
-      when: "container_name in apptainer_list_output.stdout"
-      args:
-        chdir: "{{ hwpc_sensor_path }}"
-        executable: /bin/bash
-      tags: never, restart_hwpc_sensor
-
-    - name: Check containers status again
-      shell: "sudo {{ singularity_command_alias }} instance list -j"
-      register: apptainer_list_output
-      args:
-        executable: /bin/bash
-      tags: never, restart_hwpc_sensor
-
-    - name: Start HWPC Sensor apptainer container
+    - name: Start SelfWatts controller apptainer container
       shell: "sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --bind /proc:/proc --bind /sys:/sys --bind {{ sensor_reporting_path }}:/reporting image/{{ image_file }} {{ container_name }}"
       when: "container_name not in apptainer_list_output.stdout"
       args:
-        chdir: "{{ hwpc_sensor_path }}"
+        chdir: "{{ selfwatts_controller_path }}"
         executable: /bin/bash
       vars:
         extra_connection: "{{ ',ptp' if mode == 'ipvlan' else '' }}"
 
   when: "container_engine == 'apptainer'"
   vars:
-    - definition_file: "hwpc-sensor.def"
-    - image_file: "hwpc-sensor.sif"
+    - definition_file: "selfwatts-controller.def"
+    - image_file: "selfwatts-controller.sif"
     - container_name: "sensor-{{ inventory_hostname }}"
 
-- name: Start HWPC Sensor inside a lxc container
+- name: Start SelfWatts controller inside a lxc container
   debug:
-    msg: 'HWPC Sensor inside a lxc container not yet supported'
+    msg: 'SelfWatts controller inside a lxc container not yet supported'
   when: "container_engine == 'lxc'"
