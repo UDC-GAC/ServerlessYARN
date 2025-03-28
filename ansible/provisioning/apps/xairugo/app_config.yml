@@ -1,0 +1,18 @@
+## Name or list of names in case you want to create several apps with the same configuration
+names: xairugo
+
+## Resource configuration to load into State Database
+cpu_max: 400
+cpu_min: 100
+mem_max: 4096
+mem_min: 1024
+cpu_boundary: 10
+cpu_boundary_type: "percentage_of_max"
+mem_boundary: 1
+mem_boundary_type: "percentage_of_max"
+
+## The indicated files should be in the same directory as this configuration file
+start_script: start.sh
+stop_script: stop.sh
+files_dir: myfiles
+install_script: install.sh

@@ -16,3 +16,5 @@ ansible/provisioning/apps/*
 !ansible/provisioning/apps/spark_standalone/
 !ansible/provisioning/apps/npb_app/
 !ansible/provisioning/apps/smusket_app/
+!ansible/provisioning/apps/xairugo/
+
