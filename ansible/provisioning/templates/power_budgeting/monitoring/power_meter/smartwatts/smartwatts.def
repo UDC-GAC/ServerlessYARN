@@ -5,6 +5,7 @@ From: python:3-slim
     {{ power_meter_path }}/config/smartwatts-config.json /smartwatts-config.json
     {{ power_meter_path }}/config/opentsdb.py /opentsdb.py
     {{ power_meter_path }}/config/hwpc_report.py /hwpc_report.py
+    {{ power_meter_path }}/config/hwpc_report_rapl.py /hwpc_report_rapl.py
 
 %post
     export POWERAPI_REPOSITORY="https://github.com/powerapi-ng/powerapi.git"
@@ -13,6 +14,7 @@ From: python:3-slim
     export POWERAPI_VERSION="v2.9.1"
     export POWERAPI_DIR=/powerapi
     export SMARTWATTS_DIR=/smartwatts
+    export REPORT_HANDLER_FILE={% if power_meter == 'rapl' %}"/hwpc_report_rapl.py"{% else %}"/hwpc_report.py"{% endif %}
 
     # Install git
     apt update && apt install -y git
@@ -24,8 +26,8 @@ From: python:3-slim
     # Change OpenTSDB module in PowerAPI to fix bad timezone interpreting
     mv /opentsdb.py "${POWERAPI_DIR}/src/powerapi/database/opentsdb.py"
 
-    # Custom HWPCReport handler to send hostname in reports
-    mv /hwpc_report.py "${SMARTWATTS_DIR}/src/smartwatts/handler/hwpc_report.py"
+    # Custom HWPCReport
+    mv "${REPORT_HANDLER_FILE}" "${SMARTWATTS_DIR}/src/smartwatts/handler/hwpc_report.py"
 
     # Install PowerAPI and SmartWatts
     pip3 install --no-cache-dir "${POWERAPI_DIR}[everything]"

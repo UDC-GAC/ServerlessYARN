@@ -12,13 +12,13 @@
     - name: Copy power meter container definition file
       when: not stat_output.stat.exists
       template:
-        src: "templates/power_budgeting/monitoring/power_meter/{{ power_meter }}/{{ definition_file }}"
+        src: "templates/power_budgeting/monitoring/power_meter/{{ v_power_meter }}/{{ definition_file }}"
         dest: "{{ power_meter_path }}/image/{{ definition_file }}"
 
     - name: Find power meter configuration files to template
       when: not stat_output.stat.exists
       find:
-        paths: "templates/power_budgeting/monitoring/power_meter/{{ power_meter }}/config"
+        paths: "templates/power_budgeting/monitoring/power_meter/{{ v_power_meter }}/config"
         recurse: yes
       register: found_config_files
 
@@ -52,10 +52,11 @@
 
   when: "container_engine == 'apptainer'"
   vars:
-    - power_meter_path: "{{ installation_path }}/{{ power_meter }}"
-    - definition_file: "{{ power_meter }}.def"
-    - image_file: "{{ power_meter }}.sif"
-    - container_name: "{{ power_meter }}"
+    - v_power_meter: "{{ 'smartwatts' if power_meter == 'rapl' else power_meter }}"
+    - power_meter_path: "{{ installation_path }}/{{ v_power_meter }}"
+    - definition_file: "{{ v_power_meter }}.def"
+    - image_file: "{{ v_power_meter }}.sif"
+    - container_name: "{{ v_power_meter }}"
 
 - name: Start power meter inside a lxc container
   debug:
