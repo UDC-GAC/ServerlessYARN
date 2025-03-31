@@ -2,9 +2,9 @@ Bootstrap: docker
 From: python:3-slim
 
 %files
-    {{ smartwatts_path }}/config/smartwatts-config.json /smartwatts-config.json
-    {{ smartwatts_path }}/config/opentsdb-smartwatts.py /opentsdb.py
-    {{ smartwatts_path }}/config/hwpc_report-smartwatts.py /hwpc_report.py
+    {{ power_meter_path }}/config/smartwatts-config.json /smartwatts-config.json
+    {{ power_meter_path }}/config/opentsdb-smartwatts.py /opentsdb.py
+    {{ power_meter_path }}/config/hwpc_report-smartwatts.py /hwpc_report.py
 
 %post
     export POWERAPI_REPOSITORY="https://github.com/powerapi-ng/powerapi.git"

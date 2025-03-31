@@ -38,11 +38,11 @@ Stage: sensor-builder
     /var/lib/libpfm4/libpfm4-dev_4.10.1+git20-g7700f49-2_amd64.deb /
 
 %files
-    {{ selfwatts_controller_path }}/config/CMakeLists.txt /CMakeLists.txt
-    {{ selfwatts_controller_path }}/config/target.h /target.h
-    {{ selfwatts_controller_path }}/config/target.c /target.c
-    {{ selfwatts_controller_path }}/config/target_apptainer.h /target_apptainer.h
-    {{ selfwatts_controller_path }}/config/target_apptainer.c /target_apptainer.c
+    {{ power_sensor_path }}/config/CMakeLists.txt /CMakeLists.txt
+    {{ power_sensor_path }}/config/target.h /target.h
+    {{ power_sensor_path }}/config/target.c /target.c
+    {{ power_sensor_path }}/config/target_apptainer.h /target_apptainer.h
+    {{ power_sensor_path }}/config/target_apptainer.c /target_apptainer.c
 
 %post
     export DEBIAN_FRONTEND=noninteractive
@@ -83,9 +83,9 @@ From: ubuntu:24.04
 Stage: selfwatts-builder
 
 %files
-    {{ selfwatts_controller_path }}/config/controller.py /controller.py
-    {{ selfwatts_controller_path }}/config/invoker.py /invoker.py
-    {{ selfwatts_controller_path }}/config/database.py /database.py
+    {{ power_sensor_path }}/config/controller.py /controller.py
+    {{ power_sensor_path }}/config/invoker.py /invoker.py
+    {{ power_sensor_path }}/config/database.py /database.py
 
 %files from libpfm-builder
     /var/lib/libpfm4/libpfm4_4.10.1+git20-g7700f49-2_amd64.deb /

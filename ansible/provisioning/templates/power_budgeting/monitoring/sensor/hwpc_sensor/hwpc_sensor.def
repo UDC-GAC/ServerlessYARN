@@ -32,11 +32,11 @@ Stage: sensor-builder
     /var/lib/libpfm4/libpfm4*.deb /
 
 %files
-    {{ hwpc_sensor_path }}/config/CMakeLists.txt /CMakeLists.txt
-    {{ hwpc_sensor_path }}/config/target.h /target.h
-    {{ hwpc_sensor_path }}/config/target.c /target.c
-    {{ hwpc_sensor_path }}/config/target_apptainer.h /target_apptainer.h
-    {{ hwpc_sensor_path }}/config/target_apptainer.c /target_apptainer.c
+    {{ power_sensor_path }}/config/CMakeLists.txt /CMakeLists.txt
+    {{ power_sensor_path }}/config/target.h /target.h
+    {{ power_sensor_path }}/config/target.c /target.c
+    {{ power_sensor_path }}/config/target_apptainer.h /target_apptainer.h
+    {{ power_sensor_path }}/config/target_apptainer.c /target_apptainer.c
 
 %post
     export DEBIAN_FRONTEND=noninteractive
@@ -85,8 +85,8 @@ Stage: sensor-runner
     /usr/src/hwpc-sensor/build/hwpc-sensor /usr/bin/hwpc-sensor
 
 %files
-    {{ hwpc_sensor_path }}/config/hwpc-sensor-entrypoint.sh /entrypoint.sh
-    {{ hwpc_sensor_path }}/config/hwpc-sensor-config.json /hwpc-config.json
+    {{ power_sensor_path }}/config/hwpc-sensor-entrypoint.sh /entrypoint.sh
+    {{ power_sensor_path }}/config/hwpc-sensor-config.json /hwpc-config.json
 
 %post
     export DEBIAN_FRONTEND=noninteractive

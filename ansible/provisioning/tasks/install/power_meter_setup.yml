@@ -1,0 +1,20 @@
+- name: Setup power meter
+  block:
+    - name: get the username running the deploy
+      become: no
+      local_action: command whoami
+      register: username_on_the_host
+
+    - name: Create power meter installation directory
+      file:
+        path: "{{ power_meter_path }}/image"
+        state: directory
+        owner: "{{ username_on_the_host.stdout_lines[0] }}"
+
+    - name: Create power meter configuration directory
+      file:
+        path: "{{ power_meter_path }}/config"
+        state: directory
+        owner: "{{ username_on_the_host.stdout_lines[0] }}"
+  vars:
+    - power_meter_path: "{{ installation_path }}/{{ power_meter }}"

@@ -14,12 +14,7 @@ mongodb_data_path: "{{ installation_path }}/mongodb/data"
 mongodb_db: "metrics"
 mongodb_hwpc_collection: "hwpc-reports"
 mongodb_control_collection: "control-reports"
-# SmartWatts / SelfWatts
-smartwatts_path: "{{ installation_path }}/smartwatts"
-selfwatts_path: "{{ installation_path }}/selfwatts"
-# Sensor
-hwpc_sensor_path: "{{ installation_path }}/hwpc_sensor"
-selfwatts_controller_path: "{{ installation_path }}/selfwatts_controller"
+# Power sensor
 sensor_reporting_path : /tmp/powerapi-sensor-reporting
 # WattWizard
 host_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/host"

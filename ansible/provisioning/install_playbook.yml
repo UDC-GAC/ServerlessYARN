@@ -29,13 +29,8 @@
       - import_tasks: tasks/install/mongodb_setup.yml
         tags: setup_mongodb,setup_smartwatts,setup_selfwatts
 
-      - import_tasks: tasks/install/smartwatts_setup.yml
-        when: "power_meter == 'smartwatts'"
-        tags: setup_smartwatts
-
-      - import_tasks: tasks/install/selfwatts_setup.yml
-        when: "power_meter == 'selfwatts'"
-        tags: setup_selfwatts
+      - import_tasks: tasks/install/power_meter_setup.yml
+        tags: setup_power_meter
       when: "power_budgeting"
 
 # Setup nodes
@@ -77,10 +72,6 @@
         tags: extend_lv, add_disks
       when: disk_capabilities
 
-    - import_tasks: tasks/install/hwpc-sensor_setup.yml
-      when: "container_engine == 'apptainer' and power_budgeting and power_meter == 'smartwatts'"
-      tags: setup_hwpc_sensor
-
-    - import_tasks: tasks/install/selfwatts-controller_setup.yml
-      when: "container_engine == 'apptainer' and power_budgeting and power_meter == 'selfwatts'"
-      tags: setup_selfwatts_controller
+    - import_tasks: tasks/install/power_sensor_setup.yml
+      when: "power_budgeting"
+      tags: setup_power_sensor

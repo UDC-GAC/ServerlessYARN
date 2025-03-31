@@ -1,39 +1,37 @@
 
-- name: Start HWPC Sensor inside an apptainer/singularity container
+- name: Start power sensor inside an apptainer/singularity container
   block:
-    - name: Check if HWPC Sensor image already exists
+    - name: Check if power sensor image already exists
       stat:
-        path: "{{ hwpc_sensor_path }}/image/{{ image_file }}"
+        path: "{{ power_sensor_path }}/image/{{ image_file }}"
         get_checksum: false
         get_mime: false
         get_attributes: false
       register: stat_output
 
-    - name: Copy HWPC Sensor container definition file
+    - name: Copy power sensor container definition file
       when: not stat_output.stat.exists
       template:
-        src: "templates/power_budgeting/monitoring/sensor/{{ definition_file }}"
-        dest: "{{ hwpc_sensor_path }}/image/{{ definition_file }}"
+        src: "templates/power_budgeting/monitoring/sensor/{{ power_sensor }}/{{ definition_file }}"
+        dest: "{{ power_sensor_path }}/image/{{ definition_file }}"
 
-    - name: Copy HWPC Sensor configuration files
+    - name: Find power sensor configuration files to template
+      when: not stat_output.stat.exists
+      set_fact:
+        found_config_files: "{{ lookup('fileglob', 'templates/power_budgeting/monitoring/sensor/' ~ power_sensor ~ '/config/*', wantlist=True) }}"
+
+    - name: Template power sensor configuration files
       when: not stat_output.stat.exists
       template:
-        src: "templates/power_budgeting/monitoring/sensor/config/{{ item }}"
-        dest: "{{ hwpc_sensor_path }}/config/{{ item }}"
-      with_items:
-        - hwpc-sensor-config.json
-        - hwpc-sensor-entrypoint.sh
-        - CMakeLists.txt
-        - target.h
-        - target.c
-        - target_apptainer.h
-        - target_apptainer.c
+        src: "{{ item }}"
+        dest: "{{ power_sensor_path }}/config/{{ item | basename }}"
+      loop: "{{ found_config_files }}"
 
     - name: Build image
       when: not stat_output.stat.exists
       shell: "{{ singularity_command_alias }} build image/{{ image_file }} image/{{ definition_file }}"
       args:
-        chdir: "{{ hwpc_sensor_path }}"
+        chdir: "{{ power_sensor_path }}"
         executable: /bin/bash
         creates: "image/{{ image_file }}"
 
@@ -43,37 +41,40 @@
       args:
         executable: /bin/bash
 
-    - name: Stop current HWPC Sensor apptainer container
+    - name: Stop current power sensor apptainer container
       shell: "sudo {{ singularity_command_alias }} instance stop {{ container_name }}"
       when: "container_name in apptainer_list_output.stdout"
       args:
-        chdir: "{{ hwpc_sensor_path }}"
+        chdir: "{{ power_sensor_path }}"
         executable: /bin/bash
-      tags: never, restart_hwpc_sensor
+      tags: never, restart_power_sensor
 
     - name: Check containers status again
       shell: "sudo {{ singularity_command_alias }} instance list -j"
       register: apptainer_list_output
       args:
         executable: /bin/bash
-      tags: never, restart_hwpc_sensor
+      tags: never, restart_power_sensor
 
-    - name: Start HWPC Sensor apptainer container
+    # TODO: Check if it is better to pin sensor to core 0 (--cpuset-cpus 0 --cpus 0.5)
+    - name: Start power sensor apptainer container
       shell: "sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --bind /proc:/proc --bind /sys:/sys --bind {{ sensor_reporting_path }}:/reporting image/{{ image_file }} {{ container_name }}"
       when: "container_name not in apptainer_list_output.stdout"
       args:
-        chdir: "{{ hwpc_sensor_path }}"
+        chdir: "{{ power_sensor_path }}"
         executable: /bin/bash
       vars:
         extra_connection: "{{ ',ptp' if mode == 'ipvlan' else '' }}"
 
   when: "container_engine == 'apptainer'"
   vars:
-    - definition_file: "hwpc-sensor.def"
-    - image_file: "hwpc-sensor.sif"
+    - power_sensor: "{{ 'selfwatts_controller' if power_meter == 'selfwatts' else 'hwpc_sensor' }}"
+    - power_sensor_path: "{{ installation_path }}/{{ power_sensor }}"
+    - definition_file: "{{ power_sensor }}.def"
+    - image_file: "{{ power_sensor }}.sif"
     - container_name: "sensor-{{ inventory_hostname }}"
 
-- name: Start HWPC Sensor inside a lxc container
+- name: Start power sensor inside a lxc container
   debug:
-    msg: 'HWPC Sensor inside a lxc container not yet supported'
+    msg: 'Power sensor inside a lxc container not yet supported'
   when: "container_engine == 'lxc'"

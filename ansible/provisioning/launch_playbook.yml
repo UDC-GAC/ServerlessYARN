@@ -51,15 +51,10 @@
 
     - block:
       - import_tasks: tasks/launch/mongodb_launch.yml
-        tags: start_mongodb,start_smartwatts,start_selfwatts
+        tags: start_mongodb,start_power_meter
 
-      - import_tasks: tasks/launch/smartwatts_launch.yml
-        when: "power_meter == 'smartwatts'"
-        tags: start_smartwatts
-
-      - import_tasks: tasks/launch/selfwatts_launch.yml
-        when: "power_meter == 'selfwatts'"
-        tags: start_selfwatts
+      - import_tasks: tasks/launch/power_meter_launch.yml
+        tags: start_power_meter
       when: "power_budgeting"
 
 # Setup nodes
@@ -71,10 +66,6 @@
     - config/config.yml
 
   tasks:
-    - import_tasks: tasks/launch/hwpc-sensor_launch.yml
-      when: "power_budgeting and power_meter == 'smartwatts'"
-      tags: start_hwpc_sensor
-
-    - import_tasks: tasks/launch/selfwatts-controller_launch.yml
-      when: "power_budgeting and power_meter == 'selfwatts'"
-      tags: start_selfwatts_controller
+    - import_tasks: tasks/launch/power_sensor_launch.yml
+      when: "power_budgeting"
+      tags: start_power_sensor

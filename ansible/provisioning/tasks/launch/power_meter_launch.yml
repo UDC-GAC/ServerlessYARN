@@ -1,0 +1,63 @@
+
+- name: Start power meter inside an apptainer/singularity container
+  block:
+    - name: Check if power meter image already exists
+      stat:
+        path: "{{ power_meter_path }}/image/{{ image_file }}"
+        get_checksum: false
+        get_mime: false
+        get_attributes: false
+      register: stat_output
+
+    - name: Copy power meter container definition file
+      when: not stat_output.stat.exists
+      template:
+        src: "templates/power_budgeting/monitoring/power_meter/{{ power_meter }}/{{ definition_file }}"
+        dest: "{{ power_meter_path }}/image/{{ definition_file }}"
+
+    - name: Find power meter configuration files to template
+      when: not stat_output.stat.exists
+      find:
+        paths: "templates/power_budgeting/monitoring/power_meter/{{ power_meter }}/config"
+        recurse: yes
+      register: found_config_files
+
+    - name: Template power meter configuration files
+      when: not stat_output.stat.exists
+      template:
+        src: "{{ item.path }}"
+        dest: "{{ power_meter_path }}/config/{{ item.path | basename }}"
+      loop: "{{ found_config_files.files }}"
+
+    - name: Build image
+      when: not stat_output.stat.exists
+      shell: "{{ singularity_command_alias }} build image/{{ image_file }} image/{{ definition_file }}"
+      args:
+        chdir: "{{ power_meter_path }}"
+        executable: /bin/bash
+        creates: "image/{{ image_file }}"
+
+    - name: Check containers status
+      shell: "{{ singularity_command_alias }} instance list -j"
+      register: apptainer_list_output
+      args:
+        executable: /bin/bash
+
+    - name: Start power meter apptainer container
+      shell: "{{ singularity_command_alias }} instance start -C image/{{ image_file }} {{ container_name }}"
+      when: "container_name not in apptainer_list_output.stdout"
+      args:
+        chdir: "{{ power_meter_path }}"
+        executable: /bin/bash
+
+  when: "container_engine == 'apptainer'"
+  vars:
+    - power_meter_path: "{{ installation_path }}/{{ power_meter }}"
+    - definition_file: "{{ power_meter }}.def"
+    - image_file: "{{ power_meter }}.sif"
+    - container_name: "{{ power_meter }}"
+
+- name: Start power meter inside a lxc container
+  debug:
+    msg: 'Power meter inside a lxc container not yet supported'
+  when: "container_engine == 'lxc'"
