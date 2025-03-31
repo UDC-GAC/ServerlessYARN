@@ -46,6 +46,7 @@ class ReportHandler(Handler):
         self.state = state
         self.ticks = OrderedDict()
         self.formula = SelfWattsFormula(state.config.cpu_topology, state.config.history_window_size)
+        self.hostname = self.state.sensor[7:]
 
     def _gen_rapl_events_group(self, system_report: HWPCReport) -> Dict[str, float]:
         """
@@ -213,7 +214,7 @@ class ReportHandler(Handler):
 
         # compute RAPL power report
         rapl_power = rapl[self.state.config.rapl_event]
-        power_reports.append(self._gen_power_report(timestamp, 'rapl', self.state.config.rapl_event, 0.0, rapl_power, 1.0))
+        power_reports.append(self._gen_power_report(timestamp, f'{self.hostname}-rapl', self.state.config.rapl_event, 0.0, rapl_power, 1.0))
 
         # fetch power model to use
         pkg_frequency = self.formula.compute_pkg_frequency(avg_msr)
@@ -222,7 +223,7 @@ class ReportHandler(Handler):
         # compute Global target power report
         try:
             raw_global_power = model.compute_power_estimation(global_core)
-            power_reports.append(self._gen_power_report(timestamp, 'global', model.hash, raw_global_power, raw_global_power, 1.0))
+            power_reports.append(self._gen_power_report(timestamp, f'{self.hostname}-global', model.hash, raw_global_power, raw_global_power, 1.0))
         except NotFittedError:
             model.store_report_in_history(rapl_power, global_core)
             model.learn_power_model(self.state.config.min_samples_required, 0.0, self.state.config.cpu_topology.tdp)
