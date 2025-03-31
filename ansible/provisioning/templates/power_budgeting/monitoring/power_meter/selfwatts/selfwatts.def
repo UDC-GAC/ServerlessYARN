@@ -2,9 +2,9 @@ Bootstrap: docker
 From: python:3.8
 
 %files
-    {{ power_meter_path }}/config/opentsdb-selfwatts.py /opentsdb.py
-    {{ power_meter_path }}/config/context-selfwatts.py /context.py
-    {{ power_meter_path }}/config/handler-selfwatts.py /handler.py
+    {{ power_meter_path }}/config/opentsdb.py /opentsdb.py
+    {{ power_meter_path }}/config/context.py /context.py
+    {{ power_meter_path }}/config/handler.py /handler.py
     {{ power_meter_path }}/config/powerapi-0.9.3-setup.cfg /powerapi-setup.cfg
 
 %post

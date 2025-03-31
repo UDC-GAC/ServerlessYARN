@@ -3,15 +3,15 @@ From: python:3-slim
 
 %files
     {{ power_meter_path }}/config/smartwatts-config.json /smartwatts-config.json
-    {{ power_meter_path }}/config/opentsdb-smartwatts.py /opentsdb.py
-    {{ power_meter_path }}/config/hwpc_report-smartwatts.py /hwpc_report.py
+    {{ power_meter_path }}/config/opentsdb.py /opentsdb.py
+    {{ power_meter_path }}/config/hwpc_report.py /hwpc_report.py
 
 %post
     export POWERAPI_REPOSITORY="https://github.com/powerapi-ng/powerapi.git"
     export SMARTWATTS_REPOSITORY="https://github.com/powerapi-ng/smartwatts-formula.git"
     export SMARTWATTS_VERSION="v2.3.1"
     export POWERAPI_VERSION="v2.9.1"
-    export POWERAPI_DIR=/powerapi 
+    export POWERAPI_DIR=/powerapi
     export SMARTWATTS_DIR=/smartwatts
 
     # Install git
