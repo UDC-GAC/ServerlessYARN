@@ -1,0 +1,29 @@
+{
+  "verbose": true,
+  "stream": true,
+  "input": {
+    "puller": {
+      "model": "HWPCReport",
+      "type": "mongodb",
+      "uri": "mongodb://{{ mongodb_url }}",
+      "db": "{{ mongodb_db }}",
+      "collection": "{{ mongodb_hwpc_collection }}"
+    }
+  },
+  "output": {
+    "pusher_power": {
+      "type": "opentsdb",
+      "uri": "{{ opentsdb_url }}",
+      "port": {{ opentsdb_port }},
+      "metric-name": "structure.energy.usage",
+      "name": "pusher_opentsdb",
+      "model": "PowerReport"
+    }
+  },
+  "cpu-base-freq": 2300,
+  "cpu-error-threshold": 2.0,
+  "cpu-idle-consumption": 19.2,
+  "disable-dram-formula": true,
+  "sensor-reports-frequency": 1000,
+  "learn-error-window-method": "mean"
+}

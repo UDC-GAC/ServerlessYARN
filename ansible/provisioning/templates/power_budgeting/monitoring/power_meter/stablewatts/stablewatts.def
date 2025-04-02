@@ -1,0 +1,34 @@
+Bootstrap: docker
+From: python:3-slim
+
+%files
+    {{ power_meter_path }}/config/stablewatts-config.json /stablewatts-config.json
+
+%post
+    export POWERAPI_REPOSITORY="https://github.com/powerapi-ng/powerapi.git"
+    export STABLEWATTS_REPOSITORY="https://github.com/TomeMD/stablewatts-formula.git"
+    export POWERAPI_DIR=/powerapi
+    export STABLEWATTS_DIR=/stablewatts
+    export POWERAPI_VERSION="v2.10.0"
+
+    # Install git
+    apt update && apt install -y git
+
+    # Clone repositories
+    git clone --depth 1 --branch "${POWERAPI_VERSION}" "${POWERAPI_REPOSITORY}" "${POWERAPI_DIR}"
+    git clone --branch master "${STABLEWATTS_REPOSITORY}" "${STABLEWATTS_DIR}"
+
+    # Install PowerAPI and StableWatts
+    pip3 install --no-cache-dir "${POWERAPI_DIR}[everything]"
+    pip3 install --no-cache-dir "${STABLEWATTS_DIR}"
+
+    # Clean repositories
+    rm -r ${POWERAPI_DIR} ${STABLEWATTS_DIR}
+
+%runscript
+    echo "Starting StableWatts..."
+    python3 -m smartwatts --config-file /stablewatts-config.json > /dev/null 2>&1
+
+%startscript
+    echo "Starting StableWatts..."
+    python3 -m smartwatts  --config-file /stablewatts-config.json > /dev/null 2>&1
