@@ -2,14 +2,14 @@
 
 export DEBIAN_FRONTEND=noninteractive
 export SCRIPT_DIR=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
-export FILES_DIR="${SCRIPT_DIR}/myfiles"
+export FILES_DIR="${SCRIPT_DIR}/files_dir"
 
 . "${FILES_DIR}/get_env.sh"
 
 apt-get -y update
 
 ## Utilities, you may install here other packages that you find useful
-apt-get install -y nano vim htop stress
+apt-get install -y nano vim htop stress curl
 
 # For NPB
 apt-get -y install build-essential wget gfortran libopenmpi-dev openmpi-bin

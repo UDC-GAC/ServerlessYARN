@@ -39,14 +39,29 @@ function run_stress {
 	#################
 	#### STRESS #####
 	#################
-	TEST="1.STRESS_1c"
+	export STRESS_TIME=60
+	
+	TEST="1.STRESS_1c_serv"
 	signal_test "start"
-	stress -c 1 -t 60
+	stress -c 1 -t ${STRESS_TIME}
 	signal_test "end"
 
-	TEST="1.STRESS_2c"
+	TEST="1.STRESS_2c_serv"
 	signal_test "start"
-	stress -c 2 -t 60
+	stress -c 2 -t ${STRESS_TIME}
+	signal_test "end"
+	
+	# Disable serverless for this container
+	curl -X PUT -H "Content-Type: application/json" http://${ORCHESTRATOR_REST_URL}/structure/${CONTAINER_NAME}/unguard
+	
+	TEST="1.STRESS_1c_noserv"
+	signal_test "start"
+	stress -c 1 -t ${STRESS_TIME}
+	signal_test "end"
+
+	TEST="1.STRESS_2c_noserv"
+	signal_test "start"
+	stress -c 2 -t ${STRESS_TIME}
 	signal_test "end"
 	#################
 }
@@ -130,8 +145,20 @@ source /opt/BDWatchdog/set_pythonpath.sh
 EXPERIMENT="EXP_XAIRUGO"
 signal_exp "start"
 
+########################
+#### ORCHESTRATOR ######
+########################
+
+export ORCHESTRATOR_REST_URL="server:5000"
+export CONTAINER_NAME=$(hostname)
+
+
+#######################
+#### experiments ######
+#######################
+
 run_stress
-run_spark
-run_npb
+#run_spark
+#run_npb
 
 signal_exp "end"
