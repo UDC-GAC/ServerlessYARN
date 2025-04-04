@@ -39,30 +39,56 @@ function run_stress {
 	#################
 	#### STRESS #####
 	#################
-	export STRESS_TIME=60
+	export STRESS_TIME=120
+	new_boundary=20
+	curl -X PUT -H "Content-Type: application/json" http://${ORCHESTRATOR_REST_URL}/structure/${CONTAINER_NAME}/limits/cpu/boundary  -d '{"value":"'${new_boundary}'"}'
 	
-	TEST="1.STRESS_1c_serv"
-	signal_test "start"
-	stress -c 1 -t ${STRESS_TIME}
-	signal_test "end"
 
-	TEST="1.STRESS_2c_serv"
-	signal_test "start"
-	stress -c 2 -t ${STRESS_TIME}
-	signal_test "end"
+	# Force resources up to the maximum
+	curl -X PUT -H "Content-Type: application/json" http://${ORCHESTRATOR_REST_URL}/structure/${CONTAINER_NAME}/guard
+	stress -c 4 -t 160
+	sleep 10
 	
 	# Disable serverless for this container
 	curl -X PUT -H "Content-Type: application/json" http://${ORCHESTRATOR_REST_URL}/structure/${CONTAINER_NAME}/unguard
 	
-	TEST="1.STRESS_1c_noserv"
+	TEST="1.STRESS_noserv"
 	signal_test "start"
 	stress -c 1 -t ${STRESS_TIME}
-	signal_test "end"
-
-	TEST="1.STRESS_2c_noserv"
-	signal_test "start"
 	stress -c 2 -t ${STRESS_TIME}
+	stress -c 3 -t ${STRESS_TIME}
+	stress -c 1 -t ${STRESS_TIME}
 	signal_test "end"
+	
+	# Enable serverless for this container
+	curl -X PUT -H "Content-Type: application/json" http://${ORCHESTRATOR_REST_URL}/structure/${CONTAINER_NAME}/guard
+
+	TEST="1.STRESS_serv"
+	signal_test "start"
+	stress -c 1 -t ${STRESS_TIME}
+	stress -c 2 -t ${STRESS_TIME}
+	stress -c 3 -t ${STRESS_TIME}
+	stress -c 1 -t ${STRESS_TIME}
+	signal_test "end"
+	
+	
+	# Force resources up to the maximum
+	stress -c 4 -t 160
+	sleep 10
+	
+	# Change a parameter like the boundary
+	new_boundary=5
+	curl -X PUT -H "Content-Type: application/json" http://${ORCHESTRATOR_REST_URL}/structure/${CONTAINER_NAME}/limits/cpu/boundary  -d '{"value":"'${new_boundary}'"}'
+	
+	TEST="1.STRESS_serv_nb"
+	signal_test "start"
+	stress -c 1 -t ${STRESS_TIME}
+	stress -c 2 -t ${STRESS_TIME}
+	stress -c 3 -t ${STRESS_TIME}
+	stress -c 1 -t ${STRESS_TIME}
+	signal_test "end"
+	
+
 	#################
 }
 
