@@ -57,8 +57,10 @@
                   {{ build_list | reverse }}
 
         ## Container startup
-        - import_tasks: "tasks/containers_setup/apptainer_containers_cgroups_{{ cgroups_version }}_setup.yml"
+        - import_tasks: "tasks/containers_setup/apptainer_containers_cgroups_{{ container_owner }}_owned_setup.yml"
           vars:
+            - container_owner: root # 'root' or 'user'
+              # note: root is required at the moment to start containers with cgroups support on cgroups v1 and with specific network on both cgroups versions
             - image_file: "{{ image_mapping[app_type] }}"
             - app_directory: "apps/{{ app_dir if app_type == 'generic_app' else app_type }}"
             # Other config

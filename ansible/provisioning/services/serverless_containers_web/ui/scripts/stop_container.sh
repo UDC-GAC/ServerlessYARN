@@ -21,7 +21,8 @@ then
     then
         unbuffer ansible $HOST_NAME -i $INVENTORY -m shell -a "sudo $singularity_command_alias instance stop $CONT_NAME"
     else
-        unbuffer ansible $HOST_NAME -i $INVENTORY -m shell -a "$singularity_command_alias instance stop $CONT_NAME"
+        #unbuffer ansible $HOST_NAME -i $INVENTORY -m shell -a "$singularity_command_alias instance stop $CONT_NAME"
+        unbuffer ansible $HOST_NAME -i $INVENTORY -m shell -a "sudo $singularity_command_alias instance stop $CONT_NAME"
     fi
 
 else
