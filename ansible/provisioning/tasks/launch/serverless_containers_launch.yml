@@ -170,3 +170,33 @@
     - Refeeder
     - Rebalancer
   tags: restart_services
+
+### Limit containers BW when extending LV to speed up the extension process
+## Disable services that may send scaling requests before limiting containers bw
+- name: Disabling services that generate scaling requests
+  shell: "bash scripts/orchestrator/{{ item }}/deactivate.sh"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+  with_items:
+    - Guardian
+    - Rebalancer
+  tags: never, disable_scaling_services
+
+## Limit containers bw
+- name: Limiting containers bw
+  shell: "python3 scripts/stateDatabase/limit_containers_bw.py {{ host_list }} config/config.yml"
+  args:
+    executable: /bin/bash
+  tags: never, limit_containers_bw
+
+## Re-enable services after extending LV
+- name: Enabling services that generate scaling requests
+  shell: "bash scripts/orchestrator/{{ item }}/activate.sh"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+  with_items:
+    - Guardian
+    - Rebalancer
+  tags: never, enable_scaling_services

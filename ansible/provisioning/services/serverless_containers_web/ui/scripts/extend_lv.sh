@@ -8,6 +8,11 @@ MEASURE_HOST_LIST=$4
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 source $scriptDir/access_playbooks_dir.sh
 
+# We disable services that may generate scaling requests and cap bandwidth of running containers to speed up the extension process
+unbuffer ansible-playbook launch_playbook.yml -i $INVENTORY -t disable_scaling_services,limit_containers_bw \
+    --extra-vars \
+        "host_list=$HOST_NAMES"
+
 unbuffer ansible-playbook install_playbook.yml -i $INVENTORY -t extend_lv -l $HOST_NAMES \
     --extra-vars \
         "new_disks_list=$NEW_DISKS \
@@ -17,3 +22,6 @@ unbuffer ansible-playbook install_playbook.yml -i $INVENTORY -t extend_lv -l $HO
 unbuffer ansible-playbook launch_playbook.yml -i $INVENTORY -t extend_lv \
     --extra-vars \
         "host_list=$HOST_NAMES"
+
+# Re-enable disabled services
+unbuffer ansible-playbook launch_playbook.yml -i $INVENTORY -t enable_scaling_services
