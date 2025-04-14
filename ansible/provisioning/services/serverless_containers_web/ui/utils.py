@@ -10,8 +10,8 @@ DEFAULT_APP_VALUES = {
 }
 
 DEFAULT_LIMIT_VALUES = {
-    "default_boundary_percentage": 10,
-    "default_boundary_type": "percentage_of_max"
+    "boundary": 10,
+    "boundary_type": "percentage_of_max"
 }
 
 DEFAULT_RESOURCE_VALUES = {
