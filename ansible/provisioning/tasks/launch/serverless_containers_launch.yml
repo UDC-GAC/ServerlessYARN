@@ -120,7 +120,7 @@
 
 - name: Initializing State Database - add disks to existing LV
   when: disk_capabilities and disk_scaling
-  shell: "python3 scripts/stateDatabase/update_host_disks_bw_db.py {{ item }} lvm {{ hostvars[item].disks.lvm.bw }} MB/s config/config.yml"
+  shell: "python3 scripts/stateDatabase/update_host_disks_bw_db.py {{ item }} lvm {{ hostvars[item].disks.lvm.read_bw }} {{ hostvars[item].disks.lvm.write_bw }} MB/s config/config.yml"
   args:
     executable: /bin/bash
   with_items: "{{ nodes }}"

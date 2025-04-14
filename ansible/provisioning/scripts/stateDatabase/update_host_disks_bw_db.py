@@ -16,16 +16,17 @@ bandwidth_conversion["MB/s"] = 1
 bandwidth_conversion["GB/s"] = 1024
 bandwidth_conversion["TB/s"] = 1048576
 
-# usage example: update_host_disks_bw.py host0 ssd_0 100 MB/s config/config.yml
+# usage example: update_host_disks_bw.py host0 ssd_0 500 100 MB/s config/config.yml
 
 if __name__ == "__main__":
 
-    if (len(sys.argv) > 5):
+    if (len(sys.argv) > 6):
         host = sys.argv[1]
         disk = sys.argv[2]
-        bandwidth = float(sys.argv[3])
-        unit = sys.argv[4]
-        with open(sys.argv[5], "r") as f:
+        read_bandwidth = float(sys.argv[3])
+        write_bandwidth = float(sys.argv[4])
+        unit = sys.argv[5]
+        with open(sys.argv[6], "r") as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
 
         orchestrator_url = "http://{0}:{1}".format(config['server_ip'],config['orchestrator_port'])
@@ -35,12 +36,13 @@ if __name__ == "__main__":
         ## Update host
         full_url = "{0}/structure/host/{1}/disks".format(orchestrator_url, host)
 
-        bandwidth_MB = round(bandwidth * bandwidth_conversion[unit])
+        read_bandwidth_MB = round(read_bandwidth * bandwidth_conversion[unit])
+        write_bandwidth_MB = round(write_bandwidth * bandwidth_conversion[unit])
 
         put_field_data = {}
         put_field_data['resources'] = {}
         put_field_data['resources']['disks'] = []
-        put_field_data['resources']['disks'].append({'name':disk, 'max': bandwidth_MB})
+        put_field_data['resources']['disks'].append({'name':disk, 'max_read': read_bandwidth_MB, 'max_write': write_bandwidth_MB})
 
         error_message = "Error updating host '{0}' disk information".format(host)
         error, _ = request_to_state_db(full_url, "post", error_message, put_field_data, session=session)

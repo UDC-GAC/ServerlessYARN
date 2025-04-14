@@ -452,7 +452,7 @@ def setStructureResourcesForm(structure, form_action):
 
     editable_data = 0
 
-    full_resource_list = ["cpu","mem","disk","net","energy"]
+    full_resource_list = ["cpu","mem","disk_read", "disk_write", "net","energy"]
     structures_resources_field_list = ["guard","max","min","weight"]
     host_resources_field_list = ["max"]
     form_initial_data_list = []
@@ -511,7 +511,7 @@ def setLimitsForm(structure, form_action):
     editable_data = 0
     form_initial_data = {'name': structure['name']}
 
-    resource_list = ["cpu", "mem", "disk", "net", "energy"]
+    resource_list = ["cpu","mem","disk_read", "disk_write", "net","energy"]
 
     for resource in resource_list:
         if resource in structure['limits']:
@@ -705,7 +705,7 @@ def processLimits(request, url):
         
         structure_name = request.POST['name']
 
-        resources = ["cpu","mem","disk","net","energy"]
+        resources = ["cpu","mem","disk_read","disk_write","net","energy"]
 
         for resource in resources:
             if (resource + "_boundary" in request.POST):
@@ -735,7 +735,7 @@ def processAdds(request, url):
     if ("operation" in request.POST and request.POST["operation"] == "add"):
         
         structure_type = request.POST['structure_type']
-        resources = ["cpu","mem","disk","net","energy"]
+        resources = ["cpu","mem","disk_read","disk_write","net","energy"]
 
         error = ""
 
@@ -866,7 +866,7 @@ def processAddContainers(request, url, structure_type, resources, host_list):
             container_resources[resource + "_boundary_type"] = resource_boundary_type
 
     ## Bind specific disk
-    bind_disk = "disk" in resources and "disk_max" in request.POST and request.POST["disk_max"] != "" and request.POST["disk_min"]
+    bind_disk = "disk_read" in resources and "disk_write" in resources and "disk_read_max" in request.POST and "disk_write_max" in request.POST and request.POST["disk_read_max"] != "" and request.POST["disk_write_max"] != "" and request.POST["disk_read_min"] and request.POST["disk_write_min"]
 
     # TODO: assign disks to containers in a more efficient way, instead of just choosing the same disk for all containers in the same host
     new_containers = {}
@@ -1033,6 +1033,7 @@ def processStartApp(request, url, app_name):
 
     app_resources = {}
     for resource in app['resources']:
+        if resource == "disk": continue
         app_resources[resource] = {}
         app_resources[resource]['max'] = app['resources'][resource]['max']
         app_resources[resource]['current'] = 0 if 'current' not in app['resources'][resource] else app['resources'][resource]['current']
@@ -1046,7 +1047,7 @@ def processStartApp(request, url, app_name):
     # Check if there is space for app
     free_resources = {}
     for resource in app_resources:
-        if resource in ['disk']:
+        if resource == 'disk_read' or resource == "disk_write":
             continue
         free_resources[resource] = 0
         for host in hosts:
@@ -1385,15 +1386,20 @@ def getFreestDisk(host):
 
             disk = host['resources']['disks'][disk_name]
 
-            if (disk['free'] == 0): continue
+            ## Get combined free bandwidth
+            consumed_read = disk["max_read"] - disk["free_read"]
+            consumed_write = disk["max_write"] - disk["free_write"]
+            total_max = max(disk["max_read"],disk["max_write"])
+            total_free = total_max - consumed_read - consumed_write
+            if (total_free == 0): continue
 
             ## TODO: think if it is better to assign a disk with no containers but low bandwidth or a contended disk with high bw
-            if disk['free'] == disk['max']:
+            if total_free == total_max:
                 freest_disk = disk_name
                 break
 
-            if current_max_bw == -1 or disk['free'] > current_max_bw:
-                current_max_bw = disk['free']
+            if current_max_bw == -1 or total_free > current_max_bw:
+                current_max_bw = total_free
                 freest_disk = disk_name
 
     return freest_disk
@@ -1430,8 +1436,13 @@ def GetFreestHost(hosts, container_resources, check_disks):
         if 'disks' in host['resources']:
             for disk_name in host['resources']['disks']:
                 disk = host['resources']['disks'][disk_name]
-                max_disk_usage += disk['max']
-                disk_usage += (disk['max'] - disk['free'])
+                consumed_read = disk["max_read"] - disk["free_read"]
+                consumed_write = disk["max_write"] - disk["free_write"]
+                total_max = max(disk["max_read"],disk["max_write"])
+                total_free = total_max - consumed_read - consumed_write
+
+                max_disk_usage += total_max
+                disk_usage += total_free
 
         if max_disk_usage == 0:
             continue
@@ -1451,14 +1462,21 @@ def GetFreestHost(hosts, container_resources, check_disks):
 
 def getHostFreeDiskBw(host):
 
-    free_host_bw = 0
+    free_read_bw = 0
+    free_write_bw = 0
+    free_total_bw = 0
 
     if 'disks' in host['resources']:
         for disk_name in host['resources']['disks']:
             disk = host['resources']['disks'][disk_name]
-            free_host_bw += disk['free']
+            free_read_bw += disk['free_read']
+            free_write_bw += disk['free_write']
+            
+            consumed_read = disk['max_read']
+            consumed_write = disk['max_write']
+            free_total_bw += max(disk['max_read'], disk['max_write']) - consumed_read - consumed_write
 
-    return free_host_bw
+    return free_read_bw, free_write_bw, free_total_bw
 
 def getContainerAssignationForApp(assignation_policy, hosts, number_of_containers, container_resources, app_name):
 
@@ -1486,58 +1504,110 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                 disk_assignation[host['name']][disk_name]['new_containers'] = 0
                 disk_assignation[host['name']][disk_name]['disk_path'] = disk['path']
                 #disk_assignation[host['name']][disk_name]['max_load'] = max_load_dict[disk['type']] - disk['load']
-                disk_assignation[host['name']][disk_name]['free_bw'] = disk['free']
+                disk_assignation[host['name']][disk_name]['free_read'] = disk['free_read']
+                disk_assignation[host['name']][disk_name]['free_write'] = disk['free_write']
+
+                consumed_read = disk['max_read'] - disk['free_read']
+                consumed_write = disk['max_write'] - disk['free_write']
+                disk_assignation[host['name']][disk_name]['free_total'] = max(disk['max_read'],disk['max_write']) - consumed_read - consumed_write
+
 
     if assignation_policy == "Fill-up":
         for host in hosts:
             free_cpu = host['resources']['cpu']['free']
             free_mem = host['resources']['mem']['free']
             #free_disk_load = getHostFreeDiskLoad(host)
-            if config['disk_capabilities'] and config['disk_scaling']: free_bw_host = getHostFreeDiskBw(host)
+            if config['disk_capabilities'] and config['disk_scaling']: free_read_host, free_write_bw, free_total_bw = getHostFreeDiskBw(host)
 
             if containers_to_allocate + irregular_container_to_allocate + hadoop_container_to_allocate <= 0:
                 break
             # First we try to assign the bigger container if it exists
-            if irregular_container_to_allocate > 0 and "bigger" in container_resources and free_cpu >= container_resources["bigger"]['cpu_max'] and free_mem >= container_resources["bigger"]['mem_max']:
-                if not config['disk_capabilities'] or not config['disk_scaling'] or free_bw_host > container_resources["bigger"]['disk_max']:
+            if (irregular_container_to_allocate > 0 
+                and "bigger" in container_resources 
+                and free_cpu >= container_resources["bigger"]['cpu_max'] 
+                and free_mem >= container_resources["bigger"]['mem_max']
+                ):
+                if (not config['disk_capabilities'] 
+                    or not config['disk_scaling'] 
+                    or (free_read_host >= container_resources["bigger"]['disk_read_max'] 
+                        and free_write_host >= container_resources["bigger"]['disk_write_max']
+                        and free_total_bw >= max(container_resources["bigger"]['disk_read_max'],container_resources["bigger"]['disk_read_max'])
+                        )
+                    ):
                     assignation[host['name']]["irregular"] = 1
                     irregular_container_to_allocate = 0
                     free_cpu -= container_resources["bigger"]['cpu_max']
                     free_mem -= container_resources["bigger"]['mem_max']
                     if config['disk_capabilities'] and config['disk_scaling']:
-                        free_bw_host -= container_resources["bigger"]['disk_max']
+                        free_read_host -= container_resources["bigger"]['disk_read_max']
+                        free_write_host -= container_resources["bigger"]['disk_write_max']
+                        free_total_bw -= max(container_resources["bigger"]['disk_read_max'],container_resources["bigger"]['disk_read_max'])
                         for disk in disk_assignation[host['name']]:
-                            if disk_assignation[host['name']][disk]['free_bw'] >= container_resources["bigger"]['disk_max']:
-                                disk_assignation[host['name']][disk]['free_bw'] -= container_resources["bigger"]['disk_max']
+                            if (disk_assignation[host['name']][disk]['free_read'] >= container_resources["bigger"]['disk_read_max']
+                            and disk_assignation[host['name']][disk]['free_write'] >= container_resources["bigger"]['disk_write_max']
+                            and disk_assignation[host['name']][disk]['free_total'] >= max(container_resources["bigger"]['disk_read_max'],container_resources["bigger"]['disk_read_max'])
+                            ):
+                                disk_assignation[host['name']][disk]['free_read'] -= container_resources["bigger"]['disk_read_max']
+                                disk_assignation[host['name']][disk]['free_write'] -= container_resources["bigger"]['disk_write_max']
                                 disk_assignation[host['name']][disk]['new_containers'] += 1
                                 break
 
-            while containers_to_allocate > 0 and free_cpu >= container_resources["regular"]['cpu_max'] and free_mem >= container_resources["regular"]['mem_max']:
-                if config['disk_capabilities'] and config['disk_scaling'] and free_bw_host > container_resources["regular"]['disk_max']: break
+            while (containers_to_allocate > 0 
+                and free_cpu >= container_resources["regular"]['cpu_max'] 
+                and free_mem >= container_resources["regular"]['mem_max']
+                ):
+                if (config['disk_capabilities'] 
+                    and config['disk_scaling'] 
+                    and (free_read_host < container_resources["regular"]['disk_read_max']
+                        or free_write_host < container_resources["regular"]['disk_write_max']
+                        or free_total_bw < max(container_resources["regular"]['disk_read_max'],container_resources["regular"]['disk_read_max'])
+                    )): break
                 assignation[host['name']]["regular"] += 1
                 containers_to_allocate -= 1
                 free_cpu -= container_resources['regular']['cpu_max']
                 free_mem -= container_resources['regular']['mem_max']
                 if config['disk_capabilities'] and config['disk_scaling']:
-                    free_bw_host -= container_resources['regular']['disk_max']
+                    free_read_host -= container_resources["regular"]['disk_read_max']
+                    free_write_host -= container_resources["regular"]['disk_write_max']
+                    free_total_bw -= max(container_resources["regular"]['disk_read_max'],container_resources["regular"]['disk_read_max'])
                     for disk in disk_assignation[host['name']]:
-                        if disk_assignation[host['name']][disk]['free_bw'] >= container_resources['regular']['disk_max']:
-                            disk_assignation[host['name']][disk]['free_bw'] -= container_resources['regular']['disk_max']
+                        if (disk_assignation[host['name']][disk]['free_read'] >= container_resources["regular"]['disk_read_max']
+                        and disk_assignation[host['name']][disk]['free_write'] >= container_resources["regular"]['disk_write_max']
+                        and disk_assignation[host['name']][disk]['free_total'] >= max(container_resources["regular"]['disk_read_max'],container_resources["regular"]['disk_read_max'])
+                        ):
+                            disk_assignation[host['name']][disk]['free_read'] -= container_resources["regular"]['disk_read_max']
+                            disk_assignation[host['name']][disk]['free_write'] -= container_resources["regular"]['disk_write_max']
                             disk_assignation[host['name']][disk]['new_containers'] += 1
                             break
 
             # We try to assign the smaller container if it exists
-            if irregular_container_to_allocate > 0 and "smaller" in container_resources and free_cpu >= container_resources["smaller"]['cpu_max'] and free_mem >= container_resources["smaller"]['mem_max']:
-                if not config['disk_capabilities'] or not config['disk_scaling'] or free_bw_host > container_resources["smaller"]['disk_max']:
+            if (irregular_container_to_allocate > 0 
+                and "smaller" in container_resources 
+                and free_cpu >= container_resources["smaller"]['cpu_max'] 
+                and free_mem >= container_resources["smaller"]['mem_max']
+                ):
+                if (not config['disk_capabilities'] 
+                    or not config['disk_scaling'] 
+                    or (free_read_host >= container_resources["smaller"]['disk_read_max'] 
+                        and free_write_host >= container_resources["smaller"]['disk_write_max']
+                        and free_total_bw >= max(container_resources["smaller"]['disk_read_max'],container_resources["smaller"]['disk_read_max'])
+                        )
+                    ):
                     assignation[host['name']]["irregular"] = 1
                     irregular_container_to_allocate = 0
                     free_cpu -= container_resources["smaller"]['cpu_max']
                     free_mem -= container_resources["smaller"]['mem_max']
                     if config['disk_capabilities'] and config['disk_scaling']:
-                        free_bw_host -= container_resources["smaller"]['disk_max']
+                        free_read_host -= container_resources["smaller"]['disk_read_max']
+                        free_write_host -= container_resources["smaller"]['disk_write_max']
+                        free_total_bw -= max(container_resources["smaller"]['disk_read_max'],container_resources["smaller"]['disk_read_max'])
                         for disk in disk_assignation[host['name']]:
-                            if disk_assignation[host['name']][disk]['free_bw'] >= container_resources["smaller"]['disk_max']:
-                                disk_assignation[host['name']][disk]['free_bw'] -= container_resources["smaller"]['disk_max']
+                            if (disk_assignation[host['name']][disk]['free_read'] >= container_resources["smaller"]['disk_read_max']
+                            and disk_assignation[host['name']][disk]['free_write'] >= container_resources["smaller"]['disk_write_max']
+                            and disk_assignation[host['name']][disk]['free_total'] >= max(container_resources["smaller"]['disk_read_max'],container_resources["smaller"]['disk_read_max'])
+                            ):
+                                disk_assignation[host['name']][disk]['free_read'] -= container_resources["smaller"]['disk_read_max']
+                                disk_assignation[host['name']][disk]['free_write'] -= container_resources["smaller"]['disk_write_max']
                                 disk_assignation[host['name']][disk]['new_containers'] += 1
                                 break
 
@@ -1557,7 +1627,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     break
 
                 #free_disk_load = getHostFreeDiskLoad(host)
-                if config['disk_capabilities'] and config['disk_scaling']: free_bw_host = getHostFreeDiskBw(host)
+                if config['disk_capabilities'] and config['disk_scaling']: free_read_host, free_write_bw, free_total_bw = getHostFreeDiskBw(host)
 
                 container_allocated = False
                 for container_type in ['bigger', 'regular', 'smaller', 'rm-nn']:
@@ -1569,7 +1639,32 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                         containers_to_check = containers_to_allocate
 
                     if containers_to_check > 0 and container_type in container_resources and host['resources']['cpu']['free'] >= container_resources[container_type]['cpu_min'] and host['resources']['mem']['free'] >= container_resources[container_type]['mem_min']:
-                        if not config['disk_capabilities'] or not config['disk_scaling'] or container_type == "rm-nn" or free_bw_host > container_resources[container_type]['disk_min']:
+                        if not config['disk_capabilities'] or not config['disk_scaling'] or container_type == "rm-nn" or (
+                            free_read_host >= container_resources[container_type]['disk_read_min']
+                            and free_write_bw >= container_resources[container_type]['disk_write_min']
+                            and free_total_bw >= (container_resources[container_type]['disk_read_min'] + container_resources[container_type]['disk_write_min'])
+                            ):
+
+                            host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
+                            host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
+
+                            if config['disk_capabilities'] and config['disk_scaling'] and container_type != "rm-nn":
+                                host_disk = getFreestDisk(host)
+                                if host_disk == None: break
+
+                                if (disk_assignation[host['name']][host_disk]['free_read'] >= container_resources[container_type]['disk_read_min'] 
+                                and disk_assignation[host['name']][host_disk]['free_write'] >= container_resources[container_type]['disk_write_min']
+                                and disk_assignation[host['name']][host_disk]['free_total'] >= (container_resources[container_type]['disk_read_min'] + container_resources[container_type]['disk_write_min'])
+                                ):
+                                    disk_assignation[host['name']][host_disk]['free_bw'] -= container_resources[container_type]['disk_min']
+                                    disk_assignation[host['name']][host_disk]['new_containers'] += 1
+                                    for disk_name in host['resources']['disks']:
+                                        disk = host['resources']['disks'][disk_name]
+                                        if disk_name == host_disk:
+                                            disk['free_read'] -= container_resources[container_type]['disk_read_min']
+                                            disk['free_write'] -= container_resources[container_type]['disk_write_min']
+                                            break
+
                             if container_type == 'bigger' or container_type == 'smaller':
                                 assignation[host['name']]["irregular"] = 1
                                 irregular_container_to_allocate = 0
@@ -1579,22 +1674,6 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                             elif container_type == 'regular':
                                 assignation[host['name']]['regular'] += 1
                                 containers_to_allocate -= 1
-
-                            host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
-                            host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
-
-                            if config['disk_capabilities'] and config['disk_scaling'] and container_type != "rm-nn":
-                                host_disk = getFreestDisk(host)
-                                if host_disk == None: break
-
-                                if disk_assignation[host['name']][host_disk]['free_bw'] >= container_resources[container_type]['disk_min']:
-                                    disk_assignation[host['name']][host_disk]['free_bw'] -= container_resources[container_type]['disk_min']
-                                    disk_assignation[host['name']][host_disk]['new_containers'] += 1
-                                    for disk_name in host['resources']['disks']:
-                                        disk = host['resources']['disks'][disk_name]
-                                        if disk_name == host_disk:
-                                            disk['free'] -= container_resources[container_type]['disk_min']
-                                            break
 
                             container_allocated = True
                             break
@@ -1625,6 +1704,29 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     if freest_host == None:
                         break
 
+                    freest_host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
+                    freest_host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
+
+                    if config['disk_capabilities'] and config['disk_scaling'] and container_type != "rm-nn":
+                        host_disk = getFreestDisk(freest_host)
+                        if host_disk == None: break
+
+                        if (disk_assignation[freest_host['name']][host_disk]['free_read'] >= container_resources[container_type]['disk_read_min'] 
+                        and disk_assignation[freest_host['name']][host_disk]['free_write'] >= container_resources[container_type]['disk_write_min']
+                        and disk_assignation[freest_host['name']][host_disk]['free_total'] >= (container_resources[container_type]['disk_read_min'] + container_resources[container_type]['disk_write_min'])
+                        ):
+
+                            disk_assignation[freest_host['name']][host_disk]['free_read'] -= container_resources[container_type]['disk_read_min']
+                            disk_assignation[freest_host['name']][host_disk]['free_write'] -= container_resources[container_type]['disk_write_min']
+                            disk_assignation[freest_host['name']][host_disk]['free_total'] -= (container_resources[container_type]['disk_read_min'] + container_resources[container_type]['disk_write_min'])
+                            disk_assignation[freest_host['name']][host_disk]['new_containers'] += 1
+                            for disk_name in freest_host['resources']['disks']:
+                                disk = host['resources']['disks'][disk_name]
+                                if disk_name == host_disk:
+                                    disk['free_read'] -= container_resources[container_type]['disk_read_min']
+                                    disk['free_write'] -= container_resources[container_type]['disk_write_min']
+                                    break
+
                     if container_type == 'bigger' or container_type == 'smaller':
                         assignation[freest_host['name']]["irregular"] = 1
                         irregular_container_to_allocate = 0
@@ -1634,22 +1736,6 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     elif container_type == 'regular':
                         assignation[freest_host['name']]['regular'] += 1
                         containers_to_allocate -= 1
-
-                    freest_host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
-                    freest_host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
-
-                    if config['disk_capabilities'] and config['disk_scaling'] and container_type != "rm-nn":
-                        host_disk = getFreestDisk(freest_host)
-                        if host_disk == None: break
-
-                        if disk_assignation[freest_host['name']][host_disk]['free_bw'] >= container_resources[container_type]['disk_min']:
-                            disk_assignation[freest_host['name']][host_disk]['free_bw'] -= container_resources[container_type]['disk_min']
-                            disk_assignation[freest_host['name']][host_disk]['new_containers'] += 1
-                            for disk_name in freest_host['resources']['disks']:
-                                disk = host['resources']['disks'][disk_name]
-                                if disk_name == host_disk:
-                                    disk['free'] -= container_resources[container_type]['disk_min']
-                                    break
 
                     container_allocated = True
                     break

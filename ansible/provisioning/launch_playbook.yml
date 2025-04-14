@@ -36,7 +36,9 @@
                     {{ container_info.update({'container_name': container_name, 'host': host, 'cpu_max': max_cpu_percentage_per_container, 'cpu_min': min_cpu_percentage_per_container, 'mem_max': max_memory_per_container, 'mem_min': min_memory_per_container, 'cpu_boundary': cpu_boundary, 'cpu_boundary_type': cpu_boundary_type, 'mem_boundary': mem_boundary, 'mem_boundary_type': mem_boundary_type }) }}
                     {%- if disk_capabilities and disk_scaling and hostvars[host].disks|length > 0 -%}
                       {%- set first_disk = hostvars[host].disks | first -%}
-                      {{ container_info.update( {'disk': first_disk, 'disk_path': hostvars[host].disks[first_disk]['path'], 'disk_max': max_diskbw_per_container, 'disk_min': min_diskbw_per_container, 'disk_boundary': disk_boundary, 'disk_boundary_type': disk_boundary_type}) }}
+                      {{ container_info.update( {'disk': first_disk, 'disk_path': hostvars[host].disks[first_disk]['path']} ) }}
+                      {{ container_info.update( {'disk_read_max': max_disk_read_bw_per_container, 'disk_read_min': min_disk_read_bw_per_container, 'disk_read_boundary': disk_read_boundary, 'disk_read_boundary_type': disk_read_boundary_type} ) }}
+                      {{ container_info.update( {'disk_write_max': max_disk_write_bw_per_container, 'disk_write_min': min_disk_write_bw_per_container, 'disk_write_boundary': disk_write_boundary, 'disk_write_boundary_type': disk_write_boundary_type} ) }}
                     {%- endif -%}
                     {%- if power_budgeting -%}
                       {{ container_info.update({'energy_max': max_energy_per_container, 'energy_min': min_energy_per_container, 'energy_boundary': energy_boundary, 'energy_boundary_type': energy_boundary_type}) }}                      

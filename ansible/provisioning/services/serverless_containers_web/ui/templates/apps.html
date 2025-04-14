@@ -208,39 +208,23 @@
 
 			<!-- Another table for disks -->
 			{% for resource,disk in cont.resources.items %}
-			{% if resource == "disk" %}
-			  <p>Disk</p>
-			  <p></p>
-			  <table class="data_table">
-				  <!-- rows -->
-				  <tr>
-					<th>Name</th>
-					<td>{{ disk.name }}</td>
-				  </tr>
-				  <tr>
-					<th>Path</th>
-					<td>{{ disk.path }}</td>
-				  </tr>
-				  <tr>
-					<th>Current bandwidth</th>
-					<td>{{ disk.current }}</td>
-				  </tr>
-				  <tr>
-					<th>Guard</th>
-					<td>{{ disk.guard }}</td>
-				  </tr>
-				  <tr>
-					<th>Max bandwidth</th>
-					<td>{{ disk.max }}</td>
-				  </tr>
-				  <tr>
-					<th>Min bandwidth</th>
-					<td>{{ disk.min }}</td>
-				  </tr>
-			  </table>
-			  <p></p>
-				  <HR>
-			{% endif %}
+				{% if resource == "disk" %}
+					<p>Disk</p>
+					<p></p>
+					<table class="data_table">
+						<!-- rows -->
+						<tr>
+							<th>Name</th>
+							<td>{{ disk.name }}</td>
+						</tr>
+						<tr>
+							<th>Path</th>
+							<td>{{ disk.path }}</td>
+						</tr>
+					</table>
+					<p></p>
+					<HR>
+				{% endif %}
 			{% endfor %}
 
 			<!-- CONT RESOURCES EDIT MODAL -->	

@@ -48,23 +48,53 @@
         set_fact:
           random_code: "{{ lookup('community.general.random_string', special=false) }}"
 
-      - name: Create file with fio
-        when: "(not create_lvm or item.key == 'lvm') and 'bw' not in item.value" # this last check would avoid re-benchmarking extended LVs
-        shell: "$HOME/.local/bin/fio --name TEST --eta-newline=5s --filename={{ item.value.path }}/{{ tmp_file }}.{{ random_code }}.{{ item.key }} --rw={{ rw }} --size={{ size }} --io_size=10g --blocksize={{ block_size }} --ioengine=libaio --fsync=10000 --iodepth=32 --direct={{ direct }} --numjobs=1 --runtime={{ runtime }} --group_reporting --output-format=json"
+      ## READ BW
+      - name: Read benchmark with FIO
+        when: "(not create_lvm or item.key == 'lvm') and 'read_bw' not in item.value" # this last check would avoid re-benchmarking extended LVs
+        shell: "$HOME/.local/bin/fio --name TEST --eta-newline=5s \
+          --filename={{ item.value.path }}/read_{{ tmp_file }}.{{ random_code }}.{{ item.key }} \
+          --rw={{ rw }} --size={{ size }} --io_size=10g --blocksize={{ block_size }} --ioengine=libaio \
+          --fsync=10000 --iodepth=32 --direct={{ direct }} --numjobs=1 --runtime={{ runtime }} --group_reporting \
+          --output-format=json"
+        vars:
+          size: 10m
+          block_size: 1024k
+          runtime: 60s
+          direct: 1
+          rw: read
+        register: read_bw_output
+        with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
+        throttle: "{{ '1' if virtual_mode else (groups['nodes'] | length) }}"
+
+      - name: Remove tmp file
+        when: "(not create_lvm or item.key == 'lvm') and 'read_bw' not in item.value"
+        file:
+          path: "{{ item.value.path }}/read_{{ tmp_file }}.{{ random_code }}.{{ item.key }}"
+          state: absent
+        with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
+
+      ## WRITE BW
+      - name: Write benchmark with FIO
+        when: "(not create_lvm or item.key == 'lvm') and 'write_bw' not in item.value" # this last check would avoid re-benchmarking extended LVs
+        shell: "$HOME/.local/bin/fio --name TEST --eta-newline=5s \
+          --filename={{ item.value.path }}/write_{{ tmp_file }}.{{ random_code }}.{{ item.key }} \
+          --rw={{ rw }} --size={{ size }} --io_size=10g --blocksize={{ block_size }} --ioengine=libaio \
+          --fsync=10000 --iodepth=32 --direct={{ direct }} --numjobs=1 --runtime={{ runtime }} --group_reporting \
+          --output-format=json"
         vars:
           size: 500m
           block_size: 1024k
           runtime: 60s
           direct: 1
           rw: write
-        register: bw_output
+        register: write_bw_output
         with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
         throttle: "{{ '1' if virtual_mode else (groups['nodes'] | length) }}"
 
       - name: Remove tmp file
-        when: "(not create_lvm or item.key == 'lvm') and 'bw' not in item.value"
+        when: "(not create_lvm or item.key == 'lvm') and 'write_bw' not in item.value"
         file:
-          path: "{{ item.value.path }}/{{ tmp_file }}.{{ random_code }}.{{ item.key }}"
+          path: "{{ item.value.path }}/write_{{ tmp_file }}.{{ random_code }}.{{ item.key }}"
           state: absent
         with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
 
@@ -74,23 +104,25 @@
         new_disks_dict: "{{ new_disks_dict_str | replace(' ','') if new_disks_dict_str is defined else ''}}"
 
     - name: Update host information in inventory (with fio)
-      when: "'skipped' not in item"
+      when: "'skipped' not in item[0] and 'skipped' not in item[1]"
       delegate_to: localhost
-      shell: "python3 scripts/update_host_disks_bw.py {{ inventory_hostname }} {{ item.item.key }} {{ bw_results }} B/s config/config.yml"
+      shell: "python3 scripts/update_host_disks_bw.py {{ inventory_hostname }} {{ item[0].item.key }} {{ read_bw_results }} {{ write_bw_results }} B/s config/config.yml"
       vars:
-        bw_results: "{{ (item.stdout | from_json).jobs[0].write.bw_bytes}}"
-      loop: "{{ bw_output.results }}"
+        read_bw_results: "{{ (item[0].stdout | from_json).jobs[0].read.bw_bytes}}"
+        write_bw_results: "{{ (item[1].stdout | from_json).jobs[0].write.bw_bytes}}"
+      loop: "{{ read_bw_output.results | zip(write_bw_output.results) | list }}" ## TODO: currently only works if write_bw_output and read_bw_output have the same length
       throttle: 1
 
 
 - name: Estimate disk performance based on optimistic approximation
   when: create_lvm and measure_host_list_str is defined and not measure_host_list[inventory_hostname]
   delegate_to: localhost
-  shell: "python3 scripts/update_host_disks_bw.py {{ inventory_hostname }} lvm {{ estimated_new_bw }} MB/s config/config.yml"
+  shell: "python3 scripts/update_host_disks_bw.py {{ inventory_hostname }} lvm {{ estimated_new_read_bw }} {{ estimated_new_write_bw }} MB/s config/config.yml"
   vars:
+    measure_host_list: "{{ measure_host_list_str | replace('\n','') | replace(' ','') }}"
     number_of_new_disks: "{{ (new_disks_list | split(',')) | length }}"
     number_of_current_disks: "{{ (hostvars[inventory_hostname].disks | length) -1 }}"
     number_of_old_disks: "{{ number_of_current_disks|int - number_of_new_disks|int }}"
-    estimated_new_bw: "{{ hostvars[inventory_hostname].disks.lvm.bw * (number_of_current_disks|int / number_of_old_disks|int) }}"
-    measure_host_list: "{{ measure_host_list_str | replace('\n','') | replace(' ','') }}"
+    estimated_new_read_bw:  "{{ (hostvars[inventory_hostname].disks.lvm.read_bw) * (number_of_current_disks|int / number_of_old_disks|int) }}"
+    estimated_new_write_bw: "{{ (hostvars[inventory_hostname].disks.lvm.write_bw) * (number_of_current_disks|int / number_of_old_disks|int) }}"
   throttle: 1

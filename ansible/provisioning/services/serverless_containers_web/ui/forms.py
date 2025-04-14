@@ -24,9 +24,12 @@ DEFAULT_COMMON_FIELDS = {
         'mem_max': forms.IntegerField(label="Mem Max", required=True, min_value=1),
         'mem_min': forms.IntegerField(label="Mem Min", required=True, min_value=1),
         'mem_weight': forms.IntegerField(label="Mem Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
-        'disk_max': forms.IntegerField(label="Disk I/O Bandwidth Max", required=True, min_value=1),
-        'disk_min': forms.IntegerField(label="Disk I/O Bandwidth Min", required=True, min_value=1),
-        'disk_weight': forms.IntegerField(label="Disk I/O Bandwidth Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
+        'disk_read_max': forms.IntegerField(label="Disk Read I/O Bandwidth Max", required=True, min_value=1),
+        'disk_read_min': forms.IntegerField(label="Disk Read I/O Bandwidth Min", required=True, min_value=1),
+        'disk_read_weight': forms.IntegerField(label="Disk Read I/O Bandwidth Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
+        'disk_write_max': forms.IntegerField(label="Disk Write I/O Bandwidth Max", required=True, min_value=1),
+        'disk_write_min': forms.IntegerField(label="Disk Write I/O Bandwidth Min", required=True, min_value=1),
+        'disk_write_weight': forms.IntegerField(label="Disk Write I/O Bandwidth Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
         'energy_max': forms.IntegerField(label="Energy Max", required=False, min_value=1),
         'energy_min': forms.IntegerField(label="Energy Min", required=False, min_value=1),
         'energy_weight': forms.IntegerField(label="Energy Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
@@ -34,7 +37,8 @@ DEFAULT_COMMON_FIELDS = {
         ## Resource boundaries
         'cpu_boundary': forms.IntegerField(label="CPU boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["boundary"]), required=False, min_value=1, max_value=100),
         'mem_boundary': forms.IntegerField(label="Mem boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["boundary"]), required=False, min_value=1, max_value=100),
-        'disk_boundary': forms.IntegerField(label="Disk boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["boundary"]), required=False, min_value=1, max_value=100),
+        'disk_read_boundary': forms.IntegerField(label="Disk read boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["boundary"]), required=False, min_value=1, max_value=100),
+        'disk_write_boundary': forms.IntegerField(label="Disk write boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["boundary"]), required=False, min_value=1, max_value=100),
         'energy_boundary': forms.IntegerField(label="Energy boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["boundary"]), required=False, min_value=1, max_value=100),
 
         # Resource boundary types
@@ -52,7 +56,14 @@ DEFAULT_COMMON_FIELDS = {
                                                ),
                                                initial=DEFAULT_LIMIT_VALUES["boundary_type"],
                                                required=False),
-        'disk_boundary_type': forms.ChoiceField(label="Disk boundary type (percentage of max or current)",
+        'disk_read_boundary_type': forms.ChoiceField(label="Disk read boundary type (percentage of max or current)",
+                                               choices=(
+                                                   ("percentage_of_max", "Percentage of max"),
+                                                   ("percentage_of_current", "Percentage of current"),
+                                               ),
+                                               initial=DEFAULT_LIMIT_VALUES["boundary_type"],
+                                               required=False),
+        'disk_write_boundary_type': forms.ChoiceField(label="Disk write boundary type (percentage of max or current)",
                                                choices=(
                                                    ("percentage_of_max", "Percentage of max"),
                                                    ("percentage_of_current", "Percentage of current"),
@@ -200,9 +211,13 @@ class LimitsForm(forms.Form):
     mem_boundary.label = "Memory Boundary (%)"
     mem_boundary.required = True
 
-    disk_boundary = common_fields['disk_boundary']
-    disk_boundary.label = "Disk Boundary (%)"
-    disk_boundary.required = True
+    disk_read_boundary = common_fields['disk_read_boundary']
+    disk_read_boundary.label = "Disk Read Boundary (%)"
+    disk_read_boundary.required = True
+
+    disk_write_boundary = common_fields['disk_write_boundary']
+    disk_write_boundary.label = "Disk Write Boundary (%)"
+    disk_write_boundary.required = True
 
     energy_boundary = common_fields['energy_boundary']
     energy_boundary.label = "Energy Boundary (%)"
@@ -214,8 +229,11 @@ class LimitsForm(forms.Form):
     mem_boundary_type = common_fields['mem_boundary_type']
     mem_boundary_type.required = True
 
-    disk_boundary_type = common_fields['disk_boundary_type']
-    disk_boundary_type.required = True
+    disk_read_boundary_type = common_fields['disk_read_boundary_type']
+    disk_read_boundary_type.required = True
+
+    disk_write_boundary_type = common_fields['disk_write_boundary_type']
+    disk_write_boundary_type.required = True
 
     energy_boundary_type = common_fields['energy_boundary_type']
     energy_boundary_type.required = True
@@ -243,8 +261,10 @@ class LimitsForm(forms.Form):
             Field('cpu_boundary_type'),
             Field('mem_boundary'),
             Field('mem_boundary_type'),
-            Field('disk_boundary'),
-            Field('disk_boundary_type'),
+            Field('disk_read_boundary'),
+            Field('disk_read_boundary_type'),
+            Field('disk_write_boundary'),
+            Field('disk_write_boundary_type'),
             Field('net_boundary'),
             Field('net_boundary_type'),
             Field('energy_boundary'),
@@ -412,9 +432,13 @@ class AddContainersForm(forms.Form):
     mem_min = common_fields['mem_min']
     mem_weight = common_fields['mem_weight']
 
-    disk_max = common_fields['disk_max']
-    disk_min = common_fields['disk_min']
-    disk_weight = common_fields['disk_weight']
+    disk_read_max = common_fields['disk_read_max']
+    disk_read_min = common_fields['disk_read_min']
+    disk_read_weight = common_fields['disk_read_weight']
+
+    disk_write_max = common_fields['disk_write_max']
+    disk_write_min = common_fields['disk_write_min']
+    disk_write_weight = common_fields['disk_write_weight']
 
     energy_max = common_fields['energy_max']
     energy_min = common_fields['energy_min']
@@ -423,12 +447,14 @@ class AddContainersForm(forms.Form):
     # Boundaries
     cpu_boundary = common_fields['cpu_boundary']
     mem_boundary = common_fields['mem_boundary']
-    disk_boundary = common_fields['disk_boundary']
+    disk_read_boundary = common_fields['disk_read_boundary']
+    disk_write_boundary = common_fields['disk_write_boundary']
     energy_boundary = common_fields['energy_boundary']
 
     cpu_boundary_type = common_fields['cpu_boundary_type']
     mem_boundary_type = common_fields['mem_boundary_type']
-    disk_boundary_type = common_fields['disk_boundary_type']
+    disk_read_boundary_type = common_fields['disk_read_boundary_type']
+    disk_write_boundary_type = common_fields['disk_write_boundary_type']
     energy_boundary_type = common_fields['energy_boundary_type']
 
     host_list = forms.CharField(label= "Number of containers to be deployed on each host",
@@ -455,9 +481,12 @@ class AddContainersForm(forms.Form):
             Field('mem_weight')
         )
         if config['disk_capabilities'] and config['disk_scaling']:
-            self.helper.layout.append(Field('disk_max'))
-            self.helper.layout.append(Field('disk_min'))
-            self.helper.layout.append(Field('disk_weight'))
+            self.helper.layout.append(Field('disk_read_max'))
+            self.helper.layout.append(Field('disk_read_min'))
+            self.helper.layout.append(Field('disk_read_weight'))
+            self.helper.layout.append(Field('disk_write_max'))
+            self.helper.layout.append(Field('disk_write_min'))
+            self.helper.layout.append(Field('disk_write_weight'))
         if config['power_budgeting']:
             self.helper.layout.append(Field('energy_max'))
             self.helper.layout.append(Field('energy_min'))
@@ -469,8 +498,10 @@ class AddContainersForm(forms.Form):
         self.helper.layout.append(Field('mem_boundary'))
         self.helper.layout.append(Field('mem_boundary_type'))
         if config['disk_capabilities'] and config['disk_scaling']:
-            self.helper.layout.append(Field('disk_boundary'))
-            self.helper.layout.append(Field('disk_boundary_type'))
+            self.helper.layout.append(Field('disk_read_boundary'))
+            self.helper.layout.append(Field('disk_read_boundary_type'))
+            self.helper.layout.append(Field('disk_write_boundary'))
+            self.helper.layout.append(Field('disk_write_boundary_type'))
         if config['power_budgeting']:
             self.helper.layout.append(Field('energy_boundary'))
             self.helper.layout.append(Field('energy_boundary_type'))
@@ -530,9 +561,13 @@ class AddAppForm(forms.Form):
     mem_min = common_fields['mem_min']
     mem_weight = common_fields['mem_weight']
 
-    disk_max = common_fields['disk_max']
-    disk_min = common_fields['disk_min']
-    disk_weight = common_fields['disk_weight']
+    disk_read_max = common_fields['disk_read_max']
+    disk_read_min = common_fields['disk_read_min']
+    disk_read_weight = common_fields['disk_read_weight']
+
+    disk_write_max = common_fields['disk_write_max']
+    disk_write_min = common_fields['disk_write_min']
+    disk_write_weight = common_fields['disk_write_weight']
 
     energy_max = common_fields['energy_max']
     energy_min = common_fields['energy_min']
@@ -541,12 +576,14 @@ class AddAppForm(forms.Form):
     # Boundaries
     cpu_boundary = common_fields['cpu_boundary']
     mem_boundary = common_fields['mem_boundary']
-    disk_boundary = common_fields['disk_boundary']
+    disk_read_boundary = common_fields['disk_read_boundary']
+    disk_write_boundary = common_fields['disk_write_boundary']
     energy_boundary = common_fields['energy_boundary']
 
     cpu_boundary_type = common_fields['cpu_boundary_type']
     mem_boundary_type = common_fields['mem_boundary_type']
-    disk_boundary_type = common_fields['disk_boundary_type']
+    disk_read_boundary_type = common_fields['disk_read_boundary_type']
+    disk_write_boundary_type = common_fields['disk_write_boundary_type']
     energy_boundary_type = common_fields['energy_boundary_type']
 
     # App config
@@ -581,9 +618,12 @@ class AddAppForm(forms.Form):
         )
 
         if config['disk_capabilities'] and config['disk_scaling']:
-            self.helper.layout.append(Field('disk_max'))
-            self.helper.layout.append(Field('disk_min'))
-            self.helper.layout.append(Field('disk_weight'))
+            self.helper.layout.append(Field('disk_read_max'))
+            self.helper.layout.append(Field('disk_read_min'))
+            self.helper.layout.append(Field('disk_read_weight'))
+            self.helper.layout.append(Field('disk_write_max'))
+            self.helper.layout.append(Field('disk_write_min'))
+            self.helper.layout.append(Field('disk_write_weight'))
         if config['power_budgeting']:
             self.helper.layout.append(Field('energy_max'))
             self.helper.layout.append(Field('energy_min'))
@@ -595,8 +635,10 @@ class AddAppForm(forms.Form):
         self.helper.layout.append(Field('mem_boundary'))
         self.helper.layout.append(Field('mem_boundary_type'))
         if config['disk_capabilities'] and config['disk_scaling']:
-            self.helper.layout.append(Field('disk_boundary'))
-            self.helper.layout.append(Field('disk_boundary_type'))
+            self.helper.layout.append(Field('disk_read_boundary'))
+            self.helper.layout.append(Field('disk_read_boundary_type'))
+            self.helper.layout.append(Field('disk_write_boundary'))
+            self.helper.layout.append(Field('disk_write_boundary_type'))
         if config['power_budgeting']:
             self.helper.layout.append(Field('energy_boundary'))
             self.helper.layout.append(Field('energy_boundary_type'))
@@ -646,9 +688,12 @@ class AddHadoopAppForm(AddAppForm):
         )
 
         if config['disk_capabilities'] and config['disk_scaling']:
-            self.helper.layout.append(Field('disk_max'))
-            self.helper.layout.append(Field('disk_min'))
-            self.helper.layout.append(Field('disk_weight'))
+            self.helper.layout.append(Field('disk_read_max'))
+            self.helper.layout.append(Field('disk_read_min'))
+            self.helper.layout.append(Field('disk_read_weight'))
+            self.helper.layout.append(Field('disk_write_max'))
+            self.helper.layout.append(Field('disk_write_min'))
+            self.helper.layout.append(Field('disk_write_weight'))
         if config['power_budgeting']:
             self.helper.layout.append(Field('energy_max'))
             self.helper.layout.append(Field('energy_min'))
@@ -660,8 +705,10 @@ class AddHadoopAppForm(AddAppForm):
         self.helper.layout.append(Field('mem_boundary'))
         self.helper.layout.append(Field('mem_boundary_type'))
         if config['disk_capabilities'] and config['disk_scaling']:
-            self.helper.layout.append(Field('disk_boundary'))
-            self.helper.layout.append(Field('disk_boundary_type'))
+            self.helper.layout.append(Field('disk_read_boundary'))
+            self.helper.layout.append(Field('disk_read_boundary_type'))
+            self.helper.layout.append(Field('disk_write_boundary'))
+            self.helper.layout.append(Field('disk_write_boundary_type'))
         if config['power_budgeting']:
             self.helper.layout.append(Field('energy_boundary'))
             self.helper.layout.append(Field('energy_boundary_type'))
@@ -885,7 +932,8 @@ class GuardianForm(forms.Form):
             choices = (
                 ("cpu", "CPU"),
                 ("mem", "Memory"),
-                ("disk", "Disk"),
+                ("disk_read", "Disk Read"),
+                ("disk_write", "Disk Write"),
                 ("net", "Network"),
                 ("energy", "Energy"),
                 ),
@@ -989,7 +1037,8 @@ class StructuresSnapshoterForm(forms.Form):
             choices = (
                 ("cpu", "CPU"),
                 ("mem", "Memory"),
-                ("disk", "Disk"),
+                ("disk_read", "Disk Read"),
+                ("disk_write", "Disk Write"),
                 ("net", "Network"),
                 #("energy", "Energy"),
                 ),
@@ -1054,7 +1103,8 @@ class RefeederForm(forms.Form):
             choices = (
                 ("cpu", "CPU"),
                 ("mem", "Memory"),
-                ("disk", "Disk"),
+                ("disk_read", "Disk Read"),
+                ("disk_write", "Disk Write"),
                 #("net", "Network"),
                 ("energy", "Energy"),
                 ),
@@ -1111,7 +1161,8 @@ class ReBalancerForm(forms.Form):
             choices = (
                 ("cpu", "CPU"),
                 #("mem", "Memory"),
-                ("disk", "Disk"),
+                ("disk_read", "Disk Read"),
+                ("disk_write", "Disk Write"),
                 #("net", "Network"),
                 #("energy", "Energy"),
                 ),

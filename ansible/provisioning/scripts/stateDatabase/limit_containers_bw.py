@@ -45,18 +45,26 @@ if __name__ == "__main__":
 
         for host in host_list:
             host_info = host_list[host]
-            max_write = host_info['resources']['disks']['lvm']['max']
+            max_read  = host_info['resources']['disks']['lvm']['max_read']
+            max_write = host_info['resources']['disks']['lvm']['max_write']
 
-            host_limited_write = (max_write) * cap_bw
+            host_limited_read  = max_read * cap_bw
+            host_limited_write = max_write * cap_bw
 
             if len(host_info['containers']) > 0:
+                containers_limited_read  = host_limited_read  / len(host_info['containers'])
                 containers_limited_write = host_limited_write / len(host_info['containers'])
 
             for container in host_info['containers']:
-                write_to_escale = max(containers_limited_write, container['resources']['disk']['min']) - container['resources']['disk']['current']
+                read_to_escale  = max(containers_limited_read,  container['resources']['disk_read']['min'])  - container['resources']['disk_read']['current']
+                write_to_escale = max(containers_limited_write, container['resources']['disk_write']['min']) - container['resources']['disk_write']['current']
+
+                if read_to_escale < 0:
+                    request = generate_request(container, read_to_escale, "disk_read")
+                    final_requests.append(request)
 
                 if write_to_escale < 0:
-                    request = generate_request(container, write_to_escale, "disk")
+                    request = generate_request(container, write_to_escale, "disk_write")
                     final_requests.append(request)
 
         ## TODO: get scaler timelapse from service config

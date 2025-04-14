@@ -220,7 +220,7 @@ def get_disks_dict(hdd_disks, hdd_disks_path_list, ssd_disks, ssd_disks_path_lis
 
     return disks_dict
 
-def update_inventory_disks(hostname, disk, bandwidth_MB):
+def update_inventory_disks(hostname, disk, read_bandwidth_MB, write_bandwidth_MB):
     loader = DataLoader()
     ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
 
@@ -241,7 +241,8 @@ def update_inventory_disks(hostname, disk, bandwidth_MB):
     energy = host.vars['energy'] if 'energy' in host.vars else None
     containers = host.vars['containers']
 
-    disks[disk]["bw"] = bandwidth_MB
+    disks[disk]["read_bw"] = read_bandwidth_MB
+    disks[disk]["write_bw"] = write_bandwidth_MB
 
     write_container_list(containers, host.name, cpu, mem, disks, energy)
 

@@ -44,7 +44,7 @@ if __name__ == "__main__":
 
     apps_to_load = general_config["apps"].split(",")
 
-    resources = ["cpu", "mem", "disk", "energy"]
+    resources = ["cpu", "mem", "disk_read", "disk_write", "energy"]
 
     for app_dir in apps_to_load:
 

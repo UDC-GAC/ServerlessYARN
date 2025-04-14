@@ -397,7 +397,7 @@ def start_containers_task_v2(new_containers, container_resources, disks):
             container_info['container_name'] = container
             container_info['host'] = host
             # Resources
-            for resource in ['cpu', 'mem', 'disk', 'energy']:
+            for resource in ['cpu', 'mem', 'disk_read', 'disk_write', 'energy']:
                 for key in ['max', 'min', 'weight', 'boundary', 'boundary_type']:
                     resource_key = '{0}_{1}'.format(resource, key)
                     if resource_key in container_resources:
@@ -465,8 +465,11 @@ def start_containers_with_app_task_v2(url, new_containers, app, app_files, conta
                                 disk_assignation[host][disk]['new_containers'] -= 1
                                 container_info['disk'] = disk
                                 container_info['disk_path'] = disk_assignation[host][disk]['disk_path']
-                                for resource in ['disk_max', 'disk_min', 'disk_weight', 'disk_boundary', 'disk_boundary_type']:
-                                    container_info[resource] = container_resources[container_type][resource]
+                                for resource in ['disk_read', 'disk_write']:
+                                    for key in ['max', 'min', 'weight', 'boundary', 'boundary_type']:
+                                        resource_key = "{0}_{1}".format(resource,key)
+                                        container_info[resource_key] = container_resources[container_type][resource_key]
+
                                 break
 
                     containers_info.append(container_info)
