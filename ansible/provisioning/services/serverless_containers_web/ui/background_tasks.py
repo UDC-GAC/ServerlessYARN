@@ -275,7 +275,10 @@ def process_script(script_name, argument_list, error_message):
     print(out.decode("utf-8"))
 
     if rc.returncode != 0:
-        error = "{0}: {1}".format(error_message, err.decode("utf-8"))
+        extracted_error = err.decode("utf-8")
+        if extracted_error.strip() == "": extracted_error = "Please consult Celery log under services/celery for further details"
+
+        error = "{0}: {1}".format(error_message, extracted_error)
         raise Exception(error)
 
 ## Adds
@@ -291,7 +294,7 @@ def add_host_task(host,cpu,mem,disk_info,energy,new_containers):
     process_script("configure_host", argument_list, error_message)
 
 @shared_task
-def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk):
+def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk, measure_host_list):
 
     # update_inventory_file
     with redis_server.lock(lock_key):
@@ -299,7 +302,7 @@ def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk):
 
     if add_to_lv:
         ## Add disks to existing LV
-        argument_list = [','.join(host_list), " ".join(new_disks), extra_disk]
+        argument_list = [','.join(host_list), " ".join(new_disks), extra_disk, str(measure_host_list).replace(' ','')]
         error_message = "Error extending LV of hosts {0} with disks {1} and extra disk {2}".format(host_list, str(new_disks), extra_disk)
         process_script("extend_lv", argument_list, error_message)
 

@@ -813,8 +813,18 @@ def processAddDisksToHosts(request, url, structure_type, resources):
             error = "Can't add disks to Logical Volume without an extra disk"
             return error
 
+        measure_host_list = {}
+        for host in host_list:
+
+            if not add_to_lv: measure_host = True
+            else:
+                #measure_host = host.disks.lvm.load == 0
+                measure_host = False
+
+            measure_host_list[host] = measure_host
+
         # add disks from playbook
-        task = add_disks_to_hosts_task.delay(host_list, add_to_lv, new_disks, extra_disk)
+        task = add_disks_to_hosts_task.delay(host_list, add_to_lv, new_disks, extra_disk, measure_host_list)
         print("Starting task with id {0}".format(task.id))
         register_task(task.id,"add_disks_to_hosts_task")
 
@@ -850,8 +860,8 @@ def processAddContainers(request, url, structure_type, resources, host_list):
                 resource_boundary = request.POST[resource + "_boundary"]
                 resource_boundary_type = request.POST[resource + "_boundary_type"]
             else:
-                resource_boundary = DEFAULT_LIMIT_VALUES["default_boundary_percentage"]
-                resource_boundary_type = DEFAULT_LIMIT_VALUES["default_boundary_type"]
+                resource_boundary = DEFAULT_LIMIT_VALUES["boundary"]
+                resource_boundary_type = DEFAULT_LIMIT_VALUES["boundary_type"]
             container_resources[resource + "_boundary"] = resource_boundary
             container_resources[resource + "_boundary_type"] = resource_boundary_type
 
@@ -970,8 +980,8 @@ def processAddApp(request, url, structure_name, structure_type, resources):
                 resource_boundary = request.POST[resource + "_boundary"]
                 resource_boundary_type = request.POST[resource + "_boundary_type"]
             else:
-                resource_boundary = DEFAULT_LIMIT_VALUES["default_boundary_percentage"]
-                resource_boundary_type = DEFAULT_LIMIT_VALUES["default_boundary_type"]
+                resource_boundary = DEFAULT_LIMIT_VALUES["boundary"]
+                resource_boundary_type = DEFAULT_LIMIT_VALUES["boundary_type"]
 
             put_field_data['limits']['resources'][resource] = {'boundary': resource_boundary, 'boundary_type': resource_boundary_type}
 
@@ -1300,14 +1310,14 @@ def getContainerResourcesForApp(number_of_containers, app_resources, app_limits,
             container_resources['regular'][boundary_key] = round(
                 ((container_resources['regular'][max_key] - container_resources['regular'][min_key]) * 100) /
                 (divider * container_resources['regular'][max_key]))
-            container_resources['regular'][boundary_type_key] = DEFAULT_LIMIT_VALUES["default_boundary_type"]
+            container_resources['regular'][boundary_type_key] = DEFAULT_LIMIT_VALUES["boundary_type"]
 
             if 'bigger' in container_resources or 'smaller' in container_resources:
                 irregular = 'bigger' if 'bigger' in container_resources else 'smaller'
                 container_resources[irregular][boundary_key] = round(
                     ((container_resources[irregular][max_key] - container_resources[irregular][min_key]) * 100) /
                     (divider * container_resources['regular'][max_key]))
-                container_resources[irregular][boundary_type_key] = DEFAULT_LIMIT_VALUES["default_boundary_type"]
+                container_resources[irregular][boundary_type_key] = DEFAULT_LIMIT_VALUES["boundary_type"]
 
     if not correctly_allocated:
         # use original resource allocation
@@ -2470,8 +2480,8 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
 
     # Container resources for HDFS cluster
     def_weight = DEFAULT_RESOURCE_VALUES['weight']
-    def_boundary = DEFAULT_LIMIT_VALUES['default_boundary_percentage']
-    def_boundary_type = DEFAULT_LIMIT_VALUES["default_boundary_type"]
+    def_boundary = DEFAULT_LIMIT_VALUES['boundary']
+    def_boundary_type = DEFAULT_LIMIT_VALUES["boundary_type"]
 
     hdfs_container_resources = {
         'namenode': {

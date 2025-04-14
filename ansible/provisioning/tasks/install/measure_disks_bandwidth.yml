@@ -1,78 +1,96 @@
 
-- name: Check for previous fio installation
-  shell: "which $HOME/.local/bin/fio"
-  register: result
-  ignore_errors: true
-
-- name: Install Fio
-  when: result is failed
+- name: Benchmark disk
+  when: not create_lvm or measure_host_list_str is undefined or measure_host_list[inventory_hostname]
+  vars:
+    measure_host_list: "{{ measure_host_list_str | replace('\n','') | replace(' ','') if measure_host_list_str is defined else [] }}"
   block:
-    - name: Install prerequisites for FIO
-      when: virtual_mode
-      apt:
-        name:
-        - libaio-dev
-        state: latest
-        update_cache: yes
-
-    - name: Clone Fio repo
-      git:
-        repo: https://github.com/axboe/fio.git
-        dest: "{{ installation_path }}/fio"
-
-    - name: Configure Fio
-      shell: ./configure --prefix=$HOME/.local/
-      args:
-        chdir: "{{ installation_path }}/fio"
-        executable: /bin/bash
-
-    - name: Build Fio
-      make:
-        chdir: "{{ installation_path }}/fio"
+    - name: Check for previous fio installation
+      shell: "which $HOME/.local/bin/fio"
+      register: result
+      ignore_errors: true
 
     - name: Install Fio
-      make:
-        chdir: "{{ installation_path }}/fio"
-        target: install
+      when: result is failed
+      block:
+        - name: Install prerequisites for FIO
+          when: virtual_mode
+          apt:
+            name:
+            - libaio-dev
+            state: latest
+            update_cache: yes
 
-- name: Measure disk bandwidth
-  block:
+        - name: Clone Fio repo
+          git:
+            repo: https://github.com/axboe/fio.git
+            dest: "{{ installation_path }}/fio"
 
-  ## Get random string to always guarantee creation of a new file
-  - name: Generate random code
-    set_fact:
-      random_code: "{{ lookup('community.general.random_string', special=false) }}"
+        - name: Configure Fio
+          shell: ./configure --prefix=$HOME/.local/
+          args:
+            chdir: "{{ installation_path }}/fio"
+            executable: /bin/bash
 
-  - name: Create file with fio
-    when: "(not create_lvm or item.key == 'lvm') and 'bw' not in item.value"
-    shell: "$HOME/.local/bin/fio --name TEST --eta-newline=5s --filename={{ item.value.path }}/{{ tmp_file }}.{{ random_code }}.{{ item.key }} --rw={{ rw }} --size={{ size }} --io_size=10g --blocksize={{ block_size }} --ioengine=libaio --fsync=10000 --iodepth=32 --direct={{ direct }} --numjobs=1 --runtime={{ runtime }} --group_reporting --output-format=json"
-    vars:
-      size: 500m
-      block_size: 1024k
-      runtime: 60s
-      direct: 1
-      rw: write
-    register: bw_output
-    with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
-    throttle: "{{ '1' if virtual_mode else (groups['nodes'] | length) }}"
+        - name: Build Fio
+          make:
+            chdir: "{{ installation_path }}/fio"
 
-  - name: Remove tmp file
-    when: "(not create_lvm or item.key == 'lvm') and 'bw' not in item.value"
-    file:
-      path: "{{ item.value.path }}/{{ tmp_file }}.{{ random_code }}.{{ item.key }}"
-      state: absent
-    with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
+        - name: Install Fio
+          make:
+            chdir: "{{ installation_path }}/fio"
+            target: install
 
-  become: no
-  vars:
-    tmp_file: "test_{{ inventory_hostname }}.img"
-    new_disks_dict: "{{ new_disks_dict_str | replace(' ','') if new_disks_dict_str is defined else ''}}"
+    - name: Measure disk bandwidth
+      block:
 
-- name: Update host information in inventory (with fio)
-  when: "'skipped' not in item"
+      ## Get random string to always guarantee creation of a new file
+      - name: Generate random code
+        set_fact:
+          random_code: "{{ lookup('community.general.random_string', special=false) }}"
+
+      - name: Create file with fio
+        when: "(not create_lvm or item.key == 'lvm') and 'bw' not in item.value" # this last check would avoid re-benchmarking extended LVs
+        shell: "$HOME/.local/bin/fio --name TEST --eta-newline=5s --filename={{ item.value.path }}/{{ tmp_file }}.{{ random_code }}.{{ item.key }} --rw={{ rw }} --size={{ size }} --io_size=10g --blocksize={{ block_size }} --ioengine=libaio --fsync=10000 --iodepth=32 --direct={{ direct }} --numjobs=1 --runtime={{ runtime }} --group_reporting --output-format=json"
+        vars:
+          size: 500m
+          block_size: 1024k
+          runtime: 60s
+          direct: 1
+          rw: write
+        register: bw_output
+        with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
+        throttle: "{{ '1' if virtual_mode else (groups['nodes'] | length) }}"
+
+      - name: Remove tmp file
+        when: "(not create_lvm or item.key == 'lvm') and 'bw' not in item.value"
+        file:
+          path: "{{ item.value.path }}/{{ tmp_file }}.{{ random_code }}.{{ item.key }}"
+          state: absent
+        with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
+
+      become: no
+      vars:
+        tmp_file: "test_{{ inventory_hostname }}.img"
+        new_disks_dict: "{{ new_disks_dict_str | replace(' ','') if new_disks_dict_str is defined else ''}}"
+
+    - name: Update host information in inventory (with fio)
+      when: "'skipped' not in item"
+      delegate_to: localhost
+      shell: "python3 scripts/update_host_disks_bw.py {{ inventory_hostname }} {{ item.item.key }} {{ bw_results }} B/s config/config.yml"
+      vars:
+        bw_results: "{{ (item.stdout | from_json).jobs[0].write.bw_bytes}}"
+      loop: "{{ bw_output.results }}"
+      throttle: 1
+
+
+- name: Estimate disk performance based on optimistic approximation
+  when: create_lvm and measure_host_list_str is defined and not measure_host_list[inventory_hostname]
   delegate_to: localhost
-  shell: "python3 scripts/update_host_disks_bw.py {{ inventory_hostname }} {{ item.item.key }} {{ bw_results }} B/s config/config.yml"
+  shell: "python3 scripts/update_host_disks_bw.py {{ inventory_hostname }} lvm {{ estimated_new_bw }} MB/s config/config.yml"
   vars:
-    bw_results: "{{ (item.stdout | from_json).jobs[0].write.bw_bytes}}"
-  loop: "{{ bw_output.results }}"
+    number_of_new_disks: "{{ (new_disks_list | split(',')) | length }}"
+    number_of_current_disks: "{{ (hostvars[inventory_hostname].disks | length) -1 }}"
+    number_of_old_disks: "{{ number_of_current_disks|int - number_of_new_disks|int }}"
+    estimated_new_bw: "{{ hostvars[inventory_hostname].disks.lvm.bw * (number_of_current_disks|int / number_of_old_disks|int) }}"
+    measure_host_list: "{{ measure_host_list_str | replace('\n','') | replace(' ','') }}"
   throttle: 1
