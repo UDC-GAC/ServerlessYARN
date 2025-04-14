@@ -18,7 +18,7 @@ LV=$2
 EXTRA_DISK=${ARGS[-1]}
 
 ## Remove VG from disk list
-DISKS=("${ARGS[@]:1}") 
+DISKS=("${ARGS[@]:1}")
 ## Remove LV from disk list
 DISKS=("${DISKS[@]:1}")
 ## Remove extra disk from disk list
@@ -31,13 +31,13 @@ new_stripes=$((current_stripes+${#DISKS[@]}))
 
 check_sync_status(){
     echo "Wait for conversion to finish"
-    sleep_seconds=5
+    sleep_seconds=10
     progress="0"
     fields_to_remove=attr,origin,pool_lv,lv_size,data_percent,metadata_percent,move_pv,mirror_log,convert_lv,lv_name,vg_name
     progress=$(sudo lvs --noheadings -o-$fields_to_remove $VG/$LV | xargs)
 
     echo "Conversion progress: $progress ..."
-    while [ -n "$progress" ] && [ "$progress" != "100.00" ] 
+    while [ -n "$progress" ] && [ "$progress" != "100.00" ] && [ "$progress" != "100,00" ]
     do
         sleep $sleep_seconds
         progress=$(sudo lvs --noheadings -o-$fields_to_remove $VG/$LV | xargs)
@@ -46,8 +46,8 @@ check_sync_status(){
 }
 
 ## Extend VG
-echo "sudo pvcreate ${DISKS[*]}"
-sudo pvcreate ${DISKS[*]}
+echo "sudo pvcreate -y ${DISKS[*]}"
+sudo pvcreate -y ${DISKS[*]}
 echo "sudo vgextend $VG ${DISKS[*]}"
 sudo vgextend $VG ${DISKS[*]}
 
@@ -68,8 +68,8 @@ sudo lvconvert --type raid5_n -y $VG/$LV
 check_sync_status
 
 ## Extend with extra disk and re-convert
-echo "sudo pvcreate $EXTRA_DISK"
-sudo pvcreate $EXTRA_DISK
+echo "sudo pvcreate -y $EXTRA_DISK"
+sudo pvcreate -y $EXTRA_DISK
 echo "sudo vgextend $VG $EXTRA_DISK"
 sudo vgextend $VG $EXTRA_DISK
 echo "sudo lvconvert --type raid0 --stripes $new_stripes -y $VG/$LV"
@@ -88,5 +88,5 @@ echo "sudo vgreduce $VG $EXTRA_DISK"
 sudo vgreduce $VG $EXTRA_DISK
 
 ## Resize filesystem
-echo "sudo resize2fs /dev/$VG/$LV"
-sudo resize2fs /dev/$VG/$LV
+echo "sudo lvextend --size +100M --resizefs /dev/$VG/$LV"
+sudo lvextend --size +100M --resizefs /dev/$VG/$LV
