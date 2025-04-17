@@ -59,9 +59,6 @@
     - import_tasks: tasks/install/lxd_setup.yml
       when: "virtual_mode and container_engine == 'lxc'"
 
-    - import_tasks: tasks/install/network_setup.yml
-      when: "container_engine == 'apptainer'"
-
     - block:
       - import_tasks: tasks/install/lvm_setup.yml
         when: create_lvm
@@ -73,3 +70,21 @@
     - import_tasks: tasks/install/hwpc-sensor_setup.yml
       when: "container_engine == 'apptainer' and power_budgeting"
       tags: setup_hwpc_sensor
+
+# Setup nodes + server
+- name: Install requisites in nodes and server
+  hosts: server,nodes
+  become: "{{ virtual_mode }}"
+  gather_facts: yes
+
+  vars_files:
+    - vars/main.yml
+    - config/config.yml
+
+  environment:
+    HOME: "{{ lookup('env', 'HOME') }}"
+    INSTALLATION_PATH: "{{ installation_path }}"
+
+  tasks:
+    - import_tasks: tasks/install/network_setup.yml
+      when: "container_engine == 'apptainer'"

@@ -25,7 +25,7 @@ def update_server_ip(server_ip):
         server = hostList[0]
         server_info = server.name + " host_ip=" + server_ip + "\n"
     else:
-        server_info = "sc-server" + " host_ip=" + server_ip + "\n"
+        server_info = "server" + " host_ip=" + server_ip + "\n"
 
     print(server_info)
 

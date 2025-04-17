@@ -50,7 +50,10 @@
         {% for item in containers_info %}
           {% if item.host == inventory_hostname and item.container_name not in apptainer_list_output.stdout %}
             {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-            sudo {{ singularity_command_alias }} instance start -C --net --network {{ network }} --hostname {{ item.container_name }} --apply-cgroups {{ cgroups_file }} --bind {{ bind_dir }}/{{ item.container_name }}:{{ bind_dir_on_container }} images/{{ image_file }} {{ item.container_name }} && 
+            sudo {{ singularity_command_alias }} instance start -C --net --network {{ network }} --network-args {{ extra_network_args }} \
+              --hostname {{ item.container_name }} --apply-cgroups {{ cgroups_file }} \
+              --bind {{ bind_dir }}/{{ item.container_name }}:{{ bind_dir_on_container }} \
+              images/{{ image_file }} {{ item.container_name }} && 
           {% endif  %}
         {% endfor %}true"
       args:

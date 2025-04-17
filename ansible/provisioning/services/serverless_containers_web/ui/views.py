@@ -2430,8 +2430,8 @@ def hdfs(request):
 
             if 'operation' in request.POST:
                 if request.POST['operation'] == 'add_dir': error = addDirHDFS(request, namenode_host, namenode_container)
-                elif request.POST['operation'] == 'add_file': error = addFileHDFS(request, namenode_host, namenode_container, namenode_container_info)
-                elif request.POST['operation'] == 'get_file': error = getFileHDFS(request, namenode_host, namenode_container, namenode_container_info)
+                elif request.POST['operation'] == 'add_file': error = addFileHDFS(request, namenode_host, namenode_container)
+                elif request.POST['operation'] == 'get_file': error = getFileHDFS(request, namenode_host, namenode_container)
                 elif request.POST['operation'] == 'del_file': error = removeFileHDFS(request, namenode_host, namenode_container)
 
             if error: errors.append(error)
@@ -2481,39 +2481,31 @@ def addDirHDFS(request, namenode_host, namenode_container):
         error = "Missing or empty directory path to create"
     return error
 
-def addFileHDFS(request, namenode_host, namenode_container, namenode_container_info):
+def addFileHDFS(request, namenode_host, namenode_container):
 
     error = ""
-
-    bind_path = ""
-    if 'disk_path' in namenode_container_info:
-        bind_path = namenode_container_info['disk_path']
 
     ## Get path from request
     if 'dest_path' in request.POST and request.POST['dest_path'] != "" and 'origin_path' in request.POST and request.POST['origin_path'] != "":
         file_to_add = request.POST['origin_path']
         dest_path = request.POST['dest_path']
-        task = add_file_to_hdfs.delay(namenode_host, namenode_container, file_to_add, dest_path, bind_path)
+        task = add_file_to_hdfs.delay(namenode_host, namenode_container, file_to_add, dest_path)
         print("Starting task with id {0}".format(task.id))
         register_task(task.id,"add_file_to_hdfs")
     else:
         error = "Missing or empty file path to upload or destination path on HDFS"
     return error
 
-def getFileHDFS(request, namenode_host, namenode_container, namenode_container_info):
+def getFileHDFS(request, namenode_host, namenode_container):
 
     error = ""
-
-    bind_path = ""
-    if 'disk_path' in namenode_container_info:
-        bind_path = namenode_container_info['disk_path']
 
     ## Get path from request
     if 'origin_path' in request.POST and request.POST['origin_path'] != "":
         if 'dest_path' in request.POST: dest_path = request.POST['dest_path']
         else: dest_path = ""
         file_to_download = request.POST['origin_path']
-        task = get_file_from_hdfs.delay(namenode_host, namenode_container, file_to_download, dest_path, bind_path)
+        task = get_file_from_hdfs.delay(namenode_host, namenode_container, file_to_download, dest_path)
         print("Starting task with id {0}".format(task.id))
         register_task(task.id,"get_file_from_hdfs")
     else:
@@ -2537,7 +2529,8 @@ def removeFileHDFS(request, namenode_host, namenode_container):
 def manage_global_hdfs(request):
 
     # Common parameters
-    resources = ["cpu", "mem", "disk"]
+    resources = ["cpu", "mem"]
+    if config['disk_capabilities'] and config['disk_scaling']: resources.extend(["disk_read", "disk_write"])
     url = base_url + "/structure/"
     app_name = "global_hdfs"
     nn_container_prefix = "namenode"
@@ -2572,12 +2565,13 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
     hdfs_container_resources = {
         'namenode': {
             'cpu': {'max': 100, 'min': 100, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type},
-            'mem': {'max': 1024, 'min': 512, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type}
+            'mem': {'max': 1024, 'min': 512, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type},
         },
         'datanode': {
             'cpu': {'max': 100, 'min': 50, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type},
             'mem': {'max': 1024, 'min': 512, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type},
-            'disk': {'min': 10, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type}
+            'disk_read':  {'min': 10, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type},
+            'disk_write': {'min': 10, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type},
         }
     }
 
@@ -2600,13 +2594,17 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
         for resource in ["cpu", "mem"]:
             for key in ["max", "min", "weight", "boundary", "boundary_type"]:
                 container["{0}_{1}".format(resource,key)] = hdfs_container_resources['datanode'][resource][key]
+        # Disk
         if config['disk_capabilities'] and config['disk_scaling'] and 'disks' in host["resources"] and len(host["resources"]['disks']) > 0:
             disk = next(iter(host["resources"]["disks"]))
             container["disk"] = disk
             container['disk_path'] = host["resources"]['disks'][disk]["path"] # verificar que funciona
-            container["disk_max"] = host["resources"]['disks'][disk]["max"]
-            for key in ["min", "weight", "boundary", "boundary_type"]:
-                container["{0}_{1}".format("disk",key)] = hdfs_container_resources['datanode']["disk"][key]
+            container["disk_read_max"] = host["resources"]['disks'][disk]["max_read"]
+            container["disk_write_max"] = host["resources"]['disks'][disk]["max_write"]
+            for res in ["disk_read", "disk_write"]:
+                for key in ["min", "weight", "boundary", "boundary_type"]:
+                    res_key = "{0}_{1}".format(res, key)
+                    container[res_key] = hdfs_container_resources['datanode']["disk"][res_key]
 
         containers.append(container)
 

@@ -1,0 +1,53 @@
+
+- name: Setup global HDFS frontend container
+  delegate_to: localhost
+  run_once: yes
+  block:
+    - name: Check containers status
+      shell: "sudo {{ singularity_command_alias }} instance list -j"
+      args:
+        executable: /bin/bash
+      register: apptainer_list_output
+
+    - name: Start hdfs frontend container
+      when: container_name not in apptainer_list_output.stdout
+      shell: "sudo {{ singularity_command_alias }} instance start -C --net --network {{ network }} --hostname {{ container_name }} \
+        --bind {{ global_hdfs_data_dir }}:{{ bind_dir_on_container }} \
+        apps/{{ app_type }}/{{ image_mapping[app_type] }} {{ container_name }}"
+      args:
+        chdir: "{{ installation_path }}"
+        executable: /bin/bash
+      vars:
+        container_name: "{{ hdfs_frontend_container_name }}"
+        #network: "{{ mode }}_{{ inventory_hostname }}{{ ',ptp' if mode == 'ipvlan' else '' }}"
+        network: "{{ 'ptp,' if mode == 'ipvlan' else '' }}{{ mode }}_{{ groups['server'][0] }}"
+
+
+- name: Setup hostname resolution for the frontend
+  vars:
+    containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
+  block:
+    - name: Get containers IP addresses
+      shell: "{% for item in containers_info %}
+        {% if item.host == inventory_hostname %}
+        sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \"printf '%s ' \\$(hostname -I | awk '{print \\$2}') && hostname\" && 
+        {% endif  %}
+        {% endfor %}true"
+      args:
+        executable: /bin/bash
+      register: ip_addresses
+
+    - name: Update hostname resolution in containers
+      delegate_to: localhost
+      run_once: yes
+      shell: "sudo {{ singularity_command_alias }} exec instance://{{ container_name }} bash -c \
+          'cp /etc/hosts {{ bind_dir_on_container }} \
+          && {% for host_ip in resolution_list.split('\n') | select() %}sed -i '\\''1s/^/{{ host_ip }}\\n/'\\'' {{ bind_dir_on_container }}/hosts && {% endfor %}true \
+          && cat {{ bind_dir_on_container }}/hosts > /etc/hosts \
+          && rm {{ bind_dir_on_container }}/hosts'"
+      args:
+        executable: /bin/bash
+      vars:
+        container_name: "{{ hdfs_frontend_container_name }}"
+        iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'ip_addresses') | list }}"
+        resolution_list: "{% for result in iface_ip_list | flatten(levels=1) %}{{ result.stdout }}\n{% endfor %}"

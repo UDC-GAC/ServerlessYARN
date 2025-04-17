@@ -25,6 +25,7 @@
       vars:
         - app_type: "{{ 'generic_app' if install_script is defined and install_script != '' else 'base' }}"
         - image_mapping:
+            hdfs_frontend: hdfs_frontend.sif
             spark_app: spark_app.sif
             hadoop_app: hadoop_app.sif
             generic_app: "{{ app_dir + '.sif' if app_dir is defined }}"
@@ -33,14 +34,16 @@
         ## Image creation
         - include_tasks: "tasks/containers_setup/apptainer_container_image_setup.yml" # beware of the differences of 'include_tasks' vs 'import_tasks', such as tagging
           loop: "{{ reverse_image_dependencies }}"
-          tags: create_app
+          tags: create_app, setup_hdfs
           vars:
             - definition_mapping:
+                hdfs_frontend: hdfs_frontend.def
                 spark_app: spark_app.def
                 hadoop_app: hadoop_app.def
                 generic_app: generic_app.def
                 base: ubuntu_container.def
             - image_dependencies:
+                hdfs_frontend: hadoop_app
                 spark_app: hadoop_app
                 hadoop_app: base
                 generic_app: base
@@ -90,6 +93,11 @@
             - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
             ## TODO: merge the "master_container" parameter with "rm_container" as they are both used for the same purpose
             - master_container: "{{ (containers_info | first).container_name }}" # This container will act as RM/NM on distributed deployments with Hadoop/Spark
+
+        ## Launch global HDFS frontend container
+        - import_tasks: tasks/launch/global_hdfs_frontend_launch.yml
+          when: global_hdfs
+          tags: never, setup_hdfs
 
     - import_tasks: tasks/containers_setup/node_rescaler_launch.yml
 

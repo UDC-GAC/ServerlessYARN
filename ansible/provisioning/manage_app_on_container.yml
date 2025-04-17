@@ -550,33 +550,24 @@
   - name: Upload file(s) to HDFS
     tags: never, add_file_to_hdfs
     when: dest_path is defined and dest_path != '' and origin_path is defined and origin_path != ''
+    delegate_to: localhost
     vars:
-      container_tmp_path: "{{ container_bind_dir }}/{{ origin_path.rstrip('/') | basename }}"
-      container_bind_tmp_path: "{{ bind_dir_on_container }}/{{ origin_path.rstrip('/') | basename }}"
-      starting_origin_dir: hdfs_data
+      global_namenode_url: "hdfs://{{ namenode_container }}:8020"
+      origin_container_path: "{{ bind_dir_on_container }}/{{ origin_path.rstrip('/') | basename }}"
     block:
-      - name: Copy data to namenode container
-        synchronize:
-          src: "{{ starting_origin_dir }}/{{ origin_path }}"
-          dest: "{{ container_tmp_path }}"
-          perms: true
-
       - name: Put data on HDFS
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c '$HADOOP_HOME/bin/hdfs dfs -put {{ container_bind_tmp_path }} {{ dest_path }}'"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ hdfs_frontend_container_name }} bash -c \
+          '$HADOOP_HOME/bin/hdfs dfs -put {{ origin_container_path }} {{ global_namenode_url }}/{{ dest_path }}'"
         args:
           executable: /bin/bash
-
-      - name: Clean data on namenode container
-        file:
-          path: "{{ container_tmp_path }}"
-          state: absent
 
   - name: Download file(s) from HDFS
     tags: never, get_file_from_hdfs
     when: dest_path is defined and origin_path is defined and origin_path != ''
+    delegate_to: localhost
     vars:
-      container_tmp_path: "{{ container_bind_dir }}/{{ origin_path | basename }}"
-      starting_dest_dir: hdfs_data
+      global_namenode_url: "hdfs://{{ namenode_container }}:8020"
+      dest_container_path: "{{ bind_dir_on_container }}/{{ dest_path.rstrip('/') }}" 
     block:
       - name: get the user id running the deploy
         become: no
@@ -585,24 +576,11 @@
 
       - name: Get data from HDFS
         when: "' ' not in userid_on_the_host.stdout"
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \ 
-          '$HADOOP_HOME/bin/hdfs dfs -get {{ origin_path }} {{ bind_dir_on_container }} \ 
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ hdfs_frontend_container_name }} bash -c \ 
+          '$HADOOP_HOME/bin/hdfs dfs -get {{ global_namenode_url }}/{{ origin_path }} {{ dest_container_path }} \ 
           && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/{{ origin_path | basename }}'"
         args:
           executable: /bin/bash
-
-      - name: Copy data from namenode container to server
-        synchronize:
-          src: "{{ container_tmp_path }}"
-          dest: "{{ starting_dest_dir }}/{{ dest_path.rstrip('/') }}/"
-          perms: true
-          mode: pull
-
-      - name: Clean data on namenode container
-        file:
-          path: "{{ container_tmp_path }}"
-          state: absent
-
 
   - name: Move data between global and local HDFS
     tags: never

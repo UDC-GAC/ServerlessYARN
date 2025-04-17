@@ -10,8 +10,10 @@ import timeit
 import yaml
 
 config_path = "../../config/config.yml"
-with open(config_path, "r") as config_file:
-    config = yaml.load(config_file, Loader=yaml.FullLoader)
+with open(config_path, "r") as config_file: config = yaml.load(config_file, Loader=yaml.FullLoader)
+
+vars_path = "../../vars/main.yml"
+with open(vars_path, "r") as vars_file: vars_config = yaml.load(vars_file, Loader=yaml.FullLoader)
 
 redis_server = redis.StrictRedis()
 redis_prefix = "pending_tasks"
@@ -682,16 +684,16 @@ def create_dir_on_hdfs(self, namenode_host, namenode_container, dir_to_create):
     process_script("hdfs/create_dir_on_hdfs", argument_list, error_message)
 
 @shared_task(bind=True)
-def add_file_to_hdfs(self, namenode_host, namenode_container, file_to_add, dest_path, bind_path):
+def add_file_to_hdfs(self, namenode_host, namenode_container, file_to_add, dest_path):
 
-    argument_list = [namenode_host, namenode_container, file_to_add, dest_path, bind_path]
+    argument_list = [namenode_host, namenode_container, file_to_add, dest_path]
     error_message = "Error uploading {0} to {1} on HDFS".format(file_to_add, dest_path)
     process_script("hdfs/add_file_to_hdfs", argument_list, error_message)
 
 @shared_task(bind=True)
-def get_file_from_hdfs(self, namenode_host, namenode_container, file_to_download, dest_path, bind_path):
+def get_file_from_hdfs(self, namenode_host, namenode_container, file_to_download, dest_path):
 
-    argument_list = [namenode_host, namenode_container, file_to_download, dest_path, bind_path]
+    argument_list = [namenode_host, namenode_container, file_to_download, dest_path]
     error_message = "Error downloading {0} from {1} on HDFS".format(file_to_download, dest_path)
     process_script("hdfs/get_file_from_hdfs", argument_list, error_message)
 
@@ -757,6 +759,11 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
         full_url = url + "/container/{0}/{1}".format(container['container_name'], app)
         add_container_to_app_in_db(full_url, container['container_name'], app)
 
+    # Start hdfs frontend container
+    argument_list = [formatted_host_list, "hdfs_frontend", formatted_containers_info]
+    error_message = "Error setting HDFS frontend"
+    process_script("hdfs/start_hdfs_frontend", argument_list, error_message)
+
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)
     update_task_runtime(self.request.id, runtime)
@@ -799,6 +806,11 @@ def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_fre
     for container in app_containers:
         stop_task = stop_container.si(container['host'], container['name'])
         stop_containers_task.append(stop_task)
+
+    # Stop hdfs frontend container
+    argument_list = ["server", vars_config['hdfs_frontend_container_name']]
+    error_message = "Error stopping hdfs frontend container {0}".format(vars_config['hdfs_frontend_container_name'])
+    process_script("stop_container", argument_list, error_message)
 
     # Collect logs
     set_hadoop_logs_timestamp_task = set_hadoop_logs_timestamp.si(app, app_files, rm_host, rm_container)
