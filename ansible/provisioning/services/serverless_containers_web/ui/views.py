@@ -1472,8 +1472,8 @@ def getHostFreeDiskBw(host):
             free_read_bw += disk['free_read']
             free_write_bw += disk['free_write']
             
-            consumed_read = disk['max_read']
-            consumed_write = disk['max_write']
+            consumed_read = disk['max_read'] - disk['free_read']
+            consumed_write = disk['max_write'] - disk['free_write']
             free_total_bw += max(disk['max_read'], disk['max_write']) - consumed_read - consumed_write
 
     return free_read_bw, free_write_bw, free_total_bw
@@ -1627,7 +1627,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     break
 
                 #free_disk_load = getHostFreeDiskLoad(host)
-                if config['disk_capabilities'] and config['disk_scaling']: free_read_host, free_write_bw, free_total_bw = getHostFreeDiskBw(host)
+                if config['disk_capabilities'] and config['disk_scaling']: free_read_host, free_write_host, free_total_bw = getHostFreeDiskBw(host)
 
                 container_allocated = False
                 for container_type in ['bigger', 'regular', 'smaller', 'rm-nn']:
@@ -1641,7 +1641,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     if containers_to_check > 0 and container_type in container_resources and host['resources']['cpu']['free'] >= container_resources[container_type]['cpu_min'] and host['resources']['mem']['free'] >= container_resources[container_type]['mem_min']:
                         if not config['disk_capabilities'] or not config['disk_scaling'] or container_type == "rm-nn" or (
                             free_read_host >= container_resources[container_type]['disk_read_min']
-                            and free_write_bw >= container_resources[container_type]['disk_write_min']
+                            and free_write_host >= container_resources[container_type]['disk_write_min']
                             and free_total_bw >= (container_resources[container_type]['disk_read_min'] + container_resources[container_type]['disk_write_min'])
                             ):
 
@@ -1656,7 +1656,9 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                                 and disk_assignation[host['name']][host_disk]['free_write'] >= container_resources[container_type]['disk_write_min']
                                 and disk_assignation[host['name']][host_disk]['free_total'] >= (container_resources[container_type]['disk_read_min'] + container_resources[container_type]['disk_write_min'])
                                 ):
-                                    disk_assignation[host['name']][host_disk]['free_bw'] -= container_resources[container_type]['disk_min']
+                                    disk_assignation[host['name']][host_disk]['free_read'] -= container_resources[container_type]['disk_read_min']
+                                    disk_assignation[host['name']][host_disk]['free_write'] -= container_resources[container_type]['disk_write_min']
+                                    disk_assignation[host['name']][host_disk]['free_total'] -= (container_resources[container_type]['disk_read_min'] + container_resources[container_type]['disk_write_min'])
                                     disk_assignation[host['name']][host_disk]['new_containers'] += 1
                                     for disk_name in host['resources']['disks']:
                                         disk = host['resources']['disks'][disk_name]

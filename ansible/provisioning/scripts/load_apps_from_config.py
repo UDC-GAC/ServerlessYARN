@@ -100,7 +100,7 @@ if __name__ == "__main__":
         app_config["limits"]["resources"] = {}
         for resource in resources:
 
-            if resource == "disk" and (not general_config['disk_capabilities'] or not general_config['disk_scaling']): continue
+            if resource in ["disk_read", "disk_write"] and (not general_config['disk_capabilities'] or not general_config['disk_scaling']): continue
             if resource == "energy" and not general_config['power_budgeting']: continue
 
             app_config["app"]["resources"][resource] = {}
@@ -109,7 +109,7 @@ if __name__ == "__main__":
             # Resource keys
             for key in MANDATORY_RESOURCE_KEYS + OPTIONAL_RESOURCE_KEYS_WITH_DEFAULT + OPTIONAL_RESOURCE_KEYS:
                 if "{0}_{1}".format(resource,key) in config: app_config["app"]["resources"][resource][key] = config["{0}_{1}".format(resource,key)]
-                elif key in MANDATORY_RESOURCE_KEYS: raise Exception("Missing mandatory parameter {0}".format(key))
+                elif key in MANDATORY_RESOURCE_KEYS: raise Exception("Missing mandatory parameter {0}".format("{0}_{1}".format(resource,key)))
                 elif key in OPTIONAL_RESOURCE_KEYS_WITH_DEFAULT: app_config["app"]["resources"][resource][key] = DEFAULT_RESOURCE_VALUES[key]
                 elif key in OPTIONAL_RESOURCE_KEYS: app_config["app"]["resources"][resource][key] = ""
 
@@ -117,7 +117,7 @@ if __name__ == "__main__":
             app_config["limits"]["resources"][resource] = {}
             for key in MANDATORY_LIMIT_KEYS + OPTIONAL_LIMIT_KEYS_WITH_DEFAULT + OPTIONAL_LIMIT_KEYS:
                 if "{0}_{1}".format(resource,key) in config: app_config["limits"]["resources"][resource][key] = config["{0}_{1}".format(resource,key)]
-                elif key in MANDATORY_LIMIT_KEYS: raise Exception("Missing mandatory parameter {0}".format(key))
+                elif key in MANDATORY_LIMIT_KEYS: raise Exception("Missing mandatory parameter {0}".format("{0}_{1}".format(resource,key)))
                 elif key in OPTIONAL_LIMIT_KEYS_WITH_DEFAULT: app_config["limits"]["resources"][resource][key] = DEFAULT_LIMIT_VALUES[key]
                 elif key in OPTIONAL_LIMIT_KEYS: app_config["limits"]["resources"][resource][key] = ""
 

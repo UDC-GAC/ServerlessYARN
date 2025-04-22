@@ -78,11 +78,12 @@ if __name__ == "__main__":
 
             # Disk
             if 'disk' in cont and config['disk_capabilities'] and config['disk_scaling']:
-                cont_resources.append("disk")
-                put_field_data['container']['resources']["disk"] = {}
+                put_field_data['container']['resources']["disk"] = dict()
                 put_field_data['container']['resources']["disk"]["name"] = cont['disk']
                 put_field_data['container']['resources']["disk"]["path"] = cont['disk_path']
                 for metric in ["disk_read", "disk_write"]:
+                    cont_resources.append(metric)
+                    put_field_data['container']['resources'][metric] = dict()
                     put_field_data['container']['resources'][metric]["max"] = int(cont['{0}_max'.format(metric)])
                     put_field_data['container']['resources'][metric]["current"] = int(cont['{0}_min'.format(metric)])
                     put_field_data['container']['resources'][metric]["min"] = int(cont['{0}_min'.format(metric)])

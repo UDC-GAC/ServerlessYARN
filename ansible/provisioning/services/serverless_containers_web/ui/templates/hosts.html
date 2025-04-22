@@ -90,10 +90,10 @@
 					  <th>Type</th>
 					  <th>Path</th>
 					  <th>Load</th>
-					  <th>Max Read BW</th>
 					  <th>Free Read BW</th>
-					  <th>Max Write BW</th>
+					  <th>Max Read BW</th>
 					  <th>Free Write BW</th>
+					  <th>Max Write BW</th>
 				  </tr>
 				  <!-- rows -->
 				  {% for disk, disk_info in values.items %}
@@ -102,10 +102,10 @@
 					<td style="text-transform:uppercase">{{ disk_info.type }}</td>
 					<td>{{ disk_info.path }}</td>
 					<td>{{ disk_info.load }}</td>
-					<td>{{ disk_info.max_read }}</td>
 					<td>{{ disk_info.free_read }}</td>
-					<td>{{ disk_info.max_write }}</td>
+					<td>{{ disk_info.max_read }}</td>
 					<td>{{ disk_info.free_write }}</td>
+					<td>{{ disk_info.max_write }}</td>
 				  </tr>
 				  {% endfor %}
 			  </table>
