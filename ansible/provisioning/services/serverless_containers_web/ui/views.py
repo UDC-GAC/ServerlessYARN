@@ -2566,14 +2566,14 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
 
     hdfs_container_resources = {
         'namenode': {
-            'cpu': {'max': 100, 'min': 100, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type},
-            'mem': {'max': 1024, 'min': 512, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type},
+            'cpu': {'max': 100, 'min': 100, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
+            'mem': {'max': 1024, 'min': 512, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
         },
         'datanode': {
-            'cpu': {'max': 100, 'min': 50, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type},
-            'mem': {'max': 1024, 'min': 512, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type},
-            'disk_read':  {'min': 10, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type},
-            'disk_write': {'min': 10, 'weight': def_weight, 'boundary': def_boundary, 'boundary_type': def_boundary_type},
+            'cpu': {'max': 100, 'min': 50, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
+            'mem': {'max': 1024, 'min': 512, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
+            'disk_read':  {'min': 10, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
+            'disk_write': {'min': 10, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
         }
     }
 
@@ -2606,7 +2606,7 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
             for res in ["disk_read", "disk_write"]:
                 for key in ["min", "weight", "boundary", "boundary_type"]:
                     res_key = "{0}_{1}".format(res, key)
-                    container[res_key] = hdfs_container_resources['datanode']["disk"][res_key]
+                    container[res_key] = hdfs_container_resources['datanode'][res][key]
 
         containers.append(container)
 
