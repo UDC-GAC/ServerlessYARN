@@ -98,7 +98,7 @@ function run_npb {
 	#### NPB ######
 	###############
 
-	. "${FILES_DIR}/npb_env.sh"
+	. "${FILES_DIR}/get_env.sh"
 
 	# If some kernels are specified, overwrite default kernels
 	if [ -n "${1}" ];then
@@ -113,6 +113,7 @@ function run_npb {
 	# Clean/Create output directory
 	rm -rf "${NPB_OUTPUT_DIR}/*"
 	mkdir -p "${NPB_OUTPUT_DIR}"
+	echo "HOLA 2" > "${NPB_OUTPUT_DIR}/output.log"
 	
 	TEST="3.NPB"
 	signal_test "start"
@@ -159,7 +160,7 @@ cd {{ bind_dir_on_container }}
 #exit 1 # uncomment if you want the app to fail to execute it yourself from inside the container
 
 export SCRIPT_DIR=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
-export FILES_DIR="${SCRIPT_DIR}/myfiles"
+export FILES_DIR="${SCRIPT_DIR}/files_dir"
 
 ########################
 #### TIMESTAMPING ######
