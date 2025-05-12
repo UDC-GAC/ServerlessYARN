@@ -9,6 +9,8 @@ import json
 import timeit
 import yaml
 
+import urllib
+
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file: config = yaml.load(config_file, Loader=yaml.FullLoader)
 
@@ -267,7 +269,7 @@ def extract_hadoop_resources(hadoop_resources):
 
     return extracted_resources
 
-
+@shared_task
 def process_script(script_name, argument_list, error_message):
 
     rc = subprocess.Popen(["./ui/scripts/{0}.sh".format(script_name), *argument_list], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -295,8 +297,22 @@ def add_host_task(host,cpu,mem,disk_info,energy,new_containers):
     error_message = "Error adding host {0}".format(host)
     process_script("configure_host", argument_list, error_message)
 
+def getHostsInfo(url):
+
+    response = urllib.request.urlopen(url)
+    data_json = json.loads(response.read())
+
+    hosts = {}
+
+    for item in data_json:
+        if (item['subtype'] == 'host'):
+
+            hosts[item["name"]] = item
+
+    return hosts
+
 @shared_task
-def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk, measure_host_list):
+def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk, measure_host_list, structures_url, threshold, polling_frequency, timeout_events):
 
     # update_inventory_file
     with redis_server.lock(lock_key):
@@ -304,9 +320,60 @@ def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk, measure
 
     if add_to_lv:
         ## Add disks to existing LV
-        argument_list = [','.join(host_list), " ".join(new_disks), extra_disk, str(measure_host_list).replace(' ','')]
-        error_message = "Error extending LV of hosts {0} with disks {1} and extra disk {2}".format(host_list, str(new_disks), extra_disk)
-        process_script("extend_lv", argument_list, error_message)
+        ## 1st, extend LVs with no containers, so inmediate benchmark can be run on them
+        for host in measure_host_list:
+            if measure_host_list[host]:
+                throttle_containers_bw = 0
+                argument_list = [host, ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), str(throttle_containers_bw)]
+                error_message = "Error extending LV of host {0} with disks {1} and extra disk {2}".format(host, str(new_disks), extra_disk)
+                task = process_script.delay("extend_lv", argument_list, error_message)
+                register_task(task.id, "extend_lv_task")
+                host_list.remove(host)
+
+        ## 2nd, remaining hosts have containers. Pool their consumed bandwidth to check if they can be extended
+        current_events = 0
+        while current_events < timeout_events and len(host_list) > 0:
+            finished_hosts = []
+            hosts_full_info = getHostsInfo(structures_url) # refresh host info
+            for host in host_list:
+                # get host free bandwidth
+                host_max_read_bw = hosts_full_info[host]["resources"]["disks"]["lvm"]["max_read"]
+                host_max_write_bw = hosts_full_info[host]["resources"]["disks"]["lvm"]["max_write"]
+                host_free_read_bw = hosts_full_info[host]["resources"]["disks"]["lvm"]["free_read"]
+                host_free_write_bw = hosts_full_info[host]["resources"]["disks"]["lvm"]["free_write"]
+                consumed_read = host_max_read_bw - host_free_read_bw
+                consumed_write = host_max_write_bw - host_free_write_bw
+                total_free_bw = max(host_max_read_bw, host_max_write_bw) - consumed_read - consumed_write
+                # compare bw with threshold
+                if (max(host_max_read_bw, host_max_write_bw) - total_free_bw <= max(host_max_read_bw, host_max_write_bw) * threshold
+                    and host_max_read_bw  - host_free_read_bw  <= host_max_read_bw  * threshold
+                    and host_max_write_bw - host_free_write_bw <= host_max_write_bw * threshold
+                    ):
+                    ## enough free bandwidth to execute benchmark anyways
+                    throttle_containers_bw = 0
+                    argument_list = [host, ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), str(throttle_containers_bw)]
+                    error_message = "Error extending LV of host {0} with disks {1} and extra disk {2}".format(host, str(new_disks), extra_disk)
+                    task = process_script.delay("extend_lv", argument_list, error_message)
+                    register_task(task.id, "extend_lv_task")
+                    finished_hosts.append(host)
+                else:
+                    ## consumed bandwidth over the threshold, extend postponed
+                    pass
+
+            host_list = [host for host in host_list if host not in finished_hosts]
+            current_events += 1
+            if current_events < timeout_events and len(host_list) > 0:
+                time.sleep(polling_frequency)
+
+
+        ## if timeout_events == -1 -> execute extension without limiting (?)
+
+        ## 3rd, hosts that were not able to reduce bandwidth under the threshold; will extend lv regardless, but capping the available bandiwdth of their containers
+        if len(host_list) > 0:
+            throttle_containers_bw = 1
+            argument_list = [','.join(host_list), ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), str(throttle_containers_bw)]
+            error_message = "Error extending LV of hosts {0} with disks {1} and extra disk {2}".format(host_list, str(new_disks), extra_disk)
+            process_script("extend_lv", argument_list, error_message)
 
     else:
         ## Add disks just as new individual disks

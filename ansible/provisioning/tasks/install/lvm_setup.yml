@@ -234,7 +234,7 @@
                 dest: "{{ installation_path }}/"
 
             - name: Execute script to do all required steps
-              shell: "bash {{ installation_path }}/add_disks_to_lv.sh {{ vg_name }} {{ lv_name }} {{ new_disks_list }} {{ extra_disk }}"
+              shell: "bash {{ installation_path }}/add_disks_to_lv.sh {{ vg_name }} {{ lv_name }} {{ new_disks_list | replace(',',' ') }} {{ extra_disk }}"
               args:
                 executable: /bin/bash
 

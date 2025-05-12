@@ -8,7 +8,7 @@ import time
 import src.StateDatabase.couchdb as couchDB
 from src.MyUtils.MyUtils import generate_request
 
-cap_bw = 0.15 # 20% of max bw
+cap_bw = 0.10 # 10% of max bw
 
 # usage example: limit_containers_bw.py host0,host1 config/config.yml
 

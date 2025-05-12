@@ -4,7 +4,7 @@ from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormS
 from ui.forms import AddHostForm, AddAppForm, AddHadoopAppForm, StartAppForm, AddDisksToHostsForm
 from ui.forms import AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddContainersToAppForm
 from ui.forms import RemoveStructureForm, RemoveContainersFromAppForm
-from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, DEFAULT_HDFS_VALUES, request_to_state_db
+from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, DEFAULT_HDFS_VALUES, DEFAULT_SERVICE_PARAMETERS, request_to_state_db
 
 from django.forms import formset_factory
 from django.http import HttpResponse
@@ -809,22 +809,34 @@ def processAddDisksToHosts(request, url, structure_type, resources):
         new_disks = request.POST['new_disks'].split(',')
         extra_disk = request.POST['extra_disk']
 
+        ## extra params
+        if "threshold" in request.POST and request.POST["threshold"] != "": threshold = float(request.POST['threshold'])
+        else: threshold = DEFAULT_SERVICE_PARAMETERS["lv_extend"]["threshold"]
+        if "polling_frequency" in request.POST and request.POST["polling_frequency"] != "": polling_frequency = int(request.POST['polling_frequency'])
+        else: polling_frequency = DEFAULT_SERVICE_PARAMETERS["lv_extend"]["polling_frequency"]
+        if "timeout_events" in request.POST and request.POST["timeout_events"] != "": timeout_events = int(request.POST['timeout_events'])
+        else: timeout_events = DEFAULT_SERVICE_PARAMETERS["lv_extend"]["timeout_events"]
+
         if add_to_lv and extra_disk == "":
             error = "Can't add disks to Logical Volume without an extra disk"
             return error
+
+        url = base_url + "/structure/"
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+        hosts_full_info = getHostsNames(data_json)
 
         measure_host_list = {}
         for host in host_list:
 
             if not add_to_lv: measure_host = True
             else:
-                #measure_host = host.disks.lvm.load == 0
-                measure_host = False
+                measure_host = [host_info for host_info in hosts_full_info if host_info["name"] == host][0]["resources"]["disks"]["lvm"]["load"] == 0
 
             measure_host_list[host] = measure_host
 
         # add disks from playbook
-        task = add_disks_to_hosts_task.delay(host_list, add_to_lv, new_disks, extra_disk, measure_host_list)
+        task = add_disks_to_hosts_task.delay(host_list, add_to_lv, new_disks, extra_disk, measure_host_list, url, threshold, polling_frequency, timeout_events)
         print("Starting task with id {0}".format(task.id))
         register_task(task.id,"add_disks_to_hosts_task")
 

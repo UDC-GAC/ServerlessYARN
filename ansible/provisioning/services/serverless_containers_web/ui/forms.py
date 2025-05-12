@@ -5,7 +5,7 @@ from crispy_forms.bootstrap import FormActions
 from django_json_widget.widgets import JSONEditorWidget
 import yaml
 from copy import deepcopy
-from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, DEFAULT_HDFS_VALUES
+from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, DEFAULT_HDFS_VALUES, DEFAULT_SERVICE_PARAMETERS
 
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file:
@@ -396,6 +396,16 @@ class AddDisksToHostsForm(forms.Form):
     extra_disk = forms.CharField(label= "Extra disk (required if adding to LV)",
             required=False
             )
+    threshold = forms.DecimalField(label= "Extension threshold ({0} if unset)".format(DEFAULT_SERVICE_PARAMETERS["lv_extension"]["threshold"]),
+            required=False
+            )
+    polling_frequency = forms.IntegerField(label= "Polling frequency (seconds) ({0} if unset)".format(DEFAULT_SERVICE_PARAMETERS["lv_extension"]["polling_frequency"]),
+            required=False
+            )
+    timeout_events = forms.IntegerField(label= "Timeout events ({0} if unset)".format(DEFAULT_SERVICE_PARAMETERS["lv_extension"]["timeout_events"]),
+            required=False
+            )
+
     def __init__(self, *args, **kwargs):
         super(AddDisksToHostsForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -410,6 +420,9 @@ class AddDisksToHostsForm(forms.Form):
             Field('add_to_lv'),
             Field('new_disks'),
             Field('extra_disk'),
+            Field('threshold'),
+            Field('polling_frequency'),
+            Field('timeout_events'),
             FormActions(
                 Submit('save', 'Add disks to hosts', css_class='caja'),
             )

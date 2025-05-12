@@ -23,6 +23,14 @@ DEFAULT_HDFS_VALUES = {
     "global_output": "/user/root"
 }
 
+DEFAULT_SERVICE_PARAMETERS = {
+    "lv_extension": {
+        "threshold": 0.2,
+        "polling_frequency": 5,
+        "timeout_events": 1
+    }
+}
+
 DEFAULT_HEADERS = {'Content-Type': 'application/json'}
 
 def request_to_state_db(url, operation, error_message, data=None, headers=DEFAULT_HEADERS, session=None):
