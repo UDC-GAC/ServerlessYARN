@@ -4,9 +4,10 @@ function signal_exp {
 	python3 /opt/BDWatchdog/TimestampsSnitch/src/timestamping/signal_experiment.py $1 $EXPERIMENT --push
 }
 function signal_test {
-	sleep 10 # This is to allow metrics to be persisted and to avoid 'cutting' the time series early in case of 'end' signal
+	sleep 6 # This is to allow metrics to be persisted and to avoid 'cutting' the time series early in case of 'end' signal
 	# In case os tart it mererly waits 10 seconds before signaling, although an if should be used here
 	python3 /opt/BDWatchdog/TimestampsSnitch/src/timestamping/signal_test.py $1 $EXPERIMENT $TEST --push
+	sleep 6
 }
 
 function run_spark {
@@ -15,21 +16,99 @@ function run_spark {
 	#################
 
 	export SPARK_HOME=/opt/spark
-	TEST="2.SPARK"
+	cd /opt/bind/
+	
+	##############################
+	## USING INSTALLED SPARK
+	app_log_file="output_spark_standalone"
 
-	output_file="output_spark_standalone_`date +%d-%m-%y--%H-%M-%S`"
-	app_log_file="app_log_spark_standalone_`date +%d-%m-%y--%H-%M-%S`"
-
+	TEST="2.SPARK.INSTALLED"
 	signal_test "start"
-
+	
 	# Run JAR
 	$SPARK_HOME/bin/spark-submit \
 	  --class org.apache.spark.examples.SparkPi \
 	  --master local[*] \
 	  --deploy-mode client \
-	  $SPARK_HOME/examples/jars/spark-examples_2.12-{{ spark_version }}.jar \
-	  10000 2> $app_log_file 1>$output_file
+	  $SPARK_HOME/examples/jars/spark-examples_2.12-3.5.5.jar \
+	  1000 >> ${app_log_file} 2>&1
 
+	signal_test "end"
+	
+	
+	##############################
+	## USING BDEV
+	TEST="2.SPARK.BDEV"
+	signal_test "start"
+		
+	wget server:9001/xairugo-bdev.tar.gz
+	tar xvf xairugo-bdev.tar.gz
+	
+	export BDEV_PATH="/opt/bind/bdev"
+	export DATA_PATH="/opt/bind/"
+	export OUTPUT_PATH="/opt/bind/"
+	export JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
+	NUM_WORKERS=4
+
+	
+	################
+	### KMeans ###
+	################
+	
+	# Generate data
+	rm -Rf ${DATA_PATH}/data_kmeans
+	TEST="2.SPARK.BDEV.KMEANS.GEN"
+	signal_test "start"
+	${BDEV_PATH}/solutions/dist/hadoop-3.4.1/bin/hadoop jar ${BDEV_PATH}/solutions/common/bin/rgen.jar \
+	-t kmeans -compress false \
+	-sampleDir ${DATA_PATH}/data_kmeans/samples -clusterDir ${DATA_PATH}/data_kmeans/cluster \
+	-numClusters 10 -numSamples 100000 -samplesPerFile 5000 -sampleDimension 20 >> "${DATA_PATH}/kmeans-gen-output.log" 2>&1
+	signal_test "end"
+	
+	# Execute
+	TEST="2.SPARK.BDEV.KMEANS.COMP"
+	signal_test "start"
+	rm -Rf ${OUTPUT_PATH}/kmeans_out
+	${BDEV_PATH}/solutions/dist/spark-3.5.5-bin-hadoop3/bin/spark-submit --class es.udc.gac.sparkbench.ScalaMLlibDenseKMeans \
+	--master local[${NUM_WORKERS}] ${BDEV_PATH}/solutions/benchmarks/Spark/src/sparkbench/target/scala-2.12/sparkbench-3.2_2.12.jar \
+	--input ${DATA_PATH}/data_kmeans/samples --centers ${DATA_PATH}/data_kmeans/cluster/ \
+	--output ${OUTPUT_PATH}/kmeans_out \
+	--numIterations 10 --convergenceDelta 0.1 >> "${DATA_PATH}/kmeans-comp-output.log" 2>&1
+	signal_test "end"
+	
+	# Remove results and data
+	rm -Rf ${DATA_PATH}/data_kmeans/
+	rm -Rf ${OUTPUT_PATH}/kmeans_out 
+	
+	################
+	### Pagerank ###
+	################
+	
+	# Generate data
+	rm -Rf /RGen/temp
+	rm -Rf ${DATA_PATH}/data_pagerank
+	TEST="2.SPARK.BDEV.PAGERANK.GEN"
+	signal_test "start"
+	${BDEV_PATH}/solutions/dist/hadoop-3.4.1/bin/hadoop jar ${BDEV_PATH}/solutions/common/bin/rgen.jar \
+	-t pagerank -b /opt/bind/files_dir/ -n ${DATA_PATH}/data_pagerank \
+	-m 2 -r 2 -p 10k  -pbalance -pbalance -o text >> "${DATA_PATH}/pagerank-gen-output.log" 2>&1
+	signal_test "end"
+	
+	# Execute
+	TEST="2.SPARK.BDEV.PAGERANK.COMP"
+	signal_test "start"
+	rm -Rf ${OUTPUT_PATH}/pagerank_out
+	${BDEV_PATH}/solutions/dist/spark-3.5.5-bin-hadoop3/bin/spark-submit --class es.udc.gac.sparkbench.ScalaNaivePageRank \
+	--master local[${NUM_WORKERS}] ${BDEV_PATH}/solutions/benchmarks/Spark/src/sparkbench/target/scala-2.12/sparkbench-3.2_2.12.jar \
+	${DATA_PATH}/data_pagerank/edges ${OUTPUT_PATH}/pagerank_out \
+	10000 5 >> "${DATA_PATH}/pagerank-comp-output.log" 2>&1 # Num of pages and num of iterations
+	signal_test "end"
+	
+	# Remove results and data
+	rm -Rf ${DATA_PATH}/data_pagerank/
+	rm -Rf ${OUTPUT_PATH}/pagerank_out
+	
+	TEST="2.SPARK.BDEV"
 	signal_test "end"
 
 	#################
@@ -39,14 +118,14 @@ function run_stress {
 	#################
 	#### STRESS #####
 	#################
-	export STRESS_TIME=120
+	export STRESS_TIME=20 #120
 	new_boundary=20
 	curl -X PUT -H "Content-Type: application/json" http://${ORCHESTRATOR_REST_URL}/structure/${CONTAINER_NAME}/limits/cpu/boundary  -d '{"value":"'${new_boundary}'"}'
 	
 
 	# Force resources up to the maximum
 	curl -X PUT -H "Content-Type: application/json" http://${ORCHESTRATOR_REST_URL}/structure/${CONTAINER_NAME}/guard
-	stress -c 4 -t 160
+	stress -c 4 -t 20 #160
 	sleep 10
 	
 	# Disable serverless for this container
@@ -59,6 +138,7 @@ function run_stress {
 	stress -c 3 -t ${STRESS_TIME}
 	stress -c 1 -t ${STRESS_TIME}
 	signal_test "end"
+	touch "/opt/bind/stress-1st-phase-completed.log"
 	
 	# Enable serverless for this container
 	curl -X PUT -H "Content-Type: application/json" http://${ORCHESTRATOR_REST_URL}/structure/${CONTAINER_NAME}/guard
@@ -70,10 +150,11 @@ function run_stress {
 	stress -c 3 -t ${STRESS_TIME}
 	stress -c 1 -t ${STRESS_TIME}
 	signal_test "end"
+	touch "/opt/bind/stress-2nd-phase-completed.log"
 	
 	
 	# Force resources up to the maximum
-	stress -c 4 -t 160
+	stress -c 4 -t 20 #160
 	sleep 10
 	
 	# Change a parameter like the boundary
@@ -87,7 +168,7 @@ function run_stress {
 	stress -c 3 -t ${STRESS_TIME}
 	stress -c 1 -t ${STRESS_TIME}
 	signal_test "end"
-	
+	touch "/opt/bind/stress-3rd-phase-completed.log"
 
 	#################
 }
@@ -100,20 +181,11 @@ function run_npb {
 
 	. "${FILES_DIR}/get_env.sh"
 
-	# If some kernels are specified, overwrite default kernels
-	if [ -n "${1}" ];then
-	  IFS=',' read -ra NPB_KERNELS_TO_RUN <<< "${1}"
-	fi
-
-	# If a number of threads is specified, overwrite NUM_THREADS
-	if [ -n "${2}" ];then
-	  NUM_THREADS="${2}"
-	fi
-
+	NPB_OUTPUT_DIR="/opt/bind"
+	
 	# Clean/Create output directory
 	rm -rf "${NPB_OUTPUT_DIR}/*"
 	mkdir -p "${NPB_OUTPUT_DIR}"
-	echo "HOLA 2" > "${NPB_OUTPUT_DIR}/output.log"
 	
 	TEST="3.NPB"
 	signal_test "start"
@@ -132,16 +204,14 @@ function run_npb {
 		  echo "[$(date -u "+%Y-%m-%d %H:%M:%S%z")] Running kernel ${KERNEL} (class=${NPB_CLASS}) with ${NUM_THREADS} threads" | tee -a "${NPB_OUTPUT_DIR}/results.log"
 		  # Run kernel
 		  START_TEST=$(date +%s%N)
-		  ${NPB_OMP_HOME}/bin/${KERNEL}.${NPB_CLASS}.x >> "${NPB_OUTPUT_DIR}/${KERNEL}-output.log" 2>&1
+		  /opt/npb/NPB3.4-OMP/bin/${KERNEL}.${NPB_CLASS}.x >> "${NPB_OUTPUT_DIR}/${KERNEL}-output.log" 2>&1
 		  END_TEST=$(date +%s%N)
 		  EXECUTION_TIME=$(bc <<< "scale=9; $(( END_TEST - START_TEST )) / 1000000000")
 
 		  # Log results
 		  echo "[$(date -u "+%Y-%m-%d %H:%M:%S%z")] Execution time for kernel ${KERNEL} (class=${NPB_CLASS}) with ${NUM_THREADS} thread(s): ${EXECUTION_TIME}" | tee -a "${NPB_OUTPUT_DIR}/results.log"
 	  done
-
-	  sleep 10
-	  
+  
 	  signal_test "end"
 	done
 	
@@ -155,7 +225,7 @@ function run_npb {
 
 
 
-cd {{ bind_dir_on_container }}
+cd /opt/
 
 #exit 1 # uncomment if you want the app to fail to execute it yourself from inside the container
 
@@ -185,7 +255,10 @@ export CONTAINER_NAME=$(hostname)
 #######################
 
 run_stress
-#run_spark
-#run_npb
+run_spark
+run_npb
 
 signal_exp "end"
+
+# DO NOT REMOVE THIS, ITS IS NECESSARY FOR THE SCRIPT TO SIGNAL A FINISH FOR THE ANSIBLE TASK
+exit 0 
