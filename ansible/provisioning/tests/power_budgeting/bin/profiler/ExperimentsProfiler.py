@@ -90,9 +90,12 @@ class ExperimentsProfiler:
     def search_convergence_point(rescalings, df, offset):
         power_budget = int(utils.get_df_col_avg(utils.filter_df_by_metric(df, "structure.energy.max"), 'value'))
         cpu_limit_df = utils.filter_df_by_metric(df, "structure.cpu.current")
-        for timestamp in rescalings:
+        timestamps = sorted(rescalings.keys())
+        needed_scalings = 0
+        for timestamp in timestamps:
             # Check scaling is valid
-            if 'avg_power' in rescalings[timestamp] and rescalings[timestamp]['elapsed_seconds'] > 0:
+            if 'avg_power' in rescalings[timestamp] and rescalings[timestamp]['elapsed_seconds'] > 0 and rescalings[timestamp]['amount'] != 0:
+                needed_scalings += 1
                 # Check scaling average power is near the power budget (convergence)
                 if utils.value_is_near_limit(rescalings[timestamp]['avg_power'], power_budget, offset):
                     # Return convergence point
@@ -100,6 +103,7 @@ class ExperimentsProfiler:
                     return {
                         "time": int(rescalings[timestamp]['elapsed_seconds']),
                         "value": rescalings[timestamp]['avg_power'],
+                        "needed_scalings": needed_scalings,
                         "cpu_limit": None if cpu_limit_df.empty else cpu_limit_df.iloc[0]['value']
                     }
         return None
@@ -124,14 +128,21 @@ class ExperimentsProfiler:
         # Search all the performed scalings in Guardian logs
         with open(guardian_file, "r") as f:
             for line in f.readlines():
-                for pattern_name in ["power_budgeting_pattern", "amount_pattern", "adjust_amount_pattern"]:
+                for pattern_name in ["amount_pattern", "adjust_amount_pattern"]:
                     # Check pattern
                     timestamp, line_info = self.parser.search_pattern(pattern_name, line, experiment_times["start"])
                     # If pattern is matched we add the extracted info from line and don't check other patterns
                     if timestamp and line_info:
-                        # Ensure the rescaling has not been made after the application has finished
-                        if timestamp < experiment_times["end"] and line_info["amount"] != 0:
-                            self.parser.update_timestamp_key_dict(experiment_rescalings, timestamp, line_info)
+                        # If scaling has been made before the application has finished
+                        if timestamp < experiment_times["end"]:
+                            # If scaling amount is greater than zero we add/update it
+                            if line_info["amount"] != 0:
+                                print(f"Line was saved using pattern {pattern_name}: {timestamp}")
+                                self.parser.update_timestamp_key_dict(experiment_rescalings, timestamp, line_info)
+                            # If the scaling was later trimmed (adjust_amount_pattern) to zero it should be removed
+                            elif pattern_name == "adjust_amount_pattern":
+                                print(f"Line was removed because it was trimmed to zero: {timestamp}")
+                                self.parser.remove_timestamp_key_dict(experiment_rescalings, timestamp)
                         break
         # App end + Plot end
         experiment_rescalings[experiment_times["end_app"]] = {

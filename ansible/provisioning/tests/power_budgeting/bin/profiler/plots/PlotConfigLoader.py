@@ -34,6 +34,8 @@ PLOT_PARAMETERS = {
             "MARKER_FREQUENCY": 10,
             "HARD_X_LIMIT": 2250,
             "HARD_CPU_LIMIT": 110
+            #"CUSTOM_X_AXIS_VALUES": [0, 50, 125, 250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250],
+            #"CUSTOM_X_AXIS_FUNCTIONS": (lambda x: x**(1/2), lambda x: x**2)
         },
         "medium": {
             "FONTSIZE": 20,
@@ -98,8 +100,10 @@ PLOT_PARAMETERS = {
             "ENERGY_TICKS_FREQUENCY": 20,
             "MARKER_FREQUENCY": 4,
             "HARD_X_LIMIT": 750,
-            "HARD_CPU_LIMIT": 3300,
-            "HARD_ENERGY_LIMIT": 220
+            "HARD_CPU_LIMIT": 3500,
+            "HARD_ENERGY_LIMIT": 220,
+            #"CUSTOM_X_AXIS_VALUES": [0, 25, 50, 100, 150, 200, 300, 400, 500],
+            #"CUSTOM_X_AXIS_FUNCTIONS": (lambda x: x**(1/2), lambda x: x**2)
         },
         "medium": {
             "FONTSIZE": 20,
@@ -112,7 +116,7 @@ PLOT_PARAMETERS = {
             "ENERGY_TICKS_FREQUENCY": 20,
             "MARKER_FREQUENCY": 4,
             "HARD_X_LIMIT": 600,
-            "HARD_CPU_LIMIT": 3300,
+            "HARD_CPU_LIMIT": 3500,
             "HARD_ENERGY_LIMIT": 220
         },
         "max": {
@@ -125,8 +129,8 @@ PLOT_PARAMETERS = {
             "CPU_TICKS_FREQUENCY": 500,
             "ENERGY_TICKS_FREQUENCY": 20,
             "MARKER_FREQUENCY": 4,
-            "HARD_X_LIMIT": 500,
-            "HARD_CPU_LIMIT": 3300,
+            "HARD_X_LIMIT": 600,
+            "HARD_CPU_LIMIT": 3500,
             "HARD_ENERGY_LIMIT": 220
         },
         "dynamic_power_budget": {
