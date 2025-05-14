@@ -43,13 +43,13 @@ bash scripts/start_all.sh
 
 # Hold job until timeout or a scancel is sent
 TIME_LIMIT=$(squeue -j $SLURM_JOB_ID --Format=timelimit -h | tr -d " ")
-if [[ "${TIME_LIMIT}" =~ ^[0-9]+-[0-9]{2}:[0-9]{2}:[0-9]{2}$ ]]; then # Format d-hh:mm:ss
-  DAYS="${TIME_LIMIT:0:1}"
-  REMAINING_SECONDS=$(date -d "1970-01-01 ${TIME_LIMIT:2} Z" +%s)
-elif [[ "${TIME_LIMIT}" =~ ^[0-9]{2}:[0-9]{2}:[0-9]{2}$ ]]; then # Format hh:mm:ss
+if [[ "${TIME_LIMIT}" =~ ^([0-9]+)\-([0-9]{2}:[0-9]{2}:[0-9]{2})$ ]]; then # Format dd-hh:mm:ss
+  DAYS="${BASH_REMATCH[1]}"
+  REMAINING_SECONDS=$(date -d "1970-01-01 ${BASH_REMATCH[2]} Z" +%s)
+elif [[ "${TIME_LIMIT}" =~ ^([0-9]{2}:[0-9]{2}:[0-9]{2})$ ]]; then # Format hh:mm:ss
   DAYS=0
-  REMAINING_SECONDS=$(date -d "1970-01-01 ${TIME_LIMIT} Z" +%s)
-else # Bad format
+  REMAINING_SECONDS=$(date -d "1970-01-01 ${BASH_REMATCH[1]} Z" +%s)
+else # Bad format (wait 3 days by default)
   DAYS="3"
   REMAINING_SECONDS="0"
 fi
