@@ -199,6 +199,20 @@ class LogsParser:
 
         return earlier_start_time, newer_end_time
 
+    def _get_timestamp_with_offset(self, d, timestamp, offset):
+        new_timestamp = None
+        timestamp_before = self.add_offset(timestamp, -offset)
+        timestamp_after = self.add_offset(timestamp, offset)
+
+        # Check if timestamp has changed between patterns of the same rescaling
+        if timestamp not in d:
+            if timestamp_before in d:
+                new_timestamp = timestamp_before
+            if timestamp_after in d:
+                new_timestamp = timestamp_after
+
+        return new_timestamp
+
     def update_timestamp_key_dict(self, d, timestamp, value, offset=1):
         """ Update dict using timestamps as keys, taking into account that this timestamps could have an offset.
 
@@ -216,17 +230,37 @@ class LogsParser:
             print("Trying to update a non existent dictionary")
             return
 
-        timestamp_before = self.add_offset(timestamp, -offset)
-        timestamp_after = self.add_offset(timestamp, offset)
+        new_timestamp = self._get_timestamp_with_offset(d, timestamp, offset)
 
-        # Check if timestamp has changed between patterns of the same rescaling
-        if timestamp not in d:
-            if timestamp_before in d:
-                timestamp = timestamp_before
-            if timestamp_after in d:
-                timestamp = timestamp_after
+        if new_timestamp:
+            d[new_timestamp] = value
+        else:
+            d[timestamp] = value
 
-        d[timestamp] = value
+    def remove_timestamp_key_dict(self, d, timestamp, offset=1):
+        """ Remove item from dict using timestamps as keys, taking into account that this timestamps could have an offset.
+
+        Args:
+            d (dict): Dictionary to update, if it is None it is created
+            timestamp (datetime): Timestamp used as key to remove
+            offset (int): Offset in seconds to consider timestamps as the same key (i.e., all timestamps included in
+                          timestamp +- offset are interpreted as the same key)
+
+        Returns:
+            None
+        """
+        if not d:
+            print("Trying to update a non existent dictionary")
+            return
+
+        if timestamp in d:
+            del d[timestamp]
+
+        new_timestamp = self._get_timestamp_with_offset(d, timestamp, offset)
+        if new_timestamp:
+            del d[new_timestamp]
+        else:
+            print(f"Trying to remove non existent key from dictionary: {timestamp}")
 
     def search_pattern(self, pattern_name, line, start_time):
         timestamp = None

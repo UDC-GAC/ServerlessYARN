@@ -12,7 +12,7 @@ curl_wrapper bash "${SC_SCRIPTS_DIR}/activate-service.sh" "Scaler"
 
 # Test all the power capping methods with three initial CPU limits: min, medium and max
 CPU_LIMITS=("min" "medium" "max")
-for INITIAL_CPU_LIMIT in "${!CPU_LIMITS[@]}"; do
+for INITIAL_CPU_LIMIT in "${CPU_LIMITS[@]}"; do
   CURRENT_INIT_VALUE="${CPU_CURRENT_VALUES[INITIAL_CPU_LIMIT]}"
 
   # Set results directory for this experiments

@@ -68,16 +68,19 @@ class ExperimentsPlotter:
             self.__config.get(f"{main_resource.upper()}_TICKS_FREQUENCY", 20))[-1]
 
         if convergence_point:
+            # If convergence time is negative (method converge before starting) the rectangle is drawn from Start App
+            cap_convergence_time = max(convergence_point["time"], times["start_app_s"])
+
             # Draw a rectangle with red pattern (before convergence)
             main_axis.add_patch(PlotUtils.create_rectangle(
-                (times["start_app_s"], 0), convergence_point["time"] - times["start_app_s"], fig_ylim, "red", "x"))
+                (times["start_app_s"], 0), cap_convergence_time - times["start_app_s"], fig_ylim, "red", "x"))
 
             # Plot vertical line at the convergence point
-            PlotUtils.plot_vertical_line(main_axis, convergence_point["time"])
+            PlotUtils.plot_vertical_line(main_axis, cap_convergence_time)
 
             # Draw a rectangle with green pattern (after convergence)
             main_axis.add_patch(PlotUtils.create_rectangle(
-                (convergence_point["time"], 0), times["end_app_s"] - convergence_point["time"], fig_ylim, "green", "o"))
+                (cap_convergence_time, 0), times["end_app_s"] - cap_convergence_time, fig_ylim, "green", "o"))
         else:
             # Draw a rectangle with red pattern
             main_axis.add_patch(PlotUtils.create_rectangle(
