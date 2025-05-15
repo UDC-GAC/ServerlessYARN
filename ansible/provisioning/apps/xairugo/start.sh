@@ -110,7 +110,7 @@ function run_spark {
 	
 	TEST="2.SPARK.BDEV"
 	signal_test "end"
-
+		
 	#################
 }
 
@@ -218,11 +218,34 @@ function run_npb {
 	TEST="3.NPB"
 	signal_test "end"
 	
+	
+	TEST="4.NPB-C"
+	signal_test "start"
+	echo "Starting kernels execution"
+	for KERNEL in "${NPB_C_KERNELS_TO_RUN[@]}";do
+	  for NUM_THREADS in "${NUM_THREADS_LIST[@]}";do
+	  
+		  # Set number of threads
+		  export OMP_NUM_THREADS="${NUM_THREADS}"
+
+		  echo "[$(date -u "+%Y-%m-%d %H:%M:%S%z")] Running kernel ${KERNEL} (class=${NPB_C_CLASS}) with ${NUM_THREADS} threads" | tee -a "${NPB_OUTPUT_DIR}/results-NPB-C.log"
+		  # Run kernel
+		  START_TEST=$(date +%s%N)
+		  /opt/npb-C/bin/${KERNEL}.${NPB_C_CLASS} >> "${NPB_OUTPUT_DIR}/NPB-C-${KERNEL}-output.log" 2>&1
+		  END_TEST=$(date +%s%N)
+		  EXECUTION_TIME=$(bc <<< "scale=9; $(( END_TEST - START_TEST )) / 1000000000")
+
+		  # Log results
+		  echo "[$(date -u "+%Y-%m-%d %H:%M:%S%z")] Execution time for kernel ${KERNEL} (class=${NPB_CLASS}) with ${NUM_THREADS} thread(s): ${EXECUTION_TIME}" | tee -a "${NPB_OUTPUT_DIR}/results-NPB-C.log"
+	  done
+	done
+	TEST="4.NPB-C"
+	signal_test "end"
+	
 	# Grant permissions to access results outside the container
 	chmod -R 777 "${NPB_OUTPUT_DIR}"
 	###############
 }
-
 
 
 cd /opt/
@@ -254,8 +277,8 @@ export CONTAINER_NAME=$(hostname)
 #### experiments ######
 #######################
 
-run_stress
-run_spark
+#run_stress
+#run_spark
 run_npb
 
 signal_exp "end"
