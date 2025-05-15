@@ -1,7 +1,6 @@
 - name: Make sure the time sync service is started, and is enabled on restart
   service: name=systemd-timesyncd state=started enabled=yes
 
-- name: Set timezone
-  shell: timedatectl set-timezone Europe/Madrid
-  args:
-    executable: /bin/bash
+- name: Set timezone to Europe/Madrid
+  timezone:
+    name: Europe/Madrid
