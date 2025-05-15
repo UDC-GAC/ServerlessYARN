@@ -248,6 +248,22 @@ function run_npb {
 }
 
 
+function run_transcode {
+	TEST="5.TRANSCODE"
+	signal_test "start"
+	
+	OUTPUT_DIR="/opt/bind/transcode"
+	mkdir -p ${OUTPUT_DIR}
+	cd /opt/bind/transcode
+	wget server:9001/froggo.mp4
+	FILE_PATH="/opt/bind/froggo.mp4"
+	IN_FILE=$(basename ${FILE_PATH})
+	OUT_FILE=$(echo ${IN_FILE} | sed 's/mp4/webm/g')
+	ffmpeg -i ${IN_FILE} -c:v libvpx-vp9 -crf 30 -b:v 0 -b:a 128k -c:a libopus -threads 16 "${OUTPUT_DIR}/${OUT_FILE}"
+	
+	signal_test "end"
+}
+
 cd /opt/
 
 #exit 1 # uncomment if you want the app to fail to execute it yourself from inside the container
@@ -277,9 +293,10 @@ export CONTAINER_NAME=$(hostname)
 #### experiments ######
 #######################
 
-#run_stress
+run_stress
 #run_spark
-run_npb
+#run_npb
+#run_transcode
 
 signal_exp "end"
 

@@ -57,3 +57,6 @@ wget http://server:9001/spark-3.5.5-bin-hadoop3.tgz
 mkdir spark && tar xf "spark-3.5.5-bin-hadoop3.tgz" -C spark --strip-components 1
 rm spark-3.5.5-bin-hadoop3.tgz # DO NOT LEAVE THESE KIND OF FILES ON THE CONTAINER IMAGE
 chown -R $(whoami):$(whoami) spark
+
+
+apt-get install -y ffmpeg
