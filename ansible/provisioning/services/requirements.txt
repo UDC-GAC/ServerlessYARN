@@ -6,4 +6,4 @@ libtmux==0.10.2
 ansible_runner
 celery
 redis
-gevent==24.11.1
+gevent<25
