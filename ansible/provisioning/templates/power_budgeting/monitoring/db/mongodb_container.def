@@ -22,6 +22,11 @@ From: mongo:latest
     # Initiate Replica Set (only one node, so it will be the Primary)
     mongosh --host {{ mongodb_url }} --port {{ mongodb_port }} --eval "rs.initiate()"
 
+    sleep 2
+
+    # Set MongoDB address/port to be reachable from other nodes
+    mongosh --host {{ mongodb_url }} --port {{ mongodb_port }} --eval 'cfg=rs.conf(); cfg.members[0].host="{{ mongodb_url }}:{{ mongodb_port }}"; rs.reconfig(cfg, {force: true})'
+
 %startscript
     # Clean MongoDB data directory
     mkdir -p ${MONGODB_DATA}
@@ -36,3 +41,8 @@ From: mongo:latest
 
     # Initiate Replica Set (as only one node is used, it will always be the Primary node)
     mongosh --host {{ mongodb_url }} --port {{ mongodb_port }} --eval "rs.initiate()"
+
+    sleep 2
+
+    # Set MongoDB address/port to be reachable from other nodes
+    mongosh --host {{ mongodb_url }} --port {{ mongodb_port }} --eval 'cfg=rs.conf(); cfg.members[0].host="{{ mongodb_url }}:{{ mongodb_port }}"; rs.reconfig(cfg, {force: true})'
