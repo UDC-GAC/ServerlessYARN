@@ -18,11 +18,17 @@ cores_distribution:
   CPU0: "0-15,32-47"
   CPU1: "16-31,48-63"
 
+# Cache time series in CSV files
+csv_caching_train: yes
+csv_caching_test: yes
+
 # Train configuration
+join_train_timestamps: no
 train_timestamps_dir: "./conf/WattWizard/timestamps/train/default"
 train_files: "{{ train_files }}"
 
 # Test configuration
+join_test_timestamps: no
 test_timestamps_dir: "./conf/WattWizard/timestamps/test"
 test_files: ""
 
