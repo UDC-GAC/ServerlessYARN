@@ -342,7 +342,7 @@ energy_exceeded_upper = dict(
             {">": [
                 {"var": "energy.structure.energy.usage"},
                 {"var": "energy.structure.energy.max"}]}]}),
-    generates="events", action={"events": {"scale": {"up": 1}}},
+    generates="events", action={"events": {"scale": {"down": 1}}},
     active=True
 )
 
@@ -355,11 +355,11 @@ energy_dropped_lower_and_cpu_exceeded_upper = dict(
         {"and": [
             {"<": [
                 {"var": "energy.structure.energy.usage"},
-                {"var": "energy.limits.energy.upper"}]},
+                {"var": "energy.structure.energy.max"}]},
             {">": [
                 {"var": "cpu.structure.cpu.usage"},
                 {"var": "cpu.limits.cpu.upper"}]}]}),
-    generates="events", action={"events": {"scale": {"down": 1}}},
+    generates="events", action={"events": {"scale": {"up": 1}}},
     active=True
 )
 
@@ -371,14 +371,14 @@ EnergyRescaleDown = dict(
     rule=dict(
         {"and": [
             {"<=": [
-                {"var": "events.scale.down"},
+                {"var": "events.scale.up"},
                 1]},
             {">=": [
-                {"var": "events.scale.up"},
-                4]}
+                {"var": "events.scale.down"},
+                5]}
         ]}),
     generates="requests",
-    events_to_remove=4,
+    events_to_remove=5,
     action={"requests": ["CpuRescaleDown"]},
     amount=-20,
     rescale_policy="{{ 'modelling' if power_modelling else 'proportional' }}",
@@ -394,10 +394,10 @@ EnergyRescaleUp = dict(
     rule=dict(
         {"and": [
             {">=": [
-                {"var": "events.scale.down"},
+                {"var": "events.scale.up"},
                 4]},
             {"<=": [
-                {"var": "events.scale.up"},
+                {"var": "events.scale.down"},
                 1]}
         ]}),
     generates="requests",
