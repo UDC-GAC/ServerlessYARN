@@ -33,9 +33,14 @@
   ignore_errors: yes
   tags: restart_services
 
+- name: Set list with only session names
+  set_fact:
+    tmux_sessions: "{{ tmux_output.stdout_lines | map('split', ':') | map ('first') | list }}"
+  tags: restart_services
+
 # Starting Services
 - name: Starting Services
-  when: "item not in tmux_output.stdout"
+  when: "item not in tmux_sessions"
   shell: "bash scripts/services/{{ item }}/start_tmux.sh"
   args:
     chdir: "{{ serverless_containers_path }}"
@@ -52,7 +57,7 @@
   tags: restart_services
 
 - name: Starting Energy Services
-  when: "power_budgeting and item not in tmux_output.stdout"
+  when: "power_budgeting and item not in tmux_sessions"
   shell: "bash scripts/services/{{ item }}/start_tmux.sh"
   args:
     chdir: "{{ serverless_containers_path }}"
@@ -63,7 +68,7 @@
 
 # Start WattWizard when power_modelling is "yes"
 - name: Starting WattWizard to create power models
-  when: "power_budgeting and power_modelling and 'watt_wizard' not in tmux_output.stdout"
+  when: "power_budgeting and power_modelling and 'watt_wizard' not in tmux_sessions"
   shell: "bash scripts/services/watt_wizard/start_tmux.sh"
   args:
     chdir: "{{ serverless_containers_path }}"
@@ -74,7 +79,7 @@
 - name: Start WattTrainer and deactivate
   block:
     - name: Starting WattTrainer to train power models in real time
-      when: "'watt_trainer' not in tmux_output.stdout"
+      when: "'watt_trainer' not in tmux_sessions"
       shell: "bash scripts/services/watt_trainer/start_tmux.sh"
       args:
         chdir: "{{ serverless_containers_path }}"

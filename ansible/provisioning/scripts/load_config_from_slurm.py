@@ -15,7 +15,7 @@ def getHostList():
     output, err = rc.communicate()
     hostlist = output.decode().splitlines()
     server = hostlist[0]
-    hostlist.pop(0)
+    hostlist.pop(0) ## TODO: avoid this to allow using the server as host
 
     server_ip = socket.gethostbyname(server)
 
@@ -166,7 +166,7 @@ def update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_p
 
     # Server
     with open(inventory_file, 'w') as f:
-        content = ["[server]", server, "[nodes]",""]
+        content = ["[platform_management]", "platform_server ansible_host={0}".format(server), "[nodes]",""]
         f.write("\n".join(content))
 
     # Nodes

@@ -19,13 +19,13 @@ def update_server_ip(server_ip):
     loader = DataLoader()
     ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
 
-    hostList = ansible_inventory.groups['server'].get_hosts()
+    hostList = ansible_inventory.groups['platform_management'].get_hosts()
 
     if (len(hostList) > 0):
         server = hostList[0]
-        server_info = server.name + " host_ip=" + server_ip + "\n"
+        server_info = "{0} host_ip={1} ansible_host={2}\n".format(server.name, server_ip, server.vars['ansible_host'])
     else:
-        server_info = "server" + " host_ip=" + server_ip + "\n"
+        server_info = "{0} host_ip={1} ansible_host={2}\n".format("platform_server", server_ip, "server")
 
     print(server_info)
 
@@ -36,7 +36,7 @@ def update_server_ip(server_ip):
 
     i = 0
     # skip to server
-    while (i < len(data) and data[i] != "[server]\n"):
+    while (i < len(data) and data[i] != "[platform_management]\n"):
         i+=1
     i+=1
 

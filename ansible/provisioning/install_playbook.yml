@@ -73,7 +73,7 @@
 
 # Setup nodes + server
 - name: Install requisites in nodes and server
-  hosts: server,nodes
+  hosts: platform_management,nodes
   become: "{{ virtual_mode }}"
   gather_facts: yes
 
