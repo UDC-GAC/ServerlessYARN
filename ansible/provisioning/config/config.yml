@@ -1,3 +1,5 @@
+## TODO: it would be interesting to divide the config into several modules and just import them into this file
+
 ## Virtual mode: "yes" to deploy a vagrant virtual cluster; "no" if you want to use an existing cluster
 virtual_mode: yes
 
@@ -58,6 +60,7 @@ influxdb_org: "MyOrg"
 
 ## Hosts
 number_of_hosts: 2 # 1
+server_as_host: no # 'yes' will use/deploy number_of_hosts-1 additional hosts since the server itself will be a host
 cpus_per_host: 4
 memory_per_host: 4096
 energy_per_host: 200

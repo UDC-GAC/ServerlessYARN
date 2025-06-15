@@ -50,9 +50,15 @@ def update_server_ip(server_ip):
             file.writelines( server_info )
 
 
-def write_inventory_from_conf(number_of_hosts,number_of_containers_per_node,cpu_per_node,mem_per_node,energy_per_node,disks_dict):
+def write_inventory_from_conf(number_of_hosts,number_of_containers_per_node,cpu_per_node,mem_per_node,energy_per_node,disks_dict,server_as_host=False):
 
     structures = {}
+
+    if server_as_host:
+        host_name = 'server'
+        host_containers = create_container_list(host_name,number_of_containers_per_node)
+        structures[host_name] = {'containers': host_containers, 'cpu': str(cpu_per_node), 'mem': str(mem_per_node), 'energy': str(energy_per_node), 'disks': disks_dict}
+        number_of_hosts -= 1
 
     for i in range(0,number_of_hosts,1):
         host_name = 'host' + str(i)
@@ -116,6 +122,7 @@ if __name__ == "__main__":
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     number_of_hosts = config['number_of_hosts']
+    server_as_host = config['server_as_host']
     number_of_containers_per_node = config['number_of_containers_per_node']
 
     cpu_per_node = config['cpus_per_host']
@@ -141,6 +148,6 @@ if __name__ == "__main__":
     update_server_ip(server_ip)
 
     if (virtual_mode): 
-        write_inventory_from_conf(number_of_hosts,number_of_containers_per_node,cpu_per_node,mem_per_node,energy_per_node,disks_dict)
+        write_inventory_from_conf(number_of_hosts,number_of_containers_per_node,cpu_per_node,mem_per_node,energy_per_node,disks_dict,server_as_host)
     else: 
         update_inventory_hosts_containers(number_of_containers_per_node,disks_dict)
