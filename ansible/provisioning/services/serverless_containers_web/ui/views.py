@@ -2452,7 +2452,7 @@ def hdfs(request):
 
             return redirect_with_errors('hdfs', error)
 
-        namenode_url = 'http://{0}:9870/explorer.html#'.format(socket.gethostbyname(namenode_host))
+        namenode_url = 'http://{0}:{1}/explorer.html#'.format("localhost", 55555)
 
         state.__start_webdriver__() ## will only start webdriver if not started yet
         driver = state.__get_webdriver__()

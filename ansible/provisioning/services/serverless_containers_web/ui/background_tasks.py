@@ -827,7 +827,7 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
         add_container_to_app_in_db(full_url, container['container_name'], app)
 
     # Start hdfs frontend container
-    argument_list = [formatted_host_list, "hdfs_frontend", formatted_containers_info]
+    argument_list = [formatted_host_list, "hdfs_frontend", formatted_containers_info, nn_host, nn_container]
     error_message = "Error setting HDFS frontend"
     process_script("hdfs/start_hdfs_frontend", argument_list, error_message)
 
@@ -868,16 +868,23 @@ def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_fre
     error_message = "Error removing app {0}".format(app)
     error, _ = request_to_state_db(full_url, "delete", error_message)
 
+    ## Clean datanodes data_dir and avoid errors when creating new global_hdfs cluster
+    ## This is a workaround, should be executed when stopping cluster
+    for container in app_containers:
+        argument_list = [container['host'], container['name']]
+        error_message = "Error cleaning HDFS files from container {0}".format(container['name'])
+        process_script("hdfs/clean_hdfs", argument_list, error_message)
+
+    # Stop hdfs frontend container
+    argument_list = ["platform_server", vars_config['hdfs_frontend_container_name']]
+    error_message = "Error stopping hdfs frontend container {0}".format(vars_config['hdfs_frontend_container_name'])
+    process_script("stop_container", argument_list, error_message)
+
     # Stop containers
     stop_containers_task = []
     for container in app_containers:
         stop_task = stop_container.si(container['host'], container['name'])
         stop_containers_task.append(stop_task)
-
-    # Stop hdfs frontend container
-    argument_list = ["server", vars_config['hdfs_frontend_container_name']]
-    error_message = "Error stopping hdfs frontend container {0}".format(vars_config['hdfs_frontend_container_name'])
-    process_script("stop_container", argument_list, error_message)
 
     # Collect logs
     set_hadoop_logs_timestamp_task = set_hadoop_logs_timestamp.si(app, app_files, rm_host, rm_container)

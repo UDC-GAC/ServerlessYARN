@@ -2,6 +2,9 @@ Bootstrap: localimage
 From: apps/{{ app_base_type }}/{{ app_base_image_file }}
 
 %post
+    apt-get -y update
+    apt-get install -y socat
+
     # Clean non-necessary files from parent images
     cd /opt
     rm -r BDWatchdog

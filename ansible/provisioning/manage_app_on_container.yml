@@ -28,7 +28,7 @@
       - name: Get containers IP addresses
         shell: "{% for item in containers_info %}
           {% if item.host == inventory_hostname %}
-          sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \"printf '%s ' \\$(hostname -I | awk '{print \\$2}') && hostname\" && 
+          sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\" && 
           {% endif  %}
           {% endfor %}true"
         args:
@@ -82,7 +82,7 @@
     block:
       - name: Get global namenode IP address
         when: inventory_hostname == global_namenode_host
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ global_namenode_container }} bash -c \"printf '%s ' \\$(hostname -I | awk '{print \\$2}') && hostname\""
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ global_namenode_container }} bash -c \"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\""
         args:
           executable: /bin/bash
         register: global_namenode_resolution
@@ -517,6 +517,15 @@
         args:
           executable: /bin/bash
     tags: never, stop_hadoop_cluster
+
+  ## Clean HDFS files
+  - name: Workaround to clean global HDFS files
+    when: "' ' not in bind_dir_on_container"
+    shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
+      'tmux kill-session -t JAVA_SNITCH && rm -r {{ bind_dir_on_container}}/files_dir && rm -r {{ bind_dir_on_container}}/hadoop_logs'"
+    args:
+      executable: /bin/bash
+    tags: never, clean_hdfs
 
   # TODO: do not rely on shared folders (NFS and such) to access hadoop_logs
   ## Set hadoop logs timestamp
