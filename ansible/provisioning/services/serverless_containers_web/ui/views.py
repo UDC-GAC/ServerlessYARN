@@ -121,7 +121,7 @@ def index(request):
     except urllib.error.URLError:
         data_json = {"status": "down"}
 
-    return render(request, 'index.html', {'data': data_json})
+    return render(request, 'index.html', {'data': data_json, 'config': config})
     
 
 #### Structures
@@ -197,7 +197,8 @@ def structures(request, structure_type, html_render):
         'requests_successes': requests_successes,
         'requests_info': requests_info,
         'addStructureForm': addStructureForm,
-        'removeStructuresForm': removeStructuresForm
+        'removeStructuresForm': removeStructuresForm,
+        'config': config
     }
 
     return render(request, html_render, context)
@@ -2083,7 +2084,16 @@ def services(request):
     for item in not_recognized_services:
         data_json.remove(item)
 
-    return render(request, 'services.html', {'data': data_json, 'config_errors': config_errors, 'requests_errors': requests_errors, 'requests_successes': requests_successes, 'requests_info': requests_info})
+    context = {
+        'data': data_json,
+        'config_errors': config_errors,
+        'requests_errors': requests_errors,
+        'requests_successes': requests_successes,
+        'requests_info': requests_info,
+        'config': config
+    }
+
+    return render(request, 'services.html', context)
   
 def service_switch(request,service_name):
 
@@ -2220,7 +2230,18 @@ def rules(request):
 
     config_errors = checkInvalidConfig()
 
-    return render(request, 'rules.html', {'data': data_json, 'resources':rulesResources, 'types':ruleTypes, 'config_errors': config_errors, 'requests_errors': requests_errors, 'requests_successes': requests_successes, 'requests_info': requests_info})
+    context = {
+        'data': data_json,
+        'resources': rulesResources,
+        'types': ruleTypes,
+        'config_errors': config_errors,
+        'requests_errors': requests_errors,
+        'requests_successes': requests_successes,
+        'requests_info': requests_info,
+        'config': config
+    }
+
+    return render(request, 'rules.html', context)
 
 def getRulesResources(data):
     resources = []
@@ -2477,6 +2498,7 @@ def hdfs(request):
     context['requests_errors'] = requests_errors
     context['requests_successes'] = requests_successes
     context['requests_info'] = requests_info
+    context['config'] = config
 
     return render(request, 'hdfs.html', context)
 

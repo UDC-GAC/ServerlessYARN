@@ -30,7 +30,7 @@
           <tr><td> <a class=link_button href="{% url 'apps' %}">Apps</a> </td></tr>
           <tr><td> <a class=link_button href="{% url 'services' %}">Services</a> </td></tr>
           <tr><td> <a class=link_button href="{% url 'rules' %}">Rules</a> </td></tr>
-          <tr><td> <a class=link_button href="{% url 'hdfs' %}">HDFS</a> </td></tr>
+          {% if config.global_hdfs %}<tr><td> <a class=link_button href="{% url 'hdfs' %}">HDFS</a> </td></tr>{% endif %}
         </table>
       {% else %}
       <table>
@@ -39,7 +39,7 @@
         <tr><td> <a class="link_button disabled" href="{% url 'apps' %}">Apps</a> </td></tr>
         <tr><td> <a class="link_button disabled" href="{% url 'services' %}">Services</a> </td></tr>
         <tr><td> <a class="link_button disabled" href="{% url 'rules' %}">Rules</a> </td></tr>
-        <tr><td> <a class="link_button disabled" href="{% url 'hdfs' %}">HDFS</a> </td></tr>
+        {% if config.global_hdfs %}<tr><td> <a class="link_button disabled" href="{% url 'hdfs' %}">HDFS</a> </td></tr>{% endif %}
       </table>
       {% endif %}
     </div>

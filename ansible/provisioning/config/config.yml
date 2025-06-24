@@ -42,7 +42,7 @@ power_modelling: no # "yes" to use power models to get CPU Usage/Power proportio
 online_learning: no # "yes" to automatically retrain power models in real-time using OpenTSDB time series
 power_meter: "rapl" # rapl or smartwatts, use the latter to measure power from applications composed of multiple containers
 # Big Data
-global_hdfs: yes
+global_hdfs: no
 
 ## WattWizard Config
 structures: "host"

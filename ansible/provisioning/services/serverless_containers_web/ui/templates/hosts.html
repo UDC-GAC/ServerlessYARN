@@ -12,7 +12,7 @@
   <a href="{% url 'apps' %}">Apps</a>
   <a href="{% url 'services' %}">Services</a>
   <a href="{% url 'rules' %}">Rules</a>
-  <a href="{% url 'hdfs' %}">HDFS</a>
+  {% if config.global_hdfs %}<a href="{% url 'hdfs' %}">HDFS</a>{% endif %}
 </div> 
 
 <div class="content">
@@ -295,6 +295,7 @@
 
   </ul>
 
+  {% if config.disk_capabilities %}
   <a href="#openModal-add-disks-hosts" title="Edit" class="caja">Add Disks</a>
   <br><br>
   <div align="left" id="openModal-add-disks-hosts" class="modalDialog">
@@ -306,6 +307,7 @@
 		  </p>
 	  </div>
   </div>
+  {% endif %}
 
   <a href="#openModal-add-host" title="Edit" class="caja">Add Host</a>
   <br><br>
