@@ -69,13 +69,28 @@ class PlotStyler:
             resource_config[main_resource]["ax"].set_ylabel(resource_config[main_resource]["label"], fontsize=fontsize)
 
     def set_legend(self, resource_config, main_resource):
-        resource_config[main_resource]["ax"].legend(loc='upper center',
-                                                    bbox_to_anchor=(0.66, 0.60),
-                                                    ncol=2,
-                                                    fontsize=self.__config.get("FONTSIZE", 20) + 2,
-                                                    markerscale=2,
-                                                    facecolor="lightblue",
-                                                    framealpha=0.75)
+        all_handles = []
+        all_labels = []
+        seen_axes = set()
+
+        for resource in resource_config.values():
+            ax = resource["ax"]
+            if ax not in seen_axes:
+                handles, labels = ax.get_legend_handles_labels()
+                all_handles.extend(handles)
+                all_labels.extend(labels)
+                seen_axes.add(ax)
+
+        resource_config[main_resource]["ax"].legend(
+            all_handles,
+            all_labels,
+            loc='upper left',
+            bbox_to_anchor=(0.66, 0.6),
+            ncol=1,
+            fontsize=self.__config.get("FONTSIZE", 20) + 2,
+            markerscale=2,
+            facecolor="lightblue",
+            framealpha=0.75)
 
     def apply_all(self, resource_config, main_resource, xlim):
         self.set_grid_and_fontsize(resource_config)

@@ -20,7 +20,7 @@ DEFAULT_METRICS_CONFIG = {
     "proc.cpu.user": {
         "axis": 0,
         "color": "#1f77b4",
-        "label": "CPU shares",
+        "label": "CPU usage (shares)",
         "linestyle": "-",
         "marker": "o",
         "limit": 6400
@@ -28,7 +28,7 @@ DEFAULT_METRICS_CONFIG = {
     "structure.cpu.current": {
         "axis": 0,
         "color": "#a300dc",
-        "label": "CPU limit",
+        "label": "CPU allocation (shares)",
         "linestyle": "-",
         "marker": "x",
         "limit": 6400

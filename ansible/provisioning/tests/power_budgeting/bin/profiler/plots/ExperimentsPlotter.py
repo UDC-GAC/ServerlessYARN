@@ -76,7 +76,7 @@ class ExperimentsPlotter:
                 (times["start_app_s"], 0), cap_convergence_time - times["start_app_s"], fig_ylim, "red", "x"))
 
             # Plot vertical line at the convergence point
-            PlotUtils.plot_vertical_line(main_axis, cap_convergence_time)
+            #PlotUtils.plot_vertical_line(main_axis, cap_convergence_time)
 
             # Draw a rectangle with green pattern (after convergence)
             main_axis.add_patch(PlotUtils.create_rectangle(
@@ -169,7 +169,7 @@ class ExperimentsPlotter:
 
         # Plot experiment scalings only when plotting energy for a single container
         if self.__scalings_can_be_plotted(containers, list(resource_config.keys()), scalings):
-            PlotUtils.plot_power_between_periods(main_axis, scalings)
+            PlotUtils.plot_power_between_periods(main_axis, scalings, "Average power (W)")
 
         # Plot convergence point
         if self.__config.get("PLOT_CONVERGENCE_POINT", False):

@@ -21,7 +21,7 @@ PLOT_PARAMETERS = {
             "CPU_TICKS_FREQUENCY": 20,
             "MARKER_FREQUENCY": 10,
             "HARD_X_LIMIT": 2250,
-            "HARD_CPU_LIMIT": 110
+            "HARD_CPU_LIMIT": 120
         },
         "min": {
             "FONTSIZE": 20,
@@ -33,7 +33,7 @@ PLOT_PARAMETERS = {
             "CPU_TICKS_FREQUENCY": 20,
             "MARKER_FREQUENCY": 10,
             "HARD_X_LIMIT": 2250,
-            "HARD_CPU_LIMIT": 110
+            "HARD_CPU_LIMIT": 120,
             #"CUSTOM_X_AXIS_VALUES": [0, 50, 125, 250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250],
             #"CUSTOM_X_AXIS_FUNCTIONS": (lambda x: x**(1/2), lambda x: x**2)
         },
@@ -47,7 +47,7 @@ PLOT_PARAMETERS = {
             "CPU_TICKS_FREQUENCY": 20,
             "MARKER_FREQUENCY": 10,
             "HARD_X_LIMIT": 2000,
-            "HARD_CPU_LIMIT": 110
+            "HARD_CPU_LIMIT": 120
         },
         "max": {
             "FONTSIZE": 20,
@@ -71,14 +71,15 @@ PLOT_PARAMETERS = {
             "CPU_TICKS_FREQUENCY": 20,
             "MARKER_FREQUENCY": 10,
             "HARD_X_LIMIT": 1750,
-            "HARD_CPU_LIMIT": 110
+            "HARD_CPU_LIMIT": 120,
+            "HARD_ENERGY_LIMIT": 85
         }
     },
     "npb_1cont_32threads": {
         "no-capping": {
             "FONTSIZE": 20,
             "SEPARATE_AXES": True,
-            "PLOT_LEGEND": False,
+            "PLOT_LEGEND": True,
             "PLOT_APP_LABELS": False,
             "PLOT_CONVERGENCE_POINT": False,
             "X_TICKS_FREQUENCY": 100,
@@ -86,7 +87,7 @@ PLOT_PARAMETERS = {
             "ENERGY_TICKS_FREQUENCY": 20,
             "MARKER_FREQUENCY": 4,
             "HARD_X_LIMIT": 750,
-            "HARD_CPU_LIMIT": 3300,
+            "HARD_CPU_LIMIT": 3500,
             "HARD_ENERGY_LIMIT": 220
         },
         "min": {
@@ -144,7 +145,7 @@ PLOT_PARAMETERS = {
             "ENERGY_TICKS_FREQUENCY": 20,
             "MARKER_FREQUENCY": 4,
             "HARD_X_LIMIT": 800,
-            "HARD_CPU_LIMIT": 3300,
+            "HARD_CPU_LIMIT": 3500,
             "HARD_ENERGY_LIMIT": 200
         }
     }

@@ -73,7 +73,7 @@ class PlotUtils:
 
     @staticmethod
     def plot_vertical_line(ax, point, label=None, fontsize=None):
-        ax.axvline(x=point, color='black', linestyle='--', linewidth=1.5, zorder=-2)
+        ax.axvline(x=point, color='black', linestyle='--', linewidth=4, zorder=-2)
         # Add text on the X axis if provided
         if label:
             ylim = ax.get_ylim()[1]
@@ -99,4 +99,4 @@ class PlotUtils:
             x_points.extend([seconds_start, seconds_end - offset])
             y_points.extend([periods[start]['avg_power'], periods[start]['avg_power']])
 
-        ax.plot(x_points, y_points, linestyle=':', label=label, color="black", linewidth=2)
+        ax.plot(x_points, y_points, linestyle=':', label=label, color="#50C878", linewidth=6)
