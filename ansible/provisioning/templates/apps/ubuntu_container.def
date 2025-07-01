@@ -9,13 +9,20 @@ From: ubuntu:20.04
     export ATOP_INSTALL_DIRECTORY="/opt/atop"
     export ATOP_VERSION="2.4.0"
 
-    # Install dependencies
+    ## Install apt dependencies
     apt-get -y update
+
+    # Essential
     apt-get -y install tmux git
-    apt-get -y install build-essential make libncurses5-dev libncursesw5-dev zlib1g-dev libcap-dev
-    apt-get -y install net-tools iputils-ping traceroute iputils-tracepath bc
     apt-get install -y --no-install-recommends python3-pip
+    apt-get -y install build-essential make libncurses5-dev libncursesw5-dev zlib1g-dev libcap-dev
+
+    # Network
+    apt-get -y install net-tools iputils-ping traceroute iputils-tracepath bc
     #apt-get -y install iptables
+
+    # Other utilities
+    apt-get -y install nano
 
     # Install atop from source
     mkdir -p "${ATOP_INSTALL_DIRECTORY}"
