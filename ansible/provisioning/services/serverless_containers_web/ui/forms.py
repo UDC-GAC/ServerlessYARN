@@ -47,14 +47,12 @@ DEFAULT_COMMON_FIELDS = {
                                                    ("percentage_of_max", "Percentage of max"),
                                                    ("percentage_of_current", "Percentage of current"),
                                                ),
-                                               initial=DEFAULT_LIMIT_VALUES["boundary_type"],
                                                required=False),
         'mem_boundary_type': forms.ChoiceField(label="Mem boundary type (percentage of max or current)",
                                                choices=(
                                                    ("percentage_of_max", "Percentage of max"),
                                                    ("percentage_of_current", "Percentage of current"),
                                                ),
-                                               initial=DEFAULT_LIMIT_VALUES["boundary_type"],
                                                required=False),
         'disk_read_boundary_type': forms.ChoiceField(label="Disk read boundary type (percentage of max or current)",
                                                choices=(
@@ -68,14 +66,12 @@ DEFAULT_COMMON_FIELDS = {
                                                    ("percentage_of_max", "Percentage of max"),
                                                    ("percentage_of_current", "Percentage of current"),
                                                ),
-                                               initial=DEFAULT_LIMIT_VALUES["boundary_type"],
                                                required=False),
         'energy_boundary_type': forms.ChoiceField(label="Energy boundary type (percentage of max or current)",
                                                choices=(
                                                    ("percentage_of_max", "Percentage of max"),
                                                    ("percentage_of_current", "Percentage of current"),
                                                ),
-                                               initial=DEFAULT_LIMIT_VALUES["boundary_type"],
                                                required=False),
 
         ## Application files
@@ -246,7 +242,6 @@ class LimitsForm(forms.Form):
                                                ("percentage_of_max", "Percentage of max"),
                                                ("percentage_of_current", "Percentage of current"),
                                            ),
-                                           initial=DEFAULT_LIMIT_VALUES["boundary_type"],
                                            required=False)
 
     def __init__(self, *args, **kwargs):

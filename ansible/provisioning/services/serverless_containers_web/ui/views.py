@@ -126,7 +126,7 @@ def index(request):
 
 #### Structures
 # Views
-def structure_detail(request,structure_name):
+def structure_detail(request, structure_name):
     url = base_url + "/structure/" + structure_name
 
     response = urllib.request.urlopen(url)
@@ -698,37 +698,33 @@ def processResourcesFields(request, url, structure_name, resource, field, field_
 
     return error
 
+
 def processLimits(request, url):
-
     errors = []
-
-    if ("name" in request.POST and "operation" not in request.POST):
-        
+    if "name" in request.POST and "operation" not in request.POST:
         structure_name = request.POST['name']
 
-        resources = ["cpu","mem","disk_read","disk_write","net","energy"]
-
+        resources = ["cpu", "mem", "disk_read", "disk_write", "net", "energy"]
         for resource in resources:
-            if (resource + "_boundary" in request.POST):
-                error = processLimitsBoundary(request, url, structure_name, resource, resource + "_boundary")
-                if (len(error) > 0): errors.append(error)
-
+            if resource + "_boundary" in request.POST and resource + "_boundary_type" in request.POST:
+                error = processLimitsBoundary(request, url, structure_name, resource)
+                if len(error) > 0:
+                    errors.append(error)
     return errors
 
-def processLimitsBoundary(request, url, structure_name, resource, boundary_name):
 
-    full_url = url + structure_name + "/limits/" + resource + "/boundary"
-
-    new_value = request.POST[boundary_name]
-
-    error = ""
-    if (new_value != ''):
-        put_field_data = {'value': new_value.lower()}
-
-        error_message = "Error submitting {0} for structure {1}".format(boundary_name, structure_name)
-        error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
+def processLimitsBoundary(request, url, structure_name, resource):
+    for param in ["boundary", "boundary_type"]:
+        error = ""
+        full_url = url + structure_name + "/limits/" + resource + "/" + param
+        new_value = request.POST[resource + "_" + param]
+        if new_value != '':
+            put_field_data = {'value': new_value.lower()}
+            error_message = "Error updating {0} for structure {1}".format(param, structure_name)
+            error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
 
     return error
+
 
 def processAdds(request, url):
     errors = []
