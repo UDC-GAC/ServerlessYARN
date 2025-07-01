@@ -9,6 +9,9 @@ APP_JAR=$5
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 source $scriptDir/access_playbooks_dir.sh
 
+## Update BDWatchdog directory if needed
+unbuffer ansible-playbook install_playbook.yml -i $INVENTORY -t create_app
+
 unbuffer ansible-playbook start_containers_playbook.yml -i $INVENTORY -t create_app \
    --extra-vars \
        "app_dir=$APP_DIR \

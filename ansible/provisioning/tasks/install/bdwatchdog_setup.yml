@@ -2,11 +2,16 @@
 - name: Copy BDWatchdog
   synchronize:
     src: BDWatchdog/
-    dest: "{{ item }}"
+    dest: "{{ bdwatchdog_path }}"
     recursive: true
-  with_items:
-    - ["{{ bdwatchdog_path }}", "{{ bdwatchdog_source_path }}"]
   tags: restart_services
+
+- name: Copy BDWatchdog source
+  synchronize:
+    src: BDWatchdog/
+    dest: "{{ bdwatchdog_source_path }}"
+    recursive: true
+  tags: create_app
 
 ## get the user executing the playbook
 - name: get the username running the deploy
@@ -93,5 +98,4 @@
   with_items:
     - run_atop_stream.sh
     - run_atop_stream_with_java_translation.sh
-  tags: restart_services
-
+  tags: create_app
