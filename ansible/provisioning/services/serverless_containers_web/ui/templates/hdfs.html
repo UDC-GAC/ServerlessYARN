@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+
+<HR>
+
+<!-- MENU -->
+<div class="vertical-menu">
+    <a href="{% url 'index' %}">Home</a>
+    <a href="{% url 'containers' %}">Containers</a>
+    <a href="{% url 'hosts' %}">Hosts</a>
+    <a href="{% url 'apps' %}">Apps</a>
+    <a href="{% url 'services' %}">Services</a>
+    <a href="{% url 'rules' %}">Rules</a>
+    {% if config.global_hdfs %}<a href="{% url 'hdfs' %}" class="active">HDFS</a>{% endif %}
+</div>
+
+<!-- <div style="width: 100%; height: 100%; overflow-x: scroll;" class="content"> -->
+<div class="content">
+
+    <H1>HDFS</H1>
+
+    <!-- Requests status -->
+    {% if requests_errors %}
+        {% for error in requests_errors %}
+        <div class="alert">
+            <span class="closebtn">&times;</span>
+            <strong>Error!</strong> {{ error }}
+        </div> 
+        {% endfor %}
+    {% endif %}
+
+    {% if requests_successes %}
+        {% for success in requests_successes %}
+        <div class="alert success">
+            <span class="closebtn">&times;</span>
+            <strong>Success!</strong> {{ success }}
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if requests_info %}
+        {% for info in requests_info %}
+        <div class="alert info">
+            <span class="closebtn">&times;</span>
+            <strong>Info!</strong> {{ info }}
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <div>
+        <form action="{% url 'manage_global_hdfs' %}" method="POST">
+            {% csrf_token %}
+            {% if global_hdfs_app is none %}<td><button class="activate-btn" type="submit" name="manage_global_hdfs" value="hdfs_on">Start global HDFS</button></td>
+            {% else %}   <td><button class="deactivate-btn" type="submit" name="manage_global_hdfs" value="hdfs_off">Stop global HDFS</button></td>
+            {% endif %}
+        </form>
+    </div>
+    <br>
+
+    {% if global_hdfs_ready %}
+        <p><a href="{{ namenode_url }}">Namenode</a></p>
+    {% endif %}
+
+    {% if global_hdfs_ready %}
+    <ul>
+        <li>
+            <button class="accordion">{{ global_hdfs_app.name }}</button>
+            <div class="panel">
+                <p></p>
+                <table class="data_table">
+                    <tr>
+                        <form action="{% url 'apps_guard_switch' global_hdfs_app.name %}" method="POST"> 
+                            {% csrf_token %}
+                            <td>Guard</td> <td>{{ global_hdfs_app.guard }}</td>
+            
+                            {% if global_hdfs_app.guard == True %} <td><button class="deactivate-btn" type="submit" name="guard_switch" value="guard_off">Unguard</button></td>
+                            {% else %}                  <td><button class="activate-btn" type="submit" name="guard_switch" value="guard_on">Guard</button></td>
+                            {% endif %}
+                        </form>
+                    </tr>
+                
+                    <tr><td>Guard Policy</td> <td>{{ global_hdfs_app.guard_policy }}</td></tr>
+                    {% if global_hdfs_app.files_dir %} <tr><td>Files directory</td> <td>{{ global_hdfs_app.files_dir }}</td></tr> {% endif %}
+                    {% if global_hdfs_app.install_script %} <tr><td>Install script</td> <td>{{ global_hdfs_app.install_script }}</td></tr> {% endif %}
+                    {% if global_hdfs_app.start_script %} <tr><td>Start script</td> <td>{{ global_hdfs_app.start_script }}</td></tr> {% endif %}
+                    {% if global_hdfs_app.stop_script %} <tr><td>Stop script</td> <td>{{ global_hdfs_app.stop_script }}</td></tr> {% endif %}
+                    {% if global_hdfs_app.framework %} <tr><td>Framework</td> <td>{{ global_hdfs_app.framework }}</td></tr> {% endif %}
+                    {% if global_hdfs_app.app_jar %} <tr><td>App JAR</td> <td>{{ global_hdfs_app.app_jar }}</td></tr> {% endif %}
+        
+                </table>
+                <p></p>
+                
+                <button class="accordion">Resources</button>
+                <div class="panel">
+        
+                    <p></p>
+                    <table class="data_table">
+                        <!-- header -->
+                        <tr>
+                            <th class=empty_header></th>
+                            {% for value_label in global_hdfs_app.resources_values_labels %}
+                                <th>{{ value_label }}</th>
+                            {% endfor %}
+                        </tr>
+                        <!-- rows -->
+                        {% for resource,values in global_hdfs_app.resources.items %}
+                            <tr>
+                                <th>{{ resource }}</th>
+                                {% for key, value in values.items %}
+                                    <td>{{ value }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </table>
+                    <p></p>
+        
+                    <!-- APP RESOURCES EDIT MODAL -->	
+                    {% if global_hdfs_app.resources_editable_data > 0 %}
+                        <a href="#openModal-{{ global_hdfs_app.name }}-resources" title="Edit" class="caja" onclick="hide_resources_submit_buttons('{{ global_hdfs_app.name }}');">Edit resources</a>
+                        <br><br>
+                        <div align="left" id="openModal-{{ global_hdfs_app.name }}-resources" class="modalDialog">
+                            <div>
+                                <a href="#close" title="Close" class="close">X</a>
+                                <h2>Edit resources of {{ global_hdfs_app.name }}</h2>
+                                <p>
+                                    {% load crispy_forms_tags %} {% crispy global_hdfs_app.resources_form global_hdfs_app.resources_form_helper %}
+                                </p>
+                            </div>
+                        </div>
+                    {% endif %}
+        
+                </div>
+                <button class="accordion">Limits</button>
+                <div class="panel">
+        
+                    <p></p>
+                    <table class="data_table">
+                        <!-- header -->
+                        <tr>
+                            <th class=empty_header></th>
+                            {% for value_label in global_hdfs_app.limits_values_labels %}
+                                <th>{{ value_label }}</th>
+                            {% endfor %}
+                        </tr>
+                        <!-- rows -->
+                        {% for resource,values in global_hdfs_app.limits.items %}
+                            <tr>
+                                <th>{{ resource }}</th>
+                                {% for key, value in values.items %}
+                                    <td>{{ value }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </table>
+                    <p></p>
+        
+                    <!-- APP LIMIT EDIT MODAL	-->
+                    {% if global_hdfs_app.limits_editable_data > 0 %}
+                        <a href="#openModal-{{ global_hdfs_app.name }}-limits" title="Edit" class="caja">Edit boundaries</a>
+                        <br><br>
+                        <div align="left" id="openModal-{{ global_hdfs_app.name }}-limits" class="modalDialog">
+                            <div>
+                                <a href="#close" title="Close" class="close">X</a>
+                                <h2>Edit boundaries of {{ global_hdfs_app.name }}</h2>
+                                <p>
+                                    {% load crispy_forms_tags %} {% crispy global_hdfs_app.limits_form %}
+                                </p>
+                            </div>
+                        </div>
+                    {% endif %}
+        
+                </div>
+                <a class="button" href="{% url 'structure_detail' global_hdfs_app.name %}">Full details</a>
+            </div>    	
+            <HR>
+            <HR>
+            Containers:
+            {% for cont in global_hdfs_app.containers_full %}
+            <button class="accordion">{{ cont.name }}</button>
+            <div class="panel">
+                <p></p>
+                <table class="data_table">	
+                    <tr>
+                        <form action="{% url 'apps_guard_switch' cont.name %}" method="POST"> 
+                            {% csrf_token %}
+                            <td>Guard</td> <td>{{ cont.guard }}</td>
+        
+                            {% if cont.guard == True %} <td><button class="deactivate-btn" type="submit" name="guard_switch" value="guard_off">Unguard</button></td>
+                            {% else %}                  <td><button class="activate-btn" type="submit" name="guard_switch" value="guard_on">Guard</button></td>
+                            {% endif %}
+                        </form>
+                    </tr>
+                    <tr><td>Guard Policy</td> <td>{{ cont.guard_policy }}</td></tr>
+                </table>
+                <p></p>
+        
+                <button class="accordion">Resources</button>
+                <div class="panel">
+        
+                    <p></p>
+                    <table class="data_table">
+                        <!-- header -->
+                        <tr>
+                            <th class=empty_header></th>
+                            {% for value_label in cont.resources_values_labels %}
+                                <th>{{ value_label }}</th>
+                            {% endfor %}
+                        </tr>
+                        <!-- rows -->
+                        {% for resource,values in cont.resources.items %}
+                        {% if resource != "disk" %}
+                            <tr>
+                                <th>{{ resource }}</th>
+                                {% for key, value in values.items %}
+                                    <td>{{ value }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </table>
+                    <p></p>
+        
+                    <!-- Another table for disks -->
+                    {% for resource,disk in cont.resources.items %}
+                        {% if resource == "disk" %}
+                            <p>Disk</p>
+                            <p></p>
+                            <table class="data_table">
+                                <!-- rows -->
+                                <tr>
+                                    <th>Name</th>
+                                    <td>{{ disk.name }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Path</th>
+                                    <td>{{ disk.path }}</td>
+                                </tr>
+                            </table>
+                            <p></p>
+                            <HR>
+                        {% endif %}
+                    {% endfor %}
+        
+                    <!-- CONT RESOURCES EDIT MODAL -->	
+                    {% if cont.resources_editable_data > 0 %}
+                        <a href="#openModal-{{ cont.name }}-resources" title="Edit" class="caja" onclick="hide_resources_submit_buttons('{{ cont.name }}');">Edit resources</a>
+                        <br><br>
+                        <div align="left" id="openModal-{{ cont.name }}-resources" class="modalDialog">
+                            <div>
+                                <a href="#close" title="Close" class="close">X</a>
+                                <h2>Edit resources of {{ cont.name }}</h2>
+                                <p>
+                                    {% load crispy_forms_tags %} {% crispy cont.resources_form cont.resources_form_helper %}
+                                </p>
+                            </div>
+                        </div>
+                    {% endif %}
+        
+                </div>
+                <button class="accordion">Limits</button>
+                <div class="panel">
+        
+                    <p></p>
+                    <table class="data_table">
+                        <!-- header -->
+                        <tr>
+                            <th class=empty_header></th>
+                            {% for value_label in cont.limits_values_labels %}
+                                <th>{{ value_label }}</th>
+                            {% endfor %}
+                        </tr>
+                        <!-- rows -->
+                        {% for resource,values in cont.limits.items %}
+                            <tr>
+                                <th>{{ resource }}</th>
+                                {% for key, value in values.items %}
+                                    <td>{{ value }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </table>
+                    <p></p>
+        
+                    <!-- CONT LIMIT EDIT MODAL -->	
+                    {% if cont.limits_editable_data > 0 %}
+                        <a href="#openModal-{{ cont.name }}-limits" title="Edit" class="caja">Edit boundaries</a>
+                        <br><br>
+                        <div align="left" id="openModal-{{ cont.name }}-limits" class="modalDialog">
+                            <div>
+                                <a href="#close" title="Close" class="close">X</a>
+                                <h2>Edit boundaries of {{ cont.name }}</h2>
+                                <p>
+                                    {% load crispy_forms_tags %} {% crispy cont.limits_form %}
+                                </p>
+                            </div>
+                        </div>
+                    {% endif %}
+        
+                </div>
+                <a class="button" href="{% url 'structure_detail' cont.name %}">Full details</a>
+                <p></p>
+            </div>
+
+            {% endfor %}    
+            </li>    
+    </ul>
+    {% endif %}
+
+    {% if global_hdfs_ready %}
+        <div>
+            <table class="data_table">	
+                <tr>
+                    <th>Parent Directory</th>
+                    <th>Permission</th>
+                    <th>Owner</th>
+                    <th>Group</th>
+                    <th>Size</th>
+                    <th>Last Modified</th>
+                    <th>Replication</th>
+                    <th>Block Size</th>
+                    <th>Name</th>
+                    <th class="hdfs_actions">
+                        <a href="#openModal-add-hdfs-dir" title="Create Directory" title="Create Directory">
+                            <span class="fa fa-folder-open"></span>
+                        </a>
+                        <div align="left" id="openModal-add-hdfs-dir" class="modalDialog">
+                            <div>
+                                <a href="#close" title="Close" class="close">X</a>
+                                <h2>Create HDFS Directory</h2>
+                                <p>
+                                    {% load crispy_forms_tags %} {% crispy addDirForm %}
+                                </p>
+                            </div>
+                        </div>
+                    </th>
+                    <th class="hdfs_actions">
+                        <a href="#openModal-add-hdfs-file" title="Upload File" title="Upload File or Directory">
+                            <span class="fa fa-cloud-upload"></span>
+                        </a>
+                        <div align="left" id="openModal-add-hdfs-file" class="modalDialog">
+                            <div>
+                                <a href="#close" title="Close" class="close">X</a>
+                                <h2>Add HDFS File or Directory</h2>
+                                <p>
+                                    {% load crispy_forms_tags %} {% crispy addFileForm %}
+                                </p>
+                            </div>
+                        </div>
+                    </th>
+                </tr>
+                {% for item in data %}
+                <tr>
+                    {% for element in item %}
+                        {% if 'get_hdfs_file' in element %}
+                            <td class="hdfs_actions">
+                                <a href="#openModal-get-hdfs-file-{{ element.get_hdfs_file.origin_path.initial }}" title="Download">
+                                    <span class="fa fa-cloud-download"></span>
+                                </a>
+                                <div align="left" id="openModal-get-hdfs-file-{{ element.get_hdfs_file.origin_path.initial }}" class="modalDialog">
+                                    <div>
+                                        <a href="#close" title="Close" class="close">X</a>
+                                        <h2>Download HDFS File or Directory</h2>
+                                        <p>
+                                            {% load crispy_forms_tags %} {% crispy element.get_hdfs_file %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </td>
+                        {% elif 'del_hdfs_file' in element %}
+                            <td class="hdfs_actions">
+                                <a href="#openModal-del-hdfs-file-{{ element.del_hdfs_file.dest_path.initial }}" title="Delete">
+                                    <span class="fa fa-trash"></span>
+                                </a>
+                                <div align="left" id="openModal-del-hdfs-file-{{ element.del_hdfs_file.dest_path.initial }}" class="modalDialog">
+                                    <div>
+                                        <a href="#close" title="Close" class="close">X</a>
+                                        <h2>Delete HDFS File or Directory</h2>
+                                        <p>
+                                            {% load crispy_forms_tags %} {% crispy element.del_hdfs_file %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </td>
+                        {% else %}
+                            {% autoescape off %}
+                                <td class="hdfs_data">{{ element }}</td>
+                            {% endautoescape %}
+                        {% endif %}
+
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    {% endif %}
+</div>
+
+<HR>
+
+{% endblock %}

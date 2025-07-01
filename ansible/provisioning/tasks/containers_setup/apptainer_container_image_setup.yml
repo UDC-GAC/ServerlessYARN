@@ -2,7 +2,7 @@
 - name: Image creation
   delegate_to: localhost
   run_once: yes
-  tags: create_app
+  tags: create_app, setup_hdfs
   vars:
     ## item in this context is 'app_type'
     - definition_file: "{{ definition_mapping[item] }}"

@@ -342,3 +342,25 @@ img {
   background-color: white;
   border: none;
 }
+
+/* HDFS view */
+.data_table .hdfs_data {
+  text-transform: unset;
+}
+
+.data_table .hdfs_data::first-letter {
+  text-transform: unset;
+}
+
+.data_table .hdfs_actions {
+  background-color: white;
+  border: none;
+  text-align: center;
+  text-transform: unset;
+  color: unset;
+  font-weight: normal;
+}
+
+.fa {
+  font-size: 200%;
+}

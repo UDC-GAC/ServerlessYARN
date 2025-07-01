@@ -10,12 +10,13 @@ import yaml
 from load_inventory_from_conf import write_container_list, get_disks_dict
 import socket
 
-def getHostList():
+def getHostList(server_as_host=False):
     rc = subprocess.Popen(["scontrol", "show", "hostnames"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, err = rc.communicate()
     hostlist = output.decode().splitlines()
     server = hostlist[0]
-    hostlist.pop(0)
+    if not server_as_host:
+        hostlist.pop(0)
 
     server_ip = socket.gethostbyname(server)
 
@@ -166,7 +167,7 @@ def update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_p
 
     # Server
     with open(inventory_file, 'w') as f:
-        content = ["[server]", server, "[nodes]",""]
+        content = ["[platform_management]", "platform_server ansible_host={0}".format(server), "[nodes]",""]
         f.write("\n".join(content))
 
     # Nodes
@@ -179,8 +180,12 @@ if __name__ == "__main__":
     config_file = scriptDir + "/../config/config.yml"
     inventory_file = scriptDir + "/../../ansible.inventory"
 
+    with open(config_file, "r") as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+
     # Get config values
-    server, server_ip, hosts = getHostList()
+    server_as_host = config['server_as_host']
+    server, server_ip, hosts = getHostList(server_as_host)
     cpus_per_node = getNodesCpus()
     memory_per_node = getNodesMemory()
     disks_dict = getDisksFromConfig(config_file)

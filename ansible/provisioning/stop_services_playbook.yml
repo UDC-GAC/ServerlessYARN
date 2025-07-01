@@ -44,16 +44,21 @@
     ignore_errors: yes
     tags: never, stop_opentsdb, stop_services
 
+  - name: Set list with only session names
+    set_fact:
+      tmux_sessions: "{{ tmux_output.stdout_lines | map('split', ':') | map ('first') | list }}"
+    tags: never, stop_opentsdb, stop_services
+
   - name: Stop OPENTSDB
     shell: bash stop.sh
-    when: "'OPENTSDB' in tmux_output.stdout"
+    when: "'OPENTSDB' in tmux_sessions"
     args:
       chdir: "{{ bdwatchdog_path }}/deployment/metrics"
       executable: /bin/bash
     tags: never, stop_opentsdb
 
   - name: Stop Redis DB
-    when: "'redis_server' in tmux_output.stdout"
+    when: "'redis_server' in tmux_sessions"
     shell: ./redis-cli shutdown
     args:
       chdir: "{{ installation_path }}/redis/src"
@@ -61,7 +66,7 @@
     tags: never, stop_services
 
   - name: Stop other services
-    when: "item in tmux_output.stdout"
+    when: "item in tmux_sessions"
     shell: "tmux kill-session -t {{ item }}"
     args:
       executable: /bin/bash

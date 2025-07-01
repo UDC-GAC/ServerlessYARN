@@ -25,6 +25,7 @@
       vars:
         - app_type: "{{ 'generic_app' if install_script is defined and install_script != '' else 'base' }}"
         - image_mapping:
+            hdfs_frontend: hdfs_frontend.sif
             spark_app: spark_app.sif
             hadoop_app: hadoop_app.sif
             generic_app: "{{ app_dir + '.sif' if app_dir is defined }}"
@@ -33,14 +34,16 @@
         ## Image creation
         - include_tasks: "tasks/containers_setup/apptainer_container_image_setup.yml" # beware of the differences of 'include_tasks' vs 'import_tasks', such as tagging
           loop: "{{ reverse_image_dependencies }}"
-          tags: create_app
+          tags: create_app, setup_hdfs
           vars:
             - definition_mapping:
+                hdfs_frontend: hdfs_frontend.def
                 spark_app: spark_app.def
                 hadoop_app: hadoop_app.def
                 generic_app: generic_app.def
                 base: ubuntu_container.def
             - image_dependencies:
+                hdfs_frontend: hadoop_app
                 spark_app: hadoop_app
                 hadoop_app: base
                 generic_app: base
@@ -57,8 +60,10 @@
                   {{ build_list | reverse }}
 
         ## Container startup
-        - import_tasks: "tasks/containers_setup/apptainer_containers_cgroups_{{ cgroups_version }}_setup.yml"
+        - import_tasks: "tasks/containers_setup/apptainer_containers_cgroups_{{ container_owner }}_owned_setup.yml"
           vars:
+            - container_owner: root # 'root' or 'user'
+              # note: root is required at the moment to start containers with cgroups support on cgroups v1 and with specific network on both cgroups versions
             - image_file: "{{ image_mapping[app_type] }}"
             - app_directory: "apps/{{ app_dir if app_type == 'generic_app' else app_type }}"
             # Other config
@@ -88,6 +93,15 @@
             - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
             ## TODO: merge the "master_container" parameter with "rm_container" as they are both used for the same purpose
             - master_container: "{{ (containers_info | first).container_name }}" # This container will act as RM/NM on distributed deployments with Hadoop/Spark
+
+        ## Launch global HDFS frontend container
+        - import_tasks: tasks/launch/global_hdfs_frontend_launch.yml
+          when: global_hdfs
+          tags: never, setup_hdfs
+          vars:
+            namenode_port: 9870
+            frontend_port: 44444
+            local_port: 55555
 
     - import_tasks: tasks/containers_setup/node_rescaler_launch.yml
 
@@ -120,7 +134,7 @@
                   {%- set container_info = dict() -%}
                     {{ container_info.update({'container_name': container_name, 'host': host, 'cpu_max': max_cpu_percentage_per_container, 'cpu_min': min_cpu_percentage_per_container, 'mem_max': max_memory_per_container, 'mem_min': min_memory_per_container }) }}
                     {%- if disk_capabilities and disk_scaling and hostvars[host].disks|length > 0 -%}
-                      {{ container_info.update( {'disk_max': max_diskbw_per_container, 'disk_min': min_diskbw_per_container}) }}
+                      {{ container_info.update( {'disk_read_max': max_disk_read_bw_per_container, 'disk_read_min': min_disk_read_bw_per_container, 'disk_write_max': max_disk_write_bw_per_container, 'disk_write_min': min_disk_write_bw_per_container}) }}
                     {%- endif -%}
                     {%- if power_budgeting -%}
                       {{ container_info.update({'energy_max': max_energy_per_container, 'energy_min': min_energy_per_container}) }}

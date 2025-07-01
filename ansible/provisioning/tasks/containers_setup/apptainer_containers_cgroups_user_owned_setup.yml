@@ -12,18 +12,47 @@
         src: "templates/{{ cgroups_file }}"
         dest: "{{ installation_path }}/{{ cgroups_file }}"
 
-    ## Workaround to get the right permissions on cgroups files
-    - name: Copy cgroups v1 permission changer script
-      synchronize:
-        src: scripts/change_cgroupsv1_permissions.py
-        dest: "{{ installation_path }}/change_cgroupsv1_permissions.py"
-        perms: true
-
     - name: Copy app image to host
       synchronize:
         src: "{{ installation_path }}/{{ app_directory }}/{{ image_file }}"
         dest: "{{ installation_path }}/images/"
         perms: true
+
+### Fix to add controllers to cgroups V2
+## Required only once to get the last "user.slice" on cgroups path (resets on reboot)
+## Required only is starting containers without sudo
+- name: Setup cgroups v2 controllers
+  when: cgroups_version == "v2"
+  block:
+    - name: Start dummy container
+      shell: "{{ singularity_command_alias }} instance start -C --apply-cgroups {{ cgroups_file }} {{ image_file }} dummy_cont"
+      args:
+        chdir: "{{ installation_path }}"
+        executable: /bin/bash
+
+    - name: Stop dummy container
+      shell: "{{ singularity_command_alias }} instance stop dummy_cont"
+      args:
+        executable: /bin/bash
+
+    - name: get the user id running the deploy
+      shell: "echo $UID"
+      args:
+        executable: /bin/bash
+      register: userid_on_the_host
+
+    - name: Add controllers to cgroups
+      become: yes
+      shell: "echo '+{{ item[0] }}' >> {{ item[1] }}/cgroup.subtree_control"
+      args:
+        chdir: "/sys/fs/cgroup/"
+        executable: /bin/bash
+      with_nested:
+        - [ 'cpu', 'cpuset', 'memory', 'io' ]
+        - [ 'user.slice', 
+            "user.slice/user-{{ userid_on_the_host.stdout }}.slice", 
+            "user.slice/user-{{ userid_on_the_host.stdout }}.slice/user@{{ userid_on_the_host.stdout }}.service",
+            "user.slice/user-{{ userid_on_the_host.stdout }}.slice/user@{{ userid_on_the_host.stdout }}.service/user.slice" ] ## last two paths do not actually need root permissions
 
 - name: Containers startup
   tags: start_containers
@@ -40,7 +69,7 @@
         executable: /bin/bash
 
     - name: Check containers status
-      shell: "sudo {{ singularity_command_alias }} instance list -j"
+      shell: "{{ singularity_command_alias }} instance list -j"
       args:
         executable: /bin/bash
       register: apptainer_list_output
@@ -50,38 +79,42 @@
         {% for item in containers_info %}
           {% if item.host == inventory_hostname and item.container_name not in apptainer_list_output.stdout %}
             {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-            sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --hostname {{ item.container_name }} --apply-cgroups {{ cgroups_file }} --bind {{ bind_dir }}/{{ item.container_name }}:{{ bind_dir_on_container }} images/{{ image_file }} {{ item.container_name }} && 
+            {{ singularity_command_alias }} instance start -C --net --network {{ network }} --network-args {{ extra_network_args }} \
+              --hostname {{ item.container_name }} --apply-cgroups {{ cgroups_file }} \
+              --bind {{ bind_dir }}/{{ item.container_name }}:{{ bind_dir_on_container }} \
+              images/{{ image_file }} {{ item.container_name }} && 
           {% endif  %}
         {% endfor %}true"
       args:
         chdir: "{{ installation_path }}"
         executable: /bin/bash
       vars:
-        extra_connection: "{{ ',ptp' if mode == 'ipvlan' else '' }}"
+        #network: "{{ mode }}_{{ inventory_hostname }}{{ ',ptp' if mode == 'ipvlan' else '' }}"
+        network: "{{ 'ptp,' if mode == 'ipvlan' else '' }}{{ mode }}_{{ inventory_hostname }}" ## workaround to be able to connect to namenode
+        extra_network_args: portmap=9870:9870/tcp ## only works if the first container created is the namenode
 
     - name: Clean apptainer containers bind directory
       shell: "
         {% for item in containers_info %}
           {% if item.host == inventory_hostname and item.container_name not in apptainer_list_output.stdout %}
             {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-            sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c 'rm -rf  {{ bind_dir_on_container }}/*' &&
+            {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c 'rm -rf  {{ bind_dir_on_container }}/*' &&
           {% endif  %}
         {% endfor %}true"
       args:
         chdir: "{{ installation_path }}"
         executable: /bin/bash
 
-    - name: Setup host resolution in containers and change cgroups v1 permissions
+    - name: Setup host resolution in containers
       shell: "
         {% for item in containers_info %}
           {% if item.host == inventory_hostname %}
             {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
             cp /etc/hosts {{ bind_dir }}/{{ item.container_name }}/hosts \
-            && sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+            && {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
             'echo {{ server_ip }} opentsdb >> /etc/hosts \
             && cat {{ bind_dir_on_container }}/hosts >> /etc/hosts \
-            && rm {{ bind_dir_on_container }}/hosts' \
-            && python3 change_cgroupsv1_permissions.py {{ singularity_command_alias }} {{ singularity_cgroups_group }} {{ item.container_name }} &&
+            && rm {{ bind_dir_on_container }}/hosts' &&
           {% endif  %}
         {% endfor %}true"
       args:

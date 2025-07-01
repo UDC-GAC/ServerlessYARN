@@ -1,11 +1,14 @@
 #!/bin/bash
 set -e
+## Basic info
 HOST_NAMES=$1
 APP_NAME=$2
 APP_TYPE=$3
 CONTAINERS_INFO=$4
+## Master container
 RM_HOST=$5
 RM_CONTAINER=$6
+## Hadoop info
 VCORES=$7
 MIN_VCORES=$8
 SCHEDULER_MAXIMUM_MEMORY=$9

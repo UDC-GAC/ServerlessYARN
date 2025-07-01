@@ -1,3 +1,5 @@
+## TODO: it would be interesting to divide the config into several modules and just import them into this file
+
 ## Virtual mode: "yes" to deploy a vagrant virtual cluster; "no" if you want to use an existing cluster
 virtual_mode: yes
 
@@ -39,6 +41,8 @@ power_budgeting: no # "yes" to use power budgets, power will be accounted, restr
 power_modelling: no # "yes" to use power models to get CPU Usage/Power proportionalities instead of using fixed values
 online_learning: no # "yes" to automatically retrain power models in real-time using OpenTSDB time series
 power_meter: "smartwatts" # rapl, smartwatts, selfwatts or stablewatts
+# Big Data
+global_hdfs: no
 
 ## WattWizard Config
 structures: "host"
@@ -56,6 +60,7 @@ influxdb_org: "MyOrg"
 
 ## Hosts
 number_of_hosts: 2 # 1
+server_as_host: no # 'yes' will use/deploy number_of_hosts-1 additional hosts since the server itself will be a host
 cpus_per_host: 4
 memory_per_host: 4096
 energy_per_host: 200
@@ -85,10 +90,16 @@ min_energy_per_container: 10
 energy_boundary: 5
 energy_boundary_type: "percentage_of_max"
 # Disk (only relevant if disk_scaling is set to "yes")
-max_diskbw_per_container: 100
-min_diskbw_per_container: 50
-disk_boundary: 10
-disk_boundary_type: "percentage_of_max"
+# Disk read
+max_disk_read_bw_per_container: 100
+min_disk_read_bw_per_container: 50
+disk_read_boundary: 10
+disk_read_boundary_type: "percentage_of_max"
+# Disk write
+max_disk_write_bw_per_container: 100
+min_disk_write_bw_per_container: 50
+disk_write_boundary: 10
+disk_write_boundary_type: "percentage_of_max"
 
 
 ## Container network configuration

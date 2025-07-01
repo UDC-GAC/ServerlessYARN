@@ -1,0 +1,21 @@
+Bootstrap: localimage
+From: apps/{{ app_base_type }}/{{ app_base_image_file }}
+
+%post
+    apt-get -y update
+    apt-get install -y socat
+
+    # Clean non-necessary files from parent images
+    cd /opt
+    rm -r BDWatchdog
+    rm -r files_dir
+    rm setup.sh
+    rm java_snitch.sh
+    rm hadoop-{{ hadoop_version }}.tar.gz
+
+%environment
+    ## reset HADOOP_CONF_DIR env variable
+    export HADOOP_CONF_DIR=""
+
+%startscript
+    ## reset other scripts set in parent images

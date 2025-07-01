@@ -1,6 +1,6 @@
 import time
 import subprocess
-from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host, add_disks_to_hosts
+from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host, add_disks_to_hosts, add_containers_to_inventory
 from ui.utils import request_to_state_db
 from celery import shared_task, chain, chord, group
 from celery.result import AsyncResult, allow_join_result
@@ -9,9 +9,13 @@ import json
 import timeit
 import yaml
 
+import urllib
+
 config_path = "../../config/config.yml"
-with open(config_path, "r") as config_file:
-    config = yaml.load(config_file, Loader=yaml.FullLoader)
+with open(config_path, "r") as config_file: config = yaml.load(config_file, Loader=yaml.FullLoader)
+
+vars_path = "../../vars/main.yml"
+with open(vars_path, "r") as vars_file: vars_config = yaml.load(vars_file, Loader=yaml.FullLoader)
 
 redis_server = redis.StrictRedis()
 redis_prefix = "pending_tasks"
@@ -141,6 +145,131 @@ def get_min_container_size(node_memory):
 
     return min_container_size
 
+def set_hadoop_resources(container_resources, virtual_cluster, number_of_workers):
+
+    hadoop_resources = {}
+
+    total_cores = max(int(container_resources["cpu_max"])//100,1)
+    min_cores = max(int(container_resources["cpu_min"])//100,1)
+    total_memory = int(container_resources["mem_max"])
+    total_disks = 1
+    heapsize_factor = 0.9
+
+    ## 'Classic' way of calculating resources:
+    #reserved_memory = get_node_reserved_memory(total_memory)
+    #available_memory = total_memory - reserved_memory
+    #min_container_size = get_min_container_size(total_memory)
+
+    #number_of_hadoop_containers = int(min(2*total_cores, 1.8*total_disks, available_memory/min_container_size))
+    # mem_per_container = max(min_container_size, available_memory/number_of_hadoop_containers)
+
+    # scheduler_maximum_memory = int(number_of_hadoop_containers * mem_per_container)
+    # scheduler_minimum_memory = int(mem_per_container)
+    # nodemanager_memory = scheduler_maximum_memory
+    # map_memory = scheduler_minimum_memory
+    # reduce_memory = int(min(2*mem_per_container, available_memory))
+    # mapreduce_am_memory = reduce_memory
+
+
+    ## 'BDEv' way of calculating resources:
+    #number_of_hadoop_containers = int(min(2*total_cores, available_memory/min_container_size))
+
+    if virtual_cluster:
+        ## Virtual cluster config (test environment with low resources)
+        hyperthreading = False
+        app_master_heapsize = 128
+        datanode_d_heapsize = 128
+        nodemanager_d_heapsize = 128
+    else:
+        ## Physical cluster config (real environment with (presumably) high resources)
+        hyperthreading = True
+        app_master_heapsize = 1024
+        datanode_d_heapsize = 1024
+        nodemanager_d_heapsize = 1024
+
+    ## adjust total_cores to hyperthreading system
+    ## TODO: check if system actually has hyperthreading
+    if hyperthreading:
+        total_cores = total_cores // 2
+
+    app_master_memory_overhead = int(app_master_heapsize * 0.1)
+    if app_master_memory_overhead < 384:
+        app_master_memory_overhead = 384
+    mapreduce_am_memory = app_master_heapsize + app_master_memory_overhead
+
+    memory_per_container_factor = 0.95
+    available_memory = int(total_memory * memory_per_container_factor)
+    nodemanager_memory = available_memory - nodemanager_d_heapsize - datanode_d_heapsize
+
+    mem_per_container = int((nodemanager_memory - mapreduce_am_memory) / total_cores)
+
+    map_memory_ratio = 1
+    reduce_memory_ratio = 1
+    map_memory = int(min(mem_per_container * map_memory_ratio, available_memory))
+    reduce_memory = int(min(mem_per_container * reduce_memory_ratio, available_memory))
+
+    scheduler_maximum_memory = nodemanager_memory
+    #scheduler_minimum_memory = int(mem_per_container)
+    scheduler_minimum_memory = 256
+
+    # total_available_memory = 0
+    # for host in new_containers:
+    #     if container_type in new_containers[host]:
+    #         total_available_memory += available_memory * new_containers[host][container_type]
+    total_available_memory = available_memory * number_of_workers
+
+    if total_available_memory < map_memory + reduce_memory + mapreduce_am_memory:
+        memory_slice = nodemanager_memory/3.5
+        scheduler_minimum_memory = int(memory_slice)
+        map_memory = scheduler_minimum_memory
+        reduce_memory = scheduler_minimum_memory
+        mapreduce_am_memory = int(1.5 * memory_slice)
+
+    map_memory_java_opts = int(heapsize_factor * map_memory)
+    reduce_memory_java_opts = int(heapsize_factor * reduce_memory)
+    #mapreduce_am_memory_java_opts = int(heapsize_factor * mapreduce_am_memory)
+    mapreduce_am_memory_java_opts = app_master_heapsize
+
+    hadoop_resources = {
+        "vcores": str(total_cores),
+        "min_vcores": str(min_cores),
+        "scheduler_maximum_memory": str(scheduler_maximum_memory),
+        "scheduler_minimum_memory": str(scheduler_minimum_memory),
+        "nodemanager_memory": str(nodemanager_memory),
+        "map_memory": str(map_memory),
+        "map_memory_java_opts": str(map_memory_java_opts),
+        "reduce_memory": str(reduce_memory),
+        "reduce_memory_java_opts": str(reduce_memory_java_opts),
+        "mapreduce_am_memory": str(mapreduce_am_memory),
+        "mapreduce_am_memory_java_opts": str(mapreduce_am_memory_java_opts),
+        "datanode_d_heapsize": str(datanode_d_heapsize),
+        "nodemanager_d_heapsize": str(nodemanager_d_heapsize)
+    }
+
+    # Check assigned resources are valid
+    for resource in hadoop_resources:
+        value = int(hadoop_resources[resource])
+        if value <= 0:
+            bottleneck_resource = "CPU" if resource in ["vcores", "min_vcores"] else "memory"
+            raise Exception("Error allocating resources for containers in Hadoop application. "
+                            "Value for '{0}' is negative ({1}). The application may have been assigned "
+                            "too low {2} values.".format(resource, value, bottleneck_resource))
+
+    return hadoop_resources
+
+def extract_hadoop_resources(hadoop_resources):
+
+    resources_to_extract = ["vcores", "min_vcores", "scheduler_maximum_memory", "scheduler_minimum_memory", "nodemanager_memory", 
+                            "map_memory", "map_memory_java_opts", "reduce_memory", "reduce_memory_java_opts", "mapreduce_am_memory", 
+                            "mapreduce_am_memory_java_opts", "datanode_d_heapsize", "nodemanager_d_heapsize"]
+    extracted_resources = []
+
+    for resource in resources_to_extract:
+        extracted_resources.append(hadoop_resources[resource])
+
+    return extracted_resources
+
+@shared_task
 def process_script(script_name, argument_list, error_message):
 
     rc = subprocess.Popen(["./ui/scripts/{0}.sh".format(script_name), *argument_list], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -168,8 +297,22 @@ def add_host_task(host,cpu,mem,disk_info,energy,new_containers):
     error_message = "Error adding host {0}".format(host)
     process_script("configure_host", argument_list, error_message)
 
+def getHostsInfo(url):
+
+    response = urllib.request.urlopen(url)
+    data_json = json.loads(response.read())
+
+    hosts = {}
+
+    for item in data_json:
+        if (item['subtype'] == 'host'):
+
+            hosts[item["name"]] = item
+
+    return hosts
+
 @shared_task
-def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk):
+def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk, measure_host_list, structures_url, threshold, polling_frequency, timeout_events):
 
     # update_inventory_file
     with redis_server.lock(lock_key):
@@ -177,9 +320,60 @@ def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk):
 
     if add_to_lv:
         ## Add disks to existing LV
-        argument_list = [','.join(host_list), " ".join(new_disks), extra_disk]
-        error_message = "Error extending LV of hosts {0} with disks {1} and extra disk {2}".format(host_list, str(new_disks), extra_disk)
-        process_script("extend_lv", argument_list, error_message)
+        ## 1st, extend LVs with no containers, so inmediate benchmark can be run on them
+        for host in measure_host_list:
+            if measure_host_list[host]:
+                throttle_containers_bw = 0
+                argument_list = [host, ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), str(throttle_containers_bw)]
+                error_message = "Error extending LV of host {0} with disks {1} and extra disk {2}".format(host, str(new_disks), extra_disk)
+                task = process_script.delay("extend_lv", argument_list, error_message)
+                register_task(task.id, "extend_lv_task")
+                host_list.remove(host)
+
+        ## 2nd, remaining hosts have containers. Pool their consumed bandwidth to check if they can be extended
+        current_events = 0
+        while current_events < timeout_events and len(host_list) > 0:
+            finished_hosts = []
+            hosts_full_info = getHostsInfo(structures_url) # refresh host info
+            for host in host_list:
+                # get host free bandwidth
+                host_max_read_bw = hosts_full_info[host]["resources"]["disks"]["lvm"]["max_read"]
+                host_max_write_bw = hosts_full_info[host]["resources"]["disks"]["lvm"]["max_write"]
+                host_free_read_bw = hosts_full_info[host]["resources"]["disks"]["lvm"]["free_read"]
+                host_free_write_bw = hosts_full_info[host]["resources"]["disks"]["lvm"]["free_write"]
+                consumed_read = host_max_read_bw - host_free_read_bw
+                consumed_write = host_max_write_bw - host_free_write_bw
+                total_free_bw = max(host_max_read_bw, host_max_write_bw) - consumed_read - consumed_write
+                # compare bw with threshold
+                if (max(host_max_read_bw, host_max_write_bw) - total_free_bw <= max(host_max_read_bw, host_max_write_bw) * threshold
+                    and host_max_read_bw  - host_free_read_bw  <= host_max_read_bw  * threshold
+                    and host_max_write_bw - host_free_write_bw <= host_max_write_bw * threshold
+                    ):
+                    ## enough free bandwidth to execute benchmark anyways
+                    throttle_containers_bw = 0
+                    argument_list = [host, ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), str(throttle_containers_bw)]
+                    error_message = "Error extending LV of host {0} with disks {1} and extra disk {2}".format(host, str(new_disks), extra_disk)
+                    task = process_script.delay("extend_lv", argument_list, error_message)
+                    register_task(task.id, "extend_lv_task")
+                    finished_hosts.append(host)
+                else:
+                    ## consumed bandwidth over the threshold, extend postponed
+                    pass
+
+            host_list = [host for host in host_list if host not in finished_hosts]
+            current_events += 1
+            if current_events < timeout_events and len(host_list) > 0:
+                time.sleep(polling_frequency)
+
+
+        ## if timeout_events == -1 -> execute extension without limiting (?)
+
+        ## 3rd, hosts that were not able to reduce bandwidth under the threshold; will extend lv regardless, but capping the available bandiwdth of their containers
+        if len(host_list) > 0:
+            throttle_containers_bw = 1
+            argument_list = [','.join(host_list), ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), str(throttle_containers_bw)]
+            error_message = "Error extending LV of hosts {0} with disks {1} and extra disk {2}".format(host_list, str(new_disks), extra_disk)
+            process_script("extend_lv", argument_list, error_message)
 
     else:
         ## Add disks just as new individual disks
@@ -272,7 +466,7 @@ def start_containers_task_v2(new_containers, container_resources, disks):
             container_info['container_name'] = container
             container_info['host'] = host
             # Resources
-            for resource in ['cpu', 'mem', 'disk', 'energy']:
+            for resource in ['cpu', 'mem', 'disk_read', 'disk_write', 'energy']:
                 for key in ['max', 'min', 'weight', 'boundary', 'boundary_type']:
                     resource_key = '{0}_{1}'.format(resource, key)
                     if resource_key in container_resources:
@@ -340,8 +534,11 @@ def start_containers_with_app_task_v2(url, new_containers, app, app_files, conta
                                 disk_assignation[host][disk]['new_containers'] -= 1
                                 container_info['disk'] = disk
                                 container_info['disk_path'] = disk_assignation[host][disk]['disk_path']
-                                for resource in ['disk_max', 'disk_min', 'disk_weight', 'disk_boundary', 'disk_boundary_type']:
-                                    container_info[resource] = container_resources[container_type][resource]
+                                for resource in ['disk_read', 'disk_write']:
+                                    for key in ['max', 'min', 'weight', 'boundary', 'boundary_type']:
+                                        resource_key = "{0}_{1}".format(resource,key)
+                                        container_info[resource_key] = container_resources[container_type][resource_key]
+
                                 break
 
                     containers_info.append(container_info)
@@ -377,122 +574,24 @@ def start_app_task(self, url, app, app_files, new_containers, container_resource
     remove_containers_from_app(url, app_containers, app, app_files, scaler_polling_freq)
 
 @shared_task(bind=True)
-def start_hadoop_app_task(self, url, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type="hadoop_app"):
+def start_hadoop_app_task(self, url, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type="hadoop_app", global_hdfs_data=None):
 
     # Calculate resources for Hadoop cluster
     hadoop_resources = {}
     for container_type in ["regular", "irregular"]:
         # NOTE: 'irregular' container won't be created due to a previous workaround
         if container_type in container_resources:
-            hadoop_resources[container_type] = {}
 
-            total_cores = max(int(container_resources[container_type]["cpu_max"])//100,1)
-            min_cores = max(int(container_resources[container_type]["cpu_min"])//100,1)
-            total_memory = int(container_resources[container_type]["mem_max"])
-            total_disks = 1
-            heapsize_factor = 0.9
-
-            ## 'Classic' way of calculating resources:
-            #reserved_memory = get_node_reserved_memory(total_memory)
-            #available_memory = total_memory - reserved_memory
-            #min_container_size = get_min_container_size(total_memory)
-
-            #number_of_hadoop_containers = int(min(2*total_cores, 1.8*total_disks, available_memory/min_container_size))
-            # mem_per_container = max(min_container_size, available_memory/number_of_hadoop_containers)
-
-            # scheduler_maximum_memory = int(number_of_hadoop_containers * mem_per_container)
-            # scheduler_minimum_memory = int(mem_per_container)
-            # nodemanager_memory = scheduler_maximum_memory
-            # map_memory = scheduler_minimum_memory
-            # reduce_memory = int(min(2*mem_per_container, available_memory))
-            # mapreduce_am_memory = reduce_memory
-
-
-            ## 'BDEv' way of calculating resources:
-            #number_of_hadoop_containers = int(min(2*total_cores, available_memory/min_container_size))
-
-            if virtual_cluster:
-                ## Virtual cluster config (test environment with low resources)
-                hyperthreading = False
-                app_master_heapsize = 128
-                datanode_d_heapsize = 128
-                nodemanager_d_heapsize = 128
-            else:
-                ## Physical cluster config (real environment with (presumably) high resources)
-                hyperthreading = True
-                app_master_heapsize = 1024
-                datanode_d_heapsize = 1024
-                nodemanager_d_heapsize = 1024
-
-            ## adjust total_cores to hyperthreading system
-            ## TODO: check if system actually has hyperthreading
-            if hyperthreading:
-                total_cores = total_cores // 2
-
-            app_master_memory_overhead = int(app_master_heapsize * 0.1)
-            if app_master_memory_overhead < 384:
-                app_master_memory_overhead = 384
-            mapreduce_am_memory = app_master_heapsize + app_master_memory_overhead
-
-            memory_per_container_factor = 0.95
-            available_memory = int(total_memory * memory_per_container_factor)
-            nodemanager_memory = available_memory - nodemanager_d_heapsize - datanode_d_heapsize
-
-            mem_per_container = int((nodemanager_memory - mapreduce_am_memory) / total_cores)
-
-            map_memory_ratio = 1
-            reduce_memory_ratio = 1
-            map_memory = int(min(mem_per_container * map_memory_ratio, available_memory))
-            reduce_memory = int(min(mem_per_container * reduce_memory_ratio, available_memory))
-
-            scheduler_maximum_memory = nodemanager_memory
-            #scheduler_minimum_memory = int(mem_per_container)
-            scheduler_minimum_memory = 256
-
-            total_available_memory = 0
+            number_of_workers = 0
             for host in new_containers:
-                if container_type in new_containers[host]:
-                    total_available_memory += available_memory * new_containers[host][container_type]
+                if container_type in new_containers[host]: number_of_workers += new_containers[host][container_type]
 
-            if total_available_memory < map_memory + reduce_memory + mapreduce_am_memory:
-                memory_slice = nodemanager_memory/3.5
-                scheduler_minimum_memory = int(memory_slice)
-                map_memory = scheduler_minimum_memory
-                reduce_memory = scheduler_minimum_memory
-                mapreduce_am_memory = int(1.5 * memory_slice)
-
-            map_memory_java_opts = int(heapsize_factor * map_memory)
-            reduce_memory_java_opts = int(heapsize_factor * reduce_memory)
-            #mapreduce_am_memory_java_opts = int(heapsize_factor * mapreduce_am_memory)
-            mapreduce_am_memory_java_opts = app_master_heapsize
-
-            hadoop_resources[container_type]["vcores"] = str(total_cores)
-            hadoop_resources[container_type]["min_vcores"] = str(min_cores)
-            hadoop_resources[container_type]["scheduler_maximum_memory"] = str(scheduler_maximum_memory)
-            hadoop_resources[container_type]["scheduler_minimum_memory"] = str(scheduler_minimum_memory)
-            hadoop_resources[container_type]["nodemanager_memory"] = str(nodemanager_memory)
-            hadoop_resources[container_type]["map_memory"] = str(map_memory)
-            hadoop_resources[container_type]["map_memory_java_opts"] = str(map_memory_java_opts)
-            hadoop_resources[container_type]["reduce_memory"] = str(reduce_memory)
-            hadoop_resources[container_type]["reduce_memory_java_opts"] = str(reduce_memory_java_opts)
-            hadoop_resources[container_type]["mapreduce_am_memory"] = str(mapreduce_am_memory)
-            hadoop_resources[container_type]["mapreduce_am_memory_java_opts"] = str(mapreduce_am_memory_java_opts)
-            hadoop_resources[container_type]["datanode_d_heapsize"] = str(datanode_d_heapsize)
-            hadoop_resources[container_type]["nodemanager_d_heapsize"] = str(nodemanager_d_heapsize)
-
-            # Check assigned resources are valid
-            for resource in hadoop_resources[container_type]:
-                value = int(hadoop_resources[container_type][resource])
-                if value <= 0:
-                    bottleneck_resource = "CPU" if resource in ["vcores", "min_vcores"] else "memory"
-                    raise Exception("Error allocating resources for containers in Hadoop application. "
-                                    "Value for '{0}' is negative ({1}). The application may have been assigned "
-                                    "too low {2} values.".format(resource, value, bottleneck_resource))
+            hadoop_resources[container_type] = set_hadoop_resources(container_resources[container_type], virtual_cluster, number_of_workers)
 
     start_time = timeit.default_timer()
 
     app_containers = start_containers_with_app_task_v2(url, new_containers, app, app_files, container_resources, disk_assignation, app_type)
-    rm_host, rm_container = setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type)
+    rm_host, rm_container = setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type, global_hdfs_data)
 
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)
@@ -589,7 +688,7 @@ def setup_containers_network_task(app_containers, url, app, app_files, new_conta
 
 
 @shared_task
-def setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type="hadoop_app"):
+def setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type="hadoop_app", global_hdfs_data=None):
 
     # Get rm-nn container (it is the first container from the host that got that container)
     for host in new_containers:
@@ -607,27 +706,22 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
     formatted_app_containers = str(app_containers).replace(' ','')
 
     # NOTE: 'irregular' container won't be created due to a previous workaround
-    vcores = hadoop_resources["regular"]["vcores"]
-    min_vcores = hadoop_resources["regular"]["min_vcores"]
-    scheduler_maximum_memory = hadoop_resources["regular"]["scheduler_maximum_memory"]
-    scheduler_minimum_memory = hadoop_resources["regular"]["scheduler_minimum_memory"]
-    nodemanager_memory = hadoop_resources["regular"]["nodemanager_memory"]
-    map_memory = hadoop_resources["regular"]["map_memory"]
-    map_memory_java_opts = hadoop_resources["regular"]["map_memory_java_opts"]
-    reduce_memory = hadoop_resources["regular"]["reduce_memory"]
-    reduce_memory_java_opts = hadoop_resources["regular"]["reduce_memory_java_opts"]
-    mapreduce_am_memory = hadoop_resources["regular"]["mapreduce_am_memory"]
-    mapreduce_am_memory_java_opts = hadoop_resources["regular"]["mapreduce_am_memory_java_opts"]
-    datanode_d_heapsize = hadoop_resources["regular"]["datanode_d_heapsize"]
-    nodemanager_d_heapsize =  hadoop_resources["regular"]["nodemanager_d_heapsize"]
+    extracted_hadoop_resources = extract_hadoop_resources(hadoop_resources["regular"])
 
-    argument_list = [hosts, app, app_type, formatted_app_containers, rm_host, rm_container['container_name'],
-        vcores, min_vcores, scheduler_maximum_memory, scheduler_minimum_memory, nodemanager_memory,
-        map_memory, map_memory_java_opts, reduce_memory, reduce_memory_java_opts, mapreduce_am_memory,
-        mapreduce_am_memory_java_opts, datanode_d_heapsize, nodemanager_d_heapsize]
+    argument_list = [hosts, app, app_type, formatted_app_containers, rm_host, rm_container['container_name']]
+    argument_list.extend(extracted_hadoop_resources)
 
-    error_message = "Error setting network for app {0}".format(app)
-    process_script("setup_hadoop_network_on_containers", argument_list, error_message)
+    if not global_hdfs_data:
+        error_message = "Error setting network for app {0}".format(app)
+        process_script("setup_hadoop_network_on_containers", argument_list, error_message)
+    else:
+        ## Download required input data from global HDFS to local one
+        argument_list.append(global_hdfs_data['namenode_container_name'])
+        argument_list.append(global_hdfs_data['namenode_host'])
+        argument_list.append(global_hdfs_data['global_input'])
+        argument_list.append(global_hdfs_data['local_output'])
+        error_message = "Error setting network for app {0} with global HDFS".format(app)
+        process_script("hdfs/setup_hadoop_network_with_global_hdfs", argument_list, error_message)
 
     # Add containers to app
     for container in app_containers:
@@ -638,7 +732,164 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
     full_url = url + "container/{0}/{1}".format(rm_container['container_name'],app)
     add_container_to_app_task(full_url, rm_host, rm_container, app, app_files)
 
+    if global_hdfs_data:
+        ## Upload generated output data from local HDFS to global one
+        argument_list = [rm_host, rm_container['container_name']]
+        argument_list.append(global_hdfs_data['namenode_container_name'])
+        argument_list.append(global_hdfs_data['local_input'])
+        argument_list.append(global_hdfs_data['global_output'])
+        error_message = "Error uploading output data from {0} in local HDFS to {1} in global one".format(global_hdfs_data['local_input'], global_hdfs_data['global_output'])
+        process_script("hdfs/upload_local_hdfs_data_to_global", argument_list, error_message)
+
     return rm_host, rm_container['container_name']
+
+@shared_task(bind=True)
+def create_dir_on_hdfs(self, namenode_host, namenode_container, dir_to_create):
+
+    argument_list = [namenode_host, namenode_container, dir_to_create]
+    error_message = "Error creating directory {0} on HDFS".format(dir_to_create)
+    process_script("hdfs/create_dir_on_hdfs", argument_list, error_message)
+
+@shared_task(bind=True)
+def add_file_to_hdfs(self, namenode_host, namenode_container, file_to_add, dest_path):
+
+    argument_list = [namenode_host, namenode_container, file_to_add, dest_path]
+    error_message = "Error uploading {0} to {1} on HDFS".format(file_to_add, dest_path)
+    process_script("hdfs/add_file_to_hdfs", argument_list, error_message)
+
+@shared_task(bind=True)
+def get_file_from_hdfs(self, namenode_host, namenode_container, file_to_download, dest_path):
+
+    argument_list = [namenode_host, namenode_container, file_to_download, dest_path]
+    error_message = "Error downloading {0} from {1} on HDFS".format(file_to_download, dest_path)
+    process_script("hdfs/get_file_from_hdfs", argument_list, error_message)
+
+@shared_task(bind=True)
+def remove_file_from_hdfs(self, namenode_host, namenode_container, path_to_delete):
+
+    argument_list = [namenode_host, namenode_container, path_to_delete]
+    error_message = "Error removing path {0} from HDFS".format(path_to_delete)
+    process_script("hdfs/remove_file_from_hdfs", argument_list, error_message)
+
+@shared_task(bind=True)
+def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluster, put_field_data, hosts):
+
+    # Calculate resources for HDFS cluster
+    number_of_workers = len(hosts) # or len(containers) - 1
+
+    worker_resources = None
+    for container in containers:
+        if "datanode" in container['container_name']:
+            worker_resources = container
+            break
+    if not worker_resources: raise Exception("Worker container not found when starting global hdfs: {0}".format(containers))
+
+    hdfs_resources = set_hadoop_resources(worker_resources, virtual_cluster, number_of_workers)
+
+    start_time = timeit.default_timer()
+
+    ## Create HDFS app
+    add_app_task(url, put_field_data, app, app_files)
+
+    ## Create and start containers
+    # update inventory file
+    with redis_server.lock(lock_key): add_containers_to_inventory(containers)
+
+    host_list = []
+    for host in hosts: host_list.append(host['name'])
+    formatted_host_list = ",".join(host_list)
+    formatted_containers_info = str(containers).replace(' ','')
+
+    # Start containers
+    argument_list = [formatted_host_list, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar'], app_files['app_type']]
+    error_message = "Error starting containers {0}".format(formatted_containers_info)
+    process_script("start_containers_with_app", argument_list, error_message)
+
+    ## Setup network and start HDFS
+    nn_container = None
+    nn_host = None
+    for container in containers:
+        if "namenode" in container['container_name']:
+            nn_container = container['container_name']
+            nn_host = container['host']
+            break
+
+    if not nn_container: raise Exception("Namenode container not found in container list") # should not happen
+
+    argument_list = [formatted_host_list, app, app_files['app_type'], formatted_containers_info, nn_host, nn_container, hdfs_resources["datanode_d_heapsize"]]
+    error_message = "Error setting HDFS network"
+    process_script("hdfs/setup_hdfs_network", argument_list, error_message)
+
+    # Add containers to app
+    url = url[:url[:url.rfind('/')].rfind('/')]
+    for container in containers:
+        full_url = url + "/container/{0}/{1}".format(container['container_name'], app)
+        add_container_to_app_in_db(full_url, container['container_name'], app)
+
+    # Start hdfs frontend container
+    argument_list = [formatted_host_list, "hdfs_frontend", formatted_containers_info, nn_host, nn_container]
+    error_message = "Error setting HDFS frontend"
+    process_script("hdfs/start_hdfs_frontend", argument_list, error_message)
+
+    end_time = timeit.default_timer()
+    runtime = "{:.2f}".format(end_time-start_time)
+    update_task_runtime(self.request.id, runtime)
+
+@shared_task(bind=True)
+def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_freq, rm_host, rm_container):
+
+    # Stop hadoop cluster
+    argument_list = [rm_host, rm_container]
+    error_message = "Error stopping hadoop cluster for app {0}".format(app)
+    process_script("stop_hadoop_cluster", argument_list, error_message)
+
+    ## Disable scaler, remove all containers from StateDB and re-enable scaler
+    argument_list = []
+    error_message = "Error disabling scaler"
+    process_script("disable_scaler", argument_list, error_message)
+
+    start_time = timeit.default_timer()
+    errors = []
+    for container in app_containers:
+        full_url = url + "container/{0}/{1}".format(container['name'],app)
+        error = remove_container_from_app_db(full_url, container['name'], app)
+        if error != "": errors.append(error)
+    end_time = timeit.default_timer()
+
+    ## Wait at least for the scaler polling frequency time before re-enabling it
+    time.sleep(scaler_polling_freq - (end_time - start_time))
+
+    argument_list = []
+    error_message = "Error re-enabling scaler"
+    process_script("enable_scaler", argument_list, error_message)
+
+    # Remove app from db
+    full_url = url + "apps" + "/" + app
+    error_message = "Error removing app {0}".format(app)
+    error, _ = request_to_state_db(full_url, "delete", error_message)
+
+    ## Clean datanodes data_dir and avoid errors when creating new global_hdfs cluster
+    ## This is a workaround, should be executed when stopping cluster
+    for container in app_containers:
+        argument_list = [container['host'], container['name']]
+        error_message = "Error cleaning HDFS files from container {0}".format(container['name'])
+        process_script("hdfs/clean_hdfs", argument_list, error_message)
+
+    # Stop hdfs frontend container
+    argument_list = ["platform_server", vars_config['hdfs_frontend_container_name']]
+    error_message = "Error stopping hdfs frontend container {0}".format(vars_config['hdfs_frontend_container_name'])
+    process_script("stop_container", argument_list, error_message)
+
+    # Stop containers
+    stop_containers_task = []
+    for container in app_containers:
+        stop_task = stop_container.si(container['host'], container['name'])
+        stop_containers_task.append(stop_task)
+
+    # Collect logs
+    set_hadoop_logs_timestamp_task = set_hadoop_logs_timestamp.si(app, app_files, rm_host, rm_container)
+    log_task = chord(stop_containers_task)(set_hadoop_logs_timestamp_task)
+    register_task(log_task.id,"stop_containers_task")
 
 ## Removes
 @shared_task

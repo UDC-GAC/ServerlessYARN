@@ -12,6 +12,7 @@
   <a href="{% url 'apps' %}">Apps</a>
   <a href="{% url 'services' %}">Services</a>
   <a href="{% url 'rules' %}">Rules</a>
+  {% if config.global_hdfs %}<a href="{% url 'hdfs' %}">HDFS</a>{% endif %}
 </div> 
 
 <div class="content">
@@ -89,8 +90,10 @@
 					  <th>Type</th>
 					  <th>Path</th>
 					  <th>Load</th>
-					  <th>Max BW</th>
-					  <th>Free BW</th>
+					  <th>Free Read BW</th>
+					  <th>Max Read BW</th>
+					  <th>Free Write BW</th>
+					  <th>Max Write BW</th>
 				  </tr>
 				  <!-- rows -->
 				  {% for disk, disk_info in values.items %}
@@ -99,8 +102,10 @@
 					<td style="text-transform:uppercase">{{ disk_info.type }}</td>
 					<td>{{ disk_info.path }}</td>
 					<td>{{ disk_info.load }}</td>
-					<td>{{ disk_info.max }}</td>
-					<td>{{ disk_info.free }}</td>
+					<td>{{ disk_info.free_read }}</td>
+					<td>{{ disk_info.max_read }}</td>
+					<td>{{ disk_info.free_write }}</td>
+					<td>{{ disk_info.max_write }}</td>
 				  </tr>
 				  {% endfor %}
 			  </table>
@@ -205,39 +210,23 @@
 
 			<!-- Another table for disks -->
 			{% for resource,disk in cont.resources.items %}
-			{% if resource == "disk" %}
-			  <p>Disk</p>
-			  <p></p>
-			  <table class="data_table">
-				<!-- rows -->
-				<tr>
-				  <th>Name</th>
-				  <td>{{ disk.name }}</td>
-				</tr>
-				<tr>
-				  <th>Path</th>
-				  <td>{{ disk.path }}</td>
-				</tr>
-				<tr>
-				  <th>Current bandwidth</th>
-				  <td>{{ disk.current }}</td>
-				</tr>
-				<tr>
-				  <th>Guard</th>
-				  <td>{{ disk.guard }}</td>
-				</tr>
-				<tr>
-				  <th>Max bandwidth</th>
-				  <td>{{ disk.max }}</td>
-				</tr>
-				<tr>
-				  <th>Min bandwidth</th>
-				  <td>{{ disk.min }}</td>
-				</tr>
-			</table>
-			  <p></p>
-				  <HR>
-			{% endif %}
+				{% if resource == "disk" %}
+					<p>Disk</p>
+					<p></p>
+					<table class="data_table">
+						<!-- rows -->
+						<tr>
+							<th>Name</th>
+							<td>{{ disk.name }}</td>
+						</tr>
+						<tr>
+							<th>Path</th>
+							<td>{{ disk.path }}</td>
+						</tr>
+					</table>
+					<p></p>
+					<HR>
+				{% endif %}
 			{% endfor %}
 
 			<!-- CONT RESOURCES EDIT MODAL -->	
@@ -306,6 +295,7 @@
 
   </ul>
 
+  {% if config.disk_capabilities %}
   <a href="#openModal-add-disks-hosts" title="Edit" class="caja">Add Disks</a>
   <br><br>
   <div align="left" id="openModal-add-disks-hosts" class="modalDialog">
@@ -317,6 +307,7 @@
 		  </p>
 	  </div>
   </div>
+  {% endif %}
 
   <a href="#openModal-add-host" title="Edit" class="caja">Add Host</a>
   <br><br>

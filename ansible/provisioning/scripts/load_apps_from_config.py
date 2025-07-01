@@ -44,7 +44,7 @@ if __name__ == "__main__":
 
     apps_to_load = general_config["apps"].split(",")
 
-    resources = ["cpu", "mem", "disk", "energy"]
+    resources = ["cpu", "mem", "disk_read", "disk_write", "energy"]
 
     for app_dir in apps_to_load:
 
@@ -100,7 +100,7 @@ if __name__ == "__main__":
         app_config["limits"]["resources"] = {}
         for resource in resources:
 
-            if resource == "disk" and (not general_config['disk_capabilities'] or not general_config['disk_scaling']): continue
+            if resource in ["disk_read", "disk_write"] and (not general_config['disk_capabilities'] or not general_config['disk_scaling']): continue
             if resource == "energy" and not general_config['power_budgeting']: continue
 
             app_config["app"]["resources"][resource] = {}

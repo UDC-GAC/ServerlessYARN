@@ -5,7 +5,7 @@ from crispy_forms.bootstrap import FormActions
 from django_json_widget.widgets import JSONEditorWidget
 import yaml
 from copy import deepcopy
-from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES
+from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, DEFAULT_HDFS_VALUES, DEFAULT_SERVICE_PARAMETERS
 
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file:
@@ -24,9 +24,12 @@ DEFAULT_COMMON_FIELDS = {
         'mem_max': forms.IntegerField(label="Mem Max", required=True, min_value=1),
         'mem_min': forms.IntegerField(label="Mem Min", required=True, min_value=1),
         'mem_weight': forms.IntegerField(label="Mem Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
-        'disk_max': forms.IntegerField(label="Disk I/O Bandwidth Max", required=True, min_value=1),
-        'disk_min': forms.IntegerField(label="Disk I/O Bandwidth Min", required=True, min_value=1),
-        'disk_weight': forms.IntegerField(label="Disk I/O Bandwidth Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
+        'disk_read_max': forms.IntegerField(label="Disk Read I/O Bandwidth Max", required=True, min_value=1),
+        'disk_read_min': forms.IntegerField(label="Disk Read I/O Bandwidth Min", required=True, min_value=1),
+        'disk_read_weight': forms.IntegerField(label="Disk Read I/O Bandwidth Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
+        'disk_write_max': forms.IntegerField(label="Disk Write I/O Bandwidth Max", required=True, min_value=1),
+        'disk_write_min': forms.IntegerField(label="Disk Write I/O Bandwidth Min", required=True, min_value=1),
+        'disk_write_weight': forms.IntegerField(label="Disk Write I/O Bandwidth Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
         'energy_max': forms.IntegerField(label="Energy Max", required=False, min_value=1),
         'energy_min': forms.IntegerField(label="Energy Min", required=False, min_value=1),
         'energy_weight': forms.IntegerField(label="Energy Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
@@ -34,7 +37,8 @@ DEFAULT_COMMON_FIELDS = {
         ## Resource boundaries
         'cpu_boundary': forms.IntegerField(label="CPU boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["boundary"]), required=False, min_value=1, max_value=100),
         'mem_boundary': forms.IntegerField(label="Mem boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["boundary"]), required=False, min_value=1, max_value=100),
-        'disk_boundary': forms.IntegerField(label="Disk boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["boundary"]), required=False, min_value=1, max_value=100),
+        'disk_read_boundary': forms.IntegerField(label="Disk read boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["boundary"]), required=False, min_value=1, max_value=100),
+        'disk_write_boundary': forms.IntegerField(label="Disk write boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["boundary"]), required=False, min_value=1, max_value=100),
         'energy_boundary': forms.IntegerField(label="Energy boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["boundary"]), required=False, min_value=1, max_value=100),
 
         # Resource boundary types
@@ -52,7 +56,14 @@ DEFAULT_COMMON_FIELDS = {
                                                ),
                                                initial=DEFAULT_LIMIT_VALUES["boundary_type"],
                                                required=False),
-        'disk_boundary_type': forms.ChoiceField(label="Disk boundary type (percentage of max or current)",
+        'disk_read_boundary_type': forms.ChoiceField(label="Disk read boundary type (percentage of max or current)",
+                                               choices=(
+                                                   ("percentage_of_max", "Percentage of max"),
+                                                   ("percentage_of_current", "Percentage of current"),
+                                               ),
+                                               initial=DEFAULT_LIMIT_VALUES["boundary_type"],
+                                               required=False),
+        'disk_write_boundary_type': forms.ChoiceField(label="Disk write boundary type (percentage of max or current)",
                                                choices=(
                                                    ("percentage_of_max", "Percentage of max"),
                                                    ("percentage_of_current", "Percentage of current"),
@@ -200,9 +211,13 @@ class LimitsForm(forms.Form):
     mem_boundary.label = "Memory Boundary (%)"
     mem_boundary.required = True
 
-    disk_boundary = common_fields['disk_boundary']
-    disk_boundary.label = "Disk Boundary (%)"
-    disk_boundary.required = True
+    disk_read_boundary = common_fields['disk_read_boundary']
+    disk_read_boundary.label = "Disk Read Boundary (%)"
+    disk_read_boundary.required = True
+
+    disk_write_boundary = common_fields['disk_write_boundary']
+    disk_write_boundary.label = "Disk Write Boundary (%)"
+    disk_write_boundary.required = True
 
     energy_boundary = common_fields['energy_boundary']
     energy_boundary.label = "Energy Boundary (%)"
@@ -214,8 +229,11 @@ class LimitsForm(forms.Form):
     mem_boundary_type = common_fields['mem_boundary_type']
     mem_boundary_type.required = True
 
-    disk_boundary_type = common_fields['disk_boundary_type']
-    disk_boundary_type.required = True
+    disk_read_boundary_type = common_fields['disk_read_boundary_type']
+    disk_read_boundary_type.required = True
+
+    disk_write_boundary_type = common_fields['disk_write_boundary_type']
+    disk_write_boundary_type.required = True
 
     energy_boundary_type = common_fields['energy_boundary_type']
     energy_boundary_type.required = True
@@ -243,8 +261,10 @@ class LimitsForm(forms.Form):
             Field('cpu_boundary_type'),
             Field('mem_boundary'),
             Field('mem_boundary_type'),
-            Field('disk_boundary'),
-            Field('disk_boundary_type'),
+            Field('disk_read_boundary'),
+            Field('disk_read_boundary_type'),
+            Field('disk_write_boundary'),
+            Field('disk_write_boundary_type'),
             Field('net_boundary'),
             Field('net_boundary_type'),
             Field('energy_boundary'),
@@ -376,6 +396,16 @@ class AddDisksToHostsForm(forms.Form):
     extra_disk = forms.CharField(label= "Extra disk (required if adding to LV)",
             required=False
             )
+    threshold = forms.DecimalField(label= "Extension threshold ({0} if unset)".format(DEFAULT_SERVICE_PARAMETERS["lv_extension"]["threshold"]),
+            required=False
+            )
+    polling_frequency = forms.IntegerField(label= "Polling frequency (seconds) ({0} if unset)".format(DEFAULT_SERVICE_PARAMETERS["lv_extension"]["polling_frequency"]),
+            required=False
+            )
+    timeout_events = forms.IntegerField(label= "Timeout events ({0} if unset)".format(DEFAULT_SERVICE_PARAMETERS["lv_extension"]["timeout_events"]),
+            required=False
+            )
+
     def __init__(self, *args, **kwargs):
         super(AddDisksToHostsForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -390,6 +420,9 @@ class AddDisksToHostsForm(forms.Form):
             Field('add_to_lv'),
             Field('new_disks'),
             Field('extra_disk'),
+            Field('threshold'),
+            Field('polling_frequency'),
+            Field('timeout_events'),
             FormActions(
                 Submit('save', 'Add disks to hosts', css_class='caja'),
             )
@@ -412,9 +445,13 @@ class AddContainersForm(forms.Form):
     mem_min = common_fields['mem_min']
     mem_weight = common_fields['mem_weight']
 
-    disk_max = common_fields['disk_max']
-    disk_min = common_fields['disk_min']
-    disk_weight = common_fields['disk_weight']
+    disk_read_max = common_fields['disk_read_max']
+    disk_read_min = common_fields['disk_read_min']
+    disk_read_weight = common_fields['disk_read_weight']
+
+    disk_write_max = common_fields['disk_write_max']
+    disk_write_min = common_fields['disk_write_min']
+    disk_write_weight = common_fields['disk_write_weight']
 
     energy_max = common_fields['energy_max']
     energy_min = common_fields['energy_min']
@@ -423,12 +460,14 @@ class AddContainersForm(forms.Form):
     # Boundaries
     cpu_boundary = common_fields['cpu_boundary']
     mem_boundary = common_fields['mem_boundary']
-    disk_boundary = common_fields['disk_boundary']
+    disk_read_boundary = common_fields['disk_read_boundary']
+    disk_write_boundary = common_fields['disk_write_boundary']
     energy_boundary = common_fields['energy_boundary']
 
     cpu_boundary_type = common_fields['cpu_boundary_type']
     mem_boundary_type = common_fields['mem_boundary_type']
-    disk_boundary_type = common_fields['disk_boundary_type']
+    disk_read_boundary_type = common_fields['disk_read_boundary_type']
+    disk_write_boundary_type = common_fields['disk_write_boundary_type']
     energy_boundary_type = common_fields['energy_boundary_type']
 
     host_list = forms.CharField(label= "Number of containers to be deployed on each host",
@@ -455,9 +494,12 @@ class AddContainersForm(forms.Form):
             Field('mem_weight')
         )
         if config['disk_capabilities'] and config['disk_scaling']:
-            self.helper.layout.append(Field('disk_max'))
-            self.helper.layout.append(Field('disk_min'))
-            self.helper.layout.append(Field('disk_weight'))
+            self.helper.layout.append(Field('disk_read_max'))
+            self.helper.layout.append(Field('disk_read_min'))
+            self.helper.layout.append(Field('disk_read_weight'))
+            self.helper.layout.append(Field('disk_write_max'))
+            self.helper.layout.append(Field('disk_write_min'))
+            self.helper.layout.append(Field('disk_write_weight'))
         if config['power_budgeting']:
             self.helper.layout.append(Field('energy_max'))
             self.helper.layout.append(Field('energy_min'))
@@ -469,8 +511,10 @@ class AddContainersForm(forms.Form):
         self.helper.layout.append(Field('mem_boundary'))
         self.helper.layout.append(Field('mem_boundary_type'))
         if config['disk_capabilities'] and config['disk_scaling']:
-            self.helper.layout.append(Field('disk_boundary'))
-            self.helper.layout.append(Field('disk_boundary_type'))
+            self.helper.layout.append(Field('disk_read_boundary'))
+            self.helper.layout.append(Field('disk_read_boundary_type'))
+            self.helper.layout.append(Field('disk_write_boundary'))
+            self.helper.layout.append(Field('disk_write_boundary_type'))
         if config['power_budgeting']:
             self.helper.layout.append(Field('energy_boundary'))
             self.helper.layout.append(Field('energy_boundary_type'))
@@ -530,9 +574,13 @@ class AddAppForm(forms.Form):
     mem_min = common_fields['mem_min']
     mem_weight = common_fields['mem_weight']
 
-    disk_max = common_fields['disk_max']
-    disk_min = common_fields['disk_min']
-    disk_weight = common_fields['disk_weight']
+    disk_read_max = common_fields['disk_read_max']
+    disk_read_min = common_fields['disk_read_min']
+    disk_read_weight = common_fields['disk_read_weight']
+
+    disk_write_max = common_fields['disk_write_max']
+    disk_write_min = common_fields['disk_write_min']
+    disk_write_weight = common_fields['disk_write_weight']
 
     energy_max = common_fields['energy_max']
     energy_min = common_fields['energy_min']
@@ -541,12 +589,14 @@ class AddAppForm(forms.Form):
     # Boundaries
     cpu_boundary = common_fields['cpu_boundary']
     mem_boundary = common_fields['mem_boundary']
-    disk_boundary = common_fields['disk_boundary']
+    disk_read_boundary = common_fields['disk_read_boundary']
+    disk_write_boundary = common_fields['disk_write_boundary']
     energy_boundary = common_fields['energy_boundary']
 
     cpu_boundary_type = common_fields['cpu_boundary_type']
     mem_boundary_type = common_fields['mem_boundary_type']
-    disk_boundary_type = common_fields['disk_boundary_type']
+    disk_read_boundary_type = common_fields['disk_read_boundary_type']
+    disk_write_boundary_type = common_fields['disk_write_boundary_type']
     energy_boundary_type = common_fields['energy_boundary_type']
 
     # App config
@@ -581,9 +631,12 @@ class AddAppForm(forms.Form):
         )
 
         if config['disk_capabilities'] and config['disk_scaling']:
-            self.helper.layout.append(Field('disk_max'))
-            self.helper.layout.append(Field('disk_min'))
-            self.helper.layout.append(Field('disk_weight'))
+            self.helper.layout.append(Field('disk_read_max'))
+            self.helper.layout.append(Field('disk_read_min'))
+            self.helper.layout.append(Field('disk_read_weight'))
+            self.helper.layout.append(Field('disk_write_max'))
+            self.helper.layout.append(Field('disk_write_min'))
+            self.helper.layout.append(Field('disk_write_weight'))
         if config['power_budgeting']:
             self.helper.layout.append(Field('energy_max'))
             self.helper.layout.append(Field('energy_min'))
@@ -595,8 +648,10 @@ class AddAppForm(forms.Form):
         self.helper.layout.append(Field('mem_boundary'))
         self.helper.layout.append(Field('mem_boundary_type'))
         if config['disk_capabilities'] and config['disk_scaling']:
-            self.helper.layout.append(Field('disk_boundary'))
-            self.helper.layout.append(Field('disk_boundary_type'))
+            self.helper.layout.append(Field('disk_read_boundary'))
+            self.helper.layout.append(Field('disk_read_boundary_type'))
+            self.helper.layout.append(Field('disk_write_boundary'))
+            self.helper.layout.append(Field('disk_write_boundary_type'))
         if config['power_budgeting']:
             self.helper.layout.append(Field('energy_boundary'))
             self.helper.layout.append(Field('energy_boundary_type'))
@@ -646,9 +701,12 @@ class AddHadoopAppForm(AddAppForm):
         )
 
         if config['disk_capabilities'] and config['disk_scaling']:
-            self.helper.layout.append(Field('disk_max'))
-            self.helper.layout.append(Field('disk_min'))
-            self.helper.layout.append(Field('disk_weight'))
+            self.helper.layout.append(Field('disk_read_max'))
+            self.helper.layout.append(Field('disk_read_min'))
+            self.helper.layout.append(Field('disk_read_weight'))
+            self.helper.layout.append(Field('disk_write_max'))
+            self.helper.layout.append(Field('disk_write_min'))
+            self.helper.layout.append(Field('disk_write_weight'))
         if config['power_budgeting']:
             self.helper.layout.append(Field('energy_max'))
             self.helper.layout.append(Field('energy_min'))
@@ -660,8 +718,10 @@ class AddHadoopAppForm(AddAppForm):
         self.helper.layout.append(Field('mem_boundary'))
         self.helper.layout.append(Field('mem_boundary_type'))
         if config['disk_capabilities'] and config['disk_scaling']:
-            self.helper.layout.append(Field('disk_boundary'))
-            self.helper.layout.append(Field('disk_boundary_type'))
+            self.helper.layout.append(Field('disk_read_boundary'))
+            self.helper.layout.append(Field('disk_read_boundary_type'))
+            self.helper.layout.append(Field('disk_write_boundary'))
+            self.helper.layout.append(Field('disk_write_boundary_type'))
         if config['power_budgeting']:
             self.helper.layout.append(Field('energy_boundary'))
             self.helper.layout.append(Field('energy_boundary_type'))
@@ -711,6 +771,14 @@ class StartAppForm(forms.Form):
             initial=3,
             required=True
             )
+
+    read_from_global = forms.BooleanField(label="Read files from global HDFS?", required=False)
+    global_input = forms.CharField(label="Input file (or directory) to read from global HDFS", required=False)
+    local_output = forms.CharField(label="Output directory to write to local HDFS ('{0}' if unset)".format(DEFAULT_HDFS_VALUES["local_output"]), required=False)
+    write_to_global = forms.BooleanField(label="Write files to global HDFS?", required=False)
+    local_input = forms.CharField(label="Input file (or directory) to read from local HDFS", required=False)
+    global_output = forms.CharField(label="Output directory to write to global HDFS ('{0}' if unset)".format(DEFAULT_HDFS_VALUES["global_output"]), required=False)
+
     def __init__(self, *args, **kwargs):
         super(StartAppForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()
@@ -724,10 +792,18 @@ class StartAppForm(forms.Form):
             Field('number_of_containers'),
             Field('assignation_policy'),
             Field('benevolence'),
-            FormActions(
-                Submit('save', 'Start App', css_class='caja'),
-            )
         )
+
+        if config['global_hdfs']:
+            self.helper.layout.append(Field('read_from_global', type="hidden", css_class='read_from_global_condition'))
+            self.helper.layout.append(Field('global_input', css_class='global_input'))
+            self.helper.layout.append(Field('local_output', css_class='local_output'))
+            self.helper.layout.append(Field('write_to_global', type="hidden", css_class='write_to_global_condition'))
+            self.helper.layout.append(Field('local_input', css_class='local_input'))
+            self.helper.layout.append(Field('global_output', css_class='global_output'))
+
+        # Submit button
+        self.helper.layout.append(FormActions(Submit('save', 'Start App', css_class='caja')))
 
 # Not used ATM
 class AddContainersToAppForm(forms.Form):
@@ -869,7 +945,8 @@ class GuardianForm(forms.Form):
             choices = (
                 ("cpu", "CPU"),
                 ("mem", "Memory"),
-                ("disk", "Disk"),
+                ("disk_read", "Disk Read"),
+                ("disk_write", "Disk Write"),
                 ("net", "Network"),
                 ("energy", "Energy"),
                 ),
@@ -973,7 +1050,8 @@ class StructuresSnapshoterForm(forms.Form):
             choices = (
                 ("cpu", "CPU"),
                 ("mem", "Memory"),
-                ("disk", "Disk"),
+                ("disk_read", "Disk Read"),
+                ("disk_write", "Disk Write"),
                 ("net", "Network"),
                 #("energy", "Energy"),
                 ),
@@ -1038,7 +1116,8 @@ class RefeederForm(forms.Form):
             choices = (
                 ("cpu", "CPU"),
                 ("mem", "Memory"),
-                ("disk", "Disk"),
+                ("disk_read", "Disk Read"),
+                ("disk_write", "Disk Write"),
                 #("net", "Network"),
                 ("energy", "Energy"),
                 ),
@@ -1095,7 +1174,8 @@ class ReBalancerForm(forms.Form):
             choices = (
                 ("cpu", "CPU"),
                 #("mem", "Memory"),
-                ("disk", "Disk"),
+                ("disk_read", "Disk Read"),
+                ("disk_write", "Disk Write"),
                 #("net", "Network"),
                 #("energy", "Energy"),
                 ),
@@ -1259,4 +1339,109 @@ class RuleForm(forms.Form):
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
             )    
+        )
+
+### Global HDFS
+class AddHdfsFileForm(forms.Form):
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "add_file"
+
+    origin_path = forms.CharField(label= "Origin path of file or directory to upload (relative to 'hdfs_data')",
+            required=True
+            )
+    dest_path = forms.CharField(label= "Destination directory on the HDFS",
+            required=True
+            )
+
+    def __init__(self, *args, **kwargs):
+        super(AddHdfsFileForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-addhdfsfileform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'hdfs'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('origin_path'),
+            Field('dest_path'),
+            FormActions(
+                Submit('save', 'Upload file/directory (put)', css_class='caja'),
+            )
+        )
+
+class GetHdfsFileForm(forms.Form):
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "get_file"
+
+    origin_path = forms.CharField(label= "Origin path of file or directory to download from HDFS",
+            required=True
+            )
+    dest_path = forms.CharField(label= "Destination directory (relative to 'hdfs_data')",
+            required=False
+            )
+
+    def __init__(self, *args, **kwargs):
+        super(GetHdfsFileForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-gethdfsfileform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'hdfs'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('origin_path', readonly=True),
+            Field('dest_path'),
+            FormActions(
+                Submit('save', 'Download file/directory (get)', css_class='caja'),
+            )
+        )
+
+class AddHdfsDirForm(forms.Form):
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "add_dir"
+
+    dest_path = forms.CharField(label= "Directory(es) to be created on the HDFS",
+            required=True
+            )
+
+    def __init__(self, *args, **kwargs):
+        super(AddHdfsDirForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-addhdfsdirform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'hdfs'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('dest_path'),
+            FormActions(
+                Submit('save', 'Add directory (mkdir -p)', css_class='caja'),
+            )
+        )
+
+class DeleteHdfsFileForm(forms.Form):
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "del_file"
+
+    dest_path = forms.CharField(label= "File or directory path to be deleted on the HDFS",
+            required=True
+            )
+
+    def __init__(self, *args, **kwargs):
+        super(DeleteHdfsFileForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-deletehdfsfileform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'hdfs'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('dest_path', readonly=True),
+            FormActions(
+                Submit('save', 'Delete file/directory (rm)', css_class='caja'),
+            )
         )

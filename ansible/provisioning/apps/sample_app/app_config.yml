@@ -12,10 +12,14 @@ mem_boundary: 12
 mem_boundary_type: "percentage_of_max"
 
 ## Only used if disk_scaling set to yes
-disk_max: 200
-disk_min: 100
-disk_boundary: 10
-disk_boundary_type: "percentage_of_max"
+disk_read_max: 200
+disk_read_min: 50
+disk_read_boundary: 10
+disk_read_boundary_type: "percentage_of_max"
+disk_write_max: 200
+disk_write_min: 50
+disk_write_boundary: 10
+disk_write_boundary_type: "percentage_of_max"
 
 ## Only used if power_budgeting set to yes
 energy_max: 50

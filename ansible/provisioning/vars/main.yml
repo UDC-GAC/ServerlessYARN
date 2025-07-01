@@ -20,6 +20,10 @@ sensor_reporting_path : /tmp/powerapi-sensor-reporting
 host_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/host"
 container_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/container"
 
+## Global HDFS
+global_hdfs_data_dir: /vagrant/ansible/provisioning/hdfs_data
+hdfs_frontend_container_name: hdfs-frontend
+
 ## Container bind directories variables
 default_bind_path: "{{ installation_path }}"
 bind_path: "{{ default_bind_path }}"

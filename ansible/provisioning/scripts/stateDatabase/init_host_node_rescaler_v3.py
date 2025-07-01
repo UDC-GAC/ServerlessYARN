@@ -171,24 +171,27 @@ if __name__ == "__main__":
 
             if "disk" in resources and "disk" in c:
 
-                if isinstance(requested_data['disk'], list) and len(requested_data['disk']) == 0:
-                    not_initialized = True
-                else:
-                    not_initialized = int(requested_data['disk']['disk_write_limit']) == -1
+                for resource, label in [("disk_read", "disk_read_limit"), ("disk_write", "disk_write_limit")]:
 
-                if not_initialized:
-
-                    not_initialized_resources += 1
-
-                    if c in new_containers:
-                        cont_disk_limit = int(int(c['disk_max']))
+                    if isinstance(requested_data[resource], list) and len(requested_data[resource]) == 0:
+                        not_initialized = True
                     else:
-                        # Container already added to the StateDatabase (but not initialized)
-                        cont_info = handler.get_structure(c['container_name'])
-                        cont_disk_limit = cont_info['resources']['disk']['current']
-                        if cont_disk_limit == -1: cont_disk_limit = cont_info['resources']['disk']['max']
+                        not_initialized = int(requested_data[resource][label]) == -1
 
-                    put_field_data["disk"] = {"disk_write_limit": cont_disk_limit, "disk_read_limit": cont_disk_limit, "unit": "Mbit"}
+                    if not_initialized:
+
+                        not_initialized_resources += 1
+
+                        if c in new_containers:
+                            cont_disk_limit = int(int(c['{0}_max'.format(resource)]))
+                        else:
+                            # Container already added to the StateDatabase (but not initialized)
+                            cont_info = handler.get_structure(c['container_name'])
+                            cont_disk_limit = cont_info['resources'][resource]['current']
+                            if cont_disk_limit == -1: cont_disk_limit = cont_info['resources'][resource]['max']
+
+                        put_field_data[resource] = {label: cont_disk_limit, "unit": "Mbit"}
+
 
             # if "energy" in resources:
             #     try:

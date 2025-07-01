@@ -4,7 +4,7 @@ from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormS
 from ui.forms import AddHostForm, AddAppForm, AddHadoopAppForm, StartAppForm, AddDisksToHostsForm
 from ui.forms import AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddContainersToAppForm
 from ui.forms import RemoveStructureForm, RemoveContainersFromAppForm
-from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, request_to_state_db
+from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, DEFAULT_HDFS_VALUES, DEFAULT_SERVICE_PARAMETERS, request_to_state_db
 
 from django.forms import formset_factory
 from django.http import HttpResponse
@@ -17,9 +17,22 @@ import yaml
 import re
 import functools
 
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.common.exceptions import WebDriverException
+from selenium.webdriver import FirefoxOptions
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import socket
+import atexit
+from ui.forms import AddHdfsFileForm, GetHdfsFileForm, AddHdfsDirForm, DeleteHdfsFileForm
+
 from ui.background_tasks import start_containers_task_v2, add_host_task, add_app_task, add_container_to_app_task, add_disks_to_hosts_task
 from ui.background_tasks import remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task, start_app_task, start_hadoop_app_task
 from ui.background_tasks import register_task, get_pendings_tasks_to_string, remove_containers, remove_containers_from_app
+from ui.background_tasks import start_global_hdfs_task, stop_hdfs_task, create_dir_on_hdfs, add_file_to_hdfs, get_file_from_hdfs, remove_file_from_hdfs
+from ui.update_inventory_file import host_container_separator
 
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file:
@@ -33,6 +46,53 @@ max_load_dict = {}
 max_load_dict["HDD"] = 1
 max_load_dict["SSD"] = 4
 max_load_dict["LVM"] = 20
+
+class State(object):
+
+    def __init__(self):
+        self.web_driver = None
+        self.closing_webdriver = False
+
+    def __del__(self):
+        if self.web_driver:
+            self.web_driver.quit()
+            self.web_driver = None
+            self.closing_webdriver = True
+
+    def __webdriver_is_closed__(self):
+        if not self.web_driver: return True
+        try:
+            self.web_driver.get('https://example.com/')
+        except WebDriverException:
+            return True
+        return False
+
+    def __start_webdriver__(self):
+        if self.__webdriver_is_closed__():
+            opts = FirefoxOptions()
+            opts.add_argument("--headless")
+            self.web_driver = webdriver.Firefox(options=opts)
+            self.closing_webdriver = False
+
+    def __stop_webdriver__(self):
+        if not self.__webdriver_is_closed__():
+            self.web_driver.quit()
+            self.web_driver = None
+            self.closing_webdriver = True
+
+    def __get_webdriver__(self):
+        return self.web_driver
+
+    def __is_webdriver_closing__(self):
+        return self.closing_webdriver
+
+state = State()
+
+## we force the instance to be the first to cleanup when closing (or reloading) server
+# otherwise, webdriver may not quit before closing server and keep browser tabs open
+# solution based on: https://stackoverflow.com/questions/14986568/python-how-to-ensure-that-del-method-of-an-object-is-called-before-the-mod
+atexit.register(state.__stop_webdriver__)
+
 
 ## Auxiliary general methods
 def redirect_with_errors(redirect_url, errors):
@@ -61,7 +121,7 @@ def index(request):
     except urllib.error.URLError:
         data_json = {"status": "down"}
 
-    return render(request, 'index.html', {'data': data_json})
+    return render(request, 'index.html', {'data': data_json, 'config': config})
     
 
 #### Structures
@@ -137,7 +197,8 @@ def structures(request, structure_type, html_render):
         'requests_successes': requests_successes,
         'requests_info': requests_info,
         'addStructureForm': addStructureForm,
-        'removeStructuresForm': removeStructuresForm
+        'removeStructuresForm': removeStructuresForm,
+        'config': config
     }
 
     return render(request, html_render, context)
@@ -392,7 +453,7 @@ def setStructureResourcesForm(structure, form_action):
 
     editable_data = 0
 
-    full_resource_list = ["cpu","mem","disk","net","energy"]
+    full_resource_list = ["cpu","mem","disk_read", "disk_write", "net","energy"]
     structures_resources_field_list = ["guard","max","min","weight"]
     host_resources_field_list = ["max"]
     form_initial_data_list = []
@@ -451,7 +512,7 @@ def setLimitsForm(structure, form_action):
     editable_data = 0
     form_initial_data = {'name': structure['name']}
 
-    resource_list = ["cpu", "mem", "disk", "net", "energy"]
+    resource_list = ["cpu","mem","disk_read", "disk_write", "net","energy"]
 
     for resource in resource_list:
         if resource in structure['limits']:
@@ -484,6 +545,10 @@ def setStartAppForm(structure, form_action, started_app):
 
     structure['start_app_form'] = startAppForm
     structure['started_app'] = started_app
+
+    if config['global_hdfs'] and 'framework' in structure and structure['framework'] in ["hadoop", "spark"]:
+        structure['start_app_form'].helper['read_from_global'].update_attributes(type="show")
+        structure['start_app_form'].helper['write_to_global'].update_attributes(type="show")
 
 
 def setAddContainersForm(structures, hosts, form_action):
@@ -641,7 +706,7 @@ def processLimits(request, url):
         
         structure_name = request.POST['name']
 
-        resources = ["cpu","mem","disk","net","energy"]
+        resources = ["cpu","mem","disk_read","disk_write","net","energy"]
 
         for resource in resources:
             if (resource + "_boundary" in request.POST):
@@ -671,7 +736,7 @@ def processAdds(request, url):
     if ("operation" in request.POST and request.POST["operation"] == "add"):
         
         structure_type = request.POST['structure_type']
-        resources = ["cpu","mem","disk","net","energy"]
+        resources = ["cpu","mem","disk_read","disk_write","net","energy"]
 
         error = ""
 
@@ -745,12 +810,34 @@ def processAddDisksToHosts(request, url, structure_type, resources):
         new_disks = request.POST['new_disks'].split(',')
         extra_disk = request.POST['extra_disk']
 
+        ## extra params
+        if "threshold" in request.POST and request.POST["threshold"] != "": threshold = float(request.POST['threshold'])
+        else: threshold = DEFAULT_SERVICE_PARAMETERS["lv_extend"]["threshold"]
+        if "polling_frequency" in request.POST and request.POST["polling_frequency"] != "": polling_frequency = int(request.POST['polling_frequency'])
+        else: polling_frequency = DEFAULT_SERVICE_PARAMETERS["lv_extend"]["polling_frequency"]
+        if "timeout_events" in request.POST and request.POST["timeout_events"] != "": timeout_events = int(request.POST['timeout_events'])
+        else: timeout_events = DEFAULT_SERVICE_PARAMETERS["lv_extend"]["timeout_events"]
+
         if add_to_lv and extra_disk == "":
             error = "Can't add disks to Logical Volume without an extra disk"
             return error
 
+        url = base_url + "/structure/"
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+        hosts_full_info = getHostsNames(data_json)
+
+        measure_host_list = {}
+        for host in host_list:
+
+            if not add_to_lv: measure_host = True
+            else:
+                measure_host = [host_info for host_info in hosts_full_info if host_info["name"] == host][0]["resources"]["disks"]["lvm"]["load"] == 0
+
+            measure_host_list[host] = measure_host
+
         # add disks from playbook
-        task = add_disks_to_hosts_task.delay(host_list, add_to_lv, new_disks, extra_disk)
+        task = add_disks_to_hosts_task.delay(host_list, add_to_lv, new_disks, extra_disk, measure_host_list, url, threshold, polling_frequency, timeout_events)
         print("Starting task with id {0}".format(task.id))
         register_task(task.id,"add_disks_to_hosts_task")
 
@@ -792,7 +879,7 @@ def processAddContainers(request, url, structure_type, resources, host_list):
             container_resources[resource + "_boundary_type"] = resource_boundary_type
 
     ## Bind specific disk
-    bind_disk = "disk" in resources and "disk_max" in request.POST and request.POST["disk_max"] != "" and request.POST["disk_min"]
+    bind_disk = "disk_read" in resources and "disk_write" in resources and "disk_read_max" in request.POST and "disk_write_max" in request.POST and request.POST["disk_read_max"] != "" and request.POST["disk_write_max"] != "" and request.POST["disk_read_min"] and request.POST["disk_write_min"]
 
     # TODO: assign disks to containers in a more efficient way, instead of just choosing the same disk for all containers in the same host
     new_containers = {}
@@ -959,6 +1046,7 @@ def processStartApp(request, url, app_name):
 
     app_resources = {}
     for resource in app['resources']:
+        if resource == "disk": continue
         app_resources[resource] = {}
         app_resources[resource]['max'] = app['resources'][resource]['max']
         app_resources[resource]['current'] = 0 if 'current' not in app['resources'][resource] else app['resources'][resource]['current']
@@ -972,7 +1060,7 @@ def processStartApp(request, url, app_name):
     # Check if there is space for app
     free_resources = {}
     for resource in app_resources:
-        if resource in ['disk']:
+        if resource == 'disk_read' or resource == "disk_write":
             continue
         free_resources[resource] = 0
         for host in hosts:
@@ -1070,7 +1158,42 @@ def processStartApp(request, url, app_name):
     virtual_cluster = config['virtual_mode']
 
     if is_hadoop_app:
-        task = start_hadoop_app_task.delay(url, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type)
+
+        global_hdfs_data = None
+        if config['global_hdfs']:
+
+            use_global_hdfs = False
+            for condition in ['read_from_global', 'write_to_global']:
+                if condition in request.POST and request.POST[condition]:
+                    use_global_hdfs = True
+                    break
+
+            global_hdfs_app = None
+            if use_global_hdfs:
+
+                global_hdfs_data = {}
+                ## Add global Namenode
+                global_hdfs_app, namenode_container = retrieve_global_hdfs_app(data_json)
+                if   not global_hdfs_app:    return "Global HDFS requested but not found"
+                elif not namenode_container: return "Namenode not found in global HDFS"
+                else:
+                    global_hdfs_data['namenode_container_name'] = namenode_container['name']
+                    global_hdfs_data['namenode_host'] = namenode_container['host']
+
+
+                ## Get additional info (read/write data from/to hdfs)
+                for condition, additional_info in [
+                    ('read_from_global', ['global_input', 'local_output']), 
+                    ('write_to_global', ['local_input', 'global_output'])
+                ]:
+                    if condition in request.POST and request.POST[condition]:
+                        for info in additional_info:
+                            if info in request.POST and request.POST[info] != "": global_hdfs_data[info] = request.POST[info]
+                            else: global_hdfs_data[info] = DEFAULT_HDFS_VALUES[info]
+                    else:
+                        for info in additional_info: global_hdfs_data[info] = ""
+
+        task = start_hadoop_app_task.delay(url, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type, global_hdfs_data)
     else:
         task = start_app_task.delay(url, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, app_type)
 
@@ -1276,15 +1399,20 @@ def getFreestDisk(host):
 
             disk = host['resources']['disks'][disk_name]
 
-            if (disk['free'] == 0): continue
+            ## Get combined free bandwidth
+            consumed_read = disk["max_read"] - disk["free_read"]
+            consumed_write = disk["max_write"] - disk["free_write"]
+            total_max = max(disk["max_read"],disk["max_write"])
+            total_free = total_max - consumed_read - consumed_write
+            if (total_free == 0): continue
 
             ## TODO: think if it is better to assign a disk with no containers but low bandwidth or a contended disk with high bw
-            if disk['free'] == disk['max']:
+            if total_free == total_max:
                 freest_disk = disk_name
                 break
 
-            if current_max_bw == -1 or disk['free'] > current_max_bw:
-                current_max_bw = disk['free']
+            if current_max_bw == -1 or total_free > current_max_bw:
+                current_max_bw = total_free
                 freest_disk = disk_name
 
     return freest_disk
@@ -1321,8 +1449,13 @@ def GetFreestHost(hosts, container_resources, check_disks):
         if 'disks' in host['resources']:
             for disk_name in host['resources']['disks']:
                 disk = host['resources']['disks'][disk_name]
-                max_disk_usage += disk['max']
-                disk_usage += (disk['max'] - disk['free'])
+                consumed_read = disk["max_read"] - disk["free_read"]
+                consumed_write = disk["max_write"] - disk["free_write"]
+                total_max = max(disk["max_read"],disk["max_write"])
+                total_free = total_max - consumed_read - consumed_write
+
+                max_disk_usage += total_max
+                disk_usage += total_free
 
         if max_disk_usage == 0:
             continue
@@ -1342,14 +1475,21 @@ def GetFreestHost(hosts, container_resources, check_disks):
 
 def getHostFreeDiskBw(host):
 
-    free_host_bw = 0
+    free_read_bw = 0
+    free_write_bw = 0
+    free_total_bw = 0
 
     if 'disks' in host['resources']:
         for disk_name in host['resources']['disks']:
             disk = host['resources']['disks'][disk_name]
-            free_host_bw += disk['free']
+            free_read_bw += disk['free_read']
+            free_write_bw += disk['free_write']
+            
+            consumed_read = disk['max_read'] - disk['free_read']
+            consumed_write = disk['max_write'] - disk['free_write']
+            free_total_bw += max(disk['max_read'], disk['max_write']) - consumed_read - consumed_write
 
-    return free_host_bw
+    return free_read_bw, free_write_bw, free_total_bw
 
 def getContainerAssignationForApp(assignation_policy, hosts, number_of_containers, container_resources, app_name):
 
@@ -1377,58 +1517,110 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                 disk_assignation[host['name']][disk_name]['new_containers'] = 0
                 disk_assignation[host['name']][disk_name]['disk_path'] = disk['path']
                 #disk_assignation[host['name']][disk_name]['max_load'] = max_load_dict[disk['type']] - disk['load']
-                disk_assignation[host['name']][disk_name]['free_bw'] = disk['free']
+                disk_assignation[host['name']][disk_name]['free_read'] = disk['free_read']
+                disk_assignation[host['name']][disk_name]['free_write'] = disk['free_write']
+
+                consumed_read = disk['max_read'] - disk['free_read']
+                consumed_write = disk['max_write'] - disk['free_write']
+                disk_assignation[host['name']][disk_name]['free_total'] = max(disk['max_read'],disk['max_write']) - consumed_read - consumed_write
+
 
     if assignation_policy == "Fill-up":
         for host in hosts:
             free_cpu = host['resources']['cpu']['free']
             free_mem = host['resources']['mem']['free']
             #free_disk_load = getHostFreeDiskLoad(host)
-            if config['disk_capabilities'] and config['disk_scaling']: free_bw_host = getHostFreeDiskBw(host)
+            if config['disk_capabilities'] and config['disk_scaling']: free_read_host, free_write_bw, free_total_bw = getHostFreeDiskBw(host)
 
             if containers_to_allocate + irregular_container_to_allocate + hadoop_container_to_allocate <= 0:
                 break
             # First we try to assign the bigger container if it exists
-            if irregular_container_to_allocate > 0 and "bigger" in container_resources and free_cpu >= container_resources["bigger"]['cpu_max'] and free_mem >= container_resources["bigger"]['mem_max']:
-                if not config['disk_capabilities'] or not config['disk_scaling'] or free_bw_host > container_resources["bigger"]['disk_max']:
+            if (irregular_container_to_allocate > 0 
+                and "bigger" in container_resources 
+                and free_cpu >= container_resources["bigger"]['cpu_max'] 
+                and free_mem >= container_resources["bigger"]['mem_max']
+                ):
+                if (not config['disk_capabilities'] 
+                    or not config['disk_scaling'] 
+                    or (free_read_host >= container_resources["bigger"]['disk_read_max'] 
+                        and free_write_host >= container_resources["bigger"]['disk_write_max']
+                        and free_total_bw >= max(container_resources["bigger"]['disk_read_max'],container_resources["bigger"]['disk_read_max'])
+                        )
+                    ):
                     assignation[host['name']]["irregular"] = 1
                     irregular_container_to_allocate = 0
                     free_cpu -= container_resources["bigger"]['cpu_max']
                     free_mem -= container_resources["bigger"]['mem_max']
                     if config['disk_capabilities'] and config['disk_scaling']:
-                        free_bw_host -= container_resources["bigger"]['disk_max']
+                        free_read_host -= container_resources["bigger"]['disk_read_max']
+                        free_write_host -= container_resources["bigger"]['disk_write_max']
+                        free_total_bw -= max(container_resources["bigger"]['disk_read_max'],container_resources["bigger"]['disk_read_max'])
                         for disk in disk_assignation[host['name']]:
-                            if disk_assignation[host['name']][disk]['free_bw'] >= container_resources["bigger"]['disk_max']:
-                                disk_assignation[host['name']][disk]['free_bw'] -= container_resources["bigger"]['disk_max']
+                            if (disk_assignation[host['name']][disk]['free_read'] >= container_resources["bigger"]['disk_read_max']
+                            and disk_assignation[host['name']][disk]['free_write'] >= container_resources["bigger"]['disk_write_max']
+                            and disk_assignation[host['name']][disk]['free_total'] >= max(container_resources["bigger"]['disk_read_max'],container_resources["bigger"]['disk_read_max'])
+                            ):
+                                disk_assignation[host['name']][disk]['free_read'] -= container_resources["bigger"]['disk_read_max']
+                                disk_assignation[host['name']][disk]['free_write'] -= container_resources["bigger"]['disk_write_max']
                                 disk_assignation[host['name']][disk]['new_containers'] += 1
                                 break
 
-            while containers_to_allocate > 0 and free_cpu >= container_resources["regular"]['cpu_max'] and free_mem >= container_resources["regular"]['mem_max']:
-                if config['disk_capabilities'] and config['disk_scaling'] and free_bw_host > container_resources["regular"]['disk_max']: break
+            while (containers_to_allocate > 0 
+                and free_cpu >= container_resources["regular"]['cpu_max'] 
+                and free_mem >= container_resources["regular"]['mem_max']
+                ):
+                if (config['disk_capabilities'] 
+                    and config['disk_scaling'] 
+                    and (free_read_host < container_resources["regular"]['disk_read_max']
+                        or free_write_host < container_resources["regular"]['disk_write_max']
+                        or free_total_bw < max(container_resources["regular"]['disk_read_max'],container_resources["regular"]['disk_read_max'])
+                    )): break
                 assignation[host['name']]["regular"] += 1
                 containers_to_allocate -= 1
                 free_cpu -= container_resources['regular']['cpu_max']
                 free_mem -= container_resources['regular']['mem_max']
                 if config['disk_capabilities'] and config['disk_scaling']:
-                    free_bw_host -= container_resources['regular']['disk_max']
+                    free_read_host -= container_resources["regular"]['disk_read_max']
+                    free_write_host -= container_resources["regular"]['disk_write_max']
+                    free_total_bw -= max(container_resources["regular"]['disk_read_max'],container_resources["regular"]['disk_read_max'])
                     for disk in disk_assignation[host['name']]:
-                        if disk_assignation[host['name']][disk]['free_bw'] >= container_resources['regular']['disk_max']:
-                            disk_assignation[host['name']][disk]['free_bw'] -= container_resources['regular']['disk_max']
+                        if (disk_assignation[host['name']][disk]['free_read'] >= container_resources["regular"]['disk_read_max']
+                        and disk_assignation[host['name']][disk]['free_write'] >= container_resources["regular"]['disk_write_max']
+                        and disk_assignation[host['name']][disk]['free_total'] >= max(container_resources["regular"]['disk_read_max'],container_resources["regular"]['disk_read_max'])
+                        ):
+                            disk_assignation[host['name']][disk]['free_read'] -= container_resources["regular"]['disk_read_max']
+                            disk_assignation[host['name']][disk]['free_write'] -= container_resources["regular"]['disk_write_max']
                             disk_assignation[host['name']][disk]['new_containers'] += 1
                             break
 
             # We try to assign the smaller container if it exists
-            if irregular_container_to_allocate > 0 and "smaller" in container_resources and free_cpu >= container_resources["smaller"]['cpu_max'] and free_mem >= container_resources["smaller"]['mem_max']:
-                if not config['disk_capabilities'] or not config['disk_scaling'] or free_bw_host > container_resources["smaller"]['disk_max']:
+            if (irregular_container_to_allocate > 0 
+                and "smaller" in container_resources 
+                and free_cpu >= container_resources["smaller"]['cpu_max'] 
+                and free_mem >= container_resources["smaller"]['mem_max']
+                ):
+                if (not config['disk_capabilities'] 
+                    or not config['disk_scaling'] 
+                    or (free_read_host >= container_resources["smaller"]['disk_read_max'] 
+                        and free_write_host >= container_resources["smaller"]['disk_write_max']
+                        and free_total_bw >= max(container_resources["smaller"]['disk_read_max'],container_resources["smaller"]['disk_read_max'])
+                        )
+                    ):
                     assignation[host['name']]["irregular"] = 1
                     irregular_container_to_allocate = 0
                     free_cpu -= container_resources["smaller"]['cpu_max']
                     free_mem -= container_resources["smaller"]['mem_max']
                     if config['disk_capabilities'] and config['disk_scaling']:
-                        free_bw_host -= container_resources["smaller"]['disk_max']
+                        free_read_host -= container_resources["smaller"]['disk_read_max']
+                        free_write_host -= container_resources["smaller"]['disk_write_max']
+                        free_total_bw -= max(container_resources["smaller"]['disk_read_max'],container_resources["smaller"]['disk_read_max'])
                         for disk in disk_assignation[host['name']]:
-                            if disk_assignation[host['name']][disk]['free_bw'] >= container_resources["smaller"]['disk_max']:
-                                disk_assignation[host['name']][disk]['free_bw'] -= container_resources["smaller"]['disk_max']
+                            if (disk_assignation[host['name']][disk]['free_read'] >= container_resources["smaller"]['disk_read_max']
+                            and disk_assignation[host['name']][disk]['free_write'] >= container_resources["smaller"]['disk_write_max']
+                            and disk_assignation[host['name']][disk]['free_total'] >= max(container_resources["smaller"]['disk_read_max'],container_resources["smaller"]['disk_read_max'])
+                            ):
+                                disk_assignation[host['name']][disk]['free_read'] -= container_resources["smaller"]['disk_read_max']
+                                disk_assignation[host['name']][disk]['free_write'] -= container_resources["smaller"]['disk_write_max']
                                 disk_assignation[host['name']][disk]['new_containers'] += 1
                                 break
 
@@ -1448,7 +1640,7 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     break
 
                 #free_disk_load = getHostFreeDiskLoad(host)
-                if config['disk_capabilities'] and config['disk_scaling']: free_bw_host = getHostFreeDiskBw(host)
+                if config['disk_capabilities'] and config['disk_scaling']: free_read_host, free_write_host, free_total_bw = getHostFreeDiskBw(host)
 
                 container_allocated = False
                 for container_type in ['bigger', 'regular', 'smaller', 'rm-nn']:
@@ -1460,7 +1652,34 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                         containers_to_check = containers_to_allocate
 
                     if containers_to_check > 0 and container_type in container_resources and host['resources']['cpu']['free'] >= container_resources[container_type]['cpu_min'] and host['resources']['mem']['free'] >= container_resources[container_type]['mem_min']:
-                        if not config['disk_capabilities'] or not config['disk_scaling'] or container_type == "rm-nn" or free_bw_host > container_resources[container_type]['disk_min']:
+                        if not config['disk_capabilities'] or not config['disk_scaling'] or container_type == "rm-nn" or (
+                            free_read_host >= container_resources[container_type]['disk_read_min']
+                            and free_write_host >= container_resources[container_type]['disk_write_min']
+                            and free_total_bw >= (container_resources[container_type]['disk_read_min'] + container_resources[container_type]['disk_write_min'])
+                            ):
+
+                            host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
+                            host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
+
+                            if config['disk_capabilities'] and config['disk_scaling'] and container_type != "rm-nn":
+                                host_disk = getFreestDisk(host)
+                                if host_disk == None: break
+
+                                if (disk_assignation[host['name']][host_disk]['free_read'] >= container_resources[container_type]['disk_read_min'] 
+                                and disk_assignation[host['name']][host_disk]['free_write'] >= container_resources[container_type]['disk_write_min']
+                                and disk_assignation[host['name']][host_disk]['free_total'] >= (container_resources[container_type]['disk_read_min'] + container_resources[container_type]['disk_write_min'])
+                                ):
+                                    disk_assignation[host['name']][host_disk]['free_read'] -= container_resources[container_type]['disk_read_min']
+                                    disk_assignation[host['name']][host_disk]['free_write'] -= container_resources[container_type]['disk_write_min']
+                                    disk_assignation[host['name']][host_disk]['free_total'] -= (container_resources[container_type]['disk_read_min'] + container_resources[container_type]['disk_write_min'])
+                                    disk_assignation[host['name']][host_disk]['new_containers'] += 1
+                                    for disk_name in host['resources']['disks']:
+                                        disk = host['resources']['disks'][disk_name]
+                                        if disk_name == host_disk:
+                                            disk['free_read'] -= container_resources[container_type]['disk_read_min']
+                                            disk['free_write'] -= container_resources[container_type]['disk_write_min']
+                                            break
+
                             if container_type == 'bigger' or container_type == 'smaller':
                                 assignation[host['name']]["irregular"] = 1
                                 irregular_container_to_allocate = 0
@@ -1470,22 +1689,6 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                             elif container_type == 'regular':
                                 assignation[host['name']]['regular'] += 1
                                 containers_to_allocate -= 1
-
-                            host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
-                            host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
-
-                            if config['disk_capabilities'] and config['disk_scaling'] and container_type != "rm-nn":
-                                host_disk = getFreestDisk(host)
-                                if host_disk == None: break
-
-                                if disk_assignation[host['name']][host_disk]['free_bw'] >= container_resources[container_type]['disk_min']:
-                                    disk_assignation[host['name']][host_disk]['free_bw'] -= container_resources[container_type]['disk_min']
-                                    disk_assignation[host['name']][host_disk]['new_containers'] += 1
-                                    for disk_name in host['resources']['disks']:
-                                        disk = host['resources']['disks'][disk_name]
-                                        if disk_name == host_disk:
-                                            disk['free'] -= container_resources[container_type]['disk_min']
-                                            break
 
                             container_allocated = True
                             break
@@ -1516,6 +1719,29 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     if freest_host == None:
                         break
 
+                    freest_host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
+                    freest_host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
+
+                    if config['disk_capabilities'] and config['disk_scaling'] and container_type != "rm-nn":
+                        host_disk = getFreestDisk(freest_host)
+                        if host_disk == None: break
+
+                        if (disk_assignation[freest_host['name']][host_disk]['free_read'] >= container_resources[container_type]['disk_read_min'] 
+                        and disk_assignation[freest_host['name']][host_disk]['free_write'] >= container_resources[container_type]['disk_write_min']
+                        and disk_assignation[freest_host['name']][host_disk]['free_total'] >= (container_resources[container_type]['disk_read_min'] + container_resources[container_type]['disk_write_min'])
+                        ):
+
+                            disk_assignation[freest_host['name']][host_disk]['free_read'] -= container_resources[container_type]['disk_read_min']
+                            disk_assignation[freest_host['name']][host_disk]['free_write'] -= container_resources[container_type]['disk_write_min']
+                            disk_assignation[freest_host['name']][host_disk]['free_total'] -= (container_resources[container_type]['disk_read_min'] + container_resources[container_type]['disk_write_min'])
+                            disk_assignation[freest_host['name']][host_disk]['new_containers'] += 1
+                            for disk_name in freest_host['resources']['disks']:
+                                disk = host['resources']['disks'][disk_name]
+                                if disk_name == host_disk:
+                                    disk['free_read'] -= container_resources[container_type]['disk_read_min']
+                                    disk['free_write'] -= container_resources[container_type]['disk_write_min']
+                                    break
+
                     if container_type == 'bigger' or container_type == 'smaller':
                         assignation[freest_host['name']]["irregular"] = 1
                         irregular_container_to_allocate = 0
@@ -1525,22 +1751,6 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
                     elif container_type == 'regular':
                         assignation[freest_host['name']]['regular'] += 1
                         containers_to_allocate -= 1
-
-                    freest_host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
-                    freest_host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
-
-                    if config['disk_capabilities'] and config['disk_scaling'] and container_type != "rm-nn":
-                        host_disk = getFreestDisk(freest_host)
-                        if host_disk == None: break
-
-                        if disk_assignation[freest_host['name']][host_disk]['free_bw'] >= container_resources[container_type]['disk_min']:
-                            disk_assignation[freest_host['name']][host_disk]['free_bw'] -= container_resources[container_type]['disk_min']
-                            disk_assignation[freest_host['name']][host_disk]['new_containers'] += 1
-                            for disk_name in freest_host['resources']['disks']:
-                                disk = host['resources']['disks'][disk_name]
-                                if disk_name == host_disk:
-                                    disk['free'] -= container_resources[container_type]['disk_min']
-                                    break
 
                     container_allocated = True
                     break
@@ -1874,7 +2084,16 @@ def services(request):
     for item in not_recognized_services:
         data_json.remove(item)
 
-    return render(request, 'services.html', {'data': data_json, 'config_errors': config_errors, 'requests_errors': requests_errors, 'requests_successes': requests_successes, 'requests_info': requests_info})
+    context = {
+        'data': data_json,
+        'config_errors': config_errors,
+        'requests_errors': requests_errors,
+        'requests_successes': requests_successes,
+        'requests_info': requests_info,
+        'config': config
+    }
+
+    return render(request, 'services.html', context)
   
 def service_switch(request,service_name):
 
@@ -2011,7 +2230,18 @@ def rules(request):
 
     config_errors = checkInvalidConfig()
 
-    return render(request, 'rules.html', {'data': data_json, 'resources':rulesResources, 'types':ruleTypes, 'config_errors': config_errors, 'requests_errors': requests_errors, 'requests_successes': requests_successes, 'requests_info': requests_info})
+    context = {
+        'data': data_json,
+        'resources': rulesResources,
+        'types': ruleTypes,
+        'config_errors': config_errors,
+        'requests_errors': requests_errors,
+        'requests_successes': requests_successes,
+        'requests_info': requests_info,
+        'config': config
+    }
+
+    return render(request, 'rules.html', context)
 
 def getRulesResources(data):
     resources = []
@@ -2133,6 +2363,368 @@ def checkInvalidConfig():
     error_lines.reverse()
 
     return error_lines
+
+def retrieve_global_hdfs_app(data):
+
+    global_hdfs_app = None
+    namenode_container_info = None
+
+    apps = getApps(data)
+    for app in apps:
+        if app['name'] == "global_hdfs":
+            global_hdfs_app = app
+            break
+
+    if global_hdfs_app:
+        for container in global_hdfs_app['containers_full']:
+            if 'namenode' in container['name']:
+                namenode_container_info = container
+                break
+
+    return global_hdfs_app, namenode_container_info
+
+def hdfs(request):
+
+    def get_entries(url, driver, parent_directory=""):
+
+        hdfs_entries = []
+
+        try:
+            driver.get(url)
+            driver.refresh() # this refresh is key to avoid getting data from older url and producing an infinite loop
+            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, "table-explorer")))
+        except WebDriverException:
+            return []
+        finally:
+            content = driver.page_source.encode('utf-8').strip()
+            soup = BeautifulSoup(content,"html.parser")
+
+            found_entries = soup.findAll(class_="explorer-entry")
+
+            for entry in found_entries:
+                entry_elements = []
+
+                if parent_directory: entry_elements.append(parent_directory)
+                else: entry_elements.append("/")
+
+                entry_path = entry.get('inode-path')
+                entry_full_path = "/".join([parent_directory, entry_path])
+
+                for element in entry:
+
+                    if element.text.strip():
+
+                        inner_element = element.text.encode('utf-8').decode()
+                        inner_entries = []
+
+                        if 'inode-type="DIRECTORY"' in str(element):
+                            inner_url = "/".join([url,inner_element])
+                            link_tag = '<a inode-type="DIRECTORY" href="{0}">{1}</a>'.format(inner_url, inner_element)
+                            entry_elements.append(link_tag)
+                            inner_entries = get_entries(inner_url, driver, "/".join([parent_directory, inner_element]))
+                        else:
+                            entry_elements.append(inner_element)
+
+                ## Add delete form
+                entry_elements.append({'get_hdfs_file': GetHdfsFileForm(initial={'origin_path': entry_full_path})})
+                entry_elements.append({'del_hdfs_file': DeleteHdfsFileForm(initial={'dest_path': entry_full_path})})
+
+                hdfs_entries.append(entry_elements)
+                hdfs_entries.extend(inner_entries)
+
+            return hdfs_entries
+
+
+    ## Get global hdfs app and its containers
+    try:
+        response = urllib.request.urlopen(base_url + "/structure/")
+        data_json = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data_json = {}
+
+    global_hdfs_app, namenode_container_info = retrieve_global_hdfs_app(data_json)
+
+    namenode_container = None
+    namenode_host = None
+    if namenode_container_info:
+        namenode_container = namenode_container_info['name']
+        namenode_host = namenode_container_info['host']
+
+    global_hdfs_ready = global_hdfs_app and namenode_host and not state.__is_webdriver_closing__()
+
+    context = {
+        'global_hdfs_app': global_hdfs_app,
+        'global_hdfs_ready': global_hdfs_ready
+    }
+
+    if global_hdfs_ready:
+
+        if (len(request.POST) > 0):
+            error = None
+            errors = []
+
+            if 'operation' in request.POST:
+                if request.POST['operation'] == 'add_dir': error = addDirHDFS(request, namenode_host, namenode_container)
+                elif request.POST['operation'] == 'add_file': error = addFileHDFS(request, namenode_host, namenode_container)
+                elif request.POST['operation'] == 'get_file': error = getFileHDFS(request, namenode_host, namenode_container)
+                elif request.POST['operation'] == 'del_file': error = removeFileHDFS(request, namenode_host, namenode_container)
+
+            if error: errors.append(error)
+
+            return redirect_with_errors('hdfs', error)
+
+        namenode_url = 'http://{0}:{1}/explorer.html#'.format("localhost", 55555)
+
+        state.__start_webdriver__() ## will only start webdriver if not started yet
+        driver = state.__get_webdriver__()
+
+        hdfs_entries = get_entries(namenode_url, driver)
+
+        context['data'] = hdfs_entries
+        context['namenode_url'] = namenode_url
+
+        context['addDirForm'] = AddHdfsDirForm()
+        context['addFileForm'] = AddHdfsFileForm()
+
+    ## Pending tasks
+    requests_errors = request.GET.getlist("errors", None)
+    requests_successes = request.GET.getlist("success", None)
+    requests_info = []
+    still_pending_tasks, successful_tasks, failed_tasks = get_pendings_tasks_to_string()
+    requests_errors.extend(failed_tasks)
+    requests_successes.extend(successful_tasks)
+    requests_info.extend(still_pending_tasks)
+
+    context['requests_errors'] = requests_errors
+    context['requests_successes'] = requests_successes
+    context['requests_info'] = requests_info
+    context['config'] = config
+
+    return render(request, 'hdfs.html', context)
+
+
+def addDirHDFS(request, namenode_host, namenode_container):
+
+    error = ""
+
+    ## Get path from request
+    if 'dest_path' in request.POST and request.POST['dest_path'] != "":
+        dir_to_create = request.POST['dest_path']
+        task = create_dir_on_hdfs.delay(namenode_host, namenode_container, dir_to_create)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"create_dir_on_hdfs")
+    else:
+        error = "Missing or empty directory path to create"
+    return error
+
+def addFileHDFS(request, namenode_host, namenode_container):
+
+    error = ""
+
+    ## Get path from request
+    if 'dest_path' in request.POST and request.POST['dest_path'] != "" and 'origin_path' in request.POST and request.POST['origin_path'] != "":
+        file_to_add = request.POST['origin_path']
+        dest_path = request.POST['dest_path']
+        task = add_file_to_hdfs.delay(namenode_host, namenode_container, file_to_add, dest_path)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"add_file_to_hdfs")
+    else:
+        error = "Missing or empty file path to upload or destination path on HDFS"
+    return error
+
+def getFileHDFS(request, namenode_host, namenode_container):
+
+    error = ""
+
+    ## Get path from request
+    if 'origin_path' in request.POST and request.POST['origin_path'] != "":
+        if 'dest_path' in request.POST: dest_path = request.POST['dest_path']
+        else: dest_path = ""
+        file_to_download = request.POST['origin_path']
+        task = get_file_from_hdfs.delay(namenode_host, namenode_container, file_to_download, dest_path)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"get_file_from_hdfs")
+    else:
+        error = "Missing or empty file path to download from HDFS or destination path"
+    return error
+
+def removeFileHDFS(request, namenode_host, namenode_container):
+
+    error = ""
+
+    ## Get path from request
+    if 'dest_path' in request.POST and request.POST['dest_path'] != "":
+        path_to_delete = request.POST['dest_path']
+        task = remove_file_from_hdfs.delay(namenode_host, namenode_container, path_to_delete)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"remove_file_from_hdfs")
+    else:
+        error = "Missing or empty path to delete"
+    return error
+
+def manage_global_hdfs(request):
+
+    # Common parameters
+    resources = ["cpu", "mem"]
+    if config['disk_capabilities'] and config['disk_scaling']: resources.extend(["disk_read", "disk_write"])
+    url = base_url + "/structure/"
+    app_name = "global_hdfs"
+    nn_container_prefix = "namenode"
+    dn_container_prefix = "datanode"
+
+    state = request.POST['manage_global_hdfs']
+
+    if state == "hdfs_on":
+        error = start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn_container_prefix)
+    else:
+        error = stop_global_hdfs(request, app_name, url, resources, nn_container_prefix)
+
+    return redirect('hdfs')
+
+def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn_container_prefix):
+
+    # Get host data
+    try:
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data_json = {}
+
+    hosts = getHostsNames(data_json)
+    containers = []
+
+    # Container resources for HDFS cluster
+    def_weight = DEFAULT_RESOURCE_VALUES['weight']
+    def_boundary = DEFAULT_LIMIT_VALUES['boundary']
+    def_boundary_type = DEFAULT_LIMIT_VALUES["boundary_type"]
+
+    hdfs_container_resources = {
+        'namenode': {
+            'cpu': {'max': 100, 'min': 100, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
+            'mem': {'max': 1024, 'min': 512, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
+        },
+        'datanode': {
+            'cpu': {'max': 100, 'min': 50, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
+            'mem': {'max': 1024, 'min': 512, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
+            'disk_read':  {'min': 10, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
+            'disk_write': {'min': 10, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
+        }
+    }
+
+    if len(hosts) > 0:
+        ## Create NameNode
+        host = hosts[0]
+        container = {}
+        container["container_name"] = nn_container_prefix + host_container_separator + host['name']
+        container["host"] = host['name']
+        for resource in ["cpu", "mem"]:
+            for key in ["max", "min", "weight", "boundary", "boundary_type"]:
+                container["{0}_{1}".format(resource,key)] = hdfs_container_resources['namenode'][resource][key]
+        containers.append(container)
+
+    for host in hosts:
+        ## Create DataNodes
+        container = {}
+        container["container_name"] = dn_container_prefix + host_container_separator + host['name']
+        container["host"] = host['name']
+        for resource in ["cpu", "mem"]:
+            for key in ["max", "min", "weight", "boundary", "boundary_type"]:
+                container["{0}_{1}".format(resource,key)] = hdfs_container_resources['datanode'][resource][key]
+        # Disk
+        if config['disk_capabilities'] and config['disk_scaling'] and 'disks' in host["resources"] and len(host["resources"]['disks']) > 0:
+            disk = next(iter(host["resources"]["disks"]))
+            container["disk"] = disk
+            container['disk_path'] = host["resources"]['disks'][disk]["path"] # verificar que funciona
+            container["disk_read_max"] = host["resources"]['disks'][disk]["max_read"]
+            container["disk_write_max"] = host["resources"]['disks'][disk]["max_write"]
+            for res in ["disk_read", "disk_write"]:
+                for key in ["min", "weight", "boundary", "boundary_type"]:
+                    res_key = "{0}_{1}".format(res, key)
+                    container[res_key] = hdfs_container_resources['datanode'][res][key]
+
+        containers.append(container)
+
+    if len(containers) == 0: raise Exception("Cannot create any containers for HDFS cluster")
+
+    virtual_cluster = config['virtual_mode']
+    app_name = "global_hdfs"
+    app_directory = "apps/" + app_name
+    url = url + "apps/" + app_name
+
+    ## APP info
+    app_files = {}
+    app_files['app_dir'] = app_name
+    app_files['app_type'] = "hadoop_app"
+    for key in ['start_script', 'stop_script', 'files_dir', 'install_script', 'app_jar']: app_files[key] = ""
+
+    put_field_data = {
+        'app': {
+            'name': app_name,
+            'resources': {},
+            'guard': False,
+            'subtype': "application",
+            'files_dir': "",
+            'install_script': "",
+            'start_script': "",
+            'stop_script': "",
+            'app_jar': "",
+            'framework': "hadoop"
+        },
+        'limits': {'resources': {}}
+    }
+
+    for resource in resources:
+        resource_max = 0
+        resource_min = 0
+
+        for container in containers:
+            if "{0}_max".format(resource) in container and "{0}_min".format(resource) in container:
+                resource_max += container["{0}_max".format(resource)]
+                resource_min += container["{0}_min".format(resource)]
+
+        put_field_data['app']['resources'][resource] = {'max': resource_max, 'min': resource_min, 'guard': 'false'}
+        put_field_data['app']['resources'][resource]['weight'] = def_weight
+        put_field_data['limits']['resources'][resource] = {'boundary': def_boundary, 'boundary_type': def_boundary_type}
+
+    state.__start_webdriver__()
+
+    task = start_global_hdfs_task.delay(url, app_name, app_files, containers, virtual_cluster, put_field_data, hosts)
+    print("Starting task with id {0}".format(task.id))
+    register_task(task.id, "{0}_app_task".format(app_name))
+
+    error = ""
+    return error
+
+def stop_global_hdfs(request, app_name, url, resources, nn_container_prefix):
+
+    container_list, app_files = getContainersFromApp(url, app_name)
+    scaler_polling_freq = getScalerPollFreq()
+
+    rm_host = None
+    rm_container = None
+    for container in container_list:
+        if nn_container_prefix in container['name']:
+            rm_container = container['name']
+            rm_host = container['host']
+            break
+
+    state.__stop_webdriver__()
+
+    error = ""
+    if not rm_container:
+        error = "Missing namenode container on hdfs app"
+        # Just remove the app and its containers
+        task = remove_app_task.delay(url, "apps", app_name, container_list, app_files)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"remove_app_task")
+    else:
+        # First stop the cluster and then remove the app and its containers
+        task = stop_hdfs_task.delay(url, app_name, app_files, container_list, scaler_polling_freq, rm_host, rm_container)
+        print("Starting task with id {0}".format(task.id))
+        register_task(task.id,"stop_hdfs_task")
+
+    return error
+
 
 ## Deprecated functions
 ## Not used ATM

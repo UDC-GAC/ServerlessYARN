@@ -20,7 +20,7 @@ scriptDir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(scriptDir + "/../../services/serverless_containers_web/ui")
 from utils import request_to_state_db
 
-# usage example: add_hosts_API.py host0 {'cpu': 4, 'mem': 4096, 'energy': 200} {'ssd_0':{'path':'$HOME/ssd','bw':500},'hdd_0':{'path':'$HOME/hdd','bw':100}} config/config.yml
+# usage example: add_hosts_API.py host0 {'cpu': 4, 'mem': 4096, 'energy': 200} {'ssd_0':{'path':'$HOME/ssd','read_bw':500,'write_bw':400},'hdd_0':{'path':'$HOME/hdd','read_bw':150,'write_bw':100}} config/config.yml
 
 if __name__ == "__main__":
 
@@ -65,8 +65,10 @@ if __name__ == "__main__":
                     new_disk = {}
                     new_disk['name'] = disk
                     new_disk['path'] = disks[disk]['path']
-                    new_disk['max']  = disks[disk]['bw']
-                    new_disk['free'] = disks[disk]['bw']
+                    new_disk['max_read']  = disks[disk]['read_bw']
+                    new_disk['free_read'] = disks[disk]['read_bw']
+                    new_disk['max_write']  = disks[disk]['write_bw']
+                    new_disk['free_write'] = disks[disk]['write_bw']
                     new_disk['load'] = 0
                     if   "ssd" in disk: new_disk['type'] = "SSD"
                     elif "hdd" in disk: new_disk['type'] = "HDD"

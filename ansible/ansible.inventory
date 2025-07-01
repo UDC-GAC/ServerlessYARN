@@ -1,4 +1,4 @@
-[server]
-sc-server host_ip=192.168.56.200
+[platform_management]
+platform_server host_ip=192.168.56.200 ansible_host=server
 [nodes]
 host0 cpu=4 mem=4096 energy=200 disks='{"ssd_0":{"path":"/home/vagrant/ssd"},"hdd_0":{"path":"/home/vagrant/hdd"},"lvm":{"path":"/home/vagrant/lvm"}}' containers='["host0-cont0","host0-cont1"]'

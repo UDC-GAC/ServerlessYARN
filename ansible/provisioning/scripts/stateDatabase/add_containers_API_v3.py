@@ -78,15 +78,17 @@ if __name__ == "__main__":
 
             # Disk
             if 'disk' in cont and config['disk_capabilities'] and config['disk_scaling']:
-                cont_resources.append("disk")
-                put_field_data['container']['resources']["disk"] = {}
+                put_field_data['container']['resources']["disk"] = dict()
                 put_field_data['container']['resources']["disk"]["name"] = cont['disk']
                 put_field_data['container']['resources']["disk"]["path"] = cont['disk_path']
-                put_field_data['container']['resources']["disk"]["max"] = int(cont['disk_max'])
-                put_field_data['container']['resources']["disk"]["current"] = int(cont['disk_min'])
-                put_field_data['container']['resources']["disk"]["min"] = int(cont['disk_min'])
-                put_field_data['container']['resources']["disk"]["guard"] = (cont.get('disk_guard', 'true') == 'true')
-                if 'disk_weight' in cont: put_field_data['container']['resources']["disk"]["weight"] = int(cont['disk_weight'])
+                for metric in ["disk_read", "disk_write"]:
+                    cont_resources.append(metric)
+                    put_field_data['container']['resources'][metric] = dict()
+                    put_field_data['container']['resources'][metric]["max"] = int(cont['{0}_max'.format(metric)])
+                    put_field_data['container']['resources'][metric]["current"] = int(cont['{0}_min'.format(metric)])
+                    put_field_data['container']['resources'][metric]["min"] = int(cont['{0}_min'.format(metric)])
+                    put_field_data['container']['resources'][metric]["guard"] = (cont.get('{0}_guard'.format(metric), 'true') == 'true')
+                    if '{0}_weight'.format(metric) in cont: put_field_data['container']['resources'][metric]["weight"] = int(cont['{0}_weight'.format(metric)])
 
             ## Limits
             for res in cont_resources:

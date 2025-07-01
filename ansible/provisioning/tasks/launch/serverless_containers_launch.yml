@@ -33,9 +33,14 @@
   ignore_errors: yes
   tags: restart_services
 
+- name: Set list with only session names
+  set_fact:
+    tmux_sessions: "{{ tmux_output.stdout_lines | map('split', ':') | map ('first') | list }}"
+  tags: restart_services
+
 # Starting Services
 - name: Starting Services
-  when: "item not in tmux_output.stdout"
+  when: "item not in tmux_sessions"
   shell: "bash scripts/services/{{ item }}/start_tmux.sh"
   args:
     chdir: "{{ serverless_containers_path }}"
@@ -52,7 +57,7 @@
   tags: restart_services
 
 - name: Starting Energy Services
-  when: "power_budgeting and item not in tmux_output.stdout"
+  when: "power_budgeting and item not in tmux_sessions"
   shell: "bash scripts/services/{{ item }}/start_tmux.sh"
   args:
     chdir: "{{ serverless_containers_path }}"
@@ -63,7 +68,7 @@
 
 # Start WattWizard when power_modelling is "yes"
 - name: Starting WattWizard to create power models
-  when: "power_budgeting and power_modelling and 'watt_wizard' not in tmux_output.stdout"
+  when: "power_budgeting and power_modelling and 'watt_wizard' not in tmux_sessions"
   shell: "bash scripts/services/watt_wizard/start_tmux.sh"
   args:
     chdir: "{{ serverless_containers_path }}"
@@ -74,7 +79,7 @@
 - name: Start WattTrainer and deactivate
   block:
     - name: Starting WattTrainer to train power models in real time
-      when: "'watt_trainer' not in tmux_output.stdout"
+      when: "'watt_trainer' not in tmux_sessions"
       shell: "bash scripts/services/watt_trainer/start_tmux.sh"
       args:
         chdir: "{{ serverless_containers_path }}"
@@ -120,7 +125,7 @@
 
 - name: Initializing State Database - add disks to existing LV
   when: disk_capabilities and disk_scaling
-  shell: "python3 scripts/stateDatabase/update_host_disks_bw_db.py {{ item }} lvm {{ hostvars[item].disks.lvm.bw }} MB/s config/config.yml"
+  shell: "python3 scripts/stateDatabase/update_host_disks_bw_db.py {{ item }} lvm {{ hostvars[item].disks.lvm.read_bw }} {{ hostvars[item].disks.lvm.write_bw }} MB/s config/config.yml"
   args:
     executable: /bin/bash
   with_items: "{{ nodes }}"
@@ -170,3 +175,33 @@
     - Refeeder
     - Rebalancer
   tags: restart_services
+
+### Limit containers BW when extending LV to speed up the extension process
+## Disable services that may send scaling requests before limiting containers bw
+- name: Disabling services that generate scaling requests
+  shell: "bash scripts/orchestrator/{{ item }}/deactivate.sh"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+  with_items:
+    - Guardian
+    - Rebalancer
+  tags: never, disable_scaling_services
+
+## Limit containers bw
+- name: Limiting containers bw
+  shell: "python3 scripts/stateDatabase/limit_containers_bw.py {{ host_list }} config/config.yml"
+  args:
+    executable: /bin/bash
+  tags: never, limit_containers_bw
+
+## Re-enable services after extending LV
+- name: Enabling services that generate scaling requests
+  shell: "bash scripts/orchestrator/{{ item }}/activate.sh"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+  with_items:
+    - Guardian
+    - Rebalancer
+  tags: never, enable_scaling_services

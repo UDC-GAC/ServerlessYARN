@@ -17,4 +17,4 @@ ansible/provisioning/apps/*
 !ansible/provisioning/apps/npb_app/
 !ansible/provisioning/apps/smusket_app/
 !ansible/provisioning/apps/xairugo/
-
+!ansible/provisioning/apps/hdfs_sample/

@@ -13,6 +13,12 @@ hdfs_put_time=$( echo "$end - $start" | bc -l )
 # Run JAR
 start=`date +%s.%N`
 $HADOOP_HOME/bin/hadoop jar $HADOOP_HOME/share/hadoop/mapreduce/hadoop-mapreduce-examples-{{ hadoop_version }}.jar grep input output 'dfs[a-z.]+'
+
+## Generate mock results (to test uploading data from local HDFS to global one)
+touch $HOME/output_data
+echo "TEST for upload data from local HDFS to hlobal one" >> $HOME/output_data
+$HADOOP_HOME/bin/hdfs dfs -put $HOME/output_data
+
 end=`date +%s.%N`
 jar_runtime=$( echo "$end - $start" | bc -l )
 

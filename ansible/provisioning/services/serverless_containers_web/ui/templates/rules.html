@@ -12,6 +12,7 @@
   <a href="{% url 'apps' %}">Apps</a>
   <a href="{% url 'services' %}">Services</a>
   <a href="{% url 'rules' %}" class="active">Rules</a>
+  {% if config.global_hdfs %}<a href="{% url 'hdfs' %}">HDFS</a>{% endif %}
 </div> 
 
 <div class="content">
