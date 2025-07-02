@@ -59,7 +59,6 @@ DEFAULT_COMMON_FIELDS = {
                                                    ("percentage_of_max", "Percentage of max"),
                                                    ("percentage_of_current", "Percentage of current"),
                                                ),
-                                               initial=DEFAULT_LIMIT_VALUES["boundary_type"],
                                                required=False),
         'disk_write_boundary_type': forms.ChoiceField(label="Disk write boundary type (percentage of max or current)",
                                                choices=(

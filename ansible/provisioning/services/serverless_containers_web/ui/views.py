@@ -511,31 +511,23 @@ def getLimits(structure_name):
 def setLimitsForm(structure, form_action):
     editable_data = 0
     form_initial_data = {'name': structure['name']}
-
-    resource_list = ["cpu","mem","disk_read", "disk_write", "net","energy"]
+    resource_list = ["cpu", "mem", "disk_read", "disk_write", "net", "energy"]
 
     for resource in resource_list:
-        if resource in structure['limits']:
-            if 'boundary' in structure['limits'][resource]:
+        for param in ["boundary", "boundary_type"]:
+            value = structure.get('limits', {}).get(resource, {}).get(param, None)
+            if value is not None:
                 editable_data += 1
-                form_initial_data[resource + '_boundary'] = structure['limits'][resource]['boundary']
-            if 'boundary_type' in structure['limits'][resource]:
-                editable_data += 1
-                form_initial_data[resource + '_boundary'] = structure['limits'][resource]['boundary_type']
+                form_initial_data[resource + '_' + param] = value
     
     structure['limits_form'] = LimitsForm(initial=form_initial_data)
     structure['limits_form'].helper.form_action = form_action
     structure['limits_editable_data'] = editable_data
     
     for resource in resource_list:
-        if resource not in structure['limits']:
-            structure['limits_form'].helper[resource + '_boundary'].update_attributes(type="hidden")
-            structure['limits_form'].helper[resource + '_boundary_type'].update_attributes(type="hidden")
-        else:
-            if 'boundary' not in structure['limits'][resource]:
-                structure['limits_form'].helper[resource + '_boundary'].update_attributes(type="hidden")
-            if 'boundary_type' not in structure['limits'][resource]:
-                structure['limits_form'].helper[resource + '_boundary_type'].update_attributes(type="hidden")
+        for param in ["boundary", "boundary_type"]:
+            if structure.get('limits', {}).get(resource, {}).get(param, None) is None:
+                structure['limits_form'].helper[resource + '_' + param].update_attributes(type="hidden")
 
 
 def setStartAppForm(structure, form_action, started_app):
@@ -703,7 +695,6 @@ def processLimits(request, url):
     errors = []
     if "name" in request.POST and "operation" not in request.POST:
         structure_name = request.POST['name']
-
         resources = ["cpu", "mem", "disk_read", "disk_write", "net", "energy"]
         for resource in resources:
             if resource + "_boundary" in request.POST and resource + "_boundary_type" in request.POST:
