@@ -1,0 +1,19 @@
+# Power budgeting
+power_budgeting: no # "yes" to use power budgets, power will be accounted, restricted and shared among containers
+power_modelling: no # "yes" to use power models to get CPU Usage/Power proportionalities instead of using fixed values
+online_learning: no # "yes" to automatically retrain power models in real-time using OpenTSDB time series
+power_meter: "smartwatts" # rapl, smartwatts, selfwatts or stablewatts
+
+## WattWizard Config
+structures: "host"
+model_variables: "user_load,system_load"
+prediction_methods: "polyreg,sgdregressor"
+modelled_cpu: "intel_xeon_silver_4216"
+train_files: "General"
+guardian_default_model: "polyreg_General"
+
+## InfluxDB Config
+influxdb_host: "montoxo.des.udc.es"
+influxdb_bucket: "compute2"
+influxdb_token: "MyToken"
+influxdb_org: "MyOrg"

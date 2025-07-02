@@ -1,0 +1,14 @@
+{% set modules = [
+  'config/modules/01-general.yml',
+  'config/modules/02-hosts.yml',
+  'config/modules/03-services.yml',
+  'config/modules/04-disk.yml',
+  'config/modules/05-power.yml',
+  'config/modules/06-hdfs.yml',
+  'config/modules/07-containers.yml',
+  'config/modules/08-apps.yml'
+] %}
+{% for mod in modules %}
+{{ lookup('file', mod) }}
+
+{% endfor %}

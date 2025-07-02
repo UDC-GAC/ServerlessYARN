@@ -1,0 +1,35 @@
+## Containers initial values
+number_of_containers_per_node: 1
+# CPU
+max_cpu_percentage_per_container: 200
+min_cpu_percentage_per_container: 50
+cpu_boundary: 10
+cpu_boundary_type: "percentage_of_max"
+# Memory
+max_memory_per_container: 2048
+min_memory_per_container: 512
+mem_boundary: 15
+mem_boundary_type: "percentage_of_max"
+# Energy
+max_energy_per_container: 40
+min_energy_per_container: 10
+energy_boundary: 5
+energy_boundary_type: "percentage_of_max"
+# Disk (only relevant if disk_scaling is set to "yes")
+# Disk read
+max_disk_read_bw_per_container: 100
+min_disk_read_bw_per_container: 50
+disk_read_boundary: 10
+disk_read_boundary_type: "percentage_of_max"
+# Disk write
+max_disk_write_bw_per_container: 100
+min_disk_write_bw_per_container: 50
+disk_write_boundary: 10
+disk_write_boundary_type: "percentage_of_max"
+
+## Container network configuration
+# host interface through which the containers of different nodes communicate with each other
+iface: "{{ 'eth1' if virtual_mode else 'eno1' }}"
+# currently supported modes: bridge, ptp, macvlan, ipvlan
+mode: ipvlan
+subnet: 10.22.0.0/16

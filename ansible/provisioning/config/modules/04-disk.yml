@@ -1,0 +1,3 @@
+# Disk
+disk_capabilities: no # "yes" to allow disk capabilities, such as Logical Volumes creation
+disk_scaling: no # "yes" to allow disk bandwidth scaling (only relevant when using disk capabilities)

@@ -8,6 +8,16 @@ INVENTORY=${scriptDir}/../../ansible.inventory
 ## Copy ansible.cfg to $HOME
 cp ${scriptDir}/../../ansible.cfg ~/.ansible.cfg
 
+# This is useful in case we need to use a newer version of ansible installed in $HOME/.local/bin
+export PATH=$HOME/.local/bin:$PATH
+
+## Install required ansible collections
+ansible-galaxy collection install ansible.posix:==1.5.0
+
+echo "Load platform configuration from modules..."
+ansible-playbook ${scriptDir}/../load_config_playbook.yml -i $INVENTORY
+echo "Configuration loaded!"
+
 if [ ! -z ${SLURM_JOB_ID} ]
 then
     echo "Downloading required packages for scripts"
@@ -18,12 +28,6 @@ then
     echo "Loading ansible inventory file"
     python3 ${scriptDir}/load_inventory_from_conf.py
 fi
-
-# This is useful in case we need to use a newer version of ansible installed in $HOME/.local/bin
-export PATH=$HOME/.local/bin:$PATH
-
-## Install required ansible collections
-ansible-galaxy collection install ansible.posix:==1.5.0
 
 echo ""
 echo "Installing necessary services and programs..."
