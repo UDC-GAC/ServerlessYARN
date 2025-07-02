@@ -6,6 +6,10 @@ artifacts/
 *.log
 *.jar
 
+## Dynamic configuration files
+ansible/provisioning/config/config.yml
+ansible/ansible.inventory
+
 ## Exclude apps directory, but including some specific subdirectories and files
 ansible/provisioning/apps/*
 !ansible/provisioning/apps/README.md
