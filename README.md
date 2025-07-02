@@ -49,20 +49,22 @@ The Serverless platform need to be installed and deployed on the master node (or
     cd ServerlessYARN
     ```
 
-- Modify **ansible/provisioning/config/config.yml** to customize your environment.
+- Create **ansible/provisioning/config/config.yml** to customize your environment (a template is provided in the same directory).
+    > If this configuration file is not created, it will be created automatically during startup by copying the corresponding template.
 
 - You may deploy the virtual cluster with Vagrant (if needed):
     ```
     vagrant up
     ```
 
-- Inside the server node (you can use "vagrant ssh" to log in when using a virtual cluster) go to the **"ansible/provisioning/scripts"** directory within the platform root directory (accessible from **"/vagrant"** on the virtual cluster). Then, execute the scripts to install and set up all the necessary requirements for the platform and start its services:
+- Inside the server node (you can use "vagrant ssh" to log in when using a virtual cluster) go to the **"ansible/provisioning/scripts"** directory within the platform root directory (accessible from **"/vagrant"** on the virtual cluster). Then, execute the script to install and set up all the necessary requirements for the platform and start its services:
     ```
-    python3 load_inventory_from_conf.py
     bash start_all.sh
     ```
 
-**NOTE**: When deploying on a physical cluster that relies on SLURM for job scheduling, you can skip the execution of the **"load_inventory_from_conf.py"** script. The Ansible inventory will be automatically generated considering the available nodes. A sample script for sbatch is provided in the **"slurm"** directory.
+    > By default this script will generate an Ansible inventory considering the current configuration. You can skip this phase with the `-s` option to configure the inventory yourself.
+
+    > When deploying on a physical cluster that relies on SLURM for job scheduling, the Ansible inventory will be automatically generated considering the available nodes. Again, you can skip this phase with the `-s` option.
 
 
 - Once you are done, you can shutdown the virtual cluster (if applicable) exiting the server node and executing:
@@ -74,6 +76,8 @@ The Serverless platform need to be installed and deployed on the master node (or
     ```
     vagrant destroy --force
     ```
+
+- For deployments on physical clusters relying on SLURM you may consider the sample script for sbatch provided in the **"slurm"** directory.
 
 ### Web Interface
 
