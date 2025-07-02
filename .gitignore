@@ -7,8 +7,9 @@ artifacts/
 *.jar
 
 ## Dynamic configuration files
-ansible/provisioning/config/config.yml
 ansible/ansible.inventory
+ansible/provisioning/config/config.yml
+ansible/provisioning/config/modules/*.yml
 
 ## Exclude apps directory, but including some specific subdirectories and files
 ansible/provisioning/apps/*

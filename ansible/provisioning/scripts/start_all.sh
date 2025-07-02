@@ -4,7 +4,6 @@ set -e
 ## Main variables
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 INVENTORY=${scriptDir}/../../ansible.inventory
-FILES_TO_TEMPLATE="$INVENTORY ${scriptDir}/../config/config.yml"
 
 print_usage ()
 {
@@ -29,6 +28,21 @@ done
 check_files_to_template ()
 {
     echo "Checking required files..."
+
+    config_modules_path="${scriptDir}/../config/modules"
+    config_modules="
+        ${config_modules_path}/01-general.yml \
+        ${config_modules_path}/02-hosts.yml \
+        ${config_modules_path}/03-services.yml \ 
+        ${config_modules_path}/04-disk.yml \
+        ${config_modules_path}/05-power.yml \
+        ${config_modules_path}/06-hdfs.yml \
+        ${config_modules_path}/07-containers.yml \
+        ${config_modules_path}/08-apps.yml \
+    "
+
+    FILES_TO_TEMPLATE="$INVENTORY $config_modules"
+
     for file in $FILES_TO_TEMPLATE
     do
         if [ ! -f $file ]; then
@@ -38,13 +52,28 @@ check_files_to_template ()
     done
 }
 
-setup_slurm_config ()
+setup_config ()
 {
+    # This is useful in case we need to use a newer version of ansible installed in $HOME/.local/bin
+    export PATH=$HOME/.local/bin:$PATH
+
+    ## Install required ansible collections
     echo ""
-    echo "Downloading required packages for scripts"
-    pip3 install -r ${scriptDir}/requirements.txt
-    echo "Loading config from SLURM"
-    python3 ${scriptDir}/load_config_from_slurm.py
+    ansible-galaxy collection install ansible.posix:==1.5.0
+
+    echo "Load platform configuration from modules..."
+    ansible-playbook ${scriptDir}/../load_config_playbook.yml -i $INVENTORY
+    echo "Configuration loaded!"
+
+    # Check if we are in a SLURM environment
+    if [ ! -z ${SLURM_JOB_ID} ]
+    then
+        echo ""
+        echo "Downloading required packages for scripts"
+        pip3 install -r ${scriptDir}/requirements.txt
+        echo "Loading config from SLURM"
+        python3 ${scriptDir}/load_config_from_slurm.py
+    fi
 }
 
 load_inventory_file ()
@@ -56,13 +85,6 @@ load_inventory_file ()
 
 run_ansible_playbooks ()
 {
-    # This is useful in case we need to use a newer version of ansible installed in $HOME/.local/bin
-    export PATH=$HOME/.local/bin:$PATH
-
-    ## Install required ansible collections
-    echo ""
-    ansible-galaxy collection install ansible.posix:==1.5.0
-
     echo ""
     echo "Installing necessary services and programs..."
     ansible-playbook ${scriptDir}/../install_playbook.yml -i $INVENTORY
@@ -91,11 +113,7 @@ cp ${scriptDir}/../../ansible.cfg ~/.ansible.cfg
 
 check_files_to_template
 
-# Check if we are in a SLURM environment
-if [ ! -z ${SLURM_JOB_ID} ]
-then
-    setup_slurm_config
-fi
+setup_config
 
 # Check if load inventory flag is enabled
 if [ "$load_inventory_flag" = true ]

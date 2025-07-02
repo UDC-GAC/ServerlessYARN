@@ -1,0 +1,9 @@
+- name: Generate configuration file from modules
+  hosts: localhost
+  gather_facts: no
+
+  tasks:
+    - name: Dump modules into config.yml
+      template:
+        src: config/config.j2
+        dest: config/config.yml

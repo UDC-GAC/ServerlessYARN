@@ -1,0 +1,11 @@
+## Services Config
+orchestrator_url: "{{ server_ip }}"
+orchestrator_port: 5000
+wattwizard_url: "{{ server_ip }}"
+wattwizard_port: 7777
+couchdb_url: "{{ server_ip }}"
+couchdb_port: 5984
+opentsdb_url: "{{ server_ip }}"
+opentsdb_port: 4242
+mongodb_url: "{{ server_ip }}"
+mongodb_port: 27017
