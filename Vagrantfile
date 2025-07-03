@@ -23,7 +23,7 @@ CGROUPS_VERSION = general_config['cgroups_version']
 
 Vagrant.configure("2") do |config|
 
-  config.vm.box = "bento/ubuntu-22.04" 
+  config.vm.box = "bento/ubuntu-22.04"
   config.vm.box_version = "202407.23.0"
   config.vm.box_check_update = false
 
@@ -37,8 +37,12 @@ Vagrant.configure("2") do |config|
   # Master Node aka Server
   config.vm.define "server", primary: true do |server|
   	server.vm.hostname = "server"
-  	server.vm.provision "shell", path: "provision/server.sh"
-  	server.vm.network "private_network", ip: SERVER_IP	
+	server.vm.provision "main_setup", type: "shell", path: "provision/server.sh"
+
+	server.vm.provision "cgroups_setup", type: "shell", path: "provision/cgroups_setup.sh", args: CGROUPS_VERSION
+	server.vm.provision :reload
+
+	server.vm.network "private_network", ip: SERVER_IP
   	server.vm.network "forwarded_port", guest: WEB_INTERFACE_PORT, host: WEB_INTERFACE_PORT, host_ip: "127.0.0.1"
 
   	server.vm.provider "virtualbox" do |vb|
@@ -49,7 +53,7 @@ Vagrant.configure("2") do |config|
 		vb.gui = false
 		vb.linked_clone = false
   	end
-  end	
+  end
 
 
   server_ip_to_number = SERVER_IP.split(".").map(&:to_i).pack('CCCC').unpack('N')[0]
@@ -58,13 +62,13 @@ Vagrant.configure("2") do |config|
   (0..N-1).each do |i|
     config.vm.define "host#{i}" do |node|
 		node.vm.hostname = "host#{i}"
-		node.vm.provision "shell", path: "provision/nodes.sh"
+		node.vm.provision "main_setup", type: "shell", path: "provision/nodes.sh"
 
-		node.vm.provision "shell", path: "provision/cgroups_setup.sh", args: CGROUPS_VERSION
+		node.vm.provision "cgroups_setup", type: "shell", path: "provision/cgroups_setup.sh", args: CGROUPS_VERSION
 		node.vm.provision :reload
 
 		number_to_ip = [server_ip_to_number + 1 + i].pack('N').unpack('CCCC').join('.')
-		node.vm.network :private_network, ip: number_to_ip
+		node.vm.network "private_network", ip: number_to_ip
 
 		node.vm.provider "virtualbox" do |vb|
 			vb.name = "ServerlessYARN-Host#{i}"
