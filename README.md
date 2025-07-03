@@ -19,7 +19,7 @@ It is provided an automatic way of deploying the platform through IaC tools such
 - VirtualBox
 - Vagrant plugins: vagrant-hostmanager, vagrant-reload, vagrant-vbguest
 
-> vagrant-reload plugin is only necessary when deploying nodes with cgroups V2
+> vagrant-reload plugin is only necessary when deploying nodes with cgroups V1, since V2 is the default installation
 
 You may install the vagrant plugins with the following commands:
 ```
@@ -49,8 +49,8 @@ The Serverless platform need to be installed and deployed on the master node (or
     cd ServerlessYARN
     ```
 
-- Create **ansible/provisioning/config/config.yml** to customize your environment (a template is provided in the same directory).
-    > If this configuration file is not created, it will be created automatically during startup by copying the corresponding template.
+- Create configuration modules in YAML format in **ansible/provisioning/config/modules** to customize your environment (templates are provided in the same directory).
+    > If these configuration module files are not created, they will be created automatically during startup by copying the corresponding templates.
 
 - You may deploy the virtual cluster with Vagrant (if needed):
     ```
