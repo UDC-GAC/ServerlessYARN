@@ -33,7 +33,7 @@ check_files_to_template ()
     config_modules="
         ${config_modules_path}/01-general.yml \
         ${config_modules_path}/02-hosts.yml \
-        ${config_modules_path}/03-services.yml \ 
+        ${config_modules_path}/03-services.yml \
         ${config_modules_path}/04-disk.yml \
         ${config_modules_path}/05-power.yml \
         ${config_modules_path}/06-hdfs.yml \
