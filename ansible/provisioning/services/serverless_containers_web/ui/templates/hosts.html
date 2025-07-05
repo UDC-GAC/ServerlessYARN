@@ -7,42 +7,42 @@
 
 <div class="content">
     
-<H4>Hosts</H4>
+    <H4>Hosts</H4>
 
-	<!-- Requests -->
-	{% include 'functions/alerts.html' with requests=requests %}
+    <!-- Requests -->
+    {% include 'functions/alerts.html' with requests=requests %}
 
-	<!-- Hosts -->
-  <ul id="tabs">
-    {% for item in data %}
-    <li>
-    <button class="accordion">{{ item.name }}</button>
-	<div class="panel">
-	<p></p>
-		{% include 'functions/resources.html' with item=item structure_type="host" %}
-  		<a class="button" href="{% url 'structure_detail' item.name %}">Full details</a>
-	</div>
-    <HR>
-	<HR>
+    <!-- Hosts -->
+    <ul id="tabs">
+        {% for item in data %}
+            <li>
+                <button class="accordion">{{ item.name }}</button>
+                <div class="panel">
+                    <p></p>
+                    {% include 'functions/resources.html' with item=item structure_type="host" %}
+                    <a class="button" href="{% url 'structure_detail' item.name %}">Full details</a>
+                </div>
+                <HR>
+                <HR>
 
-	<!-- Host containers -->
-    Containers:
-	{% for cont in item.containers %}
-		{% include 'functions/container_data.html' with guard_switch="hosts" cont=cont %}
-	{% endfor %}
-    </li>    
-    {% endfor %}
-  </ul>
+                <!-- Host containers -->
+                Containers:
+                {% for cont in item.containers %}
+                    {% include 'functions/container_data.html' with guard_switch="hosts" cont=cont %}
+                {% endfor %}
+            </li>
+        {% endfor %}
+    </ul>
 
-  <!-- Forms -->
-  {% if config.disk_capabilities %}
-    {% include 'functions/form.html' with form_id="add-disks-hosts" button_name="Add Disks" form_title="Add Disks" form=addStructureForm.add_disks_to_hosts %}
-  {% endif %}
+    <!-- Forms -->
+    {% if config.disk_capabilities %}
+        {% include 'functions/form.html' with form_id="add-disks-hosts" button_name="Add Disks" form_title="Add Disks" form=addStructureForm.add_disks_to_hosts %}
+    {% endif %}
 
-  {% include 'functions/form.html' with form_id="add-host"     button_name="Add Host"     form_title="Add Host"     form=addStructureForm.host %}
-  {% include 'functions/form.html' with form_id="remove-hosts" button_name="Remove Hosts" form_title="Remove Hosts" form=removeStructuresForm %}
+    {% include 'functions/form.html' with form_id="add-host"     button_name="Add Host"     form_title="Add Host"     form=addStructureForm.host %}
+    {% include 'functions/form.html' with form_id="remove-hosts" button_name="Remove Hosts" form_title="Remove Hosts" form=removeStructuresForm %}
 
 </div>
-<HR> 
+<HR>
 
 {% endblock %}

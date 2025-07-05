@@ -6,77 +6,78 @@
 {% include 'functions/menu.html' with config=config active="apps" %}
 
 <div class="content">
-    
-<H4>Apps</H4>
 
-	<!-- Requests -->
-	{% include 'functions/alerts.html' with requests=requests %}
+    <H4>Apps</H4>
 
-	<!-- Apps -->
-  <ul id="tabs">
-    {% for item in data %}
-    <li>
-    <button class="accordion">{{ item.name }}</button>
-	<div class="panel">
-		<p></p>
-		<table class="data_table">
-			<tr>
-				{% include 'functions/switch.html' with switch_url="apps_guard_switch" item_name=item.name switch_name="guard_switch" switch_prefix="guard" cell_name="Guard" state=item.guard on_state_label="Unguard" off_state_label="Guard" %}
-			</tr>
-		
-			<tr><td>Guard Policy</td> <td>{{ item.guard_policy }}</td></tr>
-			{% if item.files_dir %} <tr><td>Files directory</td> <td>{{ item.files_dir }}</td></tr> {% endif %}
-			{% if item.install_script %} <tr><td>Install script</td> <td>{{ item.install_script }}</td></tr> {% endif %}
-			{% if item.start_script %} <tr><td>Start script</td> <td>{{ item.start_script }}</td></tr> {% endif %}
-			{% if item.stop_script %} <tr><td>Stop script</td> <td>{{ item.stop_script }}</td></tr> {% endif %}
-			{% if item.framework %} <tr><td>Framework</td> <td>{{ item.framework }}</td></tr> {% endif %}
-			{% if item.app_jar %} <tr><td>App JAR</td> <td>{{ item.app_jar }}</td></tr> {% endif %}
+    <!-- Requests -->
+    {% include 'functions/alerts.html' with requests=requests %}
 
-		</table>
-		<p></p>
+    <!-- Apps -->
+    <ul id="tabs">
+        {% for item in data %}
+            <li>
+                <button class="accordion">{{ item.name }}</button>
+                <div class="panel">
+                    <p></p>
+                    <table class="data_table">
+                        <tr>
+                            {% include 'functions/switch.html' with switch_url="apps_guard_switch" item_name=item.name switch_name="guard_switch" switch_prefix="guard" cell_name="Guard" state=item.guard on_state_label="Unguard" off_state_label="Guard" %}
+                        </tr>
 
-        {% include 'functions/resources.html' with item=item structure_type="app" %}
-        {% include 'functions/limits.html' with item=item %}
+                        <tr><td>Guard Policy</td> <td>{{ item.guard_policy }}</td></tr>
+                        {% if item.files_dir %} <tr><td>Files directory</td> <td>{{ item.files_dir }}</td></tr> {% endif %}
+                        {% if item.install_script %} <tr><td>Install script</td> <td>{{ item.install_script }}</td></tr> {% endif %}
+                        {% if item.start_script %} <tr><td>Start script</td> <td>{{ item.start_script }}</td></tr> {% endif %}
+                        {% if item.stop_script %} <tr><td>Stop script</td> <td>{{ item.stop_script }}</td></tr> {% endif %}
+                        {% if item.framework %} <tr><td>Framework</td> <td>{{ item.framework }}</td></tr> {% endif %}
+                        {% if item.app_jar %} <tr><td>App JAR</td> <td>{{ item.app_jar }}</td></tr> {% endif %}
 
-  		<a class="button" href="{% url 'structure_detail' item.name %}">Full details</a>
-	</div>    	
-    <HR>
-    <HR>
-	<!-- App containers -->
-    Containers:
-	{% for cont in item.containers_full %}
-		{% include 'functions/container_data.html' with guard_switch="apps" cont=cont %}
-	{% endfor %}
+                    </table>
+                    <p></p>
 
-	<!-- Forms -->
-	{% if item.started_app %}
-		<p></p>
-		{% include 'functions/switch.html' with switch_url="apps_stop_switch" item_name=item.name switch_name="stop_switch" switch_prefix="app" state=item.started_app on_state_label="Stop app" %}
-	{% endif %}
+                    {% include 'functions/resources.html' with item=item structure_type="app" %}
+                    {% include 'functions/limits.html' with item=item %}
 
-	{% if item.start_app_form %}
-		<p></p>
-		{% if item.started_app %}
-			{% include 'functions/form.html' with form_id="start-app-"|add:item.name button_name="Add new containers to app" form_title="Add new containers to app "|add:item.name form=item.start_app_form %}
-		{% else %}
-			{% include 'functions/form.html' with form_id="start-app-"|add:item.name button_name="Start app"                 form_title="Start app "|add:item.name                 form=item.start_app_form %}
-		{% endif %}
-	{% endif %}
+                    <a class="button" href="{% url 'structure_detail' item.name %}">Full details</a>
+                </div>
+                <HR>
+                <HR>
 
-	{% if item.remove_containers_from_app_editable_data > 0 %}
-		<p></p>
-		{% include 'functions/form.html' with form_id="remove-containers-from-app-"|add:item.name button_name="Remove Containers from app" form_title="Remove Containers from app "|add:item.name form=item.remove_containers_from_app_form %}
-	{% endif %}
+                <!-- App containers -->
+                Containers:
+                {% for cont in item.containers_full %}
+                    {% include 'functions/container_data.html' with guard_switch="apps" cont=cont %}
+                {% endfor %}
 
-    </li>    
-    {% endfor %}
-  </ul>
+                <!-- Forms -->
+                {% if item.started_app %}
+                    <p></p>
+                    {% include 'functions/switch.html' with switch_url="apps_stop_switch" item_name=item.name switch_name="stop_switch" switch_prefix="app" state=item.started_app on_state_label="Stop app" %}
+                {% endif %}
 
-  {% include 'functions/form.html' with form_id="add-app"        button_name="Add App"        form_title="Add App"         form=addStructureForm.app %}
-  {% include 'functions/form.html' with form_id="add-hadoop-app" button_name="Add Hadoop App" form_title="Add Hadoop Apps" form=addStructureForm.hadoop_app %}
-  {% include 'functions/form.html' with form_id="remove-apps"    button_name="Remove Apps"    form_title="Remove Apps"     form=removeStructuresForm %}
+                {% if item.start_app_form %}
+                    <p></p>
+                    {% if item.started_app %}
+                        {% include 'functions/form.html' with form_id="start-app-"|add:item.name button_name="Add new containers to app" form_title="Add new containers to app "|add:item.name form=item.start_app_form %}
+                    {% else %}
+                        {% include 'functions/form.html' with form_id="start-app-"|add:item.name button_name="Start app"                 form_title="Start app "|add:item.name                 form=item.start_app_form %}
+                    {% endif %}
+                {% endif %}
+
+                {% if item.remove_containers_from_app_editable_data > 0 %}
+                    <p></p>
+                    {% include 'functions/form.html' with form_id="remove-containers-from-app-"|add:item.name button_name="Remove Containers from app" form_title="Remove Containers from app "|add:item.name form=item.remove_containers_from_app_form %}
+                {% endif %}
+
+            </li>
+        {% endfor %}
+    </ul>
+
+    {% include 'functions/form.html' with form_id="add-app"        button_name="Add App"        form_title="Add App"         form=addStructureForm.app %}
+    {% include 'functions/form.html' with form_id="add-hadoop-app" button_name="Add Hadoop App" form_title="Add Hadoop Apps" form=addStructureForm.hadoop_app %}
+    {% include 'functions/form.html' with form_id="remove-apps"    button_name="Remove Apps"    form_title="Remove Apps"     form=removeStructuresForm %}
 
 </div>
-<HR> 
+<HR>
 
 {% endblock %}

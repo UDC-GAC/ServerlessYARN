@@ -7,54 +7,55 @@
 
 <div class="content">
     
-<H4>Services</H4>
+    <H4>Services</H4>
 
     <!-- Requests and configuration errors -->
     {% include 'functions/alerts.html' with requests=requests config_errors=config_errors %}
 
     <!-- Services -->
-  <ul id="tabs">
-    {% for item in data %}
-    <li>
-    <button class="accordion">{{ item.name }}</button>
-  	Heartbeat: {{ item.heartbeat_human }}
-    {% if item.alive %}
-      <div class="alert success little">
-        Service OK
-      </div> 
-    {% else %}
-      <div class="alert little">
-        Service seems down
-      </div> 
-    {% endif %}
-	<div class="panel">
-		<HR>
-      <!-- Service configuration -->
-  		<p>Config: </p>
-      <table class="data_table">
-        {% for config,values in item.config.items %}
-          {% if config == "ACTIVE" %}
-            <tr>
-                {% include 'functions/switch.html' with switch_url="service_switch" item_name=item.name switch_name="service_switch" switch_prefix="service" cell_name="ACTIVE" state=values on_state_label="Deactivate" off_state_label="Activate" %}
-            </tr>
-          {% else %}
-            <tr> <td>{{ config }}</td><td>{{ values }}</td> </tr>  
-          {% endif %}
+    <ul id="tabs">
+        {% for item in data %}
+            <li>
+                <button class="accordion">{{ item.name }}</button>
+                Heartbeat: {{ item.heartbeat_human }}
+                {% if item.alive %}
+                    <div class="alert success little">
+                        Service OK
+                    </div>
+                {% else %}
+                    <div class="alert little">
+                        Service seems down
+                    </div>
+                {% endif %}
+
+                <div class="panel">
+                    <HR>
+                    <!-- Service configuration -->
+                    <p>Config: </p>
+                    <table class="data_table">
+                        {% for config,values in item.config.items %}
+                            {% if config == "ACTIVE" %}
+                                <tr>
+                                    {% include 'functions/switch.html' with switch_url="service_switch" item_name=item.name switch_name="service_switch" switch_prefix="service" cell_name="ACTIVE" state=values on_state_label="Deactivate" off_state_label="Activate" %}
+                                </tr>
+                            {% else %}
+                                <tr> <td>{{ config }}</td><td>{{ values }}</td> </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </table>
+                    <p></p>
+
+                    <!-- Edit form-->
+                    {% if item.editable_data > 0 %}
+                        {% include 'functions/form.html' with form_id=item.name button_name="Edit configuration" form_title="Edit configuration of "|add:item.name form=item.form %}
+                    {% endif %}
+
+                </div>
+            </li>
         {% endfor %}
-      </table>
-      <p></p>
-
-		<!-- Edit form-->
-		{% if item.editable_data > 0 %}
-            {% include 'functions/form.html' with form_id=item.name button_name="Edit configuration" form_title="Edit configuration of "|add:item.name form=item.form %}
-		{% endif %}
-
-	</div>    	
-    </li>
-    {% endfor %}
-  </ul>
+    </ul>
 </div>
-<HR> 
+<HR>
 
 {% load static %}
 <script src="{% static "js/trim_underscores.js" %}"></script>

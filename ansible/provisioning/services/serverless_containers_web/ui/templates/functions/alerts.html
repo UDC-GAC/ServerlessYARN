@@ -2,38 +2,38 @@
 {% if requests %}
     {% if requests.errors %}
         {% for error in requests.errors %}
-        <div class="alert">
-            <span class="closebtn">&times;</span>
-            <strong>Error!</strong> {{ error }}
-        </div> 
+            <div class="alert">
+                <span class="closebtn">&times;</span>
+                <strong>Error!</strong> {{ error }}
+            </div>
         {% endfor %}
     {% endif %}
 
     {% if requests.successes %}
         {% for success in requests.successes %}
-        <div class="alert success">
-            <span class="closebtn">&times;</span>
-            <strong>Success!</strong> {{ success }}
-        </div>
+            <div class="alert success">
+                <span class="closebtn">&times;</span>
+                <strong>Success!</strong> {{ success }}
+            </div>
         {% endfor %}
     {% endif %}
 
     {% if requests.info %}
         {% for info in requests.info %}
-        <div class="alert info">
-            <span class="closebtn">&times;</span>
-            <strong>Info!</strong> {{ info }}
-        </div>
+            <div class="alert info">
+                <span class="closebtn">&times;</span>
+                <strong>Info!</strong> {{ info }}
+            </div>
         {% endfor %}
     {% endif %}
 {% endif %}
 
 <!-- Unstable configuration alerts -->
 {% if config_errors %}
-  {% for error in config_errors %}
-  <div class="alert warning">
-      <span class="closebtn">&times;</span>
-      <strong>Warning!</strong> {{ error }}
-  </div> 
-  {% endfor %}
+    {% for error in config_errors %}
+        <div class="alert warning">
+            <span class="closebtn">&times;</span>
+            <strong>Warning!</strong> {{ error }}
+        </div>
+    {% endfor %}
 {% endif %}

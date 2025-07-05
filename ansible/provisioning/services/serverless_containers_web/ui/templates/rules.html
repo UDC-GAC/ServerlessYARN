@@ -6,68 +6,69 @@
 {% include 'functions/menu.html' with config=config active="rules" %}
 
 <div class="content">
-    
-<H4>Rules</H4>
+
+    <H4>Rules</H4>
 
     <!-- Requests and configuration errors -->
     {% include 'functions/alerts.html' with requests=requests config_errors=config_errors %}
 
-	<!-- Rules -->
-  <ul id="tabs">
-    {% for resource in resources %}
-    <li>
-    <button class="accordion">{{ resource }}</button>
-	<div class="panel">
-		<p></p>
-		{% for type in types %}
-		<button class="accordion">
-			{% if type == "" %}
-				Other
-			{% else %}
-				Generates {{ type }}
-			{% endif %}
-		</button>
-		<div class="panel">
-			<p></p>
-			{% for item in data %}
-    		{% if item.resource == resource and item.generates == type %}				
-    		<button class="accordion">{{ item.name }}</button>
-			<div class="panel">
-			<table class="data_table">
-				<p></p>
-				<tr>
-                    {% if type != "" %}
-                        {% include 'functions/switch.html' with                           switch_url="rule_switch" item_name=item.name switch_name="rule_switch" switch_prefix="rule" cell_name="Active" state=item.active on_state_label="Deactivate" off_state_label="Activate" %}
-                    {% else %}
-                        {% include 'functions/switch.html' with disable_activation="true" switch_url="rule_switch" item_name=item.name switch_name="rule_switch" switch_prefix="rule" cell_name="Active" state=item.active on_state_label="Deactivate" off_state_label="Activate" %}
-                    {% endif %}
-				</tr>
-				{% if item.action.events %} <tr> <td>Events</td> <td>{{ item.action.events }}</td> </tr> {% endif %}
-				{% if item.amount %} <tr> <td>Amount</td> <td>{{ item.amount }}</td> </tr> {% endif %}
-				{% if item.events_to_remove %} <tr> <td>Events to remove</td> <td>{{ item.events_to_remove }}</td> </tr> {% endif %}
-				{% if item.percentage_reduction %} <tr> <td>Percentage reduction</td> <td>{{ item.percentage_reduction }}</td> </tr> {% endif %}
-				{% if item.rescale_policy %} <tr> <td>Rescale policy</td> <td>{{ item.rescale_policy }}</td> </tr> {% endif %}
-				{% if item.rescale_type %} <tr> <td>Rescale type</td> <td>{{ item.rescale_type }}</td> </tr> {% endif %}
-				<tr><td>Rule</td> <td>{{ item.rule_readable }}</td> </tr>
-			</table>
-			<p></p>
+    <!-- Rules -->
+    <ul id="tabs">
+        {% for resource in resources %}
+            <li>
+                <button class="accordion">{{ resource }}</button>
+                <div class="panel">
+                    <p></p>
+                    {% for type in types %}
+                        <button class="accordion">
+                            {% if type == "" %}
+                                Other
+                            {% else %}
+                                Generates {{ type }}
+                            {% endif %}
+                        </button>
 
-				<!-- Edit form-->
-				{% if item.editable_data > 0 %}
-					{% include 'functions/form.html' with form_id=item.name button_name="Edit information" form_title="Edit information of "|add:item.name form=item.form %}
-				{% endif %}
-  			</div>
-  			{% endif %}
-    		{% endfor %}
-			<p></p>
-		</div>
-		{% endfor %}
-		<p></p>
-	</div>    	
-    </li>    
-    {% endfor %}
-  </ul>
+                        <div class="panel">
+                            <p></p>
+                            {% for item in data %}
+                                {% if item.resource == resource and item.generates == type %}
+                                    <button class="accordion">{{ item.name }}</button>
+                                    <div class="panel">
+                                        <table class="data_table">
+                                            <p></p>
+                                            <tr>
+                                                {% if type != "" %}
+                                                    {% include 'functions/switch.html' with                           switch_url="rule_switch" item_name=item.name switch_name="rule_switch" switch_prefix="rule" cell_name="Active" state=item.active on_state_label="Deactivate" off_state_label="Activate" %}
+                                                {% else %}
+                                                    {% include 'functions/switch.html' with disable_activation="true" switch_url="rule_switch" item_name=item.name switch_name="rule_switch" switch_prefix="rule" cell_name="Active" state=item.active on_state_label="Deactivate" off_state_label="Activate" %}
+                                                {% endif %}
+                                            </tr>
+                                            {% if item.action.events %} <tr> <td>Events</td> <td>{{ item.action.events }}</td> </tr> {% endif %}
+                                            {% if item.amount %} <tr> <td>Amount</td> <td>{{ item.amount }}</td> </tr> {% endif %}
+                                            {% if item.events_to_remove %} <tr> <td>Events to remove</td> <td>{{ item.events_to_remove }}</td> </tr> {% endif %}
+                                            {% if item.percentage_reduction %} <tr> <td>Percentage reduction</td> <td>{{ item.percentage_reduction }}</td> </tr> {% endif %}
+                                            {% if item.rescale_policy %} <tr> <td>Rescale policy</td> <td>{{ item.rescale_policy }}</td> </tr> {% endif %}
+                                            {% if item.rescale_type %} <tr> <td>Rescale type</td> <td>{{ item.rescale_type }}</td> </tr> {% endif %}
+                                            <tr><td>Rule</td> <td>{{ item.rule_readable }}</td> </tr>
+                                        </table>
+                                        <p></p>
+
+                                        <!-- Edit form-->
+                                        {% if item.editable_data > 0 %}
+                                            {% include 'functions/form.html' with form_id=item.name button_name="Edit information" form_title="Edit information of "|add:item.name form=item.form %}
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                            <p></p>
+                        </div>
+                    {% endfor %}
+                    <p></p>
+                </div>
+            </li>
+        {% endfor %}
+    </ul>
 </div>
-<HR> 
+<HR>
 
 {% endblock %}

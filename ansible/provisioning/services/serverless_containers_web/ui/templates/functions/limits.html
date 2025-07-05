@@ -1,28 +1,29 @@
 <button class="accordion">Limits</button>
 <div class="panel">
-  <p></p>
-  <table class="data_table">
-      <!-- header -->
-      <tr>
-          <th class=empty_header></th>
-          {% for value_label in item.limits_values_labels %}
-              <th>{{ value_label }}</th>
-          {% endfor %}
-      </tr>
-      <!-- rows -->
-      {% for resource,values in item.limits.items %}
-          <tr>
-              <th>{{ resource }}</th>
-              {% for key, value in values.items %}
-                  <td>{{ value }}</td>
-              {% endfor %}
-          </tr>		 
-      {% endfor %}
-  </table>
-  <p></p>
+    <p></p>
+    <table class="data_table">
+        <!-- header -->
+        <tr>
+            <th class=empty_header></th>
+            {% for value_label in item.limits_values_labels %}
+                <th>{{ value_label }}</th>
+            {% endfor %}
+        </tr>
 
-  <!-- LIMIT EDIT MODAL -->	
-  {% if item.limits_editable_data > 0 %}
-      {% include 'functions/form.html' with form_id=item.name|add:"-limits" button_name="Edit boundaries" form_title="Edit boundaries of "|add:item.name form=item.limits_form %}
-  {% endif %}
+        <!-- rows -->
+        {% for resource,values in item.limits.items %}
+            <tr>
+                <th>{{ resource }}</th>
+                {% for key, value in values.items %}
+                    <td>{{ value }}</td>
+                {% endfor %}
+            </tr>
+        {% endfor %}
+    </table>
+    <p></p>
+
+    <!-- LIMIT EDIT MODAL -->
+    {% if item.limits_editable_data > 0 %}
+        {% include 'functions/form.html' with form_id=item.name|add:"-limits" button_name="Edit boundaries" form_title="Edit boundaries of "|add:item.name form=item.limits_form %}
+    {% endif %}
 </div>

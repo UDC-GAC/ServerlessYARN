@@ -25,44 +25,45 @@
 
     <!-- Global HDFS app -->
     {% if global_hdfs_ready %}
-    <ul>
-        <li>
-            <button class="accordion">{{ global_hdfs_app.name }}</button>
-            <div class="panel">
-                <p></p>
-                <table class="data_table">
-                    <tr>
-                        {% include 'functions/switch.html' with switch_url="apps_guard_switch" item_name=global_hdfs_app.name switch_name="guard_switch" switch_prefix="guard" cell_name="Guard" state=global_hdfs_app.guard on_state_label="Unguard" off_state_label="Guard" %}
-                    </tr>
+        <ul>
+            <li>
+                <button class="accordion">{{ global_hdfs_app.name }}</button>
+                <div class="panel">
+                    <p></p>
+                    <table class="data_table">
+                        <tr>
+                            {% include 'functions/switch.html' with switch_url="apps_guard_switch" item_name=global_hdfs_app.name switch_name="guard_switch" switch_prefix="guard" cell_name="Guard" state=global_hdfs_app.guard on_state_label="Unguard" off_state_label="Guard" %}
+                        </tr>
 
-                    <tr><td>Guard Policy</td> <td>{{ global_hdfs_app.guard_policy }}</td></tr>
-                    {% if global_hdfs_app.files_dir %} <tr><td>Files directory</td> <td>{{ global_hdfs_app.files_dir }}</td></tr> {% endif %}
-                    {% if global_hdfs_app.install_script %} <tr><td>Install script</td> <td>{{ global_hdfs_app.install_script }}</td></tr> {% endif %}
-                    {% if global_hdfs_app.start_script %} <tr><td>Start script</td> <td>{{ global_hdfs_app.start_script }}</td></tr> {% endif %}
-                    {% if global_hdfs_app.stop_script %} <tr><td>Stop script</td> <td>{{ global_hdfs_app.stop_script }}</td></tr> {% endif %}
-                    {% if global_hdfs_app.framework %} <tr><td>Framework</td> <td>{{ global_hdfs_app.framework }}</td></tr> {% endif %}
-                    {% if global_hdfs_app.app_jar %} <tr><td>App JAR</td> <td>{{ global_hdfs_app.app_jar }}</td></tr> {% endif %}
-        
-                </table>
-                <p></p>
+                        <tr><td>Guard Policy</td> <td>{{ global_hdfs_app.guard_policy }}</td></tr>
+                        {% if global_hdfs_app.files_dir %} <tr><td>Files directory</td> <td>{{ global_hdfs_app.files_dir }}</td></tr> {% endif %}
+                        {% if global_hdfs_app.install_script %} <tr><td>Install script</td> <td>{{ global_hdfs_app.install_script }}</td></tr> {% endif %}
+                        {% if global_hdfs_app.start_script %} <tr><td>Start script</td> <td>{{ global_hdfs_app.start_script }}</td></tr> {% endif %}
+                        {% if global_hdfs_app.stop_script %} <tr><td>Stop script</td> <td>{{ global_hdfs_app.stop_script }}</td></tr> {% endif %}
+                        {% if global_hdfs_app.framework %} <tr><td>Framework</td> <td>{{ global_hdfs_app.framework }}</td></tr> {% endif %}
+                        {% if global_hdfs_app.app_jar %} <tr><td>App JAR</td> <td>{{ global_hdfs_app.app_jar }}</td></tr> {% endif %}
 
-                {% include 'functions/resources.html' with item=global_hdfs_app structure_type="app" %}
-                {% include 'functions/limits.html' with item=global_hdfs_app %}
+                    </table>
+                    <p></p>
 
-                <a class="button" href="{% url 'structure_detail' global_hdfs_app.name %}">Full details</a>
-            </div>    	
-            <HR>
-            <HR>
-            <!-- App containers -->
-            Containers:
-            {% for cont in global_hdfs_app.containers_full %}
-                {% include 'functions/container_data.html' with guard_switch="apps" cont=cont %}
-            {% endfor %}
-        </li>
-    </ul>
+                    {% include 'functions/resources.html' with item=global_hdfs_app structure_type="app" %}
+                    {% include 'functions/limits.html' with item=global_hdfs_app %}
+
+                    <a class="button" href="{% url 'structure_detail' global_hdfs_app.name %}">Full details</a>
+                </div>
+                <HR>
+                <HR>
+
+                <!-- App containers -->
+                Containers:
+                {% for cont in global_hdfs_app.containers_full %}
+                    {% include 'functions/container_data.html' with guard_switch="apps" cont=cont %}
+                {% endfor %}
+            </li>
+        </ul>
     {% endif %}
 
-    <!-- Globa HDFS data -->
+    <!-- Global HDFS data -->
     {% if global_hdfs_ready %}
         <div>
             <table class="data_table">	
@@ -84,23 +85,23 @@
                     </th>
                 </tr>
                 {% for item in data %}
-                <tr>
-                    {% for element in item %}
-                        {% if 'get_hdfs_file' in element %}
-                            <td class="hdfs_actions">
-                                {% include 'functions/form.html' with form_id="get-hdfs-file-"|add:element.get_hdfs_file.origin_path.initial button_name="Download" form_title="Download HDFS File or Directory" form=element.get_hdfs_file icon="fa fa-cloud-download" %}
-                            </td>
-                        {% elif 'del_hdfs_file' in element %}
-                            <td class="hdfs_actions">
-                                {% include 'functions/form.html' with form_id="del-hdfs-file-"|add:element.del_hdfs_file.dest_path.initial button_name="Delete" form_title="Delete HDFS File or Directory" form=element.del_hdfs_file icon="fa fa-trash" %}
-                            </td>
-                        {% else %}
-                            {% autoescape off %}
-                                <td class="hdfs_data">{{ element }}</td>
-                            {% endautoescape %}
-                        {% endif %}
-                    {% endfor %}
-                </tr>
+                    <tr>
+                        {% for element in item %}
+                            {% if 'get_hdfs_file' in element %}
+                                <td class="hdfs_actions">
+                                    {% include 'functions/form.html' with form_id="get-hdfs-file-"|add:element.get_hdfs_file.origin_path.initial button_name="Download" form_title="Download HDFS File or Directory" form=element.get_hdfs_file icon="fa fa-cloud-download" %}
+                                </td>
+                            {% elif 'del_hdfs_file' in element %}
+                                <td class="hdfs_actions">
+                                    {% include 'functions/form.html' with form_id="del-hdfs-file-"|add:element.del_hdfs_file.dest_path.initial button_name="Delete" form_title="Delete HDFS File or Directory" form=element.del_hdfs_file icon="fa fa-trash" %}
+                                </td>
+                            {% else %}
+                                {% autoescape off %}
+                                    <td class="hdfs_data">{{ element }}</td>
+                                {% endautoescape %}
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
                 {% endfor %}
             </table>
         </div>

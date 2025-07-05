@@ -14,7 +14,7 @@
             {% if disable_activation and disable_activation|lower == "true" %}
                 <td><button disabled class="activate-btn"   type="submit" name="{{ switch_name }}" value="{{ switch_prefix }}_on">{{ off_state_label }}</button></td>
             {% else %}
-                <td><button          class="activate-btn"   type="submit" name="{{ switch_name }}" value="{{ switch_prefix }}_on">{{ off_state_label }}</button></td>    
+                <td><button          class="activate-btn"   type="submit" name="{{ switch_name }}" value="{{ switch_prefix }}_on">{{ off_state_label }}</button></td>
             {% endif %}
         {% endif %}
     </form>

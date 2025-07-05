@@ -8,37 +8,38 @@
 
 <div class="content">
 
-	<H1>ServerlessYARN</H1>
-  Container resource scaler: <a href=http://bdwatchdog.dec.udc.es/serverless/index.html>http://bdwatchdog.dec.udc.es/serverless/index.html</a>
-	<HR>
-	<H2>Orchestrator Status: </H2>
-	{% if data.status == 'alive' %} 
-    <h4 style="color:green">UP</h4>
-	{% else %}
-    <h4 style="color:red">DOWN</h4>
-	{% endif %}
+    <H1>ServerlessYARN</H1>
+    Container resource scaler: <a href=http://bdwatchdog.dec.udc.es/serverless/index.html>http://bdwatchdog.dec.udc.es/serverless/index.html</a>
+    <HR>
 
-  <BR><BR>
+    <H2>Orchestrator Status: </H2>
+    {% if data.status == 'alive' %}
+        <h4 style="color:green">UP</h4>
+    {% else %}
+        <h4 style="color:red">DOWN</h4>
+    {% endif %}
 
-  <div class=container>
-    <div>
-      <h3>Browse:</h3>
-      <!-- Menu -->
-      {% if data.status == 'alive' %}
-        {% include 'functions/menu.html' with config=config active="index" state="" %}
-      {% else %}
-        <!-- the 'state' parameter will be directly appended next to buttons class name -->
-        {% include 'functions/menu.html' with config=config active="index" state=" disabled" %}
-      {% endif %}
+    <BR><BR>
+
+    <div class=container>
+        <!-- Menu -->
+        <div>
+            <h3>Browse:</h3>
+            {% if data.status == 'alive' %}
+                {% include 'functions/menu.html' with config=config active="index" state="" %}
+            {% else %}
+                <!-- the 'state' parameter will be directly appended next to buttons class name -->
+                {% include 'functions/menu.html' with config=config active="index" state=" disabled" %}
+            {% endif %}
+        </div>
+
+        <div class="image">
+            <img src="{% static "img/logo.png" %}" alt="ServerlessContainers logo">
+        </div>
     </div>
-
-    <div class="image">
-      <img src="{% static "img/logo.png" %}" alt="ServerlessContainers logo">
-    </div>
-  </div>
 
 </div>
 
-<HR> 
+<HR>
 
 {% endblock %}

@@ -2,11 +2,13 @@
 <div class="panel">
     <p></p>
     <!-- Guard state -->
-    <table class="data_table">	
+    <table class="data_table">
         <tr>
             {% include 'functions/switch.html' with switch_url=guard_switch|add:'_guard_switch' item_name=cont.name switch_name="guard_switch" switch_prefix="guard" cell_name="Guard" state=cont.guard on_state_label="Unguard" off_state_label="Guard" %}
         </tr>
-        <tr><td>Guard Policy</td> <td>{{ cont.guard_policy }}</td></tr>
+        <tr>
+            <td>Guard Policy</td> <td>{{ cont.guard_policy }}</td>
+        </tr>
     </table>
     <p></p>
 

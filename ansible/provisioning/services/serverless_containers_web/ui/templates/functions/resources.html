@@ -68,19 +68,19 @@
                     <!-- rows -->
                     {% for disk, disk_info in values.items %}
                         <tr>
-                        <td>{{ disk }}</td>
-                        <td style="text-transform:uppercase">{{ disk_info.type }}</td>
-                        <td>{{ disk_info.path }}</td>
-                        <td>{{ disk_info.load }}</td>
-                        <td>{{ disk_info.free_read }}</td>
-                        <td>{{ disk_info.max_read }}</td>
-                        <td>{{ disk_info.free_write }}</td>
-                        <td>{{ disk_info.max_write }}</td>
+                            <td>{{ disk }}</td>
+                            <td style="text-transform:uppercase">{{ disk_info.type }}</td>
+                            <td>{{ disk_info.path }}</td>
+                            <td>{{ disk_info.load }}</td>
+                            <td>{{ disk_info.free_read }}</td>
+                            <td>{{ disk_info.max_read }}</td>
+                            <td>{{ disk_info.free_write }}</td>
+                            <td>{{ disk_info.max_write }}</td>
                         </tr>
                     {% endfor %}
                 </table>
                 <p></p>
-                    <HR>
+                <HR>
             {% endif %}
         {% endfor %}
 
