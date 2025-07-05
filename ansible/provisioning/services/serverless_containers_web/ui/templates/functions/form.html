@@ -1,0 +1,21 @@
+{% if icon %}
+    <a href="#openModal-{{ form_id }}" title="{{ button_name }}">
+        <span class="{{ icon }}"></span>
+    </a>
+{% else %}
+    <a href="#openModal-{{ form_id }}" title="Edit" class="caja" onclick="{{ on_click_function }}">{{ button_name }}</a>
+    <br><br>
+{% endif %}
+<div align="left" id="openModal-{{ form_id }}" class="modalDialog">
+    <div>
+        <a href="#close" title="Close" class="close">X</a>
+        <h2>{{ form_title }}</h2>
+        <p>
+            {% if form_helper %}
+                {% load crispy_forms_tags %} {% crispy form form_helper %}
+            {% else %}
+                {% load crispy_forms_tags %} {% crispy form %}
+            {% endif %}
+        </p>
+    </div>
+</div>

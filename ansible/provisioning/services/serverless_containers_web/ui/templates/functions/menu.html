@@ -1,0 +1,41 @@
+{% load custom_tags %}
+{% get_view_list as view_list %}
+
+<!-- Special menu for Home -->
+{% if active == 'index' %}
+    <table>
+        <!-- Regular views -->
+        {% for template, view in view_list %}
+            {% if template != 'index' %} <!-- Do not show the Home button on the Home page -->
+                <tr><td> <a class="link_button{{ state }}" href="{% url template %}">{{ view }}</a> </td></tr>
+            {% endif %}
+        {% endfor %}
+
+        <!-- Conditional views -->
+        {% if config.global_hdfs %}
+            <tr><td> <a class="link_button{{ state }}" href="{% url 'hdfs' %}">HDFS</a> </td></tr>
+        {% endif %}
+    </table>
+
+{% else %}
+    <HR>
+    <div class="vertical-menu">
+        <!-- Regular views -->
+        {% for template, view in view_list %}
+            {% if active == template %}
+                <a href="{% url template %}" class="active">{{ view }}</a>
+            {% else %}
+                <a href="{% url template %}">{{ view }}</a>
+            {% endif %}
+        {% endfor %}
+
+        <!-- Conditional views -->
+        {% if config.global_hdfs %}
+            {% if active == 'hdfs' %}
+                <a href="{% url 'hdfs' %}" class="active">HDFS</a>
+            {% else %}
+                <a href="{% url 'hdfs' %}">HDFS</a>
+            {% endif %}
+        {% endif %}
+    </div>
+{% endif %}

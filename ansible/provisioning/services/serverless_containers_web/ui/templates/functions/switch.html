@@ -1,0 +1,20 @@
+{% if item_name %}
+    <form action="{% url switch_url item_name %}" method="POST">
+{% else %}
+    <form action="{% url switch_url %}" method="POST">
+{% endif %}
+        {% csrf_token %}
+        {% if cell_name %}
+            <td>{{ cell_name }}</td> <td>{{ state }}</td>
+        {% endif %}
+
+        {% if state == True %}
+            <td><button class="deactivate-btn" type="submit" name="{{ switch_name }}" value="{{ switch_prefix }}_off">{{ on_state_label }}</button></td>
+        {% else %}
+            {% if disable_activation and disable_activation|lower == "true" %}
+                <td><button disabled class="activate-btn"   type="submit" name="{{ switch_name }}" value="{{ switch_prefix }}_on">{{ off_state_label }}</button></td>
+            {% else %}
+                <td><button          class="activate-btn"   type="submit" name="{{ switch_name }}" value="{{ switch_prefix }}_on">{{ off_state_label }}</button></td>    
+            {% endif %}
+        {% endif %}
+    </form>

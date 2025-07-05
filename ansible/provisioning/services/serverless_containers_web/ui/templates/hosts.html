@@ -2,336 +2,45 @@
 
 {% block page_content %}
 
-<HR>
-
-<!-- MENU -->
- <div class="vertical-menu">
-  <a href="{% url 'index' %}">Home</a>
-  <a href="{% url 'containers' %}">Containers</a>
-  <a href="{% url 'hosts' %}" class="active">Hosts</a>
-  <a href="{% url 'apps' %}">Apps</a>
-  <a href="{% url 'services' %}">Services</a>
-  <a href="{% url 'rules' %}">Rules</a>
-  {% if config.global_hdfs %}<a href="{% url 'hdfs' %}">HDFS</a>{% endif %}
-</div> 
+<!-- Menu -->
+{% include 'functions/menu.html' with config=config active="hosts" %}
 
 <div class="content">
     
 <H4>Hosts</H4>
 
-  <!-- Requests status -->
-  {% if requests_errors %}
-    {% for error in requests_errors %}
-      <div class="alert">
-          <span class="closebtn">&times;</span>
-          <strong>Error!</strong> {{ error }}
-      </div> 
-    {% endfor %}
-  {% endif %}
+	<!-- Requests -->
+	{% include 'functions/alerts.html' with requests=requests %}
 
-  {% if requests_successes %}
-  	{% for success in requests_successes %}
-	  <div class="alert success">
-		  <span class="closebtn">&times;</span>
-		  <strong>Success!</strong> {{ success }}
-	  </div>
-	{% endfor %}
-  {% endif %}
-
-  {% if requests_info %}
-  	{% for info in requests_info %}
-	  <div class="alert info">
-		  <span class="closebtn">&times;</span>
-		  <strong>Info!</strong> {{ info }}
-	  </div>
-	{% endfor %}
-  {% endif %}
-
+	<!-- Hosts -->
   <ul id="tabs">
     {% for item in data %}
     <li>
     <button class="accordion">{{ item.name }}</button>
 	<div class="panel">
 	<p></p>
-   		<button class="accordion">Resources</button>
-  		<div class="panel">
-
-			<p></p>
-			<table class="data_table">
-				<!-- header -->
-				<tr>
-					<th class=empty_header></th>
-					{% for value_label in item.resources_values_labels %}
-						<th>{{ value_label }}</th>
-					{% endfor %}
-				</tr>
-				<!-- rows -->
-				{% for resource,values in item.resources.items %}
-					{% if resource != "cpu_cores" and resource != "disks" %}
-					<tr>
-						<th>{{ resource }}</th>
-						{% for key, value in values.items %}
-							<td>{{ value }}</td>
-						{% endfor %}
-					</tr>	
-					{% endif %}
-				{% endfor %}
-			</table>
-			<p></p>
-			<!-- Another table for disks -->
-			{% for resource,values in item.resources.items %}
-			{% if resource == "disks" %}
-			  <p>Disks</p>
-			  <p></p>
-			  <table class="data_table">
-				  <!-- header -->
-				  <tr>
-					  <th>Name</th>
-					  <th>Type</th>
-					  <th>Path</th>
-					  <th>Load</th>
-					  <th>Free Read BW</th>
-					  <th>Max Read BW</th>
-					  <th>Free Write BW</th>
-					  <th>Max Write BW</th>
-				  </tr>
-				  <!-- rows -->
-				  {% for disk, disk_info in values.items %}
-				  <tr>
-					<td>{{ disk }}</td>
-					<td style="text-transform:uppercase">{{ disk_info.type }}</td>
-					<td>{{ disk_info.path }}</td>
-					<td>{{ disk_info.load }}</td>
-					<td>{{ disk_info.free_read }}</td>
-					<td>{{ disk_info.max_read }}</td>
-					<td>{{ disk_info.free_write }}</td>
-					<td>{{ disk_info.max_write }}</td>
-				  </tr>
-				  {% endfor %}
-			  </table>
-			  <p></p>
-				  <HR>
-			{% endif %}
-			{% endfor %}
-			<!-- Another table for cpu_cores -->
-  			{% for resource,values in item.resources.items %}
-  			{% if resource == "cpu_cores" %}
-  		  		<p>Core Usage Mapping</p>
-				<p></p>
-				<table class="data_table">
-					<!-- header -->
-					<tr>
-						<th>Core</th>
-						<th>Free</th>
-						{% for cont in item.containers %}
-							<th>{{ cont.name }}</th>
-						{% endfor %}
-					</tr>
-					<!-- rows -->
-					{% for core,mapping in values.items %}
-						<tr>
-							<th>{{ core }}</th>
-							{% for key, value in mapping.items %}
-								<td>{{ value }}</td>
-							{% endfor %}
-						</tr>	
-					{% endfor %}
-				</table>
-				<p></p>
-  		  		<HR>
-			{% endif %}
-  			{% endfor %}
-
-			<!-- HOST RESOURCES EDIT MODAL -->	
-			{% if item.resources_editable_data > 0 %}
-				<a href="#openModal-{{ item.name }}-resources" title="Edit" class="caja" onclick="hide_resources_submit_buttons('{{ item.name }}');">Edit resources</a>
-				<br><br>
-				<div align="left" id="openModal-{{ item.name }}-resources" class="modalDialog">
-					<div>
-						<a href="#close" title="Close" class="close">X</a>
-						<h2>Edit resources of {{ item.name }}</h2>
-						<p>
-							{% load crispy_forms_tags %} {% crispy item.resources_form item.resources_form_helper %}
-						</p>
-					</div>
-				</div>
-			{% endif %}
-
-  		</div>
+		{% include 'functions/resources.html' with item=item structure_type="host" %}
   		<a class="button" href="{% url 'structure_detail' item.name %}">Full details</a>
-	</div>    	
+	</div>
     <HR>
 	<HR>
+
+	<!-- Host containers -->
     Containers:
-    {% for cont in item.containers %}
-    <button class="accordion">{{ cont.name }}</button>
-	<div class="panel">
-		<p></p>
-		<table class="data_table">	
-			<tr>
-				<form action="{% url 'hosts_guard_switch' cont.name %}" method="POST"> 
-					{% csrf_token %}
-					<td>Guard</td> <td>{{ cont.guard }}</td>
-		
-					{% if cont.guard == True %} <td><button class="deactivate-btn" type="submit" name="guard_switch" value="guard_off">Unguard</button></td>
-					{% else %}                  <td><button class="activate-btn" type="submit" name="guard_switch" value="guard_on">Guard</button></td>
-					{% endif %}
-				</form>
-			</tr>
-			<tr><td>Guard Policy</td> <td>{{ cont.guard_policy }}</td></tr>
-		</table>
-		<p></p>
-
-   		<button class="accordion">Resources</button>
-  		<div class="panel">
-
-			<p></p>
-			<table class="data_table">
-				<!-- header -->
-				<tr>
-					<th class=empty_header></th>
-					{% for value_label in cont.resources_values_labels %}
-						<th>{{ value_label }}</th>
-					{% endfor %}
-				</tr>
-				<!-- rows -->
-				{% for resource,values in cont.resources.items %}
-				{% if resource != "disk" %}
-					<tr>
-						<th>{{ resource }}</th>
-						{% for key, value in values.items %}
-							<td>{{ value }}</td>
-						{% endfor %}
-					</tr>
-				{% endif %}
-				{% endfor %}
-			</table>
-			<p></p>
-
-			<!-- Another table for disks -->
-			{% for resource,disk in cont.resources.items %}
-				{% if resource == "disk" %}
-					<p>Disk</p>
-					<p></p>
-					<table class="data_table">
-						<!-- rows -->
-						<tr>
-							<th>Name</th>
-							<td>{{ disk.name }}</td>
-						</tr>
-						<tr>
-							<th>Path</th>
-							<td>{{ disk.path }}</td>
-						</tr>
-					</table>
-					<p></p>
-					<HR>
-				{% endif %}
-			{% endfor %}
-
-			<!-- CONT RESOURCES EDIT MODAL -->	
-			{% if cont.resources_editable_data > 0 %}
-				<a href="#openModal-{{ cont.name }}-resources" title="Edit" class="caja" onclick="hide_resources_submit_buttons('{{ cont.name }}');">Edit resources</a>
-				<br><br>
-				<div align="left" id="openModal-{{ cont.name }}-resources" class="modalDialog">
-					<div>
-						<a href="#close" title="Close" class="close">X</a>
-						<h2>Edit resources of {{ cont.name }}</h2>
-						<p>
-							{% load crispy_forms_tags %} {% crispy cont.resources_form cont.resources_form_helper %}
-						</p>
-					</div>
-				</div>
-			{% endif %}
-
-  		</div>
-  		<button class="accordion">Limits</button>
-  		<div class="panel">
-
-			<p></p>
-			<table class="data_table">
-				<!-- header -->
-				<tr>
-					<th class=empty_header></th>
-					{% for value_label in cont.limits_values_labels %}
-						<th>{{ value_label }}</th>
-					{% endfor %}
-				</tr>
-				<!-- rows -->
-				{% for resource,values in cont.limits.items %}
-					<tr>
-						<th>{{ resource }}</th>
-						{% for key, value in values.items %}
-							<td>{{ value }}</td>
-						{% endfor %}
-					</tr>		 
-				{% endfor %}
-			</table>
-			<p></p>
-
-			<!-- CONT LIMIT EDIT MODAL -->	
-			{% if cont.limits_editable_data > 0 %}
-				<a href="#openModal-{{ cont.name }}-limits" title="Edit" class="caja">Edit boundaries</a>
-				<br><br>
-				<div align="left" id="openModal-{{ cont.name }}-limits" class="modalDialog">
-					<div>
-						<a href="#close" title="Close" class="close">X</a>
-						<h2>Edit boundaries of {{ cont.name }}</h2>
-						<p>
-							{% load crispy_forms_tags %} {% crispy cont.limits_form %}
-						</p>
-					</div>
-				</div>
-			{% endif %}
-
-  		</div>
-		<a class="button" href="{% url 'structure_detail' cont.name %}">Full details</a>
-		<p></p>
-	</div>
-    {% endfor %}
+	{% for cont in item.containers %}
+		{% include 'functions/container_data.html' with guard_switch="hosts" cont=cont %}
+	{% endfor %}
     </li>    
     {% endfor %}
-
-
   </ul>
 
+  <!-- Forms -->
   {% if config.disk_capabilities %}
-  <a href="#openModal-add-disks-hosts" title="Edit" class="caja">Add Disks</a>
-  <br><br>
-  <div align="left" id="openModal-add-disks-hosts" class="modalDialog">
-	  <div>
-		  <a href="#close" title="Close" class="close">X</a>
-		  <h2>Add Disks</h2>
-		  <p>
-			  {% load crispy_forms_tags %} {% crispy addStructureForm.add_disks_to_hosts %}
-		  </p>
-	  </div>
-  </div>
+    {% include 'functions/form.html' with form_id="add-disks-hosts" button_name="Add Disks" form_title="Add Disks" form=addStructureForm.add_disks_to_hosts %}
   {% endif %}
 
-  <a href="#openModal-add-host" title="Edit" class="caja">Add Host</a>
-  <br><br>
-  <div align="left" id="openModal-add-host" class="modalDialog">
-	  <div>
-		  <a href="#close" title="Close" class="close">X</a>
-		  <h2>Add Host</h2>
-		  <p>
-			  {% load crispy_forms_tags %} {% crispy addStructureForm.host %}
-		  </p>
-	  </div>
-  </div>
-
-  <a href="#openModal-remove-hosts" title="Edit" class="caja">Remove Hosts</a>
-  <br><br>
-  <div align="left" id="openModal-remove-hosts" class="modalDialog">
-	  <div>
-		  <a href="#close" title="Close" class="close">X</a>
-		  <h2>Remove Hosts</h2>
-		  <p>
-			  {% load crispy_forms_tags %} {% crispy removeStructuresForm %}
-		  </p>
-	  </div>
-  </div>
+  {% include 'functions/form.html' with form_id="add-host"     button_name="Add Host"     form_title="Add Host"     form=addStructureForm.host %}
+  {% include 'functions/form.html' with form_id="remove-hosts" button_name="Remove Hosts" form_title="Remove Hosts" form=removeStructuresForm %}
 
 </div>
 <HR> 

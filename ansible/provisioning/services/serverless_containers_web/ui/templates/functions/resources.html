@@ -1,0 +1,121 @@
+<button class="accordion">Resources</button>
+<div class="panel">
+    <p></p>
+    <table class="data_table">
+        <!-- header -->
+        <tr>
+            <th class=empty_header></th>
+            {% for value_label in item.resources_values_labels %}
+                <th>{{ value_label }}</th>
+            {% endfor %}
+        </tr>
+
+        <!-- rows -->
+        {% for resource,values in item.resources.items %}
+            {% if structure_type == "app" or structure_type == "container" and resource != "disk" or structure_type == "host" and resource != "disks" and resource != "cpu_cores" %}
+                <!-- parentheses are not supported in jinja2 templates within a HTML template. However, the 'and' operator has a higher precedence than 'or', i.e., it 'binds more tightly' -->
+                <!-- this boolean condition evaluates as: (structure_type == "app") or (structure_type == "container" and resource != "disk") or (structure_type == "hosts" and resource != "disks" and resource != "cpu_cores") -->
+                <tr>
+                    <th>{{ resource }}</th>
+                    {% for key, value in values.items %}
+                        <td>{{ value }}</td>
+                    {% endfor %}
+                </tr>
+            {% endif %}
+        {% endfor %}
+    </table>
+    <p></p>
+
+    {% if structure_type == "container" %}
+        <!-- Specific table for disks -->
+        {% for resource,disk in item.resources.items %}
+            {% if resource == "disk" %}
+                <p>Disk</p>
+                <p></p>
+                <table class="data_table">
+                    <!-- rows -->
+                    <tr>
+                        <th>Name</th>
+                        <td>{{ disk.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Path</th>
+                        <td>{{ disk.path }}</td>
+                    </tr>
+                </table>
+                <p></p>
+                <HR>
+            {% endif %}
+        {% endfor %}
+    {% elif structure_type == "host" %}
+        <!-- Specific table for disks -->
+        {% for resource,values in item.resources.items %}
+            {% if resource == "disks" %}
+                <p>Disks</p>
+                <p></p>
+                <table class="data_table">
+                    <!-- header -->
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Path</th>
+                        <th>Load</th>
+                        <th>Free Read BW</th>
+                        <th>Max Read BW</th>
+                        <th>Free Write BW</th>
+                        <th>Max Write BW</th>
+                    </tr>
+                    <!-- rows -->
+                    {% for disk, disk_info in values.items %}
+                        <tr>
+                        <td>{{ disk }}</td>
+                        <td style="text-transform:uppercase">{{ disk_info.type }}</td>
+                        <td>{{ disk_info.path }}</td>
+                        <td>{{ disk_info.load }}</td>
+                        <td>{{ disk_info.free_read }}</td>
+                        <td>{{ disk_info.max_read }}</td>
+                        <td>{{ disk_info.free_write }}</td>
+                        <td>{{ disk_info.max_write }}</td>
+                        </tr>
+                    {% endfor %}
+                </table>
+                <p></p>
+                    <HR>
+            {% endif %}
+        {% endfor %}
+
+        <!-- Specific table for cpu cores -->
+        {% for resource,values in item.resources.items %}
+            {% if resource == "cpu_cores" %}
+                <p>Core Usage Mapping</p>
+                <p></p>
+                <table class="data_table">
+                    <!-- header -->
+                    <tr>
+                        <th>Core</th>
+                        <th>Free</th>
+                        {% for cont in item.containers %}
+                            <th>{{ cont.name }}</th>
+                        {% endfor %}
+                    </tr>
+                    <!-- rows -->
+                    {% for core,mapping in values.items %}
+                        <tr>
+                            <th>{{ core }}</th>
+                            {% for key, value in mapping.items %}
+                                <td>{{ value }}</td>
+                            {% endfor %}
+                        </tr>	
+                    {% endfor %}
+                </table>
+                <p></p>
+                <HR>
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+
+    <!-- RESOURCES EDIT MODAL -->	
+    {% if item.resources_editable_data > 0 %}
+        {% include 'functions/form.html' with form_id=item.name|add:"-resources" button_name="Edit resources" on_click_function="hide_resources_submit_buttons('"|add:item.name|add:"');" form_title="Edit resources of "|add:item.name form=item.resources_form form_helper=item.resources_form_helper %}
+    {% endif %}
+</div>

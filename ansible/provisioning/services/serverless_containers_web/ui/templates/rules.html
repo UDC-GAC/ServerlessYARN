@@ -2,61 +2,18 @@
 
 {% block page_content %}
 
-<HR>
-
-<!-- MENU -->
- <div class="vertical-menu">
-  <a href="{% url 'index' %}">Home</a>
-  <a href="{% url 'containers' %}">Containers</a>
-  <a href="{% url 'hosts' %}">Hosts</a>
-  <a href="{% url 'apps' %}">Apps</a>
-  <a href="{% url 'services' %}">Services</a>
-  <a href="{% url 'rules' %}" class="active">Rules</a>
-  {% if config.global_hdfs %}<a href="{% url 'hdfs' %}">HDFS</a>{% endif %}
-</div> 
+<!-- Menu -->
+{% include 'functions/menu.html' with config=config active="rules" %}
 
 <div class="content">
     
 <H4>Rules</H4>
 
-  <!-- Requests status -->
-  {% if requests_errors %}
-    {% for error in requests_errors %}
-      <div class="alert">
-          <span class="closebtn">&times;</span>
-          <strong>Error!</strong> {{ error }}
-      </div> 
-    {% endfor %}
-  {% endif %}
+    <!-- Requests and configuration errors -->
+    {% include 'functions/alerts.html' with requests=requests config_errors=config_errors %}
 
-  {% if requests_successes %}
-  	{% for success in requests_successes %}
-	  <div class="alert success">
-		  <span class="closebtn">&times;</span>
-		  <strong>Success!</strong> {{ success }}
-	  </div>
-	{% endfor %}
-  {% endif %}
-
-  {% if requests_info %}
-  	{% for info in requests_info %}
-	  <div class="alert info">
-		  <span class="closebtn">&times;</span>
-		  <strong>Info!</strong> {{ info }}
-	  </div>
-	{% endfor %}
-  {% endif %}
-
-  <!-- Unstable configuration alerts -->
-  {% for error in config_errors %}
-	<div class="alert warning">
-		<span class="closebtn">&times;</span>
-		<strong>Warning!</strong> {{ error }}
-	</div> 
-  {% endfor %}
-
+	<!-- Rules -->
   <ul id="tabs">
-	
     {% for resource in resources %}
     <li>
     <button class="accordion">{{ resource }}</button>
@@ -79,20 +36,11 @@
 			<table class="data_table">
 				<p></p>
 				<tr>
-					<form action="{% url 'rule_switch' item.name %}" method="POST"> 
-						{% csrf_token %}
-						<td>Active</td><td>{{ item.active }}</td>
-
-						{% if item.active == True %} <td><button class="deactivate-btn" type="submit" name="rule_switch" value="rule_off">Deactivate</button></td>
-						{% else %}                  
-							{% if type == "" %} 
-								<!-- Rules used by the ReBalancer, NOT the Guardian, should leave it deactivated -->
-								<td><button disabled class="activate-btn" type="submit" name="rule_switch" value="rule_on">Activate</button></td>
-							{% else %}
-								<td><button class="activate-btn" type="submit" name="rule_switch" value="rule_on">Activate</button></td>
-							{% endif %}
-						{% endif %}
-					</form>
+                    {% if type != "" %}
+                        {% include 'functions/switch.html' with                           switch_url="rule_switch" item_name=item.name switch_name="rule_switch" switch_prefix="rule" cell_name="Active" state=item.active on_state_label="Deactivate" off_state_label="Activate" %}
+                    {% else %}
+                        {% include 'functions/switch.html' with disable_activation="true" switch_url="rule_switch" item_name=item.name switch_name="rule_switch" switch_prefix="rule" cell_name="Active" state=item.active on_state_label="Deactivate" off_state_label="Activate" %}
+                    {% endif %}
 				</tr>
 				{% if item.action.events %} <tr> <td>Events</td> <td>{{ item.action.events }}</td> </tr> {% endif %}
 				{% if item.amount %} <tr> <td>Amount</td> <td>{{ item.amount }}</td> </tr> {% endif %}
@@ -103,20 +51,10 @@
 				<tr><td>Rule</td> <td>{{ item.rule_readable }}</td> </tr>
 			</table>
 			<p></p>
-			
-				<!-- EDIT MODAL-->	
+
+				<!-- Edit form-->
 				{% if item.editable_data > 0 %}
-					<a href="#openModal-{{ item.name }}" title="Edit" class="caja">Edit information</a>
-					<br><br>
-					<div align="left" id="openModal-{{ item.name }}" class="modalDialog">
-						<div>
-							<a href="#close" title="Close" class="close">X</a>
-							<h2>Edit information of {{ item.name }}</h2>
-							<p>
-								{% load crispy_forms_tags %} {% crispy item.form %}
-							</p>
-						</div>
-					</div>
+					{% include 'functions/form.html' with form_id=item.name button_name="Edit information" form_title="Edit information of "|add:item.name form=item.form %}
 				{% endif %}
   			</div>
   			{% endif %}

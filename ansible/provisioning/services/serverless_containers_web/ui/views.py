@@ -193,9 +193,11 @@ def structures(request, structure_type, html_render):
 
     context = {
         'data': structures,
-        'requests_errors': requests_errors,
-        'requests_successes': requests_successes,
-        'requests_info': requests_info,
+        'requests': {
+            'errors': requests_errors,
+            'successes': requests_successes,
+            'info': requests_info
+        },
         'addStructureForm': addStructureForm,
         'removeStructuresForm': removeStructuresForm,
         'config': config
@@ -2083,9 +2085,11 @@ def services(request):
     context = {
         'data': data_json,
         'config_errors': config_errors,
-        'requests_errors': requests_errors,
-        'requests_successes': requests_successes,
-        'requests_info': requests_info,
+        'requests': {
+            'errors': requests_errors,
+            'successes': requests_successes,
+            'info': requests_info
+        },
         'config': config
     }
 
@@ -2231,9 +2235,11 @@ def rules(request):
         'resources': rulesResources,
         'types': ruleTypes,
         'config_errors': config_errors,
-        'requests_errors': requests_errors,
-        'requests_successes': requests_successes,
-        'requests_info': requests_info,
+        'requests': {
+            'errors': requests_errors,
+            'successes': requests_successes,
+            'info': requests_info
+        },
         'config': config
     }
 
@@ -2491,9 +2497,10 @@ def hdfs(request):
     requests_successes.extend(successful_tasks)
     requests_info.extend(still_pending_tasks)
 
-    context['requests_errors'] = requests_errors
-    context['requests_successes'] = requests_successes
-    context['requests_info'] = requests_info
+    context['requests'] = {}
+    context['requests']['errors'] = requests_errors
+    context['requests']['successes'] = requests_successes
+    context['requests']['info'] = requests_info
     context['config'] = config
 
     return render(request, 'hdfs.html', context)

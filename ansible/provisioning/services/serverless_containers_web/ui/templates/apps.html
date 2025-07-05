@@ -2,51 +2,17 @@
 
 {% block page_content %}
 
-<HR>
-
-<!-- MENU -->
- <div class="vertical-menu">
-  <a href="{% url 'index' %}">Home</a>
-  <a href="{% url 'containers' %}">Containers</a>
-  <a href="{% url 'hosts' %}">Hosts</a>
-  <a href="{% url 'apps' %}" class="active">Apps</a>
-  <a href="{% url 'services' %}">Services</a>
-  <a href="{% url 'rules' %}">Rules</a>
-  {% if config.global_hdfs %}<a href="{% url 'hdfs' %}">HDFS</a>{% endif %}
-</div> 
+<!-- Menu -->
+{% include 'functions/menu.html' with config=config active="apps" %}
 
 <div class="content">
     
 <H4>Apps</H4>
 
-  <!-- Requests status -->
-  {% if requests_errors %}
-    {% for error in requests_errors %}
-      <div class="alert">
-          <span class="closebtn">&times;</span>
-          <strong>Error!</strong> {{ error }}
-      </div> 
-    {% endfor %}
-  {% endif %}
+	<!-- Requests -->
+	{% include 'functions/alerts.html' with requests=requests %}
 
-  {% if requests_successes %}
-  	{% for success in requests_successes %}
-	  <div class="alert success">
-		  <span class="closebtn">&times;</span>
-		  <strong>Success!</strong> {{ success }}
-	  </div>
-	{% endfor %}
-  {% endif %}
-
-  {% if requests_info %}
-  	{% for info in requests_info %}
-	  <div class="alert info">
-		  <span class="closebtn">&times;</span>
-		  <strong>Info!</strong> {{ info }}
-	  </div>
-	{% endfor %}
-  {% endif %}
-
+	<!-- Apps -->
   <ul id="tabs">
     {% for item in data %}
     <li>
@@ -55,14 +21,7 @@
 		<p></p>
 		<table class="data_table">
 			<tr>
-				<form action="{% url 'apps_guard_switch' item.name %}" method="POST"> 
-					{% csrf_token %}
-					<td>Guard</td> <td>{{ item.guard }}</td>
-	
-					{% if item.guard == True %} <td><button class="deactivate-btn" type="submit" name="guard_switch" value="guard_off">Unguard</button></td>
-					{% else %}                  <td><button class="activate-btn" type="submit" name="guard_switch" value="guard_on">Guard</button></td>
-					{% endif %}
-				</form>
+				{% include 'functions/switch.html' with switch_url="apps_guard_switch" item_name=item.name switch_name="guard_switch" switch_prefix="guard" cell_name="Guard" state=item.guard on_state_label="Unguard" off_state_label="Guard" %}
 			</tr>
 		
 			<tr><td>Guard Policy</td> <td>{{ item.guard_policy }}</td></tr>
@@ -75,296 +34,47 @@
 
 		</table>
 		<p></p>
-		
-    	<button class="accordion">Resources</button>
-  		<div class="panel">
 
-			<p></p>
-			<table class="data_table">
-				<!-- header -->
-				<tr>
-					<th class=empty_header></th>
-					{% for value_label in item.resources_values_labels %}
-						<th>{{ value_label }}</th>
-					{% endfor %}
-				</tr>
-				<!-- rows -->
-				{% for resource,values in item.resources.items %}
-					<tr>
-						<th>{{ resource }}</th>
-						{% for key, value in values.items %}
-							<td>{{ value }}</td>
-						{% endfor %}
-					</tr>
-				{% endfor %}
-			</table>
-			<p></p>
+        {% include 'functions/resources.html' with item=item structure_type="app" %}
+        {% include 'functions/limits.html' with item=item %}
 
-			<!-- APP RESOURCES EDIT MODAL -->	
-			{% if item.resources_editable_data > 0 %}
-				<a href="#openModal-{{ item.name }}-resources" title="Edit" class="caja" onclick="hide_resources_submit_buttons('{{ item.name }}');">Edit resources</a>
-				<br><br>
-				<div align="left" id="openModal-{{ item.name }}-resources" class="modalDialog">
-					<div>
-						<a href="#close" title="Close" class="close">X</a>
-						<h2>Edit resources of {{ item.name }}</h2>
-						<p>
-							{% load crispy_forms_tags %} {% crispy item.resources_form item.resources_form_helper %}
-						</p>
-					</div>
-				</div>
-			{% endif %}
-
-  		</div>
-  		<button class="accordion">Limits</button>
-  		<div class="panel">
-
-			<p></p>
-			<table class="data_table">
-				<!-- header -->
-				<tr>
-					<th class=empty_header></th>
-					{% for value_label in item.limits_values_labels %}
-						<th>{{ value_label }}</th>
-					{% endfor %}
-				</tr>
-				<!-- rows -->
-				{% for resource,values in item.limits.items %}
-					<tr>
-						<th>{{ resource }}</th>
-						{% for key, value in values.items %}
-							<td>{{ value }}</td>
-						{% endfor %}
-					</tr>
-				{% endfor %}
-			</table>
-			<p></p>
-
-			<!-- APP LIMIT EDIT MODAL	-->
-			{% if item.limits_editable_data > 0 %}
-				<a href="#openModal-{{ item.name }}-limits" title="Edit" class="caja">Edit boundaries</a>
-				<br><br>
-				<div align="left" id="openModal-{{ item.name }}-limits" class="modalDialog">
-					<div>
-						<a href="#close" title="Close" class="close">X</a>
-						<h2>Edit boundaries of {{ item.name }}</h2>
-						<p>
-							{% load crispy_forms_tags %} {% crispy item.limits_form %}
-						</p>
-					</div>
-				</div>
-			{% endif %}
-
-  		</div>
   		<a class="button" href="{% url 'structure_detail' item.name %}">Full details</a>
 	</div>    	
     <HR>
     <HR>
+	<!-- App containers -->
     Containers:
-    {% for cont in item.containers_full %}
-    <button class="accordion">{{ cont.name }}</button>
-	<div class="panel">
-		<p></p>
-		<table class="data_table">	
-			<tr>
-				<form action="{% url 'apps_guard_switch' cont.name %}" method="POST"> 
-					{% csrf_token %}
-					<td>Guard</td> <td>{{ cont.guard }}</td>
+	{% for cont in item.containers_full %}
+		{% include 'functions/container_data.html' with guard_switch="apps" cont=cont %}
+	{% endfor %}
 
-					{% if cont.guard == True %} <td><button class="deactivate-btn" type="submit" name="guard_switch" value="guard_off">Unguard</button></td>
-					{% else %}                  <td><button class="activate-btn" type="submit" name="guard_switch" value="guard_on">Guard</button></td>
-					{% endif %}
-				</form>
-			</tr>
-			<tr><td>Guard Policy</td> <td>{{ cont.guard_policy }}</td></tr>
-		</table>
-		<p></p>
-
-   		<button class="accordion">Resources</button>
-  		<div class="panel">
-
-			<p></p>
-			<table class="data_table">
-				<!-- header -->
-				<tr>
-					<th class=empty_header></th>
-					{% for value_label in cont.resources_values_labels %}
-						<th>{{ value_label }}</th>
-					{% endfor %}
-				</tr>
-				<!-- rows -->
-				{% for resource,values in cont.resources.items %}
-				{% if resource != "disk" %}
-					<tr>
-						<th>{{ resource }}</th>
-						{% for key, value in values.items %}
-							<td>{{ value }}</td>
-						{% endfor %}
-					</tr>
-				{% endif %}
-				{% endfor %}
-			</table>
-			<p></p>
-
-			<!-- Another table for disks -->
-			{% for resource,disk in cont.resources.items %}
-				{% if resource == "disk" %}
-					<p>Disk</p>
-					<p></p>
-					<table class="data_table">
-						<!-- rows -->
-						<tr>
-							<th>Name</th>
-							<td>{{ disk.name }}</td>
-						</tr>
-						<tr>
-							<th>Path</th>
-							<td>{{ disk.path }}</td>
-						</tr>
-					</table>
-					<p></p>
-					<HR>
-				{% endif %}
-			{% endfor %}
-
-			<!-- CONT RESOURCES EDIT MODAL -->	
-			{% if cont.resources_editable_data > 0 %}
-				<a href="#openModal-{{ cont.name }}-resources" title="Edit" class="caja" onclick="hide_resources_submit_buttons('{{ cont.name }}');">Edit resources</a>
-				<br><br>
-				<div align="left" id="openModal-{{ cont.name }}-resources" class="modalDialog">
-					<div>
-						<a href="#close" title="Close" class="close">X</a>
-						<h2>Edit resources of {{ cont.name }}</h2>
-						<p>
-							{% load crispy_forms_tags %} {% crispy cont.resources_form cont.resources_form_helper %}
-						</p>
-					</div>
-				</div>
-			{% endif %}
-
-  		</div>
-  		<button class="accordion">Limits</button>
-  		<div class="panel">
-
-			<p></p>
-			<table class="data_table">
-				<!-- header -->
-				<tr>
-					<th class=empty_header></th>
-					{% for value_label in cont.limits_values_labels %}
-						<th>{{ value_label }}</th>
-					{% endfor %}
-				</tr>
-				<!-- rows -->
-				{% for resource,values in cont.limits.items %}
-					<tr>
-						<th>{{ resource }}</th>
-						{% for key, value in values.items %}
-							<td>{{ value }}</td>
-						{% endfor %}
-					</tr>
-				{% endfor %}
-			</table>
-			<p></p>
-
-			<!-- CONT LIMIT EDIT MODAL -->	
-			{% if cont.limits_editable_data > 0 %}
-				<a href="#openModal-{{ cont.name }}-limits" title="Edit" class="caja">Edit boundaries</a>
-				<br><br>
-				<div align="left" id="openModal-{{ cont.name }}-limits" class="modalDialog">
-					<div>
-						<a href="#close" title="Close" class="close">X</a>
-						<h2>Edit boundaries of {{ cont.name }}</h2>
-						<p>
-							{% load crispy_forms_tags %} {% crispy cont.limits_form %}
-						</p>
-					</div>
-				</div>
-			{% endif %}
-
-  		</div>
-		<a class="button" href="{% url 'structure_detail' cont.name %}">Full details</a>
-        <p></p>
-	</div>
-    {% endfor %}
-
+	<!-- Forms -->
 	{% if item.started_app %}
 		<p></p>
-		<form action="{% url 'apps_stop_switch' item.name %}" method="POST">
-			{% csrf_token %}
-			<td><button class="deactivate-btn" type="submit" name="stop_switch">Stop app</button></td>
-		</form>
+		{% include 'functions/switch.html' with switch_url="apps_stop_switch" item_name=item.name switch_name="stop_switch" switch_prefix="app" state=item.started_app on_state_label="Stop app" %}
 	{% endif %}
 
 	{% if item.start_app_form %}
 		<p></p>
-		<a href="#openModal-start-app-{{ item.name }}" title="Edit" class="caja">{% if item.started_app %} Add new containers to app {% else %} Start app {% endif %}</a>
-		<br><br>
-		<div align="left" id="openModal-start-app-{{ item.name }}" class="modalDialog">
-			<div>
-				<a href="#close" title="Close" class="close">X</a>
-				<h2>{% if item.started_app %} Add new containers to app {% else %} Start app {% endif %} {{ item.name }}</h2>
-				<p>
-					{% load crispy_forms_tags %} {% crispy item.start_app_form %}
-				</p>
-			</div>
-		</div>
+		{% if item.started_app %}
+			{% include 'functions/form.html' with form_id="start-app-"|add:item.name button_name="Add new containers to app" form_title="Add new containers to app "|add:item.name form=item.start_app_form %}
+		{% else %}
+			{% include 'functions/form.html' with form_id="start-app-"|add:item.name button_name="Start app"                 form_title="Start app "|add:item.name                 form=item.start_app_form %}
+		{% endif %}
 	{% endif %}
 
 	{% if item.remove_containers_from_app_editable_data > 0 %}
 		<p></p>
-		<a href="#openModal-remove-containers-from-app-{{ item.name }}" title="Edit" class="caja">Remove Containers from App</a>
-		<br><br>
-		<div align="left" id="openModal-remove-containers-from-app-{{ item.name }}" class="modalDialog">
-			<div>
-				<a href="#close" title="Close" class="close">X</a>
-				<h2>Remove Containers from App {{ item.name }}</h2>
-				<p>
-					{% load crispy_forms_tags %} {% crispy item.remove_containers_from_app_form %}
-				</p>
-			</div>
-		</div>
+		{% include 'functions/form.html' with form_id="remove-containers-from-app-"|add:item.name button_name="Remove Containers from app" form_title="Remove Containers from app "|add:item.name form=item.remove_containers_from_app_form %}
 	{% endif %}
 
     </li>    
     {% endfor %}
   </ul>
 
-  <a href="#openModal-add-app" title="Edit" class="caja">Add App</a>
-  <br><br>
-  <div align="left" id="openModal-add-app" class="modalDialog">
-	  <div>
-		  <a href="#close" title="Close" class="close">X</a>
-		  <h2>Add App</h2>
-		  <p>
-			  {% load crispy_forms_tags %} {% crispy addStructureForm.app %}
-		  </p>
-	  </div>
-  </div>
-
-  <a href="#openModal-add-hadoop-app" title="Edit" class="caja">Add Hadoop App</a>
-  <br><br>
-  <div align="left" id="openModal-add-hadoop-app" class="modalDialog">
-	  <div>
-		  <a href="#close" title="Close" class="close">X</a>
-		  <h2>Add Hadoop App</h2>
-		  <p>
-			  {% load crispy_forms_tags %} {% crispy addStructureForm.hadoop_app %}
-		  </p>
-	  </div>
-  </div>
-
-  <a href="#openModal-remove-apps" title="Edit" class="caja">Remove Apps</a>
-  <br><br>
-  <div align="left" id="openModal-remove-apps" class="modalDialog">
-	  <div>
-		  <a href="#close" title="Close" class="close">X</a>
-		  <h2>Remove Apps</h2>
-		  <p>
-			  {% load crispy_forms_tags %} {% crispy removeStructuresForm %}
-		  </p>
-	  </div>
-  </div>
+  {% include 'functions/form.html' with form_id="add-app"        button_name="Add App"        form_title="Add App"         form=addStructureForm.app %}
+  {% include 'functions/form.html' with form_id="add-hadoop-app" button_name="Add Hadoop App" form_title="Add Hadoop Apps" form=addStructureForm.hadoop_app %}
+  {% include 'functions/form.html' with form_id="remove-apps"    button_name="Remove Apps"    form_title="Remove Apps"     form=removeStructuresForm %}
 
 </div>
 <HR> 
