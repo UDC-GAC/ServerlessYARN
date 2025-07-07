@@ -5,8 +5,8 @@
 require 'yaml'
 current_dir           = File.dirname(File.expand_path(__FILE__))
 config_dir            = "#{current_dir}/ansible/provisioning/config/modules"
-general_config        = YAML.load_file(File.exist?("#{config_dir}/01-general.yml") ? "#{config_dir}/01-general.yml" : "#{config_dir}/01-general.yml.template")
-host_config           = YAML.load_file(File.exist?("#{config_dir}/02-hosts.yml") ? "#{config_dir}/02-hosts.yml" : "#{config_dir}/02-hosts.yml.template")
+general_config        = YAML.load_file(File.exist?("#{config_dir}/01-general.yml") ? "#{config_dir}/01-general.yml" : "#{config_dir}/template.01-general.yml")
+host_config           = YAML.load_file(File.exist?("#{config_dir}/02-hosts.yml") ? "#{config_dir}/02-hosts.yml" : "#{config_dir}/template.02-hosts.yml")
 
 ## Server
 SERVER_IP = host_config['server_ip']

@@ -46,8 +46,12 @@ check_files_to_template ()
     for file in $FILES_TO_TEMPLATE
     do
         if [ ! -f $file ]; then
-            echo "$(realpath -s --relative-to=$PWD $file) does not exists, a copy of $(realpath -s --relative-to=$PWD $file.template) will be created instead"
-            cp $file.template $file
+            filename=$(basename $file)
+            file_directory=$(realpath $(dirname $file))
+            template_file=$file_directory/template.$filename
+
+            echo "$(realpath -s --relative-to=$PWD $file) does not exists, a copy of $(realpath -s --relative-to=$PWD $template_file) will be created instead"
+            cp $template_file $file
         fi
     done
 }

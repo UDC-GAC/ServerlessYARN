@@ -10,6 +10,7 @@ artifacts/
 ansible/ansible.inventory
 ansible/provisioning/config/config.yml
 ansible/provisioning/config/modules/*.yml
+!ansible/provisioning/config/modules/template.*.yml
 
 ## Exclude apps directory, but including some specific subdirectories and files
 ansible/provisioning/apps/*
