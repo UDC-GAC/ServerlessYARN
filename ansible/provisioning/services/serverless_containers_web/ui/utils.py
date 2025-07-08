@@ -6,7 +6,9 @@ DEFAULT_APP_VALUES = {
     "install_script": "install.sh",
     "start_script": "start.sh",
     "stop_script": "stop.sh",
-    "files_dir": "files_dir"
+    "install_files": "install_files",
+    "runtime_files": "runtime_files",
+    "output_dir": "output_dir",
 }
 
 DEFAULT_LIMIT_VALUES = {

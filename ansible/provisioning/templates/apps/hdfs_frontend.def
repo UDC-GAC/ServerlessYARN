@@ -8,7 +8,7 @@ From: apps/{{ app_base_type }}/{{ app_base_image_file }}
     # Clean non-necessary files from parent images
     cd /opt
     rm -r BDWatchdog
-    rm -r files_dir
+    rm -r hadoop_files
     rm setup.sh
     rm java_snitch.sh
     rm hadoop-{{ hadoop_version }}.tar.gz

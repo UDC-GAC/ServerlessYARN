@@ -10,14 +10,20 @@ From: apps/{{ app_base_type }}/{{ app_base_image_file }}
 
     # Setup Spark
     cd /opt
-    export SPARK_CONF_DIR=/opt/files_dir/spark_conf
-    wget https://archive.apache.org/dist/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-without-hadoop.tgz
-    mkdir spark && tar xf "spark-{{ spark_version }}-bin-without-hadoop.tgz" -C spark --strip-components 1
+    export SPARK_CONF_DIR=/opt/hadoop_files/spark_conf
+
+    ## Download and uncompress
+    spark_download_dir=https://archive.apache.org/dist/spark/spark-{{ spark_version }}
+    spark_download_file=spark-{{ spark_version }}-bin-without-hadoop.tgz
+    wget $spark_download_dir/$spark_download_file
+    mkdir spark && tar xf $spark_download_file -C spark --strip-components 1 && rm $spark_download_file
     chown -R $(whoami):$(whoami) spark
+
+    ## Setup default configuration files
     mkdir -p $SPARK_CONF_DIR && cp -r spark/conf/* $SPARK_CONF_DIR/
 
 %environment
     # Spark
     export SPARK_HOME=/opt/spark
     export SPARK_DIST_CLASSPATH=$($HADOOP_HOME/bin/hadoop classpath)
-    export SPARK_CONF_DIR="{{ bind_dir_on_container }}/files_dir/spark_conf"
+    export SPARK_CONF_DIR="{{ bind_dir_on_container }}/hadoop_files/spark_conf"

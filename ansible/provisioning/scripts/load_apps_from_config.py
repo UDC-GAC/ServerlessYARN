@@ -10,6 +10,7 @@ import sys
 scriptDir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(scriptDir + "/../services/serverless_containers_web/ui")
 from utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, request_to_state_db
+from run_playbooks import create_app
 
 APPS_DIR = "apps"
 APP_CONFIG_FILENAME = "app_config.yml"
@@ -17,7 +18,7 @@ APP_CONFIG_FILENAME = "app_config.yml"
 # Apps
 MANDATORY_APP_KEYS = []
 OPTIONAL_APP_KEYS_WITH_DEFAULT = ["start_script", "stop_script"]
-OPTIONAL_APP_KEYS = ["files_dir", "install_script", "app_jar"]
+OPTIONAL_APP_KEYS = ["install_script", "install_files", "runtime_files", "output_dir", "app_jar"]
 OTHER_APP_KEYS = ["name", "names", "app_type", "framework"] # Other keys that are handled differently. This list is for documentation purposes only, it is not meant to be used in the script
 SUPPORTED_APP_TYPES = ["base", "generic_app", "hadoop_app", "spark_app"]
 SUPPORTED_EXTRA_FRAMEWORKS = ["spark"]
@@ -136,23 +137,33 @@ if __name__ == "__main__":
 
             if (error == ""):
 
-                files_dir = os.path.basename(app_config['app']['files_dir'])
-                install_script = os.path.basename(app_config['app']['install_script'])
-                app_jar = os.path.basename(app_config['app']['app_jar'])
+                # files_dir = os.path.basename(app_config['app']['files_dir'])
+                # install_script = os.path.basename(app_config['app']['install_script'])
+                # app_jar = os.path.basename(app_config['app']['app_jar'])
 
-                argument_list = [app_dir, files_dir, install_script, app_type, app_jar]
-                error_message = "Error creating app {0} with directory {1}".format(app_config['app']['name'], app_dir)
+                # argument_list = [app_dir, files_dir, install_script, app_type, app_jar]
+                # error_message = "Error creating app {0} with directory {1}".format(app_config['app']['name'], app_dir)
 
-                ## Process script
-                rc = subprocess.Popen(["{0}/../services/serverless_containers_web/ui/scripts/create_app.sh".format(scriptDir), *argument_list], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                out, err = rc.communicate()
+                # ## Process script
+                # rc = subprocess.Popen(["{0}/../services/serverless_containers_web/ui/scripts/create_app.sh".format(scriptDir), *argument_list], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                # out, err = rc.communicate()
 
-                # Log ansible output
-                print(out.decode("utf-8"))
+                # # Log ansible output
+                # print(out.decode("utf-8"))
 
-                if rc.returncode != 0:
-                    error = "{0}: {1}".format(error_message, err.decode("utf-8"))
-                    raise Exception(error)
+                # if rc.returncode != 0:
+                #     error = "{0}: {1}".format(error_message, err.decode("utf-8"))
+                #     raise Exception(error)
+                app_files = {
+                    "app_dir": app_dir,
+                    "app_type": app_type,
+                    "install_script": os.path.basename(app_config['app']['install_script']),
+                    "install_files": os.path.basename(app_config['app']['install_files']),
+                    "app_jar": os.path.basename(app_config['app']['app_jar'])
+                }
+                ## Create app image
+                create_app(app_files)
+
             else:
                 raise Exception(error)
 

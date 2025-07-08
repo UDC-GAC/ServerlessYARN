@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 
-source ${scriptDir}/files_dir/app_config.sh
+source ${scriptDir}/runtime_files/app_config.sh
 
 # Check if stress is available
 path_to_executable=$(which stress)

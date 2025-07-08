@@ -114,7 +114,7 @@
             shell: "{% for item in containers_info %}
               {% if item.host == inventory_hostname %}
               sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \ 
-              'cp -pr /opt/files_dir {{ bind_dir_on_container }}/ && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/* \
+              'cp -pr /opt/hadoop_files {{ bind_dir_on_container }}/ && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/* \
               && {% for item in worker_list %}echo {{ item }} >> $HADOOP_CONF_DIR/workers && {% endfor %}true' && 
               {% endif  %}
               {% endfor %}true"
@@ -345,23 +345,23 @@
       - block:
           - name: Create app files directory
             file:
-              path: "{{ container_bind_dir }}/{{ files_dir | basename }}"
+              path: "{{ container_bind_dir }}/{{ runtime_files | basename }}"
               state: directory
 
           - name: Find config files to template in the app directory
             delegate_to: localhost
             run_once: yes
             find:
-              paths: "apps/{{ app_dir }}/{{ files_dir }}/"
+              paths: "apps/{{ app_dir }}/{{ runtime_files }}/"
               recurse: yes
             register: found_config_files
 
           - name: Process template for each config file
             template:
               src: "{{ item.path }}"
-              dest: "{{ container_bind_dir }}/{{ files_dir | basename }}/{{ item.path | basename}}"
+              dest: "{{ container_bind_dir }}/{{ runtime_files | basename }}/{{ item.path | basename}}"
             loop: "{{ found_config_files.files }}"
-        when: "files_dir != ''"
+        when: "runtime_files != ''"
         tags: stop_app
 
       - name: Copy app start script
@@ -434,7 +434,7 @@
         # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
         when: "app_jar != '' and ' ' not in bind_dir_on_container"
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
-          'rm -r {{ bind_dir_on_container}}/files_dir'"
+          'rm -r {{ bind_dir_on_container}}/hadoop_files'"
         args:
           executable: /bin/bash
 
@@ -488,9 +488,9 @@
           output_dir: "{{ default_bind_path }}/{{ bind_dir_name }}/{{ rm_container }}/hadoop_logs"
 
       - name: Remove app files directory
-        when: "files_dir != ''"
+        when: "runtime_files != ''"
         file:
-          path: "{{ container_bind_dir }}/{{ files_dir | basename }}"
+          path: "{{ container_bind_dir }}/{{ runtime_files | basename }}"
           state: absent
 
     tags: never, stop_app
@@ -512,7 +512,7 @@
   - name: Workaround to clean global HDFS files
     when: "' ' not in bind_dir_on_container"
     shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
-      'tmux kill-session -t JAVA_SNITCH && rm -r {{ bind_dir_on_container}}/files_dir && rm -r {{ bind_dir_on_container}}/hadoop_logs'"
+      'tmux kill-session -t JAVA_SNITCH && rm -r {{ bind_dir_on_container}}/hadoop_files && rm -r {{ bind_dir_on_container}}/hadoop_logs'"
     args:
       executable: /bin/bash
     tags: never, clean_hdfs

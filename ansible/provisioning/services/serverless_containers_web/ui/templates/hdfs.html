@@ -36,8 +36,10 @@
                         </tr>
 
                         <tr><td>Guard Policy</td> <td>{{ global_hdfs_app.guard_policy }}</td></tr>
-                        {% if global_hdfs_app.files_dir %} <tr><td>Files directory</td> <td>{{ global_hdfs_app.files_dir }}</td></tr> {% endif %}
                         {% if global_hdfs_app.install_script %} <tr><td>Install script</td> <td>{{ global_hdfs_app.install_script }}</td></tr> {% endif %}
+                        {% if global_hdfs_app.install_files %} <tr><td>Install files directory</td> <td>{{ global_hdfs_app.install_files }}</td></tr> {% endif %}
+                        {% if global_hdfs_app.runtime_files %} <tr><td>Runtime files directory</td> <td>{{ global_hdfs_app.runtime_files }}</td></tr> {% endif %}
+                        {% if global_hdfs_app.output_dir %} <tr><td>Output directory</td> <td>{{ global_hdfs_app.output_dir }}</td></tr> {% endif %}
                         {% if global_hdfs_app.start_script %} <tr><td>Start script</td> <td>{{ global_hdfs_app.start_script }}</td></tr> {% endif %}
                         {% if global_hdfs_app.stop_script %} <tr><td>Stop script</td> <td>{{ global_hdfs_app.stop_script }}</td></tr> {% endif %}
                         {% if global_hdfs_app.framework %} <tr><td>Framework</td> <td>{{ global_hdfs_app.framework }}</td></tr> {% endif %}

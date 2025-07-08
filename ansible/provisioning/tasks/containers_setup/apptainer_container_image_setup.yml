@@ -42,23 +42,23 @@
 
         # Optional files directory
         - name: Copy files from optional directory if applicable ({{ item }})
-          when: files_dir is defined and files_dir != '' and item == 'generic_app'
+          when: install_files is defined and install_files != '' and item == 'generic_app'
           block:
             - name: Copy app optional files directory ({{ item }})
               copy:
-                src: "{{ app_directory }}/{{ files_dir }}"
+                src: "{{ app_directory }}/{{ install_files }}"
                 dest: "{{ installation_path }}/{{ app_directory }}/"
 
             - name: Find config files to template in the app directory ({{ item }})
               find:
-                paths: "{{ app_directory }}/{{ files_dir }}"
+                paths: "{{ app_directory }}/{{ install_files }}"
                 recurse: yes
               register: found_config_files
 
             - name: Process template for each config file ({{ item }})
               template:
                 src: "{{ file.path }}"
-                dest: "{{ installation_path }}/{{ app_directory }}/{{ files_dir }}/{{ file.path | regex_replace('^' + app_directory + '/' + files_dir, '') }}"
+                dest: "{{ installation_path }}/{{ app_directory }}/{{ install_files }}/{{ file.path | regex_replace('^' + app_directory + '/' + install_files, '') }}"
               loop: "{{ found_config_files.files }}"
               loop_control:
                 loop_var: file ## we need to change this inner loop variable to avoid collisions re-using the 'item' variable from the outer loop
@@ -72,7 +72,7 @@
           with_items:
             - setup.sh
             - java_snitch.sh
-            - files_dir
+            - hadoop_files
           loop_control:
             loop_var: file
 

@@ -85,7 +85,7 @@
 
   <property>
     <name>mapreduce.cluster.local.dir</name>
-    <value>{{ bind_dir_on_container }}/files_dir/mapred/local</value>
+    <value>{{ bind_dir_on_container }}/hadoop_files/mapred/local</value>
   </property>
 
   <property>

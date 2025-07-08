@@ -594,7 +594,9 @@ def setRemoveStructureForm(structures, form_action):
 def setRemoveContainersFromAppForm(app, containers, form_action):
     removeContainersFromAppForm = RemoveContainersFromAppForm()
     removeContainersFromAppForm.fields['app'].initial = app['name']
-    removeContainersFromAppForm.fields['files_dir'].initial = app['files_dir']
+    #removeContainersFromAppForm.fields['files_dir'].initial = app['files_dir']
+    removeContainersFromAppForm.fields['runtime_files'].initial = app['runtime_files']
+    removeContainersFromAppForm.fields['output_dir'].initial = app['output_dir']
     removeContainersFromAppForm.fields['install_script'].initial = app['install_script']
     removeContainersFromAppForm.fields['start_script'].initial = app['start_script']
     removeContainersFromAppForm.fields['stop_script'].initial = app['stop_script']
@@ -931,7 +933,7 @@ def processAddApp(request, url, structure_name, structure_type, resources):
             app_files[f] = ""
 
     # Additional files
-    for condition, additional_file in [('add_files_dir', 'files_dir'), ('add_install', 'install_script')]:
+    for condition, additional_file in [('add_install', 'install_script'), ('add_install_files', 'install_files'), ('add_runtime_files', 'runtime_files'), ('add_output_dir', 'output_dir')]:
         if condition in request.POST and request.POST[condition]:
             if additional_file in request.POST and request.POST[additional_file] != "":
                 app_files[additional_file] = request.POST[additional_file]
@@ -962,8 +964,11 @@ def processAddApp(request, url, structure_name, structure_type, resources):
             'resources': {},
             'guard': False,
             'subtype': "application",
-            'files_dir': "{0}/{1}".format(app_files['app_dir'], app_files['files_dir']) if app_files['files_dir'] != "" else "",
+            #'files_dir': "{0}/{1}".format(app_files['app_dir'], app_files['files_dir']) if app_files['files_dir'] != "" else "",
             'install_script': "{0}/{1}".format(app_files['app_dir'], app_files['install_script']) if app_files['install_script'] != "" else "",
+            'install_files': "{0}/{1}".format(app_files['app_dir'], app_files['install_files']) if app_files['install_files'] != "" else "",
+            'runtime_files': "{0}/{1}".format(app_files['app_dir'], app_files['runtime_files']) if app_files['runtime_files'] != "" else "",
+            'output_dir': "{0}/{1}".format(app_files['app_dir'], app_files['output_dir']) if app_files['output_dir'] != "" else "",
             'start_script': "{0}/{1}".format(app_files['app_dir'], app_files['start_script']) if app_files['start_script'] != "" else "",
             'stop_script': "{0}/{1}".format(app_files['app_dir'], app_files['stop_script']) if app_files['stop_script'] != "" else "",
             ## Hadoop app data
@@ -1036,7 +1041,7 @@ def processStartApp(request, url, app_name):
     if 'start_script' in app and app['start_script']: app_files['app_dir'] = os.path.dirname(app['start_script'])
     else: return "Error: there is no start script for app {0}".format(app_name)
 
-    for f in ['files_dir', 'install_script', 'start_script', 'stop_script', 'app_jar', 'framework']:
+    for f in ['install_script', 'runtime_files', 'output_dir', 'start_script', 'stop_script', 'app_jar', 'framework']:
         if f in app:
             app_files[f] = os.path.basename(app[f])
         else:
@@ -1800,7 +1805,9 @@ def processRemoves(request, url, structure_type):
             containers_to_remove = request.POST.getlist('containers_removed', None)
             app = request.POST['app']
             app_files = {}
-            app_files['files_dir'] = os.path.basename(request.POST['files_dir'])
+            #app_files['files_dir'] = os.path.basename(request.POST['files_dir'])
+            app_files['runtime_files'] = os.path.basename(request.POST['runtime_files'])
+            app_files['output_dir'] = os.path.basename(request.POST['output_dir'])
             app_files['install_script'] = os.path.basename(request.POST['install_script'])
             app_files['start_script'] = os.path.basename(request.POST['start_script'])
             app_files['stop_script'] = os.path.basename(request.POST['stop_script'])
@@ -1907,7 +1914,9 @@ def getContainersFromApp(url, app_name):
     containerList = []
     containerNamesList = []
     app_files = {}
-    app_files['files_dir'] = ""
+    #app_files['files_dir'] = ""
+    app_files['runtime_files'] = ""
+    app_files['output_dir'] = ""
     app_files['install_script'] = ""
     app_files['start_script'] = ""
     app_files['stop_script'] = ""
@@ -1916,7 +1925,9 @@ def getContainersFromApp(url, app_name):
     for item in data:
         if (item['subtype'] == 'application' and item['name'] == app_name):
             containerNamesList = item['containers']
-            app_files['files_dir'] = os.path.basename(item['files_dir'])
+            #app_files['files_dir'] = os.path.basename(item['files_dir'])
+            app_files['runtime_files'] = os.path.basename(item['runtime_files'])
+            app_files['output_dir'] = os.path.basename(item['output_dir'])
             app_files['install_script'] = os.path.basename(item['install_script'])
             app_files['start_script'] = os.path.basename(item['start_script'])
             app_files['stop_script'] = os.path.basename(item['stop_script'])
@@ -2658,7 +2669,7 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
     app_files = {}
     app_files['app_dir'] = app_name
     app_files['app_type'] = "hadoop_app"
-    for key in ['start_script', 'stop_script', 'files_dir', 'install_script', 'app_jar']: app_files[key] = ""
+    for key in ['start_script', 'stop_script', 'install_script', 'install_files', 'runtime_files', 'output_dir', 'app_jar']: app_files[key] = ""
 
     put_field_data = {
         'app': {
@@ -2666,10 +2677,13 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
             'resources': {},
             'guard': False,
             'subtype': "application",
-            'files_dir': "",
+            #'files_dir': "",
             'install_script': "",
             'start_script': "",
             'stop_script': "",
+            'install_files': "",
+            'runtime_files': "",
+            'output_dir': "", ## actually I might use this to store logs
             'app_jar': "",
             'framework': "hadoop"
         },

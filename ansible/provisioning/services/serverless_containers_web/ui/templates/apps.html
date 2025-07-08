@@ -25,8 +25,10 @@
                         </tr>
 
                         <tr><td>Guard Policy</td> <td>{{ item.guard_policy }}</td></tr>
-                        {% if item.files_dir %} <tr><td>Files directory</td> <td>{{ item.files_dir }}</td></tr> {% endif %}
                         {% if item.install_script %} <tr><td>Install script</td> <td>{{ item.install_script }}</td></tr> {% endif %}
+                        {% if item.install_files %} <tr><td>Install files directory</td> <td>{{ item.install_files }}</td></tr> {% endif %}
+                        {% if item.runtime_files %} <tr><td>Runtime files directory</td> <td>{{ item.runtime_files }}</td></tr> {% endif %}
+                        {% if item.output_dir %} <tr><td>Output directory</td> <td>{{ item.output_dir }}</td></tr> {% endif %}
                         {% if item.start_script %} <tr><td>Start script</td> <td>{{ item.start_script }}</td></tr> {% endif %}
                         {% if item.stop_script %} <tr><td>Stop script</td> <td>{{ item.stop_script }}</td></tr> {% endif %}
                         {% if item.framework %} <tr><td>Framework</td> <td>{{ item.framework }}</td></tr> {% endif %}

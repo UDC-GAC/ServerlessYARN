@@ -8,8 +8,9 @@ import redis
 import json
 import timeit
 import yaml
-
 import urllib
+
+import ui.run_playbooks as run_playbooks
 
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file: config = yaml.load(config_file, Loader=yaml.FullLoader)
@@ -293,9 +294,10 @@ def add_host_task(host,cpu,mem,disk_info,energy,new_containers):
     with redis_server.lock(lock_key):
         add_host(host,cpu,mem,disk_info,energy,new_containers)
 
-    argument_list = [host]
-    error_message = "Error adding host {0}".format(host)
-    process_script("configure_host", argument_list, error_message)
+    # argument_list = [host]
+    # error_message = "Error adding host {0}".format(host)
+    # process_script("configure_host", argument_list, error_message)
+    run_playbooks.configure_host(host)
 
 def getHostsInfo(url):
 
@@ -324,9 +326,10 @@ def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk, measure
         for host in measure_host_list:
             if measure_host_list[host]:
                 throttle_containers_bw = 0
-                argument_list = [host, ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), str(throttle_containers_bw)]
-                error_message = "Error extending LV of host {0} with disks {1} and extra disk {2}".format(host, str(new_disks), extra_disk)
-                task = process_script.delay("extend_lv", argument_list, error_message)
+                # argument_list = [host, ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), str(throttle_containers_bw)]
+                # error_message = "Error extending LV of host {0} with disks {1} and extra disk {2}".format(host, str(new_disks), extra_disk)
+                # task = process_script.delay("extend_lv", argument_list, error_message)
+                task = run_playbooks.extend_lv.delay([host], ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), throttle_containers_bw)
                 register_task(task.id, "extend_lv_task")
                 host_list.remove(host)
 
@@ -351,9 +354,10 @@ def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk, measure
                     ):
                     ## enough free bandwidth to execute benchmark anyways
                     throttle_containers_bw = 0
-                    argument_list = [host, ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), str(throttle_containers_bw)]
-                    error_message = "Error extending LV of host {0} with disks {1} and extra disk {2}".format(host, str(new_disks), extra_disk)
-                    task = process_script.delay("extend_lv", argument_list, error_message)
+                    # argument_list = [host, ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), str(throttle_containers_bw)]
+                    # error_message = "Error extending LV of host {0} with disks {1} and extra disk {2}".format(host, str(new_disks), extra_disk)
+                    # task = process_script.delay("extend_lv", argument_list, error_message)
+                    task = run_playbooks.extend_lv.delay([host], ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), throttle_containers_bw)
                     register_task(task.id, "extend_lv_task")
                     finished_hosts.append(host)
                 else:
@@ -371,16 +375,18 @@ def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk, measure
         ## 3rd, hosts that were not able to reduce bandwidth under the threshold; will extend lv regardless, but capping the available bandiwdth of their containers
         if len(host_list) > 0:
             throttle_containers_bw = 1
-            argument_list = [','.join(host_list), ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), str(throttle_containers_bw)]
-            error_message = "Error extending LV of hosts {0} with disks {1} and extra disk {2}".format(host_list, str(new_disks), extra_disk)
-            process_script("extend_lv", argument_list, error_message)
+            # argument_list = [','.join(host_list), ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), str(throttle_containers_bw)]
+            # error_message = "Error extending LV of hosts {0} with disks {1} and extra disk {2}".format(host_list, str(new_disks), extra_disk)
+            # process_script("extend_lv", argument_list, error_message)
+            run_playbooks.extend_lv(host_list, new_disks, extra_disk, str(measure_host_list).replace(' ',''), throttle_containers_bw)
 
     else:
         ## Add disks just as new individual disks
         formatted_added_disks = str(added_disks).replace(' ','')
-        argument_list = [','.join(host_list), formatted_added_disks]
-        error_message = "Error adding disks {0} to hosts {1}".format(str(new_disks), host_list)
-        process_script("add_disks", argument_list, error_message)
+        # argument_list = [','.join(host_list), formatted_added_disks]
+        # error_message = "Error adding disks {0} to hosts {1}".format(str(new_disks), host_list)
+        # process_script("add_disks", argument_list, error_message)
+        run_playbooks.add_disks(host_list, formatted_added_disks)
 
 @shared_task
 def add_app_task(full_url, put_field_data, app, app_files):
@@ -391,18 +397,22 @@ def add_app_task(full_url, put_field_data, app, app_files):
     if (not error):
 
         ## TODO: discuss which of the following versions should be used
-        ## V1: send install_script, files_dir, etc into create_app script as args
+        ## V1: send install_script, install_files, etc into create_app script as args
         #if (app_files['install_script'] != ""):
 
         app_dir = app_files['app_dir']
-        files_dir = app_files['files_dir']
+        #files_dir = app_files['files_dir']
         install_script = app_files['install_script']
+        install_files = app_files['install_files']
+        runtime_files = app_files['runtime_files']
+        output_dir = app_files['output_dir']
         app_type = app_files['app_type']
         app_jar = app_files['app_jar']
 
-        argument_list = [app_dir, files_dir, install_script, app_type, app_jar]
-        error_message = "Error creating app {0}".format(app)
-        process_script("create_app", argument_list, error_message)
+        # argument_list = [app_dir, install_script, install_files, runtime_files, output_dir, app_type, app_jar]
+        # error_message = "Error creating app {0}".format(app)
+        # process_script("create_app", argument_list, error_message)
+        run_playbooks.create_app(app_files)
 
         # ## V2: just send app name as argument for the script
         # argument_list = [app]
@@ -436,7 +446,9 @@ def add_container_to_app_in_db(full_url, container, app):
 def add_container_to_app_task(full_url, host, container, app, app_files):
 
     app_dir = app_files['app_dir']
-    files_dir = app_files['files_dir']
+    #files_dir = app_files['files_dir']
+    runtime_files = app_files['runtime_files']
+    output_dir = app_files['output_dir']
     install_script = app_files['install_script']
     start_script = app_files['start_script']
     stop_script = app_files['stop_script']
@@ -446,9 +458,10 @@ def add_container_to_app_task(full_url, host, container, app, app_files):
     if 'disk_path' in container:
         bind_path = container['disk_path']
 
-    argument_list = [host, container['container_name'], app, app_dir, files_dir, install_script, start_script, stop_script, app_jar, bind_path]
-    error_message = "Error starting app {0} on container {1}".format(app, container['container_name'])
-    process_script("start_app_on_container", argument_list, error_message)
+    # argument_list = [host, container['container_name'], app, app_dir, runtime_files, output_dir, install_script, start_script, stop_script, app_jar, bind_path]
+    # error_message = "Error starting app {0} on container {1}".format(app, container['container_name'])
+    # process_script("start_app_on_container", argument_list, error_message)
+    run_playbooks.start_app_on_container(host, container['container_name'], app, app_files, bind_path)
 
 ## Start containers
 @shared_task
@@ -491,9 +504,10 @@ def start_containers_task_v2(new_containers, container_resources, disks):
     hosts = ','.join(list(added_containers.keys()))
     formatted_containers_info = str(containers_info).replace(' ','')
 
-    argument_list = [hosts, formatted_containers_info]
-    error_message = "Error starting containers {0}".format(formatted_containers_info)
-    process_script("start_containers", argument_list, error_message)
+    # argument_list = [hosts, formatted_containers_info]
+    # error_message = "Error starting containers {0}".format(formatted_containers_info)
+    # process_script("start_containers", argument_list, error_message)
+    run_playbooks.start_containers(list(added_containers.keys()), formatted_containers_info)
 
 def start_containers_with_app_task_v2(url, new_containers, app, app_files, container_resources, disk_assignation, app_type=None):
 
@@ -551,9 +565,10 @@ def start_containers_with_app_task_v2(url, new_containers, app, app_files, conta
     formatted_containers_info = str(containers_info).replace(' ','')
 
     # Start containers
-    argument_list = [hosts, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar'], app_type]
-    error_message = "Error starting containers {0}".format(formatted_containers_info)
-    process_script("start_containers_with_app", argument_list, error_message)
+    # argument_list = [hosts, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar'], app_type]
+    # error_message = "Error starting containers {0}".format(formatted_containers_info)
+    # process_script("start_containers_with_app", argument_list, error_message)
+    run_playbooks.start_containers_with_app(list(added_containers.keys()), formatted_containers_info, app_type, app_files)
 
     return containers_info
 
@@ -598,14 +613,16 @@ def start_hadoop_app_task(self, url, app, app_files, new_containers, container_r
     update_task_runtime(self.request.id, runtime)
 
     # Stop hadoop cluster
-    argument_list = [rm_host, rm_container]
-    error_message = "Error stopping hadoop cluster for app {0}".format(app)
-    process_script("stop_hadoop_cluster", argument_list, error_message)
+    # argument_list = [rm_host, rm_container]
+    # error_message = "Error stopping hadoop cluster for app {0}".format(app)
+    # process_script("stop_hadoop_cluster", argument_list, error_message)
+    run_playbooks.stop_hadoop_cluster(rm_host, rm_container)
 
     ## Disable scaler, remove all containers from StateDB and re-enable scaler
-    argument_list = []
-    error_message = "Error disabling scaler"
-    process_script("disable_scaler", argument_list, error_message)
+    # argument_list = []
+    # error_message = "Error disabling scaler"
+    # process_script("disable_scaler", argument_list, error_message)
+    run_playbooks.disable_scaler()
 
     start_time = timeit.default_timer()
     errors = []
@@ -618,9 +635,10 @@ def start_hadoop_app_task(self, url, app, app_files, new_containers, container_r
     ## Wait at least for the scaler polling frequency time before re-enabling it
     time.sleep(scaler_polling_freq - (end_time - start_time))
 
-    argument_list = []
-    error_message = "Error re-enabling scaler"
-    process_script("enable_scaler", argument_list, error_message)
+    # argument_list = []
+    # error_message = "Error re-enabling scaler"
+    # process_script("enable_scaler", argument_list, error_message)
+    run_playbooks.enable_scaler()
 
     ## Stop Containers
     # Remove master container first
@@ -651,9 +669,10 @@ def start_hadoop_app_task(self, url, app, app_files, new_containers, container_r
 @shared_task
 def set_hadoop_logs_timestamp(app, app_files, rm_host, rm_container):
 
-    argument_list = [app_files['app_jar'], rm_host, rm_container]
-    error_message = "Error setting timestamp for hadoop logs for app {0}".format(app)
-    process_script("set_hadoop_logs_timestamp", argument_list, error_message)
+    # argument_list = [app_files['app_jar'], rm_host, rm_container]
+    # error_message = "Error setting timestamp for hadoop logs for app {0}".format(app)
+    # process_script("set_hadoop_logs_timestamp", argument_list, error_message)
+    run_playbooks.set_hadoop_logs_timestamp(app_files['app_jar'], rm_host, rm_container)
 
 ## Setup network for apps
 @shared_task
@@ -663,9 +682,10 @@ def setup_containers_network_task(app_containers, url, app, app_files, new_conta
     hosts = ','.join(list(new_containers.keys()))
     formatted_app_containers = str(app_containers).replace(' ','')
 
-    argument_list = [hosts, formatted_app_containers]
-    error_message = "Error setting network for app {0}".format(app)
-    process_script("setup_network_on_containers", argument_list, error_message)
+    # argument_list = [hosts, formatted_app_containers]
+    # error_message = "Error setting network for app {0}".format(app)
+    # process_script("setup_network_on_containers", argument_list, error_message)
+    run_playbooks.setup_network_on_containers(list(new_containers.keys()), formatted_app_containers)
 
     # Add containers to app
     for container in app_containers:
@@ -712,16 +732,18 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
     argument_list.extend(extracted_hadoop_resources)
 
     if not global_hdfs_data:
-        error_message = "Error setting network for app {0}".format(app)
-        process_script("setup_hadoop_network_on_containers", argument_list, error_message)
+        # error_message = "Error setting network for app {0}".format(app)
+        # process_script("setup_hadoop_network_on_containers", argument_list, error_message)
+        run_playbooks.setup_hadoop_network_on_containers(list(new_containers.keys()), app, app_type, formatted_app_containers, rm_host, rm_container['container_name'], extracted_hadoop_resources)
     else:
         ## Download required input data from global HDFS to local one
-        argument_list.append(global_hdfs_data['namenode_container_name'])
-        argument_list.append(global_hdfs_data['namenode_host'])
-        argument_list.append(global_hdfs_data['global_input'])
-        argument_list.append(global_hdfs_data['local_output'])
-        error_message = "Error setting network for app {0} with global HDFS".format(app)
-        process_script("hdfs/setup_hadoop_network_with_global_hdfs", argument_list, error_message)
+        # argument_list.append(global_hdfs_data['namenode_container_name'])
+        # argument_list.append(global_hdfs_data['namenode_host'])
+        # argument_list.append(global_hdfs_data['global_input'])
+        # argument_list.append(global_hdfs_data['local_output'])
+        # error_message = "Error setting network for app {0} with global HDFS".format(app)
+        # process_script("hdfs/setup_hadoop_network_with_global_hdfs", argument_list, error_message)
+        run_playbooks.setup_hadoop_network_with_global_hdfs(list(new_containers.keys()), app, app_type, formatted_app_containers, rm_host, rm_container['container_name'], extracted_hadoop_resources, global_hdfs_data)
 
     # Add containers to app
     for container in app_containers:
@@ -734,42 +756,47 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
 
     if global_hdfs_data:
         ## Upload generated output data from local HDFS to global one
-        argument_list = [rm_host, rm_container['container_name']]
-        argument_list.append(global_hdfs_data['namenode_container_name'])
-        argument_list.append(global_hdfs_data['local_input'])
-        argument_list.append(global_hdfs_data['global_output'])
-        error_message = "Error uploading output data from {0} in local HDFS to {1} in global one".format(global_hdfs_data['local_input'], global_hdfs_data['global_output'])
-        process_script("hdfs/upload_local_hdfs_data_to_global", argument_list, error_message)
+        # argument_list = [rm_host, rm_container['container_name']]
+        # argument_list.append(global_hdfs_data['namenode_container_name'])
+        # argument_list.append(global_hdfs_data['local_input'])
+        # argument_list.append(global_hdfs_data['global_output'])
+        # error_message = "Error uploading output data from {0} in local HDFS to {1} in global one".format(global_hdfs_data['local_input'], global_hdfs_data['global_output'])
+        # process_script("hdfs/upload_local_hdfs_data_to_global", argument_list, error_message)
+        run_playbooks.upload_local_hdfs_data_to_global(rm_host, rm_container['container_name'], global_hdfs_data)
 
     return rm_host, rm_container['container_name']
 
 @shared_task(bind=True)
 def create_dir_on_hdfs(self, namenode_host, namenode_container, dir_to_create):
 
-    argument_list = [namenode_host, namenode_container, dir_to_create]
-    error_message = "Error creating directory {0} on HDFS".format(dir_to_create)
-    process_script("hdfs/create_dir_on_hdfs", argument_list, error_message)
+    # argument_list = [namenode_host, namenode_container, dir_to_create]
+    # error_message = "Error creating directory {0} on HDFS".format(dir_to_create)
+    # process_script("hdfs/create_dir_on_hdfs", argument_list, error_message)
+    run_playbooks.create_dir_on_hdfs(namenode_host, namenode_container, dir_to_create)
 
 @shared_task(bind=True)
 def add_file_to_hdfs(self, namenode_host, namenode_container, file_to_add, dest_path):
 
-    argument_list = [namenode_host, namenode_container, file_to_add, dest_path]
-    error_message = "Error uploading {0} to {1} on HDFS".format(file_to_add, dest_path)
-    process_script("hdfs/add_file_to_hdfs", argument_list, error_message)
+    # argument_list = [namenode_host, namenode_container, file_to_add, dest_path]
+    # error_message = "Error uploading {0} to {1} on HDFS".format(file_to_add, dest_path)
+    # process_script("hdfs/add_file_to_hdfs", argument_list, error_message)
+    run_playbooks.add_file_to_hdfs(namenode_host, namenode_container, file_to_add, dest_path)
 
 @shared_task(bind=True)
 def get_file_from_hdfs(self, namenode_host, namenode_container, file_to_download, dest_path):
 
-    argument_list = [namenode_host, namenode_container, file_to_download, dest_path]
-    error_message = "Error downloading {0} from {1} on HDFS".format(file_to_download, dest_path)
-    process_script("hdfs/get_file_from_hdfs", argument_list, error_message)
+    # argument_list = [namenode_host, namenode_container, file_to_download, dest_path]
+    # error_message = "Error downloading {0} from {1} on HDFS".format(file_to_download, dest_path)
+    # process_script("hdfs/get_file_from_hdfs", argument_list, error_message)
+    run_playbooks.get_file_from_hdfs(namenode_host, namenode_container, file_to_download, dest_path)
 
 @shared_task(bind=True)
 def remove_file_from_hdfs(self, namenode_host, namenode_container, path_to_delete):
 
-    argument_list = [namenode_host, namenode_container, path_to_delete]
-    error_message = "Error removing path {0} from HDFS".format(path_to_delete)
-    process_script("hdfs/remove_file_from_hdfs", argument_list, error_message)
+    # argument_list = [namenode_host, namenode_container, path_to_delete]
+    # error_message = "Error removing path {0} from HDFS".format(path_to_delete)
+    # process_script("hdfs/remove_file_from_hdfs", argument_list, error_message)
+    run_playbooks.remove_file_from_hdfs(namenode_host, namenode_container, path_to_delete)
 
 @shared_task(bind=True)
 def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluster, put_field_data, hosts):
@@ -801,9 +828,10 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
     formatted_containers_info = str(containers).replace(' ','')
 
     # Start containers
-    argument_list = [formatted_host_list, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar'], app_files['app_type']]
-    error_message = "Error starting containers {0}".format(formatted_containers_info)
-    process_script("start_containers_with_app", argument_list, error_message)
+    # argument_list = [formatted_host_list, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar'], app_files['app_type']]
+    # error_message = "Error starting containers {0}".format(formatted_containers_info)
+    # process_script("start_containers_with_app", argument_list, error_message)
+    run_playbooks.start_containers_with_app(host_list, formatted_containers_info, app_files['app_type'], app_files)
 
     ## Setup network and start HDFS
     nn_container = None
@@ -816,9 +844,10 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
 
     if not nn_container: raise Exception("Namenode container not found in container list") # should not happen
 
-    argument_list = [formatted_host_list, app, app_files['app_type'], formatted_containers_info, nn_host, nn_container, hdfs_resources["datanode_d_heapsize"]]
-    error_message = "Error setting HDFS network"
-    process_script("hdfs/setup_hdfs_network", argument_list, error_message)
+    # argument_list = [formatted_host_list, app, app_files['app_type'], formatted_containers_info, nn_host, nn_container, hdfs_resources["datanode_d_heapsize"]]
+    # error_message = "Error setting HDFS network"
+    # process_script("hdfs/setup_hdfs_network", argument_list, error_message)
+    run_playbooks.setup_hdfs_network(host_list, app, app_files['app_type'], formatted_containers_info, nn_host, nn_container, hdfs_resources)
 
     # Add containers to app
     url = url[:url[:url.rfind('/')].rfind('/')]
@@ -827,9 +856,10 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
         add_container_to_app_in_db(full_url, container['container_name'], app)
 
     # Start hdfs frontend container
-    argument_list = [formatted_host_list, "hdfs_frontend", formatted_containers_info, nn_host, nn_container]
-    error_message = "Error setting HDFS frontend"
-    process_script("hdfs/start_hdfs_frontend", argument_list, error_message)
+    # argument_list = [formatted_host_list, "hdfs_frontend", formatted_containers_info, nn_host, nn_container]
+    # error_message = "Error setting HDFS frontend"
+    # process_script("hdfs/start_hdfs_frontend", argument_list, error_message)
+    run_playbooks.start_hdfs_frontend(host_list, "hdfs_frontend", formatted_containers_info, nn_host, nn_container)
 
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)
@@ -839,14 +869,16 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
 def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_freq, rm_host, rm_container):
 
     # Stop hadoop cluster
-    argument_list = [rm_host, rm_container]
-    error_message = "Error stopping hadoop cluster for app {0}".format(app)
-    process_script("stop_hadoop_cluster", argument_list, error_message)
+    # argument_list = [rm_host, rm_container]
+    # error_message = "Error stopping hadoop cluster for app {0}".format(app)
+    # process_script("stop_hadoop_cluster", argument_list, error_message)
+    run_playbooks.stop_hadoop_cluster(rm_host, rm_container)
 
     ## Disable scaler, remove all containers from StateDB and re-enable scaler
-    argument_list = []
-    error_message = "Error disabling scaler"
-    process_script("disable_scaler", argument_list, error_message)
+    # argument_list = []
+    # error_message = "Error disabling scaler"
+    # process_script("disable_scaler", argument_list, error_message)
+    run_playbooks.disable_scaler()
 
     start_time = timeit.default_timer()
     errors = []
@@ -859,9 +891,10 @@ def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_fre
     ## Wait at least for the scaler polling frequency time before re-enabling it
     time.sleep(scaler_polling_freq - (end_time - start_time))
 
-    argument_list = []
-    error_message = "Error re-enabling scaler"
-    process_script("enable_scaler", argument_list, error_message)
+    # argument_list = []
+    # error_message = "Error re-enabling scaler"
+    # process_script("enable_scaler", argument_list, error_message)
+    run_playbooks.enable_scaler()
 
     # Remove app from db
     full_url = url + "apps" + "/" + app
@@ -871,14 +904,16 @@ def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_fre
     ## Clean datanodes data_dir and avoid errors when creating new global_hdfs cluster
     ## This is a workaround, should be executed when stopping cluster
     for container in app_containers:
-        argument_list = [container['host'], container['name']]
-        error_message = "Error cleaning HDFS files from container {0}".format(container['name'])
-        process_script("hdfs/clean_hdfs", argument_list, error_message)
+        # argument_list = [container['host'], container['name']]
+        # error_message = "Error cleaning HDFS files from container {0}".format(container['name'])
+        # process_script("hdfs/clean_hdfs", argument_list, error_message)
+        run_playbooks.clean_hdfs(container['host'], container['name'])
 
     # Stop hdfs frontend container
-    argument_list = ["platform_server", vars_config['hdfs_frontend_container_name']]
-    error_message = "Error stopping hdfs frontend container {0}".format(vars_config['hdfs_frontend_container_name'])
-    process_script("stop_container", argument_list, error_message)
+    # argument_list = ["platform_server", vars_config['hdfs_frontend_container_name']]
+    # error_message = "Error stopping hdfs frontend container {0}".format(vars_config['hdfs_frontend_container_name'])
+    # process_script("stop_container", argument_list, error_message)
+    run_playbooks.stop_container("platform_server", vars_config['hdfs_frontend_container_name'])
 
     # Stop containers
     stop_containers_task = []
@@ -902,9 +937,10 @@ def remove_host_task(full_url, host_name):
     if (not error):
             
         # stop node scaler service in host
-        argument_list = [host_name]
-        error_message = "Error stopping host {0} scaler service".format(host_name)
-        process_script("stop_host_scaler", argument_list, error_message)
+        # argument_list = [host_name]
+        # error_message = "Error stopping host {0} scaler service".format(host_name)
+        # process_script("stop_host_scaler", argument_list, error_message)
+        run_playbooks.stop_host_scaler(host_name)
 
         # update inventory file
         with redis_server.lock(lock_key):
@@ -917,9 +953,10 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
 
     # first, remove all containers from app
     if len(container_list) > 0:
-        argument_list = []
-        error_message = "Error disabling scaler"
-        process_script("disable_scaler", argument_list, error_message)
+        # argument_list = []
+        # error_message = "Error disabling scaler"
+        # process_script("disable_scaler", argument_list, error_message)
+        run_playbooks.disable_scaler()
 
         errors = []
         for container in container_list:
@@ -927,9 +964,10 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
             error = remove_container_from_app_db(full_url, container['name'], app_name)
             if error != "": errors.append(error)
 
-        argument_list = []
-        error_message = "Error re-enabling scaler"
-        process_script("enable_scaler", argument_list, error_message)
+        # argument_list = []
+        # error_message = "Error re-enabling scaler"
+        # process_script("enable_scaler", argument_list, error_message)
+        run_playbooks.enable_scaler()
 
         for container in container_list:
             full_url = url + "container/{0}/{1}".format(container['name'], app_name)
@@ -950,9 +988,10 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
 def remove_containers(url, container_list):
 
     ## Disable scaler, remove all containers from StateDB and re-enable scaler
-    argument_list = []
-    error_message = "Error disabling scaler"
-    process_script("disable_scaler", argument_list, error_message)
+    # argument_list = []
+    # error_message = "Error disabling scaler"
+    # process_script("disable_scaler", argument_list, error_message)
+    run_playbooks.disable_scaler()
 
     errors = []
     for container in container_list:
@@ -960,9 +999,10 @@ def remove_containers(url, container_list):
         error = remove_container_from_db(full_url, container['container_name'])
         if error != "": errors.append(error)
 
-    argument_list = []
-    error_message = "Error re-enabling scaler"
-    process_script("enable_scaler", argument_list, error_message)
+    # argument_list = []
+    # error_message = "Error re-enabling scaler"
+    # process_script("enable_scaler", argument_list, error_message)
+    run_playbooks.enable_scaler()
 
     ## Stop Containers
     # Stop and remove containers
@@ -979,9 +1019,10 @@ def remove_containers(url, container_list):
 def remove_containers_from_app(url, container_list, app, app_files, scaler_polling_freq):
 
     ## Disable scaler, remove all containers from StateDB and re-enable scaler
-    argument_list = []
-    error_message = "Error disabling scaler"
-    process_script("disable_scaler", argument_list, error_message)
+    # argument_list = []
+    # error_message = "Error disabling scaler"
+    # process_script("disable_scaler", argument_list, error_message)
+    run_playbooks.disable_scaler()
 
     start_time = timeit.default_timer()
     errors = []
@@ -994,9 +1035,10 @@ def remove_containers_from_app(url, container_list, app, app_files, scaler_polli
     ## Wait at least for the scaler polling frequency time before re-enabling it
     time.sleep(scaler_polling_freq - (end_time - start_time))
 
-    argument_list = []
-    error_message = "Error re-enabling scaler"
-    process_script("enable_scaler", argument_list, error_message)
+    # argument_list = []
+    # error_message = "Error re-enabling scaler"
+    # process_script("enable_scaler", argument_list, error_message)
+    run_playbooks.enable_scaler()
 
     ## Stop Containers
     # Stop and remove containers
@@ -1058,9 +1100,10 @@ def remove_container_from_app_db(full_url, container_name, app):
 def stop_container(host, container_name):
 
     ## Stop container
-    argument_list = [host, container_name]
-    error_message = "Error stopping container {0}".format(container_name)
-    process_script("stop_container", argument_list, error_message)
+    # argument_list = [host, container_name]
+    # error_message = "Error stopping container {0}".format(container_name)
+    # process_script("stop_container", argument_list, error_message)
+    run_playbooks.stop_container(host, container_name)
 
     # update inventory file
     with redis_server.lock(lock_key):
@@ -1071,15 +1114,18 @@ def stop_app_on_container_task(host, container_name, bind_path, app, app_files, 
 
     ## Stop app on container
     app_dir = app_files['app_dir']
-    files_dir = app_files['files_dir']
+    #files_dir = app_files['files_dir']
+    runtime_files = app_files['runtime_files']
+    output_dir = app_files['output_dir']
     install_script = app_files['install_script']
     start_script = app_files['start_script']
     stop_script = app_files['stop_script']
     app_jar = app_files['app_jar']
 
-    argument_list = [host, container_name, app, app_dir, files_dir, install_script, start_script, stop_script, app_jar, bind_path, rm_container]
-    error_message = "Error stopping app {0} on container {1}".format(app, container_name)
-    process_script("stop_app_on_container", argument_list, error_message)
+    # argument_list = [host, container_name, app, app_dir, runtime_files, output_dir, install_script, start_script, stop_script, app_jar, bind_path, rm_container]
+    # error_message = "Error stopping app {0} on container {1}".format(app, container_name)
+    # process_script("stop_app_on_container", argument_list, error_message)
+    run_playbooks.stop_app_on_container(host, container_name, app, app_files, rm_container, bind_path)
 
     stop_container(host, container_name)
 

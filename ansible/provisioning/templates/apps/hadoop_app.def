@@ -2,7 +2,7 @@ Bootstrap: localimage
 From: apps/{{ app_base_type }}/{{ app_base_image_file }}
 
 %files
-    {{ app_directory }}/files_dir /opt/files_dir
+    {{ app_directory }}/hadoop_files /opt/hadoop_files
     {{ app_directory }}/setup.sh /opt/setup.sh
     {{ app_directory }}/java_snitch.sh /opt/java_snitch.sh
 
@@ -34,27 +34,33 @@ From: apps/{{ app_base_type }}/{{ app_base_image_file }}
 
     # Setup hadoop
     cd /opt
-    export HADOOP_CONF_DIR=/opt/files_dir/hadoop_conf
-    export DATA_DIR="{{ bind_dir_on_container }}/files_dir/data_dir"
-    mkdir -p files_dir/data_dir
-    wget https://archive.apache.org/dist/hadoop/core/hadoop-{{ hadoop_version }}/hadoop-{{ hadoop_version }}.tar.gz
-    mkdir hadoop && tar xf hadoop-{{ hadoop_version }}.tar.gz -C hadoop --strip-components 1
+    export HADOOP_CONF_DIR=/opt/hadoop_files/hadoop_conf
+    export DATA_DIR="{{ bind_dir_on_container }}/hadoop_files/data_dir"
+    mkdir -p hadoop_files/data_dir
+
+    ## Download and uncompress
+    hadoop_download_dir=https://archive.apache.org/dist/hadoop/core/hadoop-{{ hadoop_version }}
+    hadoop_download_file=hadoop-{{ hadoop_version }}.tar.gz
+    wget $hadoop_download_dir/$hadoop_download_file
+    mkdir hadoop && tar xf $hadoop_download_file -C hadoop --strip-components 1 && rm $hadoop_download_file
     chown -R $(whoami):$(whoami) hadoop
-    cp files_dir/config/format_filesystem.sh hadoop
+
+    ## Setup format script and default configuration files
+    cp hadoop_files/config/format_filesystem.sh hadoop
     mkdir -p $HADOOP_CONF_DIR && cp -r hadoop/etc/hadoop/* $HADOOP_CONF_DIR/
-    envsubst < files_dir/config/hdfs-site.xml > $HADOOP_CONF_DIR/hdfs-site.xml
-    cp files_dir/config/core-site.xml $HADOOP_CONF_DIR/core-site.xml
-    cp files_dir/config/mapred-site.xml $HADOOP_CONF_DIR/mapred-site.xml
-    cp files_dir/config/yarn-site.xml $HADOOP_CONF_DIR/yarn-site.xml
-    cp files_dir/config/workers $HADOOP_CONF_DIR/workers
+    envsubst < hadoop_files/config/hdfs-site.xml > $HADOOP_CONF_DIR/hdfs-site.xml
+    cp hadoop_files/config/core-site.xml $HADOOP_CONF_DIR/core-site.xml
+    cp hadoop_files/config/mapred-site.xml $HADOOP_CONF_DIR/mapred-site.xml
+    cp hadoop_files/config/yarn-site.xml $HADOOP_CONF_DIR/yarn-site.xml
+    cp hadoop_files/config/workers $HADOOP_CONF_DIR/workers
 
 %environment
     export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-    export JAVA_MAPPINGS_FOLDER_PATH="{{ bind_dir_on_container }}/files_dir/java_mappings"
+    export JAVA_MAPPINGS_FOLDER_PATH="{{ bind_dir_on_container }}/hadoop_files/java_mappings"
     # Hadoop
-    export DATA_DIR="{{ bind_dir_on_container }}/files_dir/data_dir"
+    export DATA_DIR="{{ bind_dir_on_container }}/hadoop_files/data_dir"
     export HADOOP_HOME=/opt/hadoop
-    export HADOOP_CONF_DIR="{{ bind_dir_on_container }}/files_dir/hadoop_conf"
+    export HADOOP_CONF_DIR="{{ bind_dir_on_container }}/hadoop_files/hadoop_conf"
     #export YARN_CONF_DIR=$HADOOP_CONF_DIR
     export HADOOP_LOG_DIR="{{ bind_dir_on_container }}/hadoop_logs"
     #export YARN_LOG_DIR=$HADOOP_LOG_DIR

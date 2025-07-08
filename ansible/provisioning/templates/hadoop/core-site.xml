@@ -42,7 +42,7 @@
 
 	<property>
 		<name>net.topology.script.file.name</name>
-		<value>{{ bind_dir_on_container }}/files_dir/hadoop_conf/rack_topology.py</value>
+		<value>{{ bind_dir_on_container }}/hadoop_files/hadoop_conf/rack_topology.py</value>
 	</property>
 
 </configuration>

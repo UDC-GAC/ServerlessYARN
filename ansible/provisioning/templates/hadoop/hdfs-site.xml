@@ -31,12 +31,12 @@
 
 	<property>
 		<name>dfs.namenode.name.dir</name>
-		<value>{{ bind_dir_on_container }}/files_dir/data_dir/hdfs/namenode</value>
+		<value>{{ bind_dir_on_container }}/hadoop_files/data_dir/hdfs/namenode</value>
 	</property>
 
 	<property>
 		<name>dfs.datanode.data.dir</name>
-		<value>{{ bind_dir_on_container }}/files_dir/data_dir/hdfs/datanode</value>
+		<value>{{ bind_dir_on_container }}/hadoop_files/data_dir/hdfs/datanode</value>
 	</property>
 <!--
   <property>

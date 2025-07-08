@@ -100,7 +100,7 @@
 
   <property>
     <name>yarn.nodemanager.local-dirs</name>
-    <value>{{ bind_dir_on_container }}/files_dir/yarn/local</value>
+    <value>{{ bind_dir_on_container }}/hadoop_files/yarn/local</value>
   </property>
 
   <property>

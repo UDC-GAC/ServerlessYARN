@@ -4,7 +4,6 @@ import logging
 import time
 import traceback
 import libtmux
-import subprocess
 from termcolor import colored
 from ansible_runner import Runner, RunnerConfig
 import yaml

@@ -6,3 +6,8 @@ From: apps/{{ app_base_type }}/{{ app_base_image_file }}
 
 %post
     bash /opt/{{ app_dir }}/{{ install_script }}
+
+    ## Remove additional files used during installation to reduce image size
+    {% if install_files is defined and install_files != '' %}
+        rm -r /opt/{{ app_dir }}/{{ install_files }}
+    {% endif %}
