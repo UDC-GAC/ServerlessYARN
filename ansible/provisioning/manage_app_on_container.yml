@@ -443,20 +443,20 @@
         local_action: command id -u
         register: userid_on_the_host
 
-      # Workaround to avoid having result files root-owned
-      # TODO: move results to another directory accesible for the user
-      - name: Change remaining files permissions
-        # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
-        when: "' ' not in userid_on_the_host.stdout"
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
-          'cd {{ bind_dir_on_container }} \
-          && chown -R {{ userid_on_the_host.stdout }} *output* | : \
-          && chown -R {{ userid_on_the_host.stdout }} output_* | : \
-          && chown {{ userid_on_the_host.stdout }} runtime_* | : \
-          && chown {{ userid_on_the_host.stdout }} app_log_* | : \
-          && chown {{ userid_on_the_host.stdout }} datagen_log_* | :'"
-        args:
-          executable: /bin/bash
+      # # Workaround to avoid having result files root-owned
+      # # TODO: move results to another directory accesible for the user
+      # - name: Change remaining files permissions
+      #   # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
+      #   when: "' ' not in userid_on_the_host.stdout"
+      #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
+      #     'cd {{ bind_dir_on_container }} \
+      #     && chown -R {{ userid_on_the_host.stdout }} *output* | : \
+      #     && chown -R {{ userid_on_the_host.stdout }} output_* | : \
+      #     && chown {{ userid_on_the_host.stdout }} runtime_* | : \
+      #     && chown {{ userid_on_the_host.stdout }} app_log_* | : \
+      #     && chown {{ userid_on_the_host.stdout }} datagen_log_* | :'"
+      #   args:
+      #     executable: /bin/bash
 
       - name: Change remaining files permissions (hadoop)
         # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
@@ -492,6 +492,47 @@
         file:
           path: "{{ container_bind_dir }}/{{ runtime_files | basename }}"
           state: absent
+
+      ## Manage output data
+      - block:
+        - name: get the user id running the deploy
+          become: no
+          local_action: command id -u
+          register: userid_on_the_host
+
+        - name: Change remaining files permissions
+          # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
+          when: "' ' not in userid_on_the_host.stdout and ' ' not in output_dir"
+          shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
+            'cd {{ bind_dir_on_container }} && chown -R {{ userid_on_the_host.stdout }} {{ output_dir }}'"
+          args:
+            executable: /bin/bash
+
+        - name: Set output data timestamp
+          set_fact:
+            timestamp: "{{ now(fmt='%Y-%m-%d--%H-%M-%S') }}"
+
+        - block:
+          - name: Create output directory on server
+            delegate_to: localhost
+            file:
+              path: "{{ stored_output_dir }}"
+              state: directory
+
+          - name: Store output data
+            synchronize:
+              src: "{{ container_bind_dir }}/{{ output_dir }}/"
+              dest: "{{ stored_output_dir }}"
+              mode: pull
+          vars:
+            stored_output_dir: "{{ app_output_data }}/{{ app_name }}/{{ output_dir }}-{{ timestamp }}"
+
+        - name: Remove output directory on container
+          file:
+            path: "{{ container_bind_dir }}/{{ output_dir | basename }}"
+            state: absent
+
+        when: "output_dir is defined and output_dir != ''"
 
     tags: never, stop_app
 

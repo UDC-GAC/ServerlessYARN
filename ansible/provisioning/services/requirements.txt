@@ -8,11 +8,11 @@ selenium
 ## Celery
 celery
 gevent<25
+ansible_runner
 
 ## Redis server
 redis
 
 ## Rebooter
 libtmux==0.10.2
-ansible_runner
 watchdog
