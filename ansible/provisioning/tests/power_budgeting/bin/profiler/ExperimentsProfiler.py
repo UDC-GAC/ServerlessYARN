@@ -17,6 +17,31 @@ RESOURCE_METRICS = {
 
 DIRECTORY_SEP = "\\" if platform.system() == "Windows" else "/"
 
+"""
+Experiments profiler needs:
+
+* An experiments file log file with format:
+
+<experiment-name> start yyyy-mm-dd hh:mm:ss+zzzz
+<experiment-name> stop  yyyy-mm-dd hh:mm:ss+zzzz
+
+* A containers log file with format:
+
+<container-name> yyyy-mm-dd hh:mm:ss+zzzz
+
+If a container corresponds to a specific experiment, its date must correspond to a point in time between experiment start and end.
+
+* Results directory containing subdirectories for each experiment included in experiments log file. Each subdirectory must 
+  contain:
+  ** Guardian log (guardian.log)
+  ** Scaler log (scaler.log)
+  ** One directory per executed container named <container-name>-<app-name>-output containing:
+     *** App execution log with format:
+         [yyyy-mm-dd hh:mm:ss+zzzz] ...
+         [yyyy-mm-dd hh:mm:ss+zzzz] ...
+         Being the dates corresponding to the start and end of the app execution, respectively.
+"""
+
 
 class ExperimentsProfiler:
 
@@ -274,8 +299,7 @@ class ExperimentsProfiler:
 if __name__ == "__main__":
 
     if len(sys.argv) < 5:
-        print("Usage: python get-metrics-opentsdb.py <app-name> <experiments-log-file> <containers-file> "
-              "<results-directory>")
+        print(f"Usage: python {sys.argv[0]} <app-name> <experiments-log-file> <containers-file> <results-directory>")
         sys.exit(1)
 
     app_name = str(sys.argv[1])
