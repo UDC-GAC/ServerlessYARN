@@ -4,7 +4,7 @@ scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 source ${scriptDir}/{{ runtime_files }}/app_config.sh
 
 OUTPUT_DIR="{{ bind_dir_on_container }}/{{ output_dir }}"
-mkdir $OUTPUT_DIR
+#mkdir -p $OUTPUT_DIR # --> it is not necessary to create it, it will be done by an Ansible task
 
 # Check if stress is available
 path_to_executable=$(which stress)

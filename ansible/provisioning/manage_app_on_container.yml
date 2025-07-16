@@ -19,7 +19,11 @@
     PYTHONPATH: ":{{ serverless_containers_path }}"
 
   ## Singularity + cgroups v1
+
   tasks:
+  - import_tasks: tasks/utils/get_user_ids.yml
+    tags: always
+
   ## Setup network
   ## TODO: maybe setup a DNS server is better
   ## TODO: setup iptables
@@ -28,7 +32,7 @@
       - name: Get containers IP addresses
         shell: "{% for item in containers_info %}
           {% if item.host == inventory_hostname %}
-          sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\" && 
+          sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\" && 
           {% endif  %}
           {% endfor %}true"
         args:
@@ -82,7 +86,7 @@
     block:
       - name: Get global namenode IP address
         when: inventory_hostname == global_namenode_host
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ global_namenode_container }} bash -c \"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\""
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ global_namenode_container }} su - {{ user_info.user_name }} -c \"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\""
         args:
           executable: /bin/bash
         register: global_namenode_resolution
@@ -105,18 +109,37 @@
       - name: Workers file setup
         tags: setup_hadoop, setup_hdfs
         block:
-          - name: get the user id running the deploy
-            become: no
-            local_action: command id -u
-            register: userid_on_the_host
+          # - name: get the user id running the deploy
+          #   become: no
+          #   local_action: command id -u
+          #   register: userid_on_the_host
+
+          # - name: Copy app files already on containers & Update workers file on containers
+          #   shell: "{% for item in containers_info %}
+          #     {% if item.host == inventory_hostname %}
+          #     sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \ 
+          #     'cp -pr /opt/hadoop_files {{ bind_dir_on_container }}/ && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/* \
+          #     && {% for item in worker_list %}echo {{ item }} >> $HADOOP_CONF_DIR/workers && {% endfor %}true' && 
+          #     {% endif  %}
+          #     {% endfor %}true"
+          #   args:
+          #     executable: /bin/bash
+          #   vars:
+          #     worker_list: "{{ containers_info | 
+          #             map(attribute='container_name') |
+          #             reject('search', rm_container) | list}}"
 
           - name: Copy app files already on containers & Update workers file on containers
-            shell: "{% for item in containers_info %}
-              {% if item.host == inventory_hostname %}
-              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \ 
-              'cp -pr /opt/hadoop_files {{ bind_dir_on_container }}/ && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/* \
-              && {% for item in worker_list %}echo {{ item }} >> $HADOOP_CONF_DIR/workers && {% endfor %}true' && 
-              {% endif  %}
+            shell: "
+              {% for item in containers_info %}
+                {% if item.host == inventory_hostname %}
+                  sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c '\ 
+                    cp -pr /opt/hadoop_files {{ bind_dir_on_container }}/ && 
+                    {% for item in worker_list %}
+                      echo {{ item }} >> $HADOOP_CONF_DIR/workers && 
+                    {% endfor %}true
+                  ' && 
+                {% endif  %}
               {% endfor %}true"
             args:
               executable: /bin/bash
@@ -168,7 +191,7 @@
               {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
               cp {{ tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
               {% endfor %}
-              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
               '{% for file in hdfs_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $HADOOP_CONF_DIR/{{ file }} && {% endfor %}true' && 
               {% endif  %}
               {% endfor %}true"
@@ -183,7 +206,7 @@
               {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
               cp {{ tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
               {% endfor %}
-              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
               '{% for file in hadoop_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $HADOOP_CONF_DIR/{{ file }} && {% endfor %}true' && 
               {% endif  %}
               {% endfor %}true"
@@ -198,7 +221,7 @@
               {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
               cp {{ tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
               {% endfor %}
-              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
               '{% for file in spark_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $SPARK_CONF_DIR/{{ file }} && {% endfor %}true' && 
               {% endif  %}
               {% endfor %}true"
@@ -210,7 +233,7 @@
         block:
           - name: Update ssh known_hosts on ResourceManager/Namenode container & Move RM/NN container ssh public key
             when: rm_host == inventory_hostname
-            shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \
+            shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
               'ssh-keyscan -t rsa `hostname` >> ~/.ssh/known_hosts \
               && ssh-keyscan -t rsa -f $HADOOP_CONF_DIR/workers >> ~/.ssh/known_hosts \
               && cp ~/.ssh/id_rsa.pub {{ bind_dir_on_container }}/{{ rm_container }}.pub'"
@@ -256,7 +279,7 @@
               {% if item.host == inventory_hostname and item.container_name != rm_container %}
               {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
               cp {{ installation_path }}/apps/{{ app_name }}/{{ rm_container }}.pub {{ bind_dir }}/{{ item.container_name }}/{{ rm_container }}.pub && \
-              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
               'cat {{ bind_dir_on_container }}/{{ rm_container }}.pub >> ~/.ssh/authorized_keys \
               && rm {{ bind_dir_on_container }}/{{ rm_container }}.pub' && 
               {% endif  %}
@@ -269,7 +292,7 @@
         block:
           - name: Format filesystem, start HDFS and YARN (Master)
             when: rm_host == inventory_hostname
-            shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \
+            shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
               '(cd $HADOOP_HOME \
               && bash format_filesystem.sh) \
               && (nohup $HADOOP_HOME/bin/hdfs --daemon start namenode & \
@@ -280,7 +303,7 @@
           - name: Start HDFS and YARN (Worker)
             shell: "{% for item in containers_info %}
               {% if item.host == inventory_hostname and item.container_name != rm_container %}
-              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
               'nohup $HADOOP_HOME/bin/hdfs --daemon start datanode & \
               nohup $HADOOP_HOME/bin/yarn --daemon start nodemanager &' && 
               {% endif  %}
@@ -293,7 +316,7 @@
         block:
           - name: Format filesystem and start HDFS (Master)
             when: rm_host == inventory_hostname
-            shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \
+            shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
               '(cd $HADOOP_HOME \
               && bash format_filesystem.sh) \
               && (nohup $HADOOP_HOME/bin/hdfs --daemon start namenode &)'"
@@ -303,7 +326,7 @@
           - name: Start HDFS (Worker)
             shell: "{% for item in containers_info %}
               {% if item.host == inventory_hostname and item.container_name != rm_container %}
-              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
               'nohup $HADOOP_HOME/bin/hdfs --daemon start datanode &' && 
               {% endif  %}
               {% endfor %}true"
@@ -321,14 +344,20 @@
   ## Start
   - name: Start app on container
     block:
-      - name: get the user id running the deploy
-        become: no
-        local_action: command id -u
-        register: userid_on_the_host
+      # - name: get the user id running the deploy
+      #   become: no
+      #   local_action: command id -u
+      #   register: userid_on_the_host
+
+      # - name: Copy app files already on container if there was an installation
+      #   when: "install_script != ''"
+      #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c 'cp -pr /opt/{{ app_dir }}/* {{ bind_dir_on_container }} && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/*'"
+      #   args:
+      #     executable: /bin/bash
 
       - name: Copy app files already on container if there was an installation
         when: "install_script != ''"
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c 'cp -pr /opt/{{ app_dir }}/* {{ bind_dir_on_container }} && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/*'"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'cp -pr /opt/{{ app_dir }}/* {{ bind_dir_on_container }}'"
         args:
           executable: /bin/bash
 
@@ -364,6 +393,13 @@
         when: "runtime_files != ''"
         tags: stop_app
 
+      - name: Create output directory
+        when: output_dir is defined and output_dir != ""
+        file:
+          path: "{{ container_bind_dir }}/{{ output_dir | basename }}"
+          state: directory
+        tags: stop_app
+
       - name: Copy app start script
         template:
           src: "apps/{{ app_dir }}/{{ start_script }}"
@@ -377,7 +413,8 @@
           dest: "{{ container_bind_dir }}/"
 
       - name: Execute start script on container
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null"
+        #shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null'"
         args:
           executable: /bin/bash
 
@@ -394,54 +431,25 @@
             mode: preserve
 
         - name: Execute stop script on container
-          shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script | basename }} </dev/null"
+          #shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script | basename }} </dev/null"
+          shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'nohup bash {{ bind_dir_on_container }}/{{ stop_script | basename }} </dev/null'"
           args:
             executable: /bin/bash
         when: stop_script is defined and stop_script != ""
 
-      - name: Remove app files
-        when: item != ""
-        file:
-          path: "{{ container_bind_dir }}/{{ item | basename }}"
-          state: absent
-        with_items:
-          - "{{ install_script if install_script is defined else '' }}"
-          - "{{ start_script if start_script is defined else '' }}"
-          - "{{ stop_script if stop_script is defined else '' }}"
-          - "{{ app_jar if app_jar is defined else '' }}"
-
-      - name: Remove hadoop config files
-        when: "app_jar != ''"
-        file:
-          path: "{{ container_bind_dir }}/{{ item }}"
-          state: absent
-        loop: "{{ hdfs_file_list + hadoop_file_list + spark_file_list }}"
-
-      - name: Remove container own ssh key
-        file:
-          path: "{{ container_bind_dir }}/{{ container }}.pub"
-          state: absent
-
       # Stop java snitcher
       - name: Stop java snitcher
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c \
           'tmux kill-session -t JAVA_SNITCH'"
         args:
           executable: /bin/bash
         ignore_errors: yes
 
-      - name: Remove hadoop files directory in container
-        # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
-        when: "app_jar != '' and ' ' not in bind_dir_on_container"
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
-          'rm -r {{ bind_dir_on_container}}/hadoop_files'"
-        args:
-          executable: /bin/bash
-
-      - name: get the user id running the deploy
-        become: no
-        local_action: command id -u
-        register: userid_on_the_host
+      ## Manage output data
+      # - name: get the user id running the deploy
+      #   become: no
+      #   local_action: command id -u
+      #   register: userid_on_the_host
 
       # # Workaround to avoid having result files root-owned
       # # TODO: move results to another directory accesible for the user
@@ -458,59 +466,50 @@
       #   args:
       #     executable: /bin/bash
 
-      - name: Change remaining files permissions (hadoop)
-        # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
-        when: "app_jar != '' and ' ' not in userid_on_the_host.stdout"
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
-          'cd {{ bind_dir_on_container }} \
-          && chown -R {{ userid_on_the_host.stdout }} hadoop_logs'"
-        args:
-          executable: /bin/bash
+      # - name: Change remaining files permissions (hadoop)
+      #   # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
+      #   when: "app_jar != '' and ' ' not in userid_on_the_host.stdout"
+      #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
+      #     'cd {{ bind_dir_on_container }} \
+      #     && chown -R {{ userid_on_the_host.stdout }} hadoop_logs'"
+      #   args:
+      #     executable: /bin/bash
 
-      # TODO: actually transfer files from nodes to server, instead of relying on shared folders (NFS and such)
-      - name: Copy hadoop logs to server node
-        when: "app_jar != '' and input_dir != output_dir"
-        copy:
-          src: "{{ input_dir }}"
-          dest: "{{ output_dir }}"
-          remote_src: yes
-        vars:
-          input_dir: "{{ container_bind_dir }}/hadoop_logs/"
-          output_dir: "{{ default_bind_path }}/{{ bind_dir_name }}/{{ rm_container }}/hadoop_logs/"
+      # # TODO: actually transfer files from nodes to server, instead of relying on shared folders (NFS and such)
+      # - name: Copy hadoop logs to output_dir
+      #   when: "app_jar != '' and input_log_dir != output_log_dir"
+      #   copy:
+      #     src: "{{ input_log_dir }}"
+      #     dest: "{{ output_log_dir }}"
+      #     remote_src: yes
+      #   vars:
+      #     input_log_dir: "{{ container_bind_dir }}/hadoop_logs/"
+      #     output_log_dir: "{{ default_bind_path }}/{{ bind_dir_name }}/{{ rm_container }}/hadoop_logs/"
 
-      - name: Remove hadoop local logs
-        when: "app_jar != '' and input_dir != output_dir"
-        file:
-          path: "{{ input_dir }}"
-          state: absent
-        vars:
-          input_dir: "{{ container_bind_dir }}/hadoop_logs"
-          output_dir: "{{ default_bind_path }}/{{ bind_dir_name }}/{{ rm_container }}/hadoop_logs"
-
-      - name: Remove app files directory
-        when: "runtime_files != ''"
-        file:
-          path: "{{ container_bind_dir }}/{{ runtime_files | basename }}"
-          state: absent
-
-      ## Manage output data
       - block:
-        - name: get the user id running the deploy
-          become: no
-          local_action: command id -u
-          register: userid_on_the_host
+        # - name: get the user id running the deploy
+        #   become: no
+        #   local_action: command id -u
+        #   register: userid_on_the_host
 
-        - name: Change remaining files permissions
-          # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
-          when: "' ' not in userid_on_the_host.stdout and ' ' not in output_dir"
-          shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
-            'cd {{ bind_dir_on_container }} && chown -R {{ userid_on_the_host.stdout }} {{ output_dir }}'"
-          args:
-            executable: /bin/bash
+        # - name: Change remaining files permissions
+        #   # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
+        #   when: "' ' not in userid_on_the_host.stdout and ' ' not in output_dir"
+        #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
+        #     'cd {{ bind_dir_on_container }} && chown -R {{ userid_on_the_host.stdout }} {{ output_dir }}'"
+        #   args:
+        #     executable: /bin/bash
 
         - name: Set output data timestamp
+          when: timestamp is not defined # --> only set current timestamp if another timestamp has not been set
           set_fact:
             timestamp: "{{ now(fmt='%Y-%m-%d--%H-%M-%S') }}"
+
+        - name: Move hadoop logs to output_dir
+          when: "app_jar is defined and app_jar != ''"
+          shell: "mv {{ container_bind_dir }}/hadoop_logs {{ container_bind_dir }}/{{ output_dir }}/hadoop_logs"
+          args:
+            executable: /bin/bash
 
         - block:
           - name: Create output directory on server
@@ -525,14 +524,54 @@
               dest: "{{ stored_output_dir }}"
               mode: pull
           vars:
-            stored_output_dir: "{{ app_output_data }}/{{ app_name }}/{{ output_dir }}-{{ timestamp }}"
-
-        - name: Remove output directory on container
-          file:
-            path: "{{ container_bind_dir }}/{{ output_dir | basename }}"
-            state: absent
-
+            stored_output_dir: "{{ app_output_data }}/{{ app_name }}/{{ timestamp }}/{{ output_dir }}-{{ container }}"
         when: "output_dir is defined and output_dir != ''"
+
+      # ## Clean bind directory --> remove whole directory after stopping container
+      # - name: Remove app files
+      #   when: item != ""
+      #   file:
+      #     path: "{{ container_bind_dir }}/{{ item | basename }}"
+      #     state: absent
+      #   with_items:
+      #     ## Scripts
+      #     - "{{ install_script if install_script is defined else '' }}"
+      #     - "{{ start_script if start_script is defined else '' }}"
+      #     - "{{ stop_script if stop_script is defined else '' }}"
+      #     ## Directories
+      #     - "{{ runtime_files if runtime_files is defined else '' }}"
+      #     - "{{ output_dir if output_dir is defined else '' }}"
+      #     ## Other
+      #     - "{{ container }}.pub" ## ssh key
+      #     - "{{ app_jar if app_jar is defined else '' }}"
+
+      # ## Clean hadoop apps
+      # - block:
+      #   - name: Remove hadoop config files
+      #     file:
+      #       path: "{{ container_bind_dir }}/{{ item }}"
+      #       state: absent
+      #     loop: "{{ hdfs_file_list + hadoop_file_list + spark_file_list }}"
+
+      #   - name: Remove hadoop local logs
+      #     when: "input_log_dir != output_log_dir"
+      #     file:
+      #       path: "{{ input_log_dir }}"
+      #       state: absent
+      #     vars:
+      #       input_log_dir: "{{ container_bind_dir }}/hadoop_logs"
+      #       output_log_dir: "{{ default_bind_path }}/{{ bind_dir_name }}/{{ rm_container }}/hadoop_logs"
+
+      #   - name: Remove hadoop files directory in container
+      #     # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
+      #     when: "' ' not in bind_dir_on_container"
+      #     shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
+      #       'rm -r {{ bind_dir_on_container}}/hadoop_files'"
+      #     args:
+      #       executable: /bin/bash
+  
+        # when: "app_jar is defined and app_jar != ''"
+
 
     tags: never, stop_app
 
@@ -541,7 +580,7 @@
     block:
       - name: Stop hadoop cluster
         when: rm_host == inventory_hostname
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
           'cd $HADOOP_HOME \
           && sbin/stop-yarn.sh \
           && sbin/stop-dfs.sh'"
@@ -549,25 +588,32 @@
           executable: /bin/bash
     tags: never, stop_hadoop_cluster
 
-  ## Clean HDFS files
-  - name: Workaround to clean global HDFS files
-    when: "' ' not in bind_dir_on_container"
-    shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
-      'tmux kill-session -t JAVA_SNITCH && rm -r {{ bind_dir_on_container}}/hadoop_files && rm -r {{ bind_dir_on_container}}/hadoop_logs'"
+  # ## Clean HDFS files
+  # - name: Workaround to clean global HDFS files
+  #   when: "' ' not in bind_dir_on_container"
+  #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
+  #     'tmux kill-session -t JAVA_SNITCH && rm -r {{ bind_dir_on_container}}/hadoop_files && rm -r {{ bind_dir_on_container}}/hadoop_logs'"
+  #   args:
+  #     executable: /bin/bash
+  #   tags: never, clean_hdfs
+
+  - name: Stop Java Snitch
+    shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c \
+      'tmux kill-session -t JAVA_SNITCH'"
     args:
       executable: /bin/bash
     tags: never, clean_hdfs
 
-  # TODO: do not rely on shared folders (NFS and such) to access hadoop_logs
-  ## Set hadoop logs timestamp
-  - name: Set hadoop logs timestamp
-    delegate_to: localhost
-    run_once: yes
-    shell: "mv hadoop_logs hadoop_logs_`date +%d-%m-%y--%H-%M-%S`"
-    args:
-      chdir: "{{ default_bind_path }}/{{ bind_dir_name }}/{{ rm_container }}"
-      executable: /bin/bash
-    tags: never, set_hadoop_logs_timestamp
+  # # TODO: do not rely on shared folders (NFS and such) to access hadoop_logs
+  # ## Set hadoop logs timestamp
+  # - name: Set hadoop logs timestamp
+  #   delegate_to: localhost
+  #   run_once: yes
+  #   shell: "mv hadoop_logs hadoop_logs_`date +%d-%m-%y--%H-%M-%S`"
+  #   args:
+  #     chdir: "{{ default_bind_path }}/{{ bind_dir_name }}/{{ rm_container }}"
+  #     executable: /bin/bash
+  #   tags: never, set_hadoop_logs_timestamp
 
   ## TODO: Remove app_jar conditions in these tasks (in the whole file)
 
@@ -575,14 +621,14 @@
   ## HDFS
   - name: Create directory on HDFS
     when: dest_path is defined and dest_path != ''
-    shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c '$HADOOP_HOME/bin/hdfs dfs -mkdir -p {{ dest_path }}'"
+    shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c '$HADOOP_HOME/bin/hdfs dfs -mkdir -p {{ dest_path }}'"
     args:
       executable: /bin/bash
     tags: never, create_dir_on_hdfs
 
   - name: Remove file from HDFS
     when: dest_path is defined and dest_path != ''
-    shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c '$HADOOP_HOME/bin/hdfs dfs -rm -r {{ dest_path }}'"
+    shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c '$HADOOP_HOME/bin/hdfs dfs -rm -r {{ dest_path }}'"
     args:
       executable: /bin/bash
     tags: never, remove_file_from_hdfs
@@ -596,7 +642,7 @@
       origin_container_path: "{{ bind_dir_on_container }}/{{ origin_path.rstrip('/') | basename }}"
     block:
       - name: Put data on HDFS
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ hdfs_frontend_container_name }} bash -c \
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ hdfs_frontend_container_name }} su - {{ user_info.user_name }} -c \
           '$HADOOP_HOME/bin/hdfs dfs -put {{ origin_container_path }} {{ global_namenode_url }}/{{ dest_path }}'"
         args:
           executable: /bin/bash
@@ -609,16 +655,14 @@
       global_namenode_url: "hdfs://{{ namenode_container }}:8020"
       dest_container_path: "{{ bind_dir_on_container }}/{{ dest_path.rstrip('/') }}" 
     block:
-      - name: get the user id running the deploy
-        become: no
-        local_action: command id -u
-        register: userid_on_the_host
+      # - name: get the user id running the deploy
+      #   become: no
+      #   local_action: command id -u
+      #   register: userid_on_the_host
 
       - name: Get data from HDFS
-        when: "' ' not in userid_on_the_host.stdout"
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ hdfs_frontend_container_name }} bash -c \ 
-          '$HADOOP_HOME/bin/hdfs dfs -get {{ global_namenode_url }}/{{ origin_path }} {{ dest_container_path }} \ 
-          && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/{{ origin_path | basename }}'"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ hdfs_frontend_container_name }} su - {{ user_info.user_name }} -c \ 
+          '$HADOOP_HOME/bin/hdfs dfs -get {{ global_namenode_url }}/{{ origin_path }} {{ dest_container_path }}'"
         args:
           executable: /bin/bash
 
@@ -632,7 +676,7 @@
       - name: Download data from global HDFS to local one
         tags: download_to_local
         when: global_input is defined and global_input != '' and local_output is defined and local_output != ''
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \"\\$HADOOP_HOME/bin/hadoop distcp {{ origin }} {{ dest }}\""
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \"\\$HADOOP_HOME/bin/hadoop distcp {{ origin }} {{ dest }}\""
         args:
           executable: /bin/bash
         vars:
@@ -642,7 +686,7 @@
       - name: Upload data from local HDFS to global one
         tags: upload_to_global
         when: local_input is defined and local_input != '' and global_output is defined and global_output != ''
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \"\\$HADOOP_HOME/bin/hadoop distcp {{ origin }} {{ dest }}\""
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \"\\$HADOOP_HOME/bin/hadoop distcp {{ origin }} {{ dest }}\""
         args:
           executable: /bin/bash
         vars:

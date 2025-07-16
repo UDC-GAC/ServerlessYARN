@@ -34,5 +34,5 @@ start_script: start.sh
 stop_script: stop.sh
 
 ## Directory in the container where the app should store the data to be persisted
-## When finished, this directory will be copied to the <app_output_data>/<app_name> directory (check vars/main.yml) on the server and renamed to <output_dir>-<timestamp>
+## When finished, this directory will be copied to the <app_output_data>/<app_name>/<timestamp> directory (check vars/main.yml) on the server and renamed to <output_dir>-<container_name>
 output_dir: output_dir

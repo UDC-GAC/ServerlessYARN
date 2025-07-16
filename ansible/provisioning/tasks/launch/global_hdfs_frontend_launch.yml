@@ -35,7 +35,7 @@
     - name: Get containers IP addresses
       shell: "{% for item in containers_info %}
         {% if item.host == inventory_hostname %}
-        sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\" && 
+        sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\" && 
         {% endif  %}
         {% endfor %}true"
       args:
@@ -65,7 +65,7 @@
     - name: Run socat in frontend
       delegate_to: localhost
       run_once: yes
-      shell: "sudo {{ singularity_command_alias }} exec instance://{{ frontend_name }} bash -c \
+      shell: "sudo {{ singularity_command_alias }} exec instance://{{ frontend_name }} su - {{ user_info.user_name }} -c \
         'tmux new -s \"SOCAT\" -d \"socat -t 30 tcp-l:{{ frontend_port }},fork,reuseaddr tcp:{{ nn_container }}:{{ namenode_port }} </dev/null 1>/dev/null 2>&1\"'"
       args:
         executable: /bin/bash

@@ -11,7 +11,6 @@ From: apps/{{ app_base_type }}/{{ app_base_image_file }}
     rm -r hadoop_files
     rm setup.sh
     rm java_snitch.sh
-    rm hadoop-{{ hadoop_version }}.tar.gz
 
 %environment
     ## reset HADOOP_CONF_DIR env variable

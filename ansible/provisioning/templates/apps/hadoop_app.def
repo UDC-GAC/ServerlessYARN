@@ -54,6 +54,9 @@ From: apps/{{ app_base_type }}/{{ app_base_image_file }}
     cp hadoop_files/config/yarn-site.xml $HADOOP_CONF_DIR/yarn-site.xml
     cp hadoop_files/config/workers $HADOOP_CONF_DIR/workers
 
+    ## Set regular user as owner of required files
+    chown -R {{ user_info.user_name }} hadoop_files
+
 %environment
     export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
     export JAVA_MAPPINGS_FOLDER_PATH="{{ bind_dir_on_container }}/hadoop_files/java_mappings"
@@ -73,5 +76,19 @@ From: apps/{{ app_base_type }}/{{ app_base_image_file }}
 
 %startscript
     #cd /opt/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream_tmux.sh && \
-    cd /opt/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream_with_java_translation.sh && bash /opt/java_snitch.sh && \
+    # cd /opt/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream_with_java_translation.sh && bash /opt/java_snitch.sh && \
+    # bash /opt/setup.sh
+    #su - vagrant -c "cd /opt/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream_with_java_translation.sh && bash /opt/java_snitch.sh"
+
+    ## File with the variables defined in the %environment section
+    ENVFILE="/.singularity.d/env/90-environment.sh"
+
+    # Run as root
     bash /opt/setup.sh
+
+    # Run as regular user
+    su - {{ user_info.user_name }} -c "source $ENVFILE \
+        && bash /opt/setup.sh \
+        && cd /opt/BDWatchdog/MetricsFeeder \
+        && bash scripts/run_atop_stream_with_java_translation.sh \
+        && bash /opt/java_snitch.sh"

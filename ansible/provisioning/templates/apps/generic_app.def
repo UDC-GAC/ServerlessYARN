@@ -11,3 +11,6 @@ From: apps/{{ app_base_type }}/{{ app_base_image_file }}
     {% if install_files is defined and install_files != '' %}
         rm -r /opt/{{ app_dir }}/{{ install_files }}
     {% endif %}
+
+    ## Set regular user as owner of installed files
+    chown -R {{ user_info.user_name }} /opt/{{ app_dir }}

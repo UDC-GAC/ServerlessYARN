@@ -44,5 +44,18 @@ From: ubuntu:20.04
     cd /opt/BDWatchdog/MetricsFeeder
     pip3 install -r requirements.txt
 
+    # Setup regular user and group (same as host to avoid file ownership conflicts)
+    USERID={{ user_info.user_id }}
+    GROUPID={{ user_info.user_gid }}
+    USERNAME={{ user_info.user_name }}
+    GROUPNAME={{ user_info.group_name }}
+    USERHOME={{ user_home_on_container }}
+    groupadd -g $GROUPID $GROUPNAME
+    useradd -d $USERHOME -s /bin/bash -u $USERID -g $GROUPID $USERNAME
+
 %startscript
-    cd /opt/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream_tmux.sh
+
+    # Run script as regular user
+    su - {{ user_info.user_name }} -c "\
+        cd /opt/BDWatchdog/MetricsFeeder \
+        && bash scripts/run_atop_stream_tmux.sh"

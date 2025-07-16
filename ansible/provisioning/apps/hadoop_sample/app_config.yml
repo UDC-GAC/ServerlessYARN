@@ -32,3 +32,6 @@ energy_boundary_type: "percentage_of_max"
 start_script: start.sh
 stop_script: stop.sh
 app_jar: app_jar.jar
+
+## Directory in the container where the app should store the data to be persisted
+output_dir: output_dir

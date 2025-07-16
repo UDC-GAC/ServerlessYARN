@@ -63,28 +63,30 @@
         network: "{{ mode }}_{{ inventory_hostname }}{{ ',ptp' if mode == 'ipvlan' else '' }}"
 
     # TODO: create 'output_dir' parameter in apps to safely store output data and avoid deleting it with this task
-    - name: Clean apptainer containers bind directory
-      shell: "
-        {% for item in containers_info %}
-          {% if item.host == inventory_hostname and item.container_name not in apptainer_list_output.stdout %}
-            {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-            sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c 'rm -rf  {{ bind_dir_on_container }}/*' &&
-          {% endif  %}
-        {% endfor %}true"
-      args:
-        chdir: "{{ installation_path }}"
-        executable: /bin/bash
+    # - name: Clean apptainer containers bind directory
+    #   shell: "
+    #     {% for item in containers_info %}
+    #       {% if item.host == inventory_hostname and item.container_name not in apptainer_list_output.stdout %}
+    #         {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
+    #         sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c 'rm -rf  {{ bind_dir_on_container }}/*' &&
+    #       {% endif  %}
+    #     {% endfor %}true"
+    #   args:
+    #     chdir: "{{ installation_path }}"
+    #     executable: /bin/bash
 
-    - name: Setup host resolution in containers and change cgroups permissions
+    - name: Setup host resolution in containers + HOME directory for regular user and change cgroups permissions
       shell: "
         {% for item in containers_info %}
           {% if item.host == inventory_hostname %}
             {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
             cp /etc/hosts {{ bind_dir }}/{{ item.container_name }}/hosts \
             && sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
-            'echo {{ server_ip }} opentsdb >> /etc/hosts \
-            && cat {{ bind_dir_on_container }}/hosts >> /etc/hosts \
-            && rm {{ bind_dir_on_container }}/hosts' \
+              'echo {{ server_ip }} opentsdb >> /etc/hosts \
+              && cat {{ bind_dir_on_container }}/hosts >> /etc/hosts \
+              && rm {{ bind_dir_on_container }}/hosts \
+              && chown {{ user_info.user_name }} {{ user_home_on_container }} \
+              && chmod 0755 {{ user_home_on_container }}' \
             && python3 change_cgroups_permissions.py {{ cgroups_version }} {{ singularity_command_alias }} {{ singularity_cgroups_group }} {{ item.container_name }} &&
           {% endif  %}
         {% endfor %}true"

@@ -2,6 +2,8 @@
 cd {{ bind_dir_on_container }}
 set -e
 
+OUTPUT_DIR="{{ bind_dir_on_container }}/{{ output_dir }}"
+
 # Store data in HDFS
 start=`date +%s.%N`
 $HADOOP_HOME/bin/hdfs dfs -mkdir -p input
@@ -22,8 +24,8 @@ $HADOOP_HOME/bin/hdfs dfs -put $HOME/output_data
 end=`date +%s.%N`
 jar_runtime=$( echo "$end - $start" | bc -l )
 
-output_file="output_hadoop_app_`date +%H-%M-%S`"
-runtime_file="runtime_hadoop_app_`date +%H-%M-%S`"
+output_file="$OUTPUT_DIR/output_hadoop_app_`date +%H-%M-%S`"
+runtime_file="$OUTPUT_DIR/runtime_hadoop_app_`date +%H-%M-%S`"
 
 # Get output from HDFS
 start=`date +%s.%N`
@@ -36,7 +38,3 @@ hdfs_put_time=$(echo $hdfs_put_time + $( echo "$end - $start" | bc -l ) | bc -l)
 echo HDFS time: $hdfs_put_time > $runtime_file
 echo JAR runtime: $jar_runtime >> $runtime_file
 echo Total time: $(echo $hdfs_put_time + $jar_runtime | bc -l) >> $runtime_file
-
-# Move results to bind dir
-# cp -r output /opt/bind/
-# mv -f runtime /opt/bind/

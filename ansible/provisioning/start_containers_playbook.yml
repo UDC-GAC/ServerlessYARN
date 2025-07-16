@@ -14,6 +14,9 @@
     PYTHONPATH: "{{ bdwatchdog_path }}:{{ serverless_containers_path }}"
 
   tasks:
+    - import_tasks: tasks/utils/get_user_ids.yml
+      tags: create_app, start_containers, setup_hdfs
+
     - import_tasks: tasks/containers_setup/lxd_containers_setup.yml
       when: "container_engine == 'lxc'"
       tags: start_containers

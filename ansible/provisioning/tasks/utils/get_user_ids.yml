@@ -1,0 +1,15 @@
+- block:
+  - name: Get user information
+    shell: "id -u && id -g && id -un && id -gn"
+    register: user_ids
+
+  - name: Combine user information in dictionary
+    set_fact:
+      user_info: "{{ user_info|default({}) | combine( {item.0: item.1} ) }}"
+    with_together:
+      - ["user_id", "user_gid", "user_name", "group_name"]
+      - "{{ user_ids.stdout_lines }}"
+  
+  delegate_to: localhost
+  run_once: yes
+  become: no

@@ -42,3 +42,4 @@ couchdb_path: "{{ installation_path }}/couchdb"
 opentsdb_log_path: "{{ bdwatchdog_path }}/opentsdb/log"
 web_interface_path: services/serverless_containers_web
 singularity_cgroups_group: singularity
+user_home_on_container: /var/tmp # /tmp and /var/tmp are the only non-read-only directories writable by any user

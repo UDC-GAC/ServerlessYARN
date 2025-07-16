@@ -179,14 +179,14 @@ def set_hadoop_resources(container_resources, virtual_cluster, number_of_workers
         ## Virtual cluster config (test environment with low resources)
         hyperthreading = False
         app_master_heapsize = 128
-        datanode_d_heapsize = 128
-        nodemanager_d_heapsize = 128
+        datanode_heapsize = 128
+        nodemanager_heapsize = 128
     else:
         ## Physical cluster config (real environment with (presumably) high resources)
         hyperthreading = True
         app_master_heapsize = 1024
-        datanode_d_heapsize = 1024
-        nodemanager_d_heapsize = 1024
+        datanode_heapsize = 1024
+        nodemanager_heapsize = 1024
 
     ## adjust total_cores to hyperthreading system
     ## TODO: check if system actually has hyperthreading
@@ -200,7 +200,7 @@ def set_hadoop_resources(container_resources, virtual_cluster, number_of_workers
 
     memory_per_container_factor = 0.95
     available_memory = int(total_memory * memory_per_container_factor)
-    nodemanager_memory = available_memory - nodemanager_d_heapsize - datanode_d_heapsize
+    nodemanager_memory = available_memory - nodemanager_heapsize - datanode_heapsize
 
     mem_per_container = int((nodemanager_memory - mapreduce_am_memory) / total_cores)
 
@@ -243,8 +243,8 @@ def set_hadoop_resources(container_resources, virtual_cluster, number_of_workers
         "reduce_memory_java_opts": str(reduce_memory_java_opts),
         "mapreduce_am_memory": str(mapreduce_am_memory),
         "mapreduce_am_memory_java_opts": str(mapreduce_am_memory_java_opts),
-        "datanode_d_heapsize": str(datanode_d_heapsize),
-        "nodemanager_d_heapsize": str(nodemanager_d_heapsize)
+        "datanode_heapsize": str(datanode_heapsize),
+        "nodemanager_heapsize": str(nodemanager_heapsize)
     }
 
     # Check assigned resources are valid
@@ -262,7 +262,7 @@ def extract_hadoop_resources(hadoop_resources):
 
     resources_to_extract = ["vcores", "min_vcores", "scheduler_maximum_memory", "scheduler_minimum_memory", "nodemanager_memory", 
                             "map_memory", "map_memory_java_opts", "reduce_memory", "reduce_memory_java_opts", "mapreduce_am_memory", 
-                            "mapreduce_am_memory_java_opts", "datanode_d_heapsize", "nodemanager_d_heapsize"]
+                            "mapreduce_am_memory_java_opts", "datanode_heapsize", "nodemanager_heapsize"]
     extracted_resources = []
 
     for resource in resources_to_extract:
@@ -640,6 +640,11 @@ def start_hadoop_app_task(self, url, app, app_files, new_containers, container_r
     # process_script("enable_scaler", argument_list, error_message)
     run_playbooks.enable_scaler()
 
+    ## Get timestamp to store output data
+    timestamp = None
+    if 'output_dir' in app_files and app_files['output_dir'] != '':
+        timestamp = time.strftime("%Y-%m-%d--%H-%M-%S")
+
     ## Stop Containers
     # Remove master container first
     for container in app_containers:
@@ -647,7 +652,7 @@ def start_hadoop_app_task(self, url, app, app_files, new_containers, container_r
             full_url = url + "container/{0}/{1}".format(rm_container,app)
             bind_path = ""
             if 'disk_path' in container: bind_path = container['disk_path']
-            stop_app_on_container_task(rm_host, rm_container, bind_path, app, app_files, rm_container)
+            stop_app_on_container_task(rm_host, rm_container, bind_path, app, app_files, rm_container, timestamp)
             break
 
     # Stop and remove containers
@@ -657,22 +662,24 @@ def start_hadoop_app_task(self, url, app, app_files, new_containers, container_r
             full_url = url + "container/{0}/{1}".format(container['container_name'],app)
             bind_path = ""
             if 'disk_path' in container: bind_path = container['disk_path']
-            stop_task = stop_app_on_container_task.si(container['host'], container['container_name'], bind_path, app, app_files, rm_container)
-            stop_containers_task.append(stop_task)
+            stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, rm_container, timestamp)
+            register_task(stop_task.id,"stop_container_task")
+            # stop_task = stop_app_on_container_task.si(container['host'], container['container_name'], bind_path, app, app_files, rm_container, timestamp)
+            # stop_containers_task.append(stop_task)
 
-    set_hadoop_logs_timestamp_task = set_hadoop_logs_timestamp.si(app, app_files, rm_host, rm_container)
-    log_task = chord(stop_containers_task)(set_hadoop_logs_timestamp_task)
-    register_task(log_task.id,"stop_containers_task")
+    # set_hadoop_logs_timestamp_task = set_hadoop_logs_timestamp.si(app, app_files, rm_host, rm_container)
+    # log_task = chord(stop_containers_task)(set_hadoop_logs_timestamp_task)
+    # register_task(log_task.id,"stop_containers_task")
 
     if len(errors) > 0: raise Exception(str(errors))
 
-@shared_task
-def set_hadoop_logs_timestamp(app, app_files, rm_host, rm_container):
+# @shared_task
+# def set_hadoop_logs_timestamp(app, app_files, rm_host, rm_container):
 
-    # argument_list = [app_files['app_jar'], rm_host, rm_container]
-    # error_message = "Error setting timestamp for hadoop logs for app {0}".format(app)
-    # process_script("set_hadoop_logs_timestamp", argument_list, error_message)
-    run_playbooks.set_hadoop_logs_timestamp(app_files['app_jar'], rm_host, rm_container)
+#     # argument_list = [app_files['app_jar'], rm_host, rm_container]
+#     # error_message = "Error setting timestamp for hadoop logs for app {0}".format(app)
+#     # process_script("set_hadoop_logs_timestamp", argument_list, error_message)
+#     run_playbooks.set_hadoop_logs_timestamp(app_files['app_jar'], rm_host, rm_container)
 
 ## Setup network for apps
 @shared_task
@@ -734,7 +741,7 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
     if not global_hdfs_data:
         # error_message = "Error setting network for app {0}".format(app)
         # process_script("setup_hadoop_network_on_containers", argument_list, error_message)
-        run_playbooks.setup_hadoop_network_on_containers(list(new_containers.keys()), app, app_type, formatted_app_containers, rm_host, rm_container['container_name'], extracted_hadoop_resources)
+        run_playbooks.setup_hadoop_network_on_containers(list(new_containers.keys()), app, app_type, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"])
     else:
         ## Download required input data from global HDFS to local one
         # argument_list.append(global_hdfs_data['namenode_container_name'])
@@ -743,7 +750,7 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
         # argument_list.append(global_hdfs_data['local_output'])
         # error_message = "Error setting network for app {0} with global HDFS".format(app)
         # process_script("hdfs/setup_hadoop_network_with_global_hdfs", argument_list, error_message)
-        run_playbooks.setup_hadoop_network_with_global_hdfs(list(new_containers.keys()), app, app_type, formatted_app_containers, rm_host, rm_container['container_name'], extracted_hadoop_resources, global_hdfs_data)
+        run_playbooks.setup_hadoop_network_with_global_hdfs(list(new_containers.keys()), app, app_type, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"], global_hdfs_data)
 
     # Add containers to app
     for container in app_containers:
@@ -918,13 +925,18 @@ def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_fre
     # Stop containers
     stop_containers_task = []
     for container in app_containers:
-        stop_task = stop_container.si(container['host'], container['name'])
-        stop_containers_task.append(stop_task)
+        bind_path = ""
+        if 'disk_path' in container: bind_path = container['disk_path']
+        stop_task = stop_container.delay(container['host'], container['name'], bind_path)
+        register_task(stop_task.id,"stop_container_task")
+        # stop_task = stop_container.si(container['host'], container['name'], bind_path)
+        # stop_containers_task.append(stop_task)
 
     # Collect logs
-    set_hadoop_logs_timestamp_task = set_hadoop_logs_timestamp.si(app, app_files, rm_host, rm_container)
-    log_task = chord(stop_containers_task)(set_hadoop_logs_timestamp_task)
-    register_task(log_task.id,"stop_containers_task")
+    # set_hadoop_logs_timestamp_task = set_hadoop_logs_timestamp.si(app, app_files, rm_host, rm_container)
+    # log_task = chord(stop_containers_task)(set_hadoop_logs_timestamp_task)
+    # register_task(log_task.id,"stop_containers_task")
+
 
 ## Removes
 @shared_task
@@ -969,11 +981,16 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
         # process_script("enable_scaler", argument_list, error_message)
         run_playbooks.enable_scaler()
 
+        ## Get timestamp to store output data
+        timestamp = None
+        if 'output_dir' in app_files and app_files['output_dir'] != '':
+            timestamp = time.strftime("%Y-%m-%d--%H-%M-%S")
+
         for container in container_list:
             full_url = url + "container/{0}/{1}".format(container['name'], app_name)
             bind_path = ""
             if 'disk_path' in container: bind_path = container['disk_path']
-            task = stop_app_on_container_task.delay(container['host'], container['name'], bind_path, app_name, app_files, "")
+            task = stop_app_on_container_task.delay(container['host'], container['name'], bind_path, app_name, app_files, "", timestamp)
             register_task(task.id, "stop_app_on_container_task")
 
     # then, actually remove app
@@ -1008,7 +1025,9 @@ def remove_containers(url, container_list):
     # Stop and remove containers
     for container in container_list:
         full_url = url + "container/{0}".format(container['container_name'])
-        stop_task = stop_container.delay(container['host'], container['container_name'])
+        bind_path = ""
+        if 'disk_path' in container: bind_path = container['disk_path']
+        stop_task = stop_container.delay(container['host'], container['container_name'], bind_path)
         register_task(stop_task.id,"stop_container_task")
 
     # It would be great to execute tasks on a group, but the group task ID is not trackable
@@ -1040,6 +1059,11 @@ def remove_containers_from_app(url, container_list, app, app_files, scaler_polli
     # process_script("enable_scaler", argument_list, error_message)
     run_playbooks.enable_scaler()
 
+    ## Get timestamp to store output data
+    timestamp = None
+    if 'output_dir' in app_files and app_files['output_dir'] != '':
+        timestamp = time.strftime("%Y-%m-%d--%H-%M-%S")
+
     ## Stop Containers
     # Stop and remove containers
     #stop_containers_task = []
@@ -1047,7 +1071,7 @@ def remove_containers_from_app(url, container_list, app, app_files, scaler_polli
         full_url = url + "container/{0}/{1}".format(container['container_name'],app)
         bind_path = ""
         if 'disk_path' in container: bind_path = container['disk_path']
-        stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, "")
+        stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, "", timestamp)
         register_task(stop_task.id,"stop_container_task")
         #stop_task = stop_app_on_container_task.si(container['host'], container['container_name'], bind_path, app, app_files, "")
         #stop_containers_task.append(stop_task)
@@ -1097,20 +1121,20 @@ def remove_container_from_app_db(full_url, container_name, app):
     return error
 
 @shared_task
-def stop_container(host, container_name):
+def stop_container(host, container_name, bind_path):
 
     ## Stop container
     # argument_list = [host, container_name]
     # error_message = "Error stopping container {0}".format(container_name)
     # process_script("stop_container", argument_list, error_message)
-    run_playbooks.stop_container(host, container_name)
+    run_playbooks.stop_container(host, container_name, bind_path)
 
     # update inventory file
     with redis_server.lock(lock_key):
         remove_container_from_host(container_name, host)
 
 @shared_task
-def stop_app_on_container_task(host, container_name, bind_path, app, app_files, rm_container):
+def stop_app_on_container_task(host, container_name, bind_path, app, app_files, rm_container, timestamp=None):
 
     ## Stop app on container
     app_dir = app_files['app_dir']
@@ -1125,9 +1149,9 @@ def stop_app_on_container_task(host, container_name, bind_path, app, app_files, 
     # argument_list = [host, container_name, app, app_dir, runtime_files, output_dir, install_script, start_script, stop_script, app_jar, bind_path, rm_container]
     # error_message = "Error stopping app {0} on container {1}".format(app, container_name)
     # process_script("stop_app_on_container", argument_list, error_message)
-    run_playbooks.stop_app_on_container(host, container_name, app, app_files, rm_container, bind_path)
+    run_playbooks.stop_app_on_container(host, container_name, app, app_files, rm_container, bind_path, timestamp)
 
-    stop_container(host, container_name)
+    stop_container(host, container_name, bind_path)
 
 
 ### Deprecated functions

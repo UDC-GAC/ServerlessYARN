@@ -23,12 +23,14 @@ def check_bind_path(bind_path):
         return bind_path
 
 # Configure and run playbooks
-def run_adhoc(hosts, module, module_args=None, ignore_failure=False):
+def run_adhoc(hosts, module, module_args=None, extravars=None, ignore_failure=False):
     """
     Args:
         hosts (list): list of hosts on which the playbook will be run
         module (str): name of ansible module to run, e.g., shell
         module_args (str): string containing the arguments for specified module, e.g., the command to run with the shell module
+        extravars (dict): dictionary of extra variables
+        ignore_failure (bool): do not raise an exception if an error is triggered runing the task
     """
 
     ## Ad-hoc command setup
@@ -37,6 +39,7 @@ def run_adhoc(hosts, module, module_args=None, ignore_failure=False):
         host_pattern=",".join(hosts),
         module=module,
         module_args=module_args,
+        extravars=extravars if extravars else None,
         inventory=inventory
     )
     rc.prepare()
@@ -53,6 +56,7 @@ def run_playbook(playbook_name, tags=None, limit=None, extravars=None, ignore_fa
         tags (list): list of tags
         limit (list): list of hosts on which the playbook will be run
         extravars (dict): dictionary of extra variables
+        ignore_failure (bool): do not raise an exception if an error is triggered runing the playbook
     """
 
     ## Playbook running setup
@@ -123,7 +127,7 @@ def start_containers_with_app(host_names, containers_info, app_type, app_files):
     run_playbook(playbook_name="start_containers_playbook.yml", tags=["start_containers"], limit=(host_names + ["localhost"]), extravars=extravars)
     run_playbook(playbook_name="launch_playbook.yml", tags=["start_containers"], extravars={"host_list": host_names, "containers_info_str": containers_info})
 
-def stop_container(host_name, container):
+def stop_container(host_name, container, bind_path=None):
 
     with open(config_path, "r") as config_file: config = yaml.load(config_file, Loader=yaml.FullLoader)
 
@@ -131,6 +135,7 @@ def stop_container(host_name, container):
     singularity_command_alias = config["singularity_command_alias"]
     cgroups_version = config["cgroups_version"]
 
+    # Stop container
     if container_engine == "lxc":
         run_adhoc(hosts=[host_name], module="shell", module_args="lxc stop {0}".format(container), ignore_failure=True)
     elif container_engine == "apptainer":
@@ -141,6 +146,14 @@ def stop_container(host_name, container):
             run_adhoc(hosts=[host_name], module="shell", module_args="sudo {0} instance stop {1}".format(singularity_command_alias, container), ignore_failure=True)
     else:
         raise Exception("No valid container engine")
+
+    # Remove bind directory
+    with open(vars_path, "r") as vars_file: vars_config = yaml.load(vars_file, Loader=yaml.FullLoader)
+    bind_path = check_bind_path(bind_path)
+    vars_config.update({"bind_path": bind_path})
+    container_bind_dir = "/".join([vars_config['bind_dir'], container])
+
+    run_adhoc(hosts=[host_name], module="file", module_args="path={0} state=absent".format(container_bind_dir), extravars=vars_config)
 
 def setup_network_on_containers(host_names, containers_info):
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["setup_network"], limit=host_names, extravars={"containers_info_str": containers_info})
@@ -167,7 +180,7 @@ def start_app_on_container(host_name, container, app_name, app_files, bind_path=
 
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["start_app"], limit=[host_name], extravars=extravars)
 
-def stop_app_on_container(host_name, container, app_name, app_files, rm_container, bind_path=None):
+def stop_app_on_container(host_name, container, app_name, app_files, rm_container, bind_path=None, timestamp=None):
 
     bind_path = check_bind_path(bind_path)
 
@@ -175,7 +188,8 @@ def stop_app_on_container(host_name, container, app_name, app_files, rm_containe
         "container": container,
         "app_name": app_name,
         "bind_path": bind_path,
-        "rm_container": rm_container
+        "rm_container": rm_container,
+        "timestamp": timestamp
     }
     extravars.update(app_files)
 
@@ -209,8 +223,8 @@ def setup_hadoop_network_on_containers(host_names, app_name, app_type, container
 def stop_hadoop_cluster(rm_host, rm_container):
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["stop_hadoop_cluster"], limit=[rm_host], extravars={"rm_host": rm_host, "rm_container": rm_container})
 
-def set_hadoop_logs_timestamp(app_jar, rm_host, rm_container):
-    run_playbook(playbook_name="manage_app_on_container.yml", tags=["set_hadoop_logs_timestamp"], limit=[rm_host], extravars={"app_jar": app_jar, "rm_container": rm_container})
+# def set_hadoop_logs_timestamp(app_jar, rm_host, rm_container):
+#     run_playbook(playbook_name="manage_app_on_container.yml", tags=["set_hadoop_logs_timestamp"], limit=[rm_host], extravars={"app_jar": app_jar, "rm_container": rm_container})
 
 
 ## HDFS
