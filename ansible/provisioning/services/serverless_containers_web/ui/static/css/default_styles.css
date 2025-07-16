@@ -283,6 +283,8 @@ a {
   line-height: 20px;
   cursor: pointer;
   transition: 0.3s;
+  background: transparent;
+  border: transparent;
 }
 
 /* When moving the mouse over the close button */

@@ -17,5 +17,6 @@ urlpatterns = [
     path('rules', views.rules, name='rules'),
     path('rules/<rule_name>/switch', views.rule_switch, name='rule_switch'),
     path('hdfs', views.hdfs, name='hdfs'),
-    path('hdfs/manage_global_hdfs', views.manage_global_hdfs, name='manage_global_hdfs')
+    path('hdfs/manage_global_hdfs', views.manage_global_hdfs, name='manage_global_hdfs'),
+    path('alerts/remove/<alert_id>', views.remove_pending_task, name='remove_alert')
 ]

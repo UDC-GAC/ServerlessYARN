@@ -30,7 +30,7 @@ from ui.forms import AddHdfsFileForm, GetHdfsFileForm, AddHdfsDirForm, DeleteHdf
 
 from ui.background_tasks import start_containers_task_v2, add_host_task, add_app_task, add_container_to_app_task, add_disks_to_hosts_task
 from ui.background_tasks import remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task, start_app_task, start_hadoop_app_task
-from ui.background_tasks import register_task, get_pendings_tasks_to_string, remove_containers, remove_containers_from_app
+from ui.background_tasks import register_task, get_pending_tasks_messages, remove_task, remove_containers, remove_containers_from_app
 from ui.background_tasks import start_global_hdfs_task, stop_hdfs_task, create_dir_on_hdfs, add_file_to_hdfs, get_file_from_hdfs, remove_file_from_hdfs
 from ui.update_inventory_file import host_container_separator
 
@@ -111,6 +111,12 @@ def redirect_with_errors(redirect_url, errors):
 
     return red
 
+def remove_pending_task(request, alert_id):
+    remove_task(alert_id)
+    return_page = request.POST.get('next', '/')
+
+    return redirect(return_page)
+
 ## Home
 def index(request):
     url = base_url + "/heartbeat"
@@ -156,7 +162,7 @@ def structures(request, structure_type, html_render):
     requests_info = []
 
     ## Pending tasks
-    still_pending_tasks, successful_tasks, failed_tasks = get_pendings_tasks_to_string()
+    still_pending_tasks, successful_tasks, failed_tasks = get_pending_tasks_messages()
     requests_errors.extend(failed_tasks)
     requests_successes.extend(successful_tasks)
     requests_info.extend(still_pending_tasks)
@@ -1996,7 +2002,7 @@ def services(request):
     requests_info = []
 
     ## Pending tasks
-    still_pending_tasks, successful_tasks, failed_tasks = get_pendings_tasks_to_string()
+    still_pending_tasks, successful_tasks, failed_tasks = get_pending_tasks_messages()
     requests_errors.extend(failed_tasks)
     requests_successes.extend(successful_tasks)
     requests_info.extend(still_pending_tasks)
@@ -2187,7 +2193,7 @@ def rules(request):
     requests_info = []
 
     ## Pending tasks
-    still_pending_tasks, successful_tasks, failed_tasks = get_pendings_tasks_to_string()
+    still_pending_tasks, successful_tasks, failed_tasks = get_pending_tasks_messages()
     requests_errors.extend(failed_tasks)
     requests_successes.extend(successful_tasks)
     requests_info.extend(still_pending_tasks)
@@ -2503,7 +2509,7 @@ def hdfs(request):
     requests_errors = request.GET.getlist("errors", None)
     requests_successes = request.GET.getlist("success", None)
     requests_info = []
-    still_pending_tasks, successful_tasks, failed_tasks = get_pendings_tasks_to_string()
+    still_pending_tasks, successful_tasks, failed_tasks = get_pending_tasks_messages()
     requests_errors.extend(failed_tasks)
     requests_successes.extend(successful_tasks)
     requests_info.extend(still_pending_tasks)

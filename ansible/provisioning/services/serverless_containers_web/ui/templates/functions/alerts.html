@@ -4,7 +4,7 @@
         {% for error in requests.errors %}
             <div class="alert">
                 <span class="closebtn">&times;</span>
-                <strong>Error!</strong> {{ error }}
+                <strong>Error!</strong> {{ error.message }}
             </div>
         {% endfor %}
     {% endif %}
@@ -13,7 +13,7 @@
         {% for success in requests.successes %}
             <div class="alert success">
                 <span class="closebtn">&times;</span>
-                <strong>Success!</strong> {{ success }}
+                <strong>Success!</strong> {{ success.message }}
             </div>
         {% endfor %}
     {% endif %}
@@ -21,8 +21,12 @@
     {% if requests.info %}
         {% for info in requests.info %}
             <div class="alert info">
-                <span class="closebtn">&times;</span>
-                <strong>Info!</strong> {{ info }}
+                <form action="{% url 'remove_alert' info.id %}" method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.path }}">  <!-- to return to the same page the button was triggered -->
+                    <button class="closebtn" type="submit" name="remove_alert">&times;</button>
+                </form>
+                <strong>Info!</strong> {{ info.message }}
             </div>
         {% endfor %}
     {% endif %}

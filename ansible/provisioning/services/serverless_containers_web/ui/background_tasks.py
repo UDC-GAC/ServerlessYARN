@@ -31,6 +31,9 @@ def update_task_runtime(task_id, runtime):
     key = "{0}:{1}".format(redis_prefix,task_id)
     redis_server.hset(key, "runtime", runtime)
 
+def remove_task(task_id):
+    redis_server.delete("{0}:{1}".format(redis_prefix, task_id))
+
 def get_pending_tasks():
     still_pending_tasks = []
     successful_tasks = []
@@ -60,7 +63,7 @@ def get_pending_tasks():
 
     return still_pending_tasks, successful_tasks, failed_tasks
 
-def get_pendings_tasks_to_string():
+def get_pending_tasks_messages():
     still_pending_tasks, successful_tasks, failed_tasks = get_pending_tasks()
 
     still_pending_tasks_string = []
@@ -69,17 +72,17 @@ def get_pendings_tasks_to_string():
 
     for task_id, task_name in still_pending_tasks:
         info = "Task with ID {0} and name {1} is pending".format(task_id,task_name)
-        still_pending_tasks_string.append(info)
+        still_pending_tasks_string.append({"id": task_id, "message": info})
 
     for task_id, task_name, runtime in successful_tasks:
         if runtime != None: runtime_str = " in {0} seconds".format(runtime)
         else: runtime_str = ""
         success = "Task with ID {0} and name {1} has completed successfully{2}".format(task_id,task_name,runtime_str)
-        successful_tasks_string.append(success)
+        successful_tasks_string.append({"id": task_id, "message": success})
 
     for task_id, task_name, task_error in failed_tasks:
         error = "Task with ID {0} and name {1} has failed with error: {2}".format(task_id,task_name,task_error)
-        failed_tasks_string.append(error)
+        failed_tasks_string.append({"id": task_id, "message": error})
 
     return still_pending_tasks_string, successful_tasks_string, failed_tasks_string
 
