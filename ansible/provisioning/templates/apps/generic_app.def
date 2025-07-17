@@ -2,15 +2,15 @@ Bootstrap: localimage
 From: apps/{{ app_base_type }}/{{ app_base_image_file }}
 
 %files
-    apps/{{ app_dir }} /opt/{{ app_dir }}
+    apps/{{ app_dir | basename }} /opt/{{ app_dir | basename }}
 
 %post
-    bash /opt/{{ app_dir }}/{{ install_script }}
+    bash /opt/{{ app_dir | basename }}/{{ install_script }}
 
     ## Remove additional files used during installation to reduce image size
     {% if install_files is defined and install_files != '' %}
-        rm -r /opt/{{ app_dir }}/{{ install_files }}
+        rm -r /opt/{{ app_dir | basename  }}/{{ install_files }}
     {% endif %}
 
     ## Set regular user as owner of installed files
-    chown -R {{ user_info.user_name }} /opt/{{ app_dir }}
+    chown -R {{ user_info.user_name }} /opt/{{ app_dir | basename  }}

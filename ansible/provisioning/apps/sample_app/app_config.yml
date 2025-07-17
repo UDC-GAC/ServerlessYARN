@@ -29,6 +29,7 @@ energy_boundary_type: "percentage_of_max"
 
 ## The indicated files should be in the same directory as this configuration file
 install_script: install.sh
+install_files: install_files
 runtime_files: runtime_files
 start_script: start.sh
 stop_script: stop.sh
