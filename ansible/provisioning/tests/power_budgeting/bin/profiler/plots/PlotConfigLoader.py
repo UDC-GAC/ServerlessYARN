@@ -7,8 +7,6 @@ PLOT_PARAMETERS = {
         "PLOT_LEGEND": False,
         "PLOT_APP_LABELS": False,
         "PLOT_CONVERGENCE_POINT": False,
-        "X_TICKS_FREQUENCY": 250,
-        "CPU_TICKS_FREQUENCY": 20
     },
     "npb_1cont_1thread": {
         "no-capping": {
