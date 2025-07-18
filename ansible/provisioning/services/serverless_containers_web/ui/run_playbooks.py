@@ -180,6 +180,10 @@ def start_app_on_container(host_name, container, app_name, app_files, bind_path=
 
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["start_app"], limit=[host_name], extravars=extravars)
 
+def wait_for_app_on_container(host_name, container):
+    extravars = {"container": container}
+    run_playbook(playbook_name="manage_app_on_container.yml", tags=["wait_app"], limit=[host_name], extravars=extravars)
+
 def stop_app_on_container(host_name, container, app_name, app_files, rm_container, bind_path=None, timestamp=None):
 
     bind_path = check_bind_path(bind_path)

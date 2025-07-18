@@ -28,7 +28,7 @@ import socket
 import atexit
 from ui.forms import AddHdfsFileForm, GetHdfsFileForm, AddHdfsDirForm, DeleteHdfsFileForm
 
-from ui.background_tasks import start_containers_task_v2, add_host_task, add_app_task, add_container_to_app_task, add_disks_to_hosts_task
+from ui.background_tasks import start_containers_task_v2, add_host_task, add_app_task, start_app_on_container_task, add_disks_to_hosts_task
 from ui.background_tasks import remove_container_task, remove_host_task, remove_app_task, remove_container_from_app_task, start_app_task, start_hadoop_app_task
 from ui.background_tasks import register_task, get_pending_tasks_messages, remove_task, remove_containers, remove_containers_from_app
 from ui.background_tasks import start_global_hdfs_task, stop_hdfs_task, create_dir_on_hdfs, add_file_to_hdfs, get_file_from_hdfs, remove_file_from_hdfs
@@ -2830,7 +2830,7 @@ def processFillWithNewContainers(request, url, app):
     for host in newContainers:
         task = start_containers_with_app_task.delay(url, host, newContainers[host], app, app_files)
         print("Starting task with id {0}".format(task.id))
-        register_task(task.id,"add_container_to_app_task")
+        register_task(task.id, "add_container_to_app_task")
 
     error = ""
     return error
@@ -2887,9 +2887,9 @@ def processAddContainerToApp(request, url, app, container_host_duple):
 
     full_url = url + "container/{0}/{1}".format(container,app)
 
-    task = add_container_to_app_task.delay(full_url, host, container, app, app_files)
+    task = start_app_on_container_task.delay(full_url, host, container, app, app_files)
     print("Starting task with id {0}".format(task.id))
-    register_task(task.id,"add_container_to_app_task")
+    register_task(task.id, "start_app_on_container_task")
 
     error = ""
     return error
