@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 export SCRIPT_DIR=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
-export FILES_DIR="${SCRIPT_DIR}/files_dir"
+export INSTALL_FILES_DIR="${SCRIPT_DIR}/install_files"
 export DEBIAN_FRONTEND=noninteractive
 
-. "${FILES_DIR}/get_env.sh"
+. "${INSTALL_FILES_DIR}/get_env.sh"
 
 apt-get -y update
 apt-get -y install build-essential wget gfortran libopenmpi-dev openmpi-bin
@@ -21,7 +21,10 @@ cp config/make.def.template config/make.def
 # Add -mcmodel=medium to fix error "relocation truncated to fit" for IS kernel
 sed -i 's/^CFLAGS\t=.*/CFLAGS\t= -O3 -fopenmp -mcmodel=medium/' config/make.def
 
+# Compile all NPB kernels and classes
 make clean
-for KERNEL in "${NPB_KERNELS_TO_INSTALL[@]}";do
-    make "${KERNEL}" CLASS="${NPB_CLASS}"
+for KERNEL in "${NPB_KERNELS[@]}";do
+  for CLASS in "${NPB_CLASSES[@]}";do
+    make "${KERNEL}" CLASS="${CLASS}"
+  done
 done
