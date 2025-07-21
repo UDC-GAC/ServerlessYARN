@@ -21,7 +21,7 @@
 
     - name: Copy app image to host
       synchronize:
-        src: "{{ installation_path }}/{{ app_directory }}/{{ image_file }}"
+        src: "{{ installed_app_directory }}/{{ image_file }}"
         dest: "{{ installation_path }}/images/"
         perms: true
 

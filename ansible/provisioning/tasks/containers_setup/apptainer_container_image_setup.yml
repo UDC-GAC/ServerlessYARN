@@ -5,15 +5,16 @@
   tags: create_app, setup_hdfs
   vars:
     ## item in this context is 'app_type'
-    - definition_file: "{{ definition_mapping[item] }}"
-    - image_file: "{{ image_mapping[item] }}"
-    - app_base_type: "{{ image_dependencies[item] }}"
-    - app_base_image_file: "{{ image_mapping[app_base_type] if app_base_type != '' }}" # will be used in the definition image templates
-    - app_directory: "apps/{{ app_dir if item == 'generic_app' else item }}"
+    - definition_file: "{{ app_mapping[item]['definition_file'] }}"
+    - image_file: "{{ app_mapping[item]['image'] }}"
+    - app_base_type: "{{ app_mapping[item]['image_dependency'] if 'image_dependency' in app_mapping[item] }}"
+    - app_base_image_file: "{{ app_mapping[app_base_type]['image'] if app_base_type is not none }}" # will be used in the definition image templates
+    - extra_files_directory: "apps/{{ app_mapping[item]['install_extra_files'] if 'install_extra_files' in app_mapping[item] }}" # directory on server with the app configuration, relative to 'ansible/provisioning'
+    - installed_app_directory: "{{ installation_path }}/apps/{{ app_dir|basename if item == 'generic_app' else item }}" # installation path of app on server
   block:
     - name: Check if app image already exists ({{ item }})
       stat:
-        path: "{{ installation_path }}/{{ app_directory }}/{{ image_file }}"
+        path: "{{ installed_app_directory }}/{{ image_file }}"
         get_checksum: false
         get_mime: false
         get_attributes: false
@@ -24,21 +25,21 @@
       block:
         - name: Create app directory in server ({{ item }})
           file:
-            path: "{{ installation_path }}/{{ app_directory }}"
+            path: "{{ installed_app_directory }}"
             state: directory
 
         - name: Copy app definition file ({{ item }})
           template:
             src: "templates/apps/{{ definition_file }}"
-            dest: "{{ installation_path }}/{{ app_directory }}/{{ definition_file }}"
+            dest: "{{ installed_app_directory }}/{{ definition_file }}"
 
         ## Copy other files
         # Install script
         - name: Copy app install script if applicable ({{ item }})
           when: install_script is defined and install_script != '' and item == 'generic_app'
           template:
-            src: "{{ app_directory }}/{{ install_script }}"
-            dest: "{{ installation_path }}/{{ app_directory }}/"
+            src: "{{ extra_files_directory }}/{{ install_script }}"
+            dest: "{{ installed_app_directory }}/"
 
         # Optional files directory
         - name: Copy files from optional directory if applicable ({{ item }})
@@ -46,19 +47,19 @@
           block:
             - name: Copy app optional files directory ({{ item }})
               copy:
-                src: "{{ app_directory }}/{{ install_files }}"
-                dest: "{{ installation_path }}/{{ app_directory }}/"
+                src: "{{ extra_files_directory }}/{{ install_files }}"
+                dest: "{{ installed_app_directory }}/"
 
             - name: Find config files to template in the app directory ({{ item }})
               find:
-                paths: "{{ app_directory }}/{{ install_files }}"
+                paths: "{{ extra_files_directory }}/{{ install_files }}"
                 recurse: yes
               register: found_config_files
 
             - name: Process template for each config file ({{ item }})
               template:
                 src: "{{ file.path }}"
-                dest: "{{ installation_path }}/{{ app_directory }}/{{ install_files }}/{{ file.path | regex_replace('^' + app_directory + '/' + install_files, '') }}"
+                dest: "{{ installed_app_directory }}/{{ install_files }}/{{ file.path | regex_replace('^' + extra_files_directory + '/' + install_files, '') }}"
               loop: "{{ found_config_files.files }}"
               loop_control:
                 loop_var: file ## we need to change this inner loop variable to avoid collisions re-using the 'item' variable from the outer loop
@@ -67,8 +68,8 @@
         - name: Copy necessary files for hadoop apps ({{ item }})
           when: "item == 'hadoop_app'"
           copy:
-            src: "{{ app_directory }}/{{ file }}"
-            dest: "{{ installation_path }}/{{ app_directory }}/"
+            src: "{{ extra_files_directory }}/{{ file }}"
+            dest: "{{ installed_app_directory }}/"
           with_items:
             - setup.sh
             - java_snitch.sh
@@ -77,8 +78,8 @@
             loop_var: file
 
         - name: Build app image ({{ item }})
-          shell: "{{ singularity_command_alias }} build {{ app_directory }}/{{ image_file }} {{ app_directory }}/{{ definition_file }}"
+          shell: "{{ singularity_command_alias }} build {{ installed_app_directory }}/{{ image_file }} {{ installed_app_directory }}/{{ definition_file }}"
           args:
-            chdir: "{{ installation_path }}"
+            chdir: "{{ installed_app_directory }}/../.." ## equivalent to installation_path
             executable: /bin/bash
-            creates: "{{ app_directory }}/{{ image_file }}"
+            creates: "{{ installed_app_directory }}/{{ image_file }}"

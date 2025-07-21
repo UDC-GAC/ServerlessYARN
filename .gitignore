@@ -1,3 +1,4 @@
+# Standard files and directories to exclude
 __pycache__/
 .vagrant/
 .idea/
@@ -6,21 +7,26 @@ artifacts/
 *.log
 *.jar
 
-## Dynamic configuration files
+# Dynamic configuration files
 ansible/ansible.inventory
 ansible/provisioning/config/config.yml
 ansible/provisioning/config/modules/*.yml
 !ansible/provisioning/config/modules/template.*.yml
 
+# Apps
 ## Exclude apps directory, but including some specific subdirectories and files
 ansible/provisioning/apps/*
 !ansible/provisioning/apps/README.md
-!ansible/provisioning/apps/sample_app/
-!ansible/provisioning/apps/hadoop_app/
-!ansible/provisioning/apps/hadoop_sample/
-!ansible/provisioning/apps/spark_sample/
-!ansible/provisioning/apps/spark_standalone/
-!ansible/provisioning/apps/npb_app/
-!ansible/provisioning/apps/smusket_app/
-!ansible/provisioning/apps/xairugo/
-!ansible/provisioning/apps/hdfs_sample/
+!ansible/provisioning/apps/base/
+!ansible/provisioning/apps/samples/
+
+## Exclude user apps, but include specific ones
+!ansible/provisioning/apps/user/
+ansible/provisioning/apps/user/*
+!ansible/provisioning/apps/user/npb_app/
+!ansible/provisioning/apps/user/smusket_app/
+!ansible/provisioning/apps/user/xairugo/
+
+## Override .jar files exclude for some apps
+!ansible/provisioning/apps/samples/**/*.jar
+!ansible/provisioning/apps/user/**/*.jar

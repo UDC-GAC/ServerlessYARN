@@ -27,37 +27,41 @@
       when: "container_engine == 'apptainer'"
       vars:
         - app_type: "{{ 'generic_app' if install_script is defined and install_script != '' else 'base' }}"
-        - image_mapping:
-            hdfs_frontend: hdfs_frontend.sif
-            spark_app: spark_app.sif
-            hadoop_app: hadoop_app.sif
-            generic_app: "{{ app_dir + '.sif' if app_dir is defined }}"
-            base: ubuntu_container.sif
+        - app_mapping:
+            base:
+              definition_file: ubuntu_container.def
+              image: ubuntu_container.sif
+            generic_app:
+              definition_file: generic_app.def
+              image: "{{ app_dir|basename + '.sif' if app_dir is defined }}"
+              install_extra_files: "{{ app_dir if app_dir is defined }}" # directory relative to ansible/provisioning/apps
+              image_dependency: base
+            hadoop_app:
+              definition_file: hadoop_app.def
+              image: hadoop_app.sif
+              install_extra_files: base/hadoop_app
+              image_dependency: base
+            spark_app:
+              definition_file: spark_app.def
+              image: spark_app.sif
+              image_dependency: hadoop_app
+            hdfs_frontend:
+              definition_file: hdfs_frontend.def
+              image: hdfs_frontend.sif
+              image_dependency: hadoop_app
       block:
         ## Image creation
         - include_tasks: "tasks/containers_setup/apptainer_container_image_setup.yml" # beware of the differences of 'include_tasks' vs 'import_tasks', such as tagging
           loop: "{{ reverse_image_dependencies }}"
           tags: create_app, setup_hdfs
           vars:
-            - definition_mapping:
-                hdfs_frontend: hdfs_frontend.def
-                spark_app: spark_app.def
-                hadoop_app: hadoop_app.def
-                generic_app: generic_app.def
-                base: ubuntu_container.def
-            - image_dependencies:
-                hdfs_frontend: hadoop_app
-                spark_app: hadoop_app
-                hadoop_app: base
-                generic_app: base
-                base: ""
             - reverse_image_dependencies: > # for example, if app_type=spark_app, the resulting list will be ['base', 'hadoop_app', 'spark_app'] to build the images in order
                   {%- set build_list = [] -%}
                   {%- set ns = namespace(current_app_type=app_type) -%}
-                  {%- for _ in range(image_dependencies | length) -%}
-                    {%- if ns.current_app_type -%}
+                  {%- for _ in range(app_mapping | length) -%}
+                    {%- if ns.current_app_type is not none -%}
                       {%- set _ = build_list.append(ns.current_app_type) -%}
-                      {%- set ns.current_app_type = image_dependencies[ns.current_app_type] -%}
+                      {%- set ns.current_app_type = app_mapping[ns.current_app_type]['image_dependency'] if 'image_dependency' in app_mapping[ns.current_app_type] else none -%}
                     {%- endif -%}
                   {%- endfor -%}
                   {{ build_list | reverse }}
@@ -67,8 +71,8 @@
           vars:
             - container_owner: root # 'root' or 'user'
               # note: root is required at the moment to start containers with cgroups support on cgroups v1 and with specific network on both cgroups versions
-            - image_file: "{{ image_mapping[app_type] }}"
-            - app_directory: "apps/{{ app_dir if app_type == 'generic_app' else app_type }}"
+            - image_file: "{{ app_mapping[app_type]['image'] }}"
+            - installed_app_directory: "{{ installation_path }}/apps/{{ app_dir|basename if app_type == 'generic_app' else app_type }}" # installation path of app on server
             # Other config
             - cgroups_file: "apptainer_containers_cgroup.toml"
             - containers_info_str: >

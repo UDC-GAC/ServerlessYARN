@@ -1,5 +1,5 @@
 Bootstrap: localimage
-From: apps/{{ app_base_type }}/{{ app_base_image_file }}
+From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_file }}
 
 %post
     apt-get -y update

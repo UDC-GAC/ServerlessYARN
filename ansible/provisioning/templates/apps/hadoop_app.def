@@ -1,13 +1,13 @@
 Bootstrap: localimage
-From: apps/{{ app_base_type }}/{{ app_base_image_file }}
+From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_file }}
 
 %files
-    {{ app_directory }}/hadoop_files /opt/hadoop_files
-    {{ app_directory }}/setup.sh /opt/setup.sh
-    {{ app_directory }}/java_snitch.sh /opt/java_snitch.sh
+    {{ installed_app_directory }}/hadoop_files /opt/hadoop_files
+    {{ installed_app_directory }}/setup.sh /opt/setup.sh
+    {{ installed_app_directory }}/java_snitch.sh /opt/java_snitch.sh
 
     # To avoid repeating hadoop download while debugging
-    #"{{ installation_path }}/apps/hadoop_app/hadoop-{{ hadoop_version }}.tar.gz" /opt/hadoop-{{ hadoop_version }}.tar.gz
+    #"{{ installed_app_directory }}/hadoop-{{ hadoop_version }}.tar.gz" /opt/hadoop-{{ hadoop_version }}.tar.gz
 
 %post
     # Install basic software and Java
