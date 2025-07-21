@@ -8,6 +8,7 @@
     - config/config.yml
 
   vars:
+    - jid_file: "{{ installation_path }}/async_jobs/{{ container }}.jid"
     - container_bind_dir: "{{ bind_dir }}/{{ container }}"
     - hdfs_file_list: ["core-site.xml", "hdfs-site.xml", "hadoop-env.sh", "rack_topology.py"]
     - hadoop_file_list: ["yarn-site.xml", "mapred-site.xml", "yarn-env.sh"]
@@ -375,8 +376,8 @@
       - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
     tags: never
 
-  ## Start
-  - name: Start app on container
+  ## Copy app files
+  - name: Copy app files to container
     block:
       # - name: get the user id running the deploy
       #   become: no
@@ -405,11 +406,25 @@
       #   register: stat_output
       #   tags: stop_app
 
+      - name: Create temporary directory to store container files
+        delegate_to: localhost
+        file:
+          path: "/tmp/cont-config/{{ container }}"
+          state: directory
+          owner: "{{ user_info.user_name }}"
+
       - block:
-          - name: Create app files directory
+          - name: Create app files subdirectory in container
             file:
               path: "{{ container_bind_dir }}/{{ runtime_files | basename }}"
               state: directory
+
+          - name: Create app files subdirectory in localhost (temporary dir)
+            delegate_to: localhost
+            file:
+              path: "/tmp/cont-config/{{ container }}/{{ runtime_files | basename }}"
+              state: directory
+              owner: "{{ user_info.user_name }}"
 
           - name: Find config files to template in the app directory
             delegate_to: localhost
@@ -419,56 +434,139 @@
               recurse: yes
             register: found_config_files
 
-          - name: Process template for each config file
+          - name: Template container config files and store in temporary directory
+            delegate_to: localhost
             template:
               src: "{{ item.path }}"
-              dest: "{{ container_bind_dir }}/{{ runtime_files | basename }}/{{ item.path | basename}}"
+              dest: "/tmp/cont-config/{{ container }}/{{ runtime_files | basename }}/{{ item.path | basename }}"
             loop: "{{ found_config_files.files }}"
         when: "runtime_files != ''"
-        tags: stop_app
 
-      - name: Create output directory
+      - name: Create output directory in container
         when: output_dir is defined and output_dir != ""
         file:
           path: "{{ container_bind_dir }}/{{ output_dir | basename }}"
           state: directory
-        tags: stop_app
+
+    tags: never, start_app, stop_app
+
+
+    ## Start
+  - name: Start app on container
+    block:
+
+      - name: Copy app files already on container if there was an installation
+        when: "install_script != ''"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'cp -pr /opt/{{ app_dir }}/* {{ bind_dir_on_container }}'"
+        args:
+          executable: /bin/bash
 
       - name: Copy app start script
+        delegate_to: localhost
         template:
           src: "apps/{{ app_dir }}/{{ start_script }}"
-          dest: "{{ container_bind_dir }}/"
+          dest: "/tmp/cont-config/{{ container }}/"
           mode: preserve
 
       - name: Copy app jar
+        delegate_to: localhost
         when: "app_jar != ''"
-        synchronize:
+        copy:
           src: "apps/{{ app_dir }}/{{ app_jar }}"
+          dest: "/tmp/cont-config/{{ container }}/"
+
+#      - name: Synchronise templated files in temporary dir with container host
+#        synchronize:
+#          src: "/tmp/cont-config/{{ container }}/"
+#          dest: "{{ container_bind_dir }}/"
+#          ssh_connection_multiplexing: true
+
+      - name: Copy templated files to container bind directory
+        copy:
+          src: "/tmp/cont-config/{{ container }}/"
           dest: "{{ container_bind_dir }}/"
+          owner: "{{ user_info.user_name }}"
 
       - name: Execute start script on container
         #shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null"
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null'"
         args:
           executable: /bin/bash
+        async: 3600
+        poll: 0
+        register: start_job
+
+      - name: Save job id to check status later
+        delegate_to: localhost
+        copy:
+          content: "{{ start_job.ansible_job_id }}"
+          dest: "{{ jid_file }}"
+          owner: "{{ user_info.user_name }}"
 
     tags: never, start_app
+
+  ## Wait
+  - name: Wait for app container
+    block:
+      - name: Read start script job id
+        set_fact:
+          start_job_id: "{{ lookup('file', jid_file) | trim }}"
+
+      - name: Wait until start script has finished
+        async_status:
+          jid: "{{ start_job_id}}"
+        register: start_status
+        until: start_status.finished
+        retries: 120
+        delay: 30
+
+    tags: never, wait_app
 
   ## Stop
   - name: Stop app on container
     block:
+      # Run stop script if defined
       - block:
         - name: Copy app stop script
+          delegate_to: localhost
           template:
             src: "apps/{{ app_dir }}/{{ stop_script }}"
-            dest: "{{ container_bind_dir }}/"
+            dest: "/tmp/cont-config/{{ container }}/"
             mode: preserve
+
+#        - name: Synchronise templated files in temporary dir with container host
+#          synchronize:
+#            src: "/tmp/cont-config/{{ container }}/"
+#            dest: "{{ container_bind_dir }}/"
+#            ssh_connection_multiplexing: true
+
+        - name: Copy templated files to container bind directory
+          copy:
+            src: "/tmp/cont-config/{{ container }}/"
+            dest: "{{ container_bind_dir }}/"
+            owner: "{{ user_info.user_name }}"
 
         - name: Execute stop script on container
           #shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script | basename }} </dev/null"
           shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'nohup bash {{ bind_dir_on_container }}/{{ stop_script | basename }} </dev/null'"
           args:
             executable: /bin/bash
+          async: 3600
+          poll: 0
+          register: stop_job
+
+        - name: Wait some seconds before polling
+          pause:
+            seconds: 10
+
+        - name: Wait until stop script has finished
+          async_status:
+            jid: "{{ stop_job.ansible_job_id }}"
+          register: stop_status
+          until: stop_status.finished
+          retries: 120
+          delay: 30
+
         when: stop_script is defined and stop_script != ""
 
       # Stop java snitcher
@@ -553,6 +651,7 @@
               state: directory
 
           - name: Store output data
+            # TODO: Use copy to reuse SSH connection (synchronize avoid multiplexing by default)
             synchronize:
               src: "{{ container_bind_dir }}/{{ output_dir }}/"
               dest: "{{ stored_output_dir }}"

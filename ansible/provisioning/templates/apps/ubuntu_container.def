@@ -50,8 +50,16 @@ From: ubuntu:20.04
     USERNAME={{ user_info.user_name }}
     GROUPNAME={{ user_info.group_name }}
     USERHOME={{ user_home_on_container }}
-    groupadd -g $GROUPID $GROUPNAME
-    useradd -d $USERHOME -s /bin/bash -u $USERID -g $GROUPID $USERNAME
+
+    # Avoids build failure if the group already exists
+    if ! getent group "$GROUPNAME" >/dev/null 2>&1; then
+        groupadd -g "$GROUPID" "$GROUPNAME"
+    fi
+
+    # Avoids build failure if the user already exists
+    if ! id -u "$USERNAME" >/dev/null 2>&1; then
+        useradd -d "$USERHOME" -s /bin/bash -u "$USERID" -g "$GROUPID" "$USERNAME"
+    fi
 
 %startscript
 
