@@ -1,5 +1,6 @@
 # NPB general
 export NPB_VERSION="3.4.2"
+export NPB_INSTALL_DIR="/opt"
 export NPB_HOME="${NPB_INSTALL_DIR}/NPB${NPB_VERSION}"
 export NPB_OMP_HOME="${NPB_HOME}/NPB${NPB_VERSION:0:3}-OMP"
 

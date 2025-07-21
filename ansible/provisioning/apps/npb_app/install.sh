@@ -28,3 +28,6 @@ for KERNEL in "${NPB_KERNELS[@]}";do
     make "${KERNEL}" CLASS="${CLASS}"
   done
 done
+
+# Workaround to grant access to NPB kernels
+chmod -R 777 "${NPB_INSTALL_DIR}"
