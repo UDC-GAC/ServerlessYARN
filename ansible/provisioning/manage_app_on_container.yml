@@ -345,21 +345,6 @@
   ## Copy app files
   - name: Copy app files to container
     block:
-      # - name: get the user id running the deploy
-      #   become: no
-      #   local_action: command id -u
-      #   register: userid_on_the_host
-
-      # - name: Check if app files directory is already there
-      #   when: "files_dir != ''"
-      #   stat:
-      #     path: "{{ container_bind_dir }}/{{ files_dir | basename }}"
-      #     get_checksum: false
-      #     get_mime: false
-      #     get_attributes: false
-      #   register: stat_output
-      #   tags: stop_app
-
       - name: Create temporary directory to store container files
         delegate_to: localhost
         file:
@@ -404,7 +389,6 @@
 
     tags: never, start_app, stop_app
 
-
     ## Start
   - name: Start app on container
     block:
@@ -429,13 +413,7 @@
           src: "apps/{{ app_dir }}/{{ app_jar }}"
           dest: "/tmp/cont-config/{{ container }}/"
 
-#      - name: Synchronise templated files in temporary dir with container host
-#        synchronize:
-#          src: "/tmp/cont-config/{{ container }}/"
-#          dest: "{{ container_bind_dir }}/"
-#          ssh_connection_multiplexing: true
-
-      - name: Copy templated files to container bind directory
+      - name: Copy templated files to remote container
         copy:
           src: "/tmp/cont-config/{{ container }}/"
           dest: "{{ container_bind_dir }}/"
@@ -488,13 +466,7 @@
             dest: "/tmp/cont-config/{{ container }}/"
             mode: preserve
 
-#        - name: Synchronise templated files in temporary dir with container host
-#          synchronize:
-#            src: "/tmp/cont-config/{{ container }}/"
-#            dest: "{{ container_bind_dir }}/"
-#            ssh_connection_multiplexing: true
-
-        - name: Copy templated files to container bind directory
+        - name: Copy templated files to remote container
           copy:
             src: "/tmp/cont-config/{{ container }}/"
             dest: "{{ container_bind_dir }}/"
@@ -531,27 +503,6 @@
           executable: /bin/bash
         ignore_errors: yes
 
-      ## Manage output data
-      # - name: get the user id running the deploy
-      #   become: no
-      #   local_action: command id -u
-      #   register: userid_on_the_host
-
-      # # Workaround to avoid having result files root-owned
-      # # TODO: move results to another directory accesible for the user
-      # - name: Change remaining files permissions
-      #   # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
-      #   when: "' ' not in userid_on_the_host.stdout"
-      #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
-      #     'cd {{ bind_dir_on_container }} \
-      #     && chown -R {{ userid_on_the_host.stdout }} *output* | : \
-      #     && chown -R {{ userid_on_the_host.stdout }} output_* | : \
-      #     && chown {{ userid_on_the_host.stdout }} runtime_* | : \
-      #     && chown {{ userid_on_the_host.stdout }} app_log_* | : \
-      #     && chown {{ userid_on_the_host.stdout }} datagen_log_* | :'"
-      #   args:
-      #     executable: /bin/bash
-
       # - name: Change remaining files permissions (hadoop)
       #   # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
       #   when: "app_jar != '' and ' ' not in userid_on_the_host.stdout"
@@ -572,20 +523,8 @@
       #     input_log_dir: "{{ container_bind_dir }}/hadoop_logs/"
       #     output_log_dir: "{{ default_bind_path }}/{{ bind_dir_name }}/{{ rm_container }}/hadoop_logs/"
 
+      ## Manage output data
       - block:
-        # - name: get the user id running the deploy
-        #   become: no
-        #   local_action: command id -u
-        #   register: userid_on_the_host
-
-        # - name: Change remaining files permissions
-        #   # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
-        #   when: "' ' not in userid_on_the_host.stdout and ' ' not in output_dir"
-        #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
-        #     'cd {{ bind_dir_on_container }} && chown -R {{ userid_on_the_host.stdout }} {{ output_dir }}'"
-        #   args:
-        #     executable: /bin/bash
-
         - name: Set output data timestamp
           when: timestamp is not defined # --> only set current timestamp if another timestamp has not been set
           set_fact:
@@ -614,24 +553,6 @@
             stored_output_dir: "{{ app_output_data }}/{{ app_name }}/{{ timestamp }}/{{ output_dir }}-{{ container }}"
         when: "output_dir is defined and output_dir != ''"
 
-      # ## Clean bind directory --> remove whole directory after stopping container
-      # - name: Remove app files
-      #   when: item != ""
-      #   file:
-      #     path: "{{ container_bind_dir }}/{{ item | basename }}"
-      #     state: absent
-      #   with_items:
-      #     ## Scripts
-      #     - "{{ install_script if install_script is defined else '' }}"
-      #     - "{{ start_script if start_script is defined else '' }}"
-      #     - "{{ stop_script if stop_script is defined else '' }}"
-      #     ## Directories
-      #     - "{{ runtime_files if runtime_files is defined else '' }}"
-      #     - "{{ output_dir if output_dir is defined else '' }}"
-      #     ## Other
-      #     - "{{ container }}.pub" ## ssh key
-      #     - "{{ app_jar if app_jar is defined else '' }}"
-
       # ## Clean hadoop apps
       # - block:
       #   - name: Remove hadoop config files
@@ -657,8 +578,7 @@
       #     args:
       #       executable: /bin/bash
   
-        # when: "app_jar is defined and app_jar != ''"
-
+      # when: "app_jar is defined and app_jar != ''"
 
     tags: never, stop_app
 
@@ -704,7 +624,6 @@
 
   ## TODO: Remove app_jar conditions in these tasks (in the whole file)
 
-
   ## HDFS
   - name: Create directory on HDFS
     when: dest_path is defined and dest_path != ''
@@ -742,11 +661,6 @@
       global_namenode_url: "hdfs://{{ namenode_container }}:8020"
       dest_container_path: "{{ bind_dir_on_container }}/{{ dest_path.rstrip('/') }}" 
     block:
-      # - name: get the user id running the deploy
-      #   become: no
-      #   local_action: command id -u
-      #   register: userid_on_the_host
-
       - name: Get data from HDFS
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ hdfs_frontend_container_name }} su - {{ user_info.user_name }} -c \ 
           '$HADOOP_HOME/bin/hdfs dfs -get {{ global_namenode_url }}/{{ origin_path }} {{ dest_container_path }}'"
