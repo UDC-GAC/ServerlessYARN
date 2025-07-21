@@ -5,7 +5,6 @@ bdwatchdog_source_path: "{{ installation_path }}/BDWatchdog_source"
 serverless_containers_path: "{{ installation_path }}/ServerlessContainers"
 apptainer_repo_path: "{{ installation_path }}/apptainer"
 lxd_key_path: "{{ serverless_containers_path }}"
-tmpdir: "{{ installation_path }}/tmpdir"
 app_output_data: "{{ installation_path }}/output_data"
 #app_output_data: /vagrant/ansible/provisioning/output_data # --> this is useful for testing in virtual_mode
 
