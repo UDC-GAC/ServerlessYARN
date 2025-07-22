@@ -16,6 +16,8 @@ export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 ## Spark
 cd /opt
-wget https://archive.apache.org/dist/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-hadoop3.tgz
-mkdir spark && tar xf "spark-{{ spark_version }}-bin-hadoop3.tgz" -C spark --strip-components 1
+spark_download_dir=https://archive.apache.org/dist/spark/spark-{{ spark_version }}
+spark_download_file=spark-{{ spark_version }}-bin-hadoop3.tgz
+wget $spark_download_dir/$spark_download_file
+mkdir spark && tar xf $spark_download_file -C spark --strip-components 1 && rm $spark_download_file
 chown -R $(whoami):$(whoami) spark

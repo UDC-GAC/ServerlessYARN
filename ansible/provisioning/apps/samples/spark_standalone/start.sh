@@ -3,11 +3,13 @@ cd {{ bind_dir_on_container }}
 
 #exit 1 # uncomment if you want the app to fail to execute it yourself from inside the container
 
+OUTPUT_DIR="{{ bind_dir_on_container }}/{{ output_dir }}"
+
 export SPARK_HOME=/opt/spark
 
-output_file="output_spark_standalone_`date +%d-%m-%y--%H-%M-%S`"
-app_log_file="app_log_spark_standalone_`date +%d-%m-%y--%H-%M-%S`"
-runtime_file="runtime_spark_standalone_`date +%d-%m-%y--%H-%M-%S`"
+output_file="$OUTPUT_DIR/output_spark_standalone_`date +%d-%m-%y--%H-%M-%S`"
+app_log_file="$OUTPUT_DIR/app_log_spark_standalone_`date +%d-%m-%y--%H-%M-%S`"
+runtime_file="$OUTPUT_DIR/runtime_spark_standalone_`date +%d-%m-%y--%H-%M-%S`"
 
 # Run JAR
 start=`date +%s.%N`

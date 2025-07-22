@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 
+OUTPUT_DIR="{{ bind_dir_on_container }}/{{ output_dir }}"
+
 # CAUTION!! This script must only be executed from master container
 #export MASTER_IP_ADDRESS=$(hostname -I | awk '{print $1}')
 export SCRIPT_DIR=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
-export OUTPUT_FILE="output_smusket_app_`date +%H-%M-%S`"
-export RUNTIME_FILE="runtime_smusket_app_`date +%H-%M-%S`"
+export OUTPUT_FILE="$OUTPUT_DIR/output_smusket_app_`date +%H-%M-%S`"
+export RUNTIME_FILE="$OUTPUT_DIR/runtime_smusket_app_`date +%H-%M-%S`"
 
 . "${SCRIPT_DIR}/files_dir/get-env.sh"
 
