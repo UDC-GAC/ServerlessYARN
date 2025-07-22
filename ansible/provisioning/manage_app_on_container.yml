@@ -434,12 +434,6 @@
   - name: Start app on container
     block:
 
-      - name: Copy app files already on container if there was an installation
-        when: "install_script != ''"
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'cp -pr /opt/{{ app_dir }}/* {{ bind_dir_on_container }}'"
-        args:
-          executable: /bin/bash
-
       - name: Copy app start script
         delegate_to: localhost
         template:
