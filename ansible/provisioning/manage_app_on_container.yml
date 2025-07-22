@@ -584,12 +584,15 @@
               path: "{{ stored_output_dir }}"
               state: directory
 
-          - name: Store output data
-            # TODO: Use copy to reuse SSH connection (synchronize avoid multiplexing by default)
+          - name: Fetch output data from container to server
+            vars:
+              ansible_ssh_extra_args: "-o ControlPath=~/.ansible/cp/socket-{{ inventory_hostname }}"
             synchronize:
               src: "{{ container_bind_dir }}/{{ output_dir }}/"
               dest: "{{ stored_output_dir }}"
               mode: pull
+              ssh_connection_multiplexing: yes
+              use_ssh_args: yes
           vars:
             stored_output_dir: "{{ app_output_data }}/{{ app_name }}/{{ timestamp }}/{{ output_dir }}-{{ container }}"
         when: "output_dir is defined and output_dir != ''"
