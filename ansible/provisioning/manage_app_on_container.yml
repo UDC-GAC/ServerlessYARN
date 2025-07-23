@@ -449,10 +449,13 @@
           dest: "/tmp/cont-config/{{ container }}/"
 
       - name: Copy templated files to remote container
-        copy:
+        vars:
+          ansible_ssh_extra_args: "-o ControlPath=~/.ansible/cp/socket-{{ inventory_hostname }}"
+        synchronize:
           src: "/tmp/cont-config/{{ container }}/"
           dest: "{{ container_bind_dir }}/"
-          owner: "{{ user_info.user_name }}"
+          ssh_connection_multiplexing: yes
+          use_ssh_args: yes
 
       - name: Execute start script on container
         #shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null"
@@ -502,10 +505,13 @@
             mode: preserve
 
         - name: Copy templated files to remote container
-          copy:
+          vars:
+            ansible_ssh_extra_args: "-o ControlPath=~/.ansible/cp/socket-{{ inventory_hostname }}"
+          synchronize:
             src: "/tmp/cont-config/{{ container }}/"
             dest: "{{ container_bind_dir }}/"
-            owner: "{{ user_info.user_name }}"
+            ssh_connection_multiplexing: yes
+            use_ssh_args: yes
 
         - name: Execute stop script on container
           #shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script | basename }} </dev/null"
