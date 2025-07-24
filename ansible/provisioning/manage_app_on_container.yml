@@ -13,6 +13,7 @@
     - hdfs_file_list: ["core-site.xml", "hdfs-site.xml", "hadoop-env.sh", "rack_topology.py"]
     - hadoop_file_list: ["yarn-site.xml", "mapred-site.xml", "yarn-env.sh"]
     - spark_file_list: ["spark-defaults.conf"]
+    - tmpdir: "{{ installation_path }}/tmpdir_{{ app_name }}"
 
   environment:
     BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
@@ -146,8 +147,6 @@
 
       - name: Prepare and copy all config files to containers
         tags: setup_hadoop
-        vars:
-          tmpdir: "{{ installation_path }}/tmpdir_{{ app_name }}"
         block:
           - name: Create temporary directory to store templated config files
             delegate_to: localhost
@@ -374,47 +373,48 @@
   ## Copy app files
   - name: Copy app files to container
     block:
-
       - name: Copy app files already on container if there was an installation
         when: "install_script != ''"
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'cp -pr /opt/{{ app_dir | basename }}/* {{ bind_dir_on_container }}'"
         args:
           executable: /bin/bash
 
-      - name: Create temporary directory to store container files
+      - name: Create temporary directory to store templated config files
         delegate_to: localhost
+        run_once: yes
         file:
-          path: "/tmp/cont-config/{{ container }}"
+          path: "{{ tmpdir }}/{{ container }}"
           state: directory
           owner: "{{ user_info.user_name }}"
 
       - block:
-          - name: Create app files subdirectory in container
+          - name: Create runtime files subdirectory in container
             file:
               path: "{{ container_bind_dir }}/{{ runtime_files | basename }}"
               state: directory
 
-          - name: Create app files subdirectory in localhost (temporary dir)
+          - name: Create runtime files subdirectory in temporary directory
             delegate_to: localhost
+            run_once: yes
             file:
-              path: "/tmp/cont-config/{{ container }}/{{ runtime_files | basename }}"
+              path: "{{ tmpdir }}/{{ container }}/{{ runtime_files | basename }}"
               state: directory
               owner: "{{ user_info.user_name }}"
 
-          - name: Find config files to template in the app directory
+          - name: Find runtime files to template in the app directory
             delegate_to: localhost
             run_once: yes
             find:
               paths: "apps/{{ app_dir }}/{{ runtime_files }}/"
               recurse: yes
-            register: found_config_files
+            register: found_runtime_files
 
-          - name: Template container config files and store in temporary directory
+          - name: Template runtime files and store in temporary directory
             delegate_to: localhost
             template:
               src: "{{ item.path }}"
-              dest: "/tmp/cont-config/{{ container }}/{{ runtime_files | basename }}/{{ item.path | basename }}"
-            loop: "{{ found_config_files.files }}"
+              dest: "{{ tmpdir }}/{{ container }}/{{ runtime_files | basename }}/{{ item.path | basename }}"
+            loop: "{{ found_runtime_files.files }}"
         when: "runtime_files != ''"
 
       - name: Create output directory in container
@@ -428,12 +428,11 @@
     ## Start
   - name: Start app on container
     block:
-
-      - name: Copy app start script
+      - name: Template app start script
         delegate_to: localhost
         template:
           src: "apps/{{ app_dir }}/{{ start_script }}"
-          dest: "/tmp/cont-config/{{ container }}/"
+          dest: "{{ tmpdir }}/{{ container }}/"
           mode: preserve
 
       - name: Copy app jar
@@ -441,13 +440,16 @@
         when: "app_jar != ''"
         copy:
           src: "apps/{{ app_dir }}/{{ app_jar }}"
-          dest: "/tmp/cont-config/{{ container }}/"
+          dest: "{{ tmpdir }}/{{ container }}/"
 
-      - name: Copy templated files to remote container
-        copy:
-          src: "/tmp/cont-config/{{ container }}/"
+      - name: Copy templated config files to remote container
+        vars:
+          ansible_ssh_extra_args: "-o ControlPath=~/.ansible/cp/socket-{{ inventory_hostname }}"
+        synchronize:
+          src: "{{ tmpdir }}/{{ container }}/"
           dest: "{{ container_bind_dir }}/"
-          owner: "{{ user_info.user_name }}"
+          ssh_connection_multiplexing: yes
+          use_ssh_args: yes
 
       - name: Execute start script on container
         #shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null"
@@ -489,18 +491,21 @@
     block:
       # Run stop script if defined
       - block:
-        - name: Copy app stop script
+        - name: Template app stop script
           delegate_to: localhost
           template:
             src: "apps/{{ app_dir }}/{{ stop_script }}"
-            dest: "/tmp/cont-config/{{ container }}/"
+            dest: "{{ tmpdir }}/{{ container }}/"
             mode: preserve
 
-        - name: Copy templated files to remote container
-          copy:
-            src: "/tmp/cont-config/{{ container }}/"
+        - name: Copy templated config files to remote container
+          vars:
+            ansible_ssh_extra_args: "-o ControlPath=~/.ansible/cp/socket-{{ inventory_hostname }}"
+          synchronize:
+            src: "{{ tmpdir }}/{{ container }}/"
             dest: "{{ container_bind_dir }}/"
-            owner: "{{ user_info.user_name }}"
+            ssh_connection_multiplexing: yes
+            use_ssh_args: yes
 
         - name: Execute stop script on container
           #shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script | basename }} </dev/null"
@@ -524,6 +529,13 @@
           delay: 30
 
         when: stop_script is defined and stop_script != ""
+
+      - name: Clean container config files from temporary directory
+        delegate_to: localhost
+        run_once: yes
+        file:
+          path: "{{ tmpdir }}/{{ container }}/"
+          state: absent
 
       # Stop java snitcher
       - name: Stop java snitcher
