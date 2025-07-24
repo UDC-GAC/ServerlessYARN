@@ -110,16 +110,11 @@
       - name: Workers file setup
         tags: setup_hadoop, setup_hdfs
         block:
-          # - name: get the user id running the deploy
-          #   become: no
-          #   local_action: command id -u
-          #   register: userid_on_the_host
-
           # - name: Copy app files already on containers & Update workers file on containers
           #   shell: "{% for item in containers_info %}
           #     {% if item.host == inventory_hostname %}
           #     sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \ 
-          #     'cp -pr /opt/hadoop_files {{ bind_dir_on_container }}/ && chown -R {{ userid_on_the_host.stdout }} {{ bind_dir_on_container }}/* \
+          #     'cp -pr /opt/hadoop_files {{ bind_dir_on_container }}/ && chown -R {{ user_info.user_id }} {{ bind_dir_on_container }}/* \
           #     && {% for item in worker_list %}echo {{ item }} >> $HADOOP_CONF_DIR/workers && {% endfor %}true' && 
           #     {% endif  %}
           #     {% endfor %}true"
@@ -540,10 +535,10 @@
 
       # - name: Change remaining files permissions (hadoop)
       #   # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
-      #   when: "app_jar != '' and ' ' not in userid_on_the_host.stdout"
+      #   when: "app_jar != '' and ' ' not in user_info.user_id"
       #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
       #     'cd {{ bind_dir_on_container }} \
-      #     && chown -R {{ userid_on_the_host.stdout }} hadoop_logs'"
+      #     && chown -R {{ user_info.user_id }} hadoop_logs'"
       #   args:
       #     executable: /bin/bash
 

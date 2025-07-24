@@ -1,27 +1,22 @@
 - name: Setup power sensor
   block:
-    - name: get the username running the deploy
-      become: no
-      local_action: command whoami
-      register: username_on_the_host
-
     - name: Create power sensor installation directory
       file:
         path: "{{ power_sensor_path }}/image"
         state: directory
-        owner: "{{ username_on_the_host.stdout_lines[0] }}"
+        owner: "{{ user_info.user_name }}"
 
     - name: Create power sensor configuration directory
       file:
         path: "{{ power_sensor_path }}/config"
         state: directory
-        owner: "{{ username_on_the_host.stdout_lines[0] }}"
+        owner: "{{ user_info.user_name }}"
 
     - name: Create sensor reporting directory
       file:
         path: "{{ sensor_reporting_path }}"
         state: directory
-        owner: "{{ username_on_the_host.stdout_lines[0] }}"
+        owner: "{{ user_info.user_name }}"
   vars:
     - power_sensor: "{{ 'selfwatts_controller' if power_meter == 'selfwatts' else 'hwpc_sensor' }}"
     - power_sensor_path: "{{ installation_path }}/{{ power_sensor }}"

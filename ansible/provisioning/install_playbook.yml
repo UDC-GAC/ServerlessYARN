@@ -14,6 +14,9 @@
     OPENTSDB_LOG_PATH: "{{ opentsdb_log_path | quote }}"
 
   tasks:
+    - import_tasks: tasks/utils/get_user_ids.yml
+      tags: always
+
     - import_tasks: tasks/install/create_installation_dir.yml
     - import_tasks: tasks/install/time_sync.yml
       when: virtual_mode
@@ -50,6 +53,9 @@
     INSTALLATION_PATH: "{{ installation_path }}"
 
   tasks:
+    - import_tasks: tasks/utils/get_user_ids.yml
+      tags: always
+
     - import_tasks: tasks/install/create_installation_dir.yml
     - import_tasks: tasks/install/time_sync.yml
       when: virtual_mode

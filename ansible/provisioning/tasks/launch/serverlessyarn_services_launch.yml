@@ -1,33 +1,23 @@
-
-- name: Tmux session check
-  shell: tmux ls
-  register: tmux_output
-  ignore_errors: yes
-  tags: restart_services
-
 - name: Starting Services - Web Interface
   shell: "bash start_tmux.sh {{ web_interface_port }}"
-  when: "'web_interface' not in tmux_output.stdout"
+  when: "'web_interface' not in tmux_sessions"
   args:
     chdir: "{{ web_interface_path }}"
     executable: /bin/bash
-  tags: restart_services
 
 - name: Starting Services - Redis server
   shell: "bash start_tmux.sh {{ installation_path }}"
-  when: "'redis_server' not in tmux_output.stdout"
+  when: "'redis_server' not in tmux_sessions"
   args:
     chdir: "services/redis_server"
     executable: /bin/bash
-  tags: restart_services
 
 - name: Starting other Services
   shell: "bash start_tmux.sh"
-  when: "item not in tmux_output.stdout"
+  when: "item not in tmux_sessions"
   args:
     chdir: "services/{{ item }}"
     executable: /bin/bash
   with_items:
     - celery
     - rebooter
-  tags: restart_services

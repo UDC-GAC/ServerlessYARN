@@ -13,18 +13,12 @@
     recursive: true
   tags: create_app
 
-## get the user executing the playbook
-- name: get the username running the deploy
-  become: no
-  local_action: command whoami
-  register: username_on_the_host
-
 # TODO: read BDWatchdog_data path from BDWatchdog/deployment/config or viceversa
 - name: Create a BDWatchdog data directory
   file:
     path: "{{ installation_path }}/BDWatchdog_data"
     state: directory
-    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+    owner: "{{ user_info.user_name }}"
     recurse: yes
 
 - name: Install BDWatchdog
@@ -40,7 +34,7 @@
   when: "virtual_mode"
   file:
     path: "{{ lookup('env', 'HOME') }}/.ssh/{{ item }}"
-    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+    owner: "{{ user_info.user_name }}"
   with_items: ['known_hosts','id_rsa','id_rsa.pub']
 
 - name: Install just OpenTSDB
@@ -52,18 +46,15 @@
     creates: metrics/opentsdb/build/tsdb
 
 ## Stop tmux sessions created by root
-- name: Tmux session check
-  shell: tmux ls
-  register: tmux_output
-  ignore_errors: yes
+- import_tasks: tasks/utils/get_tmux_sessions.yml
 
 - name: Stop TIMESTAMPING Service
   shell: tmux kill-session -t EVE_TIMES
-  when: "'EVE_TIMES' in tmux_output.stdout"
+  when: "'EVE_TIMES' in tmux_sessions"
 
 - name: Stop OPENTSDB
   shell: bash stop.sh
-  when: "'OPENTSDB' in tmux_output.stdout"
+  when: "'OPENTSDB' in tmux_sessions"
   args:
     chdir: "{{ bdwatchdog_path }}/deployment/metrics"
     executable: /bin/bash
@@ -72,7 +63,7 @@
   file:
     path: "{{ item }}"
     state: directory
-    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+    owner: "{{ user_info.user_name }}"
     recurse: yes
   with_items:
     - "{{ bdwatchdog_path }}"
@@ -82,7 +73,7 @@
   file:
     path: "{{ installation_path }}/BDWatchdog_data"
     state: directory
-    owner: "{{ username_on_the_host.stdout_lines[0] }}"
+    owner: "{{ user_info.user_name }}"
     recurse: yes
 
 - name: Copy service aliases and port configuration to BDWatchdog dir

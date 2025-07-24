@@ -35,12 +35,6 @@
       args:
         executable: /bin/bash
 
-    - name: get the user id running the deploy
-      shell: "echo $UID"
-      args:
-        executable: /bin/bash
-      register: userid_on_the_host
-
     - name: Add controllers to cgroups
       become: yes
       shell: "echo '+{{ item[0] }}' >> {{ item[1] }}/cgroup.subtree_control"
@@ -50,9 +44,9 @@
       with_nested:
         - [ 'cpu', 'cpuset', 'memory', 'io' ]
         - [ 'user.slice', 
-            "user.slice/user-{{ userid_on_the_host.stdout }}.slice", 
-            "user.slice/user-{{ userid_on_the_host.stdout }}.slice/user@{{ userid_on_the_host.stdout }}.service",
-            "user.slice/user-{{ userid_on_the_host.stdout }}.slice/user@{{ userid_on_the_host.stdout }}.service/user.slice" ] ## last two paths do not actually need root permissions
+            "user.slice/user-{{ user_info.user_id }}.slice",
+            "user.slice/user-{{ user_info.user_id }}.slice/user@{{ user_info.user_id }}.service",
+            "user.slice/user-{{ user_info.user_id }}.slice/user@{{ user_info.user_id }}.service/user.slice" ] ## last two paths do not actually need root permissions
 
 - name: Containers startup
   tags: start_containers

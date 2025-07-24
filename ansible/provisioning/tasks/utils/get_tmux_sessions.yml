@@ -1,0 +1,8 @@
+- name: Tmux session check
+  shell: tmux ls
+  register: tmux_output
+  ignore_errors: yes
+
+- name: Set list with only session names
+  set_fact:
+    tmux_sessions: "{{ (tmux_output.stdout_lines | map('split', ':') | map ('first') | list) if 'stdout_lines' in tmux_output else none }}"

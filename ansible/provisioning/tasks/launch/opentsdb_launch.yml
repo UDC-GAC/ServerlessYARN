@@ -1,14 +1,7 @@
-
-- name: Tmux session check
-  shell: tmux ls
-  register: tmux_output
-  ignore_errors: yes
-  tags: restart_services
-
 ## ATM the timestamping service won't be launched in a existing cluster as it cannot be easily installed by a non-root user
 - name: Starting Services - TIMESTAMPING Service
   shell: bash start.sh 
-  when: "virtual_mode and 'EVE_TIMES' not in tmux_output.stdout"
+  when: "virtual_mode and 'EVE_TIMES' not in tmux_sessions"
   args:
     chdir: "{{ bdwatchdog_path }}/deployment/timestamps"
     executable: /bin/bash
@@ -16,7 +9,7 @@
 
 - name: Starting Services - OPENTSDB
   shell: bash start.sh 
-  when: "'OPENTSDB' not in tmux_output.stdout"
+  when: "'OPENTSDB' not in tmux_sessions"
   args:
     chdir: "{{ bdwatchdog_path }}/deployment/metrics"
     executable: /bin/bash

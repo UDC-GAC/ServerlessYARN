@@ -22,6 +22,9 @@
     CELERY_BACKEND: "redis://127.0.0.1:6379/0"
 
   tasks:
+    - import_tasks: tasks/utils/get_tmux_sessions.yml
+      tags: restart_services
+
     - import_tasks: tasks/launch/opentsdb_launch.yml
       tags: start_opentsdb
 
@@ -50,6 +53,7 @@
         - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
 
     - import_tasks: tasks/launch/serverlessyarn_services_launch.yml
+      tags: restart_services
 
     - block:
       - import_tasks: tasks/launch/mongodb_launch.yml

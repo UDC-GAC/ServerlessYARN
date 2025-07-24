@@ -80,11 +80,6 @@
             path: "{{ lv_path }}"
             state: directory
 
-        - name: get the username running the deploy
-          become: no
-          local_action: command whoami
-          register: username_on_the_host
-
         - name: Format and mount LV (virtual cluster)
           when: virtual_mode
           block:
@@ -108,7 +103,7 @@
             - name: Change lv path permissions
               file:
                 path: "{{ lv_path }}"
-                owner: "{{ username_on_the_host.stdout_lines[0] }}"
+                owner: "{{ user_info.user_name }}"
                 mode: '0755'
 
         - name: Format and mount LV (non-virtual cluster)
@@ -149,7 +144,7 @@
                 executable: /bin/bash
 
             - name: Change lv path permissions
-              shell: "sudo chown {{ username_on_the_host.stdout_lines[0] }} {{ lv_path }}"
+              shell: "sudo chown {{ user_info.user_name }} {{ lv_path }}"
               args:
                 executable: /bin/bash
       tags: create_lv

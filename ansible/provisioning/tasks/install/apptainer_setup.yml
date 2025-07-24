@@ -62,16 +62,11 @@
         chdir: "{{ apptainer_repo_path }}/builddir"
         target: install
 
-    - name: get the username running the deploy
-      become: no
-      local_action: command whoami
-      register: username_on_the_host
-
     - name: Change Apptainer repo dir owner
       file:
         path: "{{ apptainer_repo_path }}"
         state: directory
-        owner: "{{ username_on_the_host.stdout_lines[0] }}"
+        owner: "{{ user_info.user_name }}"
         recurse: yes
 
 # TODO: avoid execution on localhost
@@ -80,14 +75,9 @@
     name: "{{ singularity_cgroups_group }}"
     state: present
 
-- name: get the username running the deploy
-  become: no
-  local_action: command whoami
-  register: username_on_the_host
-
 - name: Add user to group
   user:
-    name: "{{ username_on_the_host.stdout }}"
+    name: "{{ user_info.user_name }}"
     groups: "{{ singularity_cgroups_group }}"
     append: true
 

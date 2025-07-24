@@ -6,18 +6,12 @@
       args:
         executable: /bin/bash
 
-    - name: get the username running the deploy
-      when: "'couchdb_cont' not in apptainer_list_output.stdout"
-      become: no
-      local_action: command whoami
-      register: username_on_the_host
-
     - name: Clean and create data directory for CouchDB container
       when: "'couchdb_cont' not in apptainer_list_output.stdout"
       file:
         state: "{{ item }}"
         path: "{{ couchdb_path }}/data"
-        owner: "{{ username_on_the_host.stdout_lines[0] }}"
+        owner: "{{ user_info.user_name }}"
       with_items:
         - absent
         - directory
@@ -27,7 +21,7 @@
       file:
         state: "{{ item }}"
         path: "{{ couchdb_path }}/log"
-        owner: "{{ username_on_the_host.stdout_lines[0] }}"
+        owner: "{{ user_info.user_name }}"
       with_items:
         - absent
         - directory

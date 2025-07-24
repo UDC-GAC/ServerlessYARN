@@ -3,6 +3,7 @@
   become: "{{ 'no' if container_engine == 'apptainer' else 'yes' }}"
   gather_facts: no
   ignore_unreachable: yes  # we ignore unreachable hosts because in SLURM environments (or similar) hosts might have been shut down before stopping services
+  tags: never
 
   vars_files:
     - vars/main.yml
@@ -14,40 +15,30 @@
     PYTHONPATH: ":{{ serverless_containers_path }}"
 
   tasks:
-  - name: Tmux session check
-    shell: tmux ls
-    register: tmux_output
-    ignore_errors: yes
-    tags: never, stop_node_scaler, stop_services
+  - import_tasks: tasks/utils/get_tmux_sessions.yml
+    tags: stop_node_scaler, stop_services
 
   - name: Stop node scaler
     shell: bash scripts/services/node_scaler/stop.sh
-    when: "'stdout' in tmux_output and 'node_scaler' in tmux_output.stdout"
+    when: "tmux_sessions is not none and 'node_scaler' in tmux_sessions"
     args:
       chdir: "{{ serverless_containers_path }}"
       executable: /bin/bash
-    tags: never, stop_node_scaler, stop_services
+    tags: stop_node_scaler, stop_services
 
 # Stop services from server
 - hosts: localhost
   become: no
   gather_facts: no
+  tags: never
 
   vars_files:
     - vars/main.yml
     - config/config.yml
 
   tasks:
-  - name: Tmux session check
-    shell: tmux ls
-    register: tmux_output
-    ignore_errors: yes
-    tags: never, stop_opentsdb, stop_services
-
-  - name: Set list with only session names
-    set_fact:
-      tmux_sessions: "{{ tmux_output.stdout_lines | map('split', ':') | map ('first') | list }}"
-    tags: never, stop_opentsdb, stop_services
+  - import_tasks: tasks/utils/get_tmux_sessions.yml
+    tags: stop_opentsdb, stop_services
 
   - name: Stop OPENTSDB
     shell: bash stop.sh
@@ -55,7 +46,7 @@
     args:
       chdir: "{{ bdwatchdog_path }}/deployment/metrics"
       executable: /bin/bash
-    tags: never, stop_opentsdb
+    tags: stop_opentsdb
 
   - name: Stop Redis DB
     when: "'redis_server' in tmux_sessions"
@@ -63,7 +54,7 @@
     args:
       chdir: "{{ installation_path }}/redis/src"
       executable: /bin/bash
-    tags: never, stop_services
+    tags: stop_services
 
   - name: Stop other services
     when: "item in tmux_sessions"
@@ -71,9 +62,11 @@
     args:
       executable: /bin/bash
     loop:
+      # ServerlessYARN
       - rebooter
       - celery
       - web_interface
+      # ServerlessContainers
       - rebalancer
       - sanity_checker
       - refeeder

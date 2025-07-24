@@ -23,14 +23,11 @@
       src: "templates/node_scaler_start.sh"
       dest: "{{ serverless_containers_path }}/scripts/services/node_scaler/start.sh"
 
-  - name: Tmux session check
-    shell: tmux ls
-    register: tmux_output
-    ignore_errors: yes
+  - import_tasks: tasks/utils/get_tmux_sessions.yml
 
   - name: Starting Services - Node Scaler
     shell: bash scripts/services/node_scaler/start_tmux.sh
-    when: "'node_scaler' not in tmux_output.stdout"
+    when: "'node_scaler' not in tmux_sessions"
     args:
       chdir: "{{ serverless_containers_path }}"
       executable: /bin/bash

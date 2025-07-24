@@ -27,17 +27,6 @@
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
 
-- name: Tmux session check
-  shell: tmux ls
-  register: tmux_output
-  ignore_errors: yes
-  tags: restart_services
-
-- name: Set list with only session names
-  set_fact:
-    tmux_sessions: "{{ tmux_output.stdout_lines | map('split', ':') | map ('first') | list }}"
-  tags: restart_services
-
 # Starting Services
 - name: Starting Services
   when: "item not in tmux_sessions"

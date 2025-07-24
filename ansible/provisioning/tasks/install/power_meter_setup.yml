@@ -1,21 +1,16 @@
 - name: Setup power meter
   block:
-    - name: get the username running the deploy
-      become: no
-      local_action: command whoami
-      register: username_on_the_host
-
     - name: Create power meter installation directory
       file:
         path: "{{ power_meter_path }}/image"
         state: directory
-        owner: "{{ username_on_the_host.stdout_lines[0] }}"
+        owner: "{{ user_info.user_name }}"
 
     - name: Create power meter configuration directory
       file:
         path: "{{ power_meter_path }}/config"
         state: directory
-        owner: "{{ username_on_the_host.stdout_lines[0] }}"
+        owner: "{{ user_info.user_name }}"
   vars:
     - v_power_meter: "{{ 'smartwatts' if power_meter == 'rapl' else power_meter }}"
     - power_meter_path: "{{ installation_path }}/{{ v_power_meter }}"
