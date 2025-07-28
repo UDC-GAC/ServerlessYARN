@@ -80,4 +80,24 @@ Vagrant.configure("2") do |config|
             end
         end
     end
+
+    # Node with centos 7.9
+    # TODO: fix missing guest additions
+    config.vm.define "centos_node", autostart: false do |centos|
+        centos.vm.box = "geerlingguy/centos7"
+        centos.vm.box_version = "1.2.27"
+        centos.vm.host_name = "centos-node"
+
+        centos.vm.provision "centos_upgrade", type: "shell", path: "provision/centos_upgrade.sh"
+        centos.vm.provision :reload
+
+        centos.vm.network "private_network", ip: "192.168.56.250"
+        centos.vm.provider "virtualbox" do |vb|
+                vb.name = "Centos Node"
+                vb.customize ["modifyvm", :id, "--groups", "/ServerlessYARN"]
+                vb.cpus = 2
+                vb.memory = 2048
+        end
+    end
+
 end
