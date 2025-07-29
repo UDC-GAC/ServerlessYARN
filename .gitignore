@@ -30,3 +30,8 @@ ansible/provisioning/apps/user/*
 ## Override .jar files exclude for some apps
 !ansible/provisioning/apps/samples/**/*.jar
 !ansible/provisioning/apps/user/**/*.jar
+
+# Tests
+## Exclude configuration files for tests except README.md
+ansible/provisioning/tests/power_budgeting/etc/**
+!ansible/provisioning/tests/power_budgeting/etc/README.md
