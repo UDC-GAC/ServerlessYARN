@@ -8,6 +8,7 @@
     - config/config.yml
 
   vars:
+    - ansible_async_dir: "{{ installation_path }}/async_jobs" # directory for Ansible to store async jobs. For some reason, Ansible is unable to write jobs in the default '$HOME/.ansible_async' dir when using the server as host
     - jid_file: "{{ installation_path }}/async_jobs/{{ container }}.jid"
     - container_bind_dir: "{{ bind_dir }}/{{ container }}"
     - hdfs_file_list: ["core-site.xml", "hdfs-site.xml", "hadoop-env.sh", "rack_topology.py"]
