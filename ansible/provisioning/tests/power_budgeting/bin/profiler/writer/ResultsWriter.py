@@ -68,7 +68,6 @@ class ResultsWriter:
         }
 
         if convergence_point:
-            results["Convergence time (s)"] = convergence_point["time"] - exp_times["start_app_s"]
             results["Convergence time (s)"] = max(convergence_point["time"] - exp_times["start_app_s"], 0)
             results["Needed scalings"] = convergence_point["needed_scalings"]
             results["Average Scaling Power (ASP)"] = convergence_point["value"]

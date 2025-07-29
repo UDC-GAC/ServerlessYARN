@@ -3,16 +3,20 @@ import os
 import sys
 import time
 import stat
-import redis
 import requests
 import subprocess
 from urllib.parse import urljoin
-from datetime import datetime, timezone
+from celery import Celery
+from datetime import datetime, timezone, timedelta
 
 WEB_INTERFACE_URL = "http://localhost:9000"
 ORCHESTRATOR_URL = "http://localhost:5000"
 BENEVOLENCE = "-1"  # -1: "Manual", 1: "Lax", 2: "Medium", 3: "Strict"
-POLLING_FREQUENCY = 5
+POLLING_FREQUENCY = 20
+ACTIVE_TASK_NAMES = ["ui.background_tasks.start_app_task",
+                     "ui.background_tasks.start_app_on_container_task",
+                     "ui.background_tasks.stop_app_on_container_task",
+                     "ui.background_tasks.wait_for_app_on_container_task"]
 
 
 def get_csrf_token(session):
@@ -60,15 +64,6 @@ def start_app(session, app_name, number_of_containers, assignation_policy):
         raise Exception(f"Failed to start app through web interface: {response}")
 
 
-def get_app_redis_key(redis_server, app_name):
-    pending_tasks_keys = redis_server.scan_iter("{0}:*".format("pending_tasks"))
-    for key in pending_tasks_keys:
-        task_name = redis_server.hget(key, "task_name").decode("utf-8")
-        if task_name.startswith(app_name):
-            return key
-    raise Exception(f"Redis key for app {app_name} not found. Current keys: {pending_tasks_keys}")
-
-
 def get_containers_from_app(session, app_name):
     tries = 3
     while tries > 0:
@@ -84,28 +79,31 @@ def get_containers_from_app(session, app_name):
             tries -= 1
 
 
-def update_containers_file(file, containers):
-    current_time = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S%z')
-    with open(file, 'a') as f:
+def write_containers_file(exp_results_dir, containers):
+    with open(f"{exp_results_dir}/containers", 'a') as f:
         for container in containers:
-            f.write(f"{current_time} {container}\n")
+            f.write(f"{container}\n")
 
 
-def wait_for_app_to_finish(session, redis_server, app_name):
+def check_app_task_is_active(inspector, app_name):
+    for _, active_tasks in inspector.active().items():
+        for task in active_tasks:
+            task_name = task.get("name", "")
+            if task_name in ACTIVE_TASK_NAMES and app_name in task.get("args", []):
+                return True
+    return False
+
+
+def wait_for_app_to_finish(inspector, app_name):
+    # TODO: Maybe is better just to wait until a directory with timestamp after now exists, then we know the app has finished
+    #       and we have the logs ready
     app_running = True
-    app_key = get_app_redis_key(redis_server, app_name)
     while app_running:
-        # Run a GET request to the web interface to force the update of tasks status in redis
-        response = session.get(urljoin(WEB_INTERFACE_URL, "/ui/apps"))
-        try:
-            task = redis_server.hget(app_key, "task_name")
-            if not task:
-                app_running = False
-        except Exception as e:
-            app_running = False
-            print(str(e))
-
+        app_running = check_app_task_is_active(inspector, app_name)
         time.sleep(POLLING_FREQUENCY)
+        # If the app is not running check one more time to ensure it wasn't a temporary change
+        if not app_running:
+            app_running = check_app_task_is_active(inspector, app_name)
 
 
 def copy_file(origin, dest):
@@ -130,25 +128,35 @@ def copy_directory(origin, dest):
             copy_file(origin_item, dest_item)
 
 
-def copy_app_output(containers, installation_path, app_results_dir):
+def get_closest_dir_by_date(dir_list, dir_format="%Y-%m-%d--%H-%M-%S"):
+    now = datetime.now()
+    min_delta = timedelta(days=30)
+    closest_item = None
+    for item in dir_list:
+        try:
+            dt = datetime.strptime(item, dir_format)
+        except ValueError:
+            continue
+        delta = (now - dt)
+        if delta < min_delta:
+            min_delta = delta
+            closest_item = item
+    return closest_item
+
+
+def copy_app_output(containers, installation_path, app_name, exp_results_dir):
+    app_output_dir = f"{installation_path}/output_data/{app_name}/"
+    execution_dir = get_closest_dir_by_date(os.listdir(app_output_dir))
+
     # Copy each container output
     for container in containers:
-        container_bind_dir = f"{installation_path}/singularity_binds/{container}/"
-        app_output = None
-        app_output_dest = None
+        container_output_dir = f"{app_output_dir}/{execution_dir}/output_dir-{container}"
+        container_results_dir = f"{exp_results_dir}/{container}-output"
         # Search for some output directory in the container bind dir
-        if os.path.isdir(container_bind_dir) and os.path.exists(container_bind_dir):
-            for item in os.listdir(container_bind_dir):
-                if "output" in item:
-                    app_output = f"{container_bind_dir}/{item}"
-                    app_output_dest = f"{app_results_dir}/{container}-{item}"
-                    break
+        if os.path.isdir(container_output_dir) and os.path.exists(container_output_dir):
+            copy_directory(container_output_dir, container_results_dir)
         else:
-            print(f"Container bind directory doesn't exist: {container_bind_dir}")
-
-        # If some directory including "output" is found, copy
-        if app_output and app_output_dest:
-            copy_directory(app_output, app_output_dest)
+            print(f"Container output directory doesn't exist: {container_output_dir}")
 
 
 def get_pb_script_with_usr_perm(installation_path):
@@ -160,8 +168,8 @@ def get_pb_script_with_usr_perm(installation_path):
     return file, current_permissions
 
 
-def change_power_budgets_dynamically(app_name, containers, power_budgets, app_results_dir, installation_path):
-    power_budgets_file = f"{app_results_dir}/power_budgets.log"
+def change_power_budgets_dynamically(app_name, containers, power_budgets, exp_results_dir, installation_path):
+    power_budgets_file = f"{exp_results_dir}/power_budgets.log"
     change_pb_script, original_permissions = get_pb_script_with_usr_perm(installation_path)
     if len(containers) == 1:
         # Power budget is applied at container-level in single-container applications as no rebalancing is done
@@ -193,45 +201,46 @@ def change_power_budgets_dynamically(app_name, containers, power_budgets, app_re
 
 if __name__ == "__main__":
 
-    if len(sys.argv) < 6:
-        print("At least 5 arguments are needed")
+    if len(sys.argv) < 5:
+        print("At least 4 arguments are needed")
         print("1 -> app name (e.g., npb_app)")
-        print("2 -> containers file (e.g., ./out/containers)")
-        print("3 -> app results directory (e.g., ./out/npb_app)")
-        print("4 -> number of containers (e.g., 1)")
-        print("5 -> assignation policy (e.g., Best-effort)")
+        print("2 -> experiment results directory (e.g., ./out/npb_app/exp1)")
+        print("3 -> number of containers (e.g., 1)")
+        print("4 -> assignation policy (e.g., Best-effort)")
         sys.exit(1)
 
     app_name = sys.argv[1]
-    containers_file = sys.argv[2]
-    app_results_dir = sys.argv[3]
-    number_of_containers = sys.argv[4]
-    assignation_policy = sys.argv[5]
+    exp_results_dir = sys.argv[2]
+    number_of_containers = sys.argv[3]
+    assignation_policy = sys.argv[4]
 
     dynamic_pb = False
     dynamic_power_budgets = None
-    if len(sys.argv) >= 7:
+    if len(sys.argv) >= 6:
         dynamic_pb = True
-        dynamic_power_budgets = sys.argv[6].split(",")
+        dynamic_power_budgets = sys.argv[5].split(",")
 
     installation_path = os.environ.get("SC_YARN_PATH", f"{os.environ.get('HOME')}/ServerlessYARN_install")
+    celery_client = Celery("client", broker="redis://localhost:6379/0", backend="redis://localhost:6379/0")
+    celery_inspector = celery_client.control.inspect()
 
     web_interface_session = requests.Session()
     orchestrator_session = requests.Session()
-    redis_server = redis.StrictRedis()
 
     # Run application
     start_app(web_interface_session, app_name, number_of_containers, assignation_policy)
     time.sleep(60)  # Wait some time for the app to be subscribed to SC
+
+    # Get containers subscribed to the application and register them into a file
     containers = get_containers_from_app(orchestrator_session, app_name)
-    update_containers_file(containers_file, containers)
+    write_containers_file(exp_results_dir, containers)
 
     # Change power budget in real time
     if dynamic_pb:
-        change_power_budgets_dynamically(app_name, containers, dynamic_power_budgets, app_results_dir, installation_path)
+        change_power_budgets_dynamically(app_name, containers, dynamic_power_budgets, exp_results_dir, installation_path)
 
     # Wait until the app is finished
-    wait_for_app_to_finish(web_interface_session, redis_server, app_name)
+    wait_for_app_to_finish(celery_inspector, app_name)
 
     # When app is finished copy its output
-    copy_app_output(containers, installation_path, app_results_dir)
+    copy_app_output(containers, installation_path, app_name, exp_results_dir)

@@ -25,8 +25,8 @@ class PlotStyler:
     def set_ticks(self, resource_config, main_resource, xlim):
         # If configured set a custom X-axis scale defined by a tuple of functions (forward, inverse)
         # e.g., (lambda x: x**(1/2), lambda x: x**2)
-        if self.__config.get("CUSTOM_X_AXIS_FUNCTIONS", None):
-            resource_config[main_resource]["ax"].set_xscale('function', functions=self.__config.get("CUSTOM_X_AXIS_FUNCTIONS", None))
+        if self.__config.get("CUSTOM_X_AXIS_FUNCTION", None):
+            resource_config[main_resource]["ax"].set_xscale('function', functions=self.__config.get("CUSTOM_X_AXIS_FUNCTION", None))
         # If configured set a list of custom X ticks
         # e.g., [0, 50, 125, 250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250]
         if self.__config.get("CUSTOM_X_AXIS_VALUES", None):

@@ -6,8 +6,11 @@ BASE_DIR=$(dirname $(dirname -- "$(readlink -f -- "$BASH_SOURCE")"))
 export BIN_DIR="${BASE_DIR}/bin"
 export CONF_DIR="${BASE_DIR}/etc"
 export OUTPUT_DIR="${BASE_DIR}/out"
-export APPS_CONFIG_DIR="${BASE_DIR}/apps"
-export APPS_RULES_DIR="${BASE_DIR}/rules"
+export CONF_APPS_DIR="${CONF_DIR}/apps"
+export CONF_RULES_DIR="${CONF_DIR}/rules"
+export CONF_SETUP_DIR="${CONF_DIR}/setup"
+export CONF_ENTRYPOINT_DIR="${CONF_DIR}/entrypoint"
+export CONF_PLOTS_DIR="${CONF_DIR}/plots"
 
 # Management scripts
 export SC_SCRIPTS_DIR="${BIN_DIR}/serverless_containers"

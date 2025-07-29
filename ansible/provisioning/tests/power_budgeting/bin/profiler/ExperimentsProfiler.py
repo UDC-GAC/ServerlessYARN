@@ -1,6 +1,8 @@
+import os
 import sys
 import platform
 import pandas as pd
+from datetime import timedelta
 
 import utils.utils as utils
 from logs.LogsParser import LogsParser
@@ -18,44 +20,30 @@ RESOURCE_METRICS = {
 DIRECTORY_SEP = "\\" if platform.system() == "Windows" else "/"
 
 """
-Experiments profiler needs:
-
-* An experiments file log file with format:
-
-<experiment-name> start yyyy-mm-dd hh:mm:ss+zzzz
-<experiment-name> stop  yyyy-mm-dd hh:mm:ss+zzzz
-
-* A containers log file with format:
-
-<container-name> yyyy-mm-dd hh:mm:ss+zzzz
-
-If a container corresponds to a specific experiment, its date must correspond to a point in time between experiment start and end.
-
-* Results directory containing subdirectories for each experiment included in experiments log file. Each subdirectory must 
-  contain:
-  ** Guardian log (guardian.log)
-  ** Scaler log (scaler.log)
-  ** One directory per executed container named <container-name>-<app-name>-output containing:
-     *** App execution log with format:
-         [yyyy-mm-dd hh:mm:ss+zzzz] ...
-         [yyyy-mm-dd hh:mm:ss+zzzz] ...
-         Being the dates corresponding to the start and end of the app execution, respectively.
+Experiments profiler needs the path to a results directory containing subdirectories for each experiment. Each
+subdirectory must contain:
+  * Guardian log (guardian.log)
+  * Scaler log (scaler.log)
+  * File with the list of containers executed for this experiment (containers)
+  * One directory per executed container named <container-name>-output containing:
+     ** App log file named results.log with format:
+        [yyyy-mm-dd hh:mm:ss+zzzz] ...
+        [yyyy-mm-dd hh:mm:ss+zzzz] ...
+        Being the dates corresponding to the start and end of the app execution, respectively.
 """
 
 
 class ExperimentsProfiler:
 
-    def __init__(self, app_name, experiments_log_file, containers_file, results_dir):
+    def __init__(self, app_name, exp_root_dir, plot_config_file, dynamic_pbs):
         self.app_name = app_name
-        self.experiments_log_file = experiments_log_file
-        self.containers_file = containers_file
-        self.results_dir = results_dir
-        self.app_type = app_name.split('_')[0]  # (e.g., npb_1cont_1thread -> npb)
-        self.experiments_group = results_dir.split(DIRECTORY_SEP)[-1].strip()  # (e.g.,./out/results_npb_1cont_1thread/min -> min)
-        self.dynamic_power_budgeting = (self.experiments_group == "dynamic_power_budget")
+        self.exp_root_dir = exp_root_dir
+        self.plot_config_file = plot_config_file
+        self.experiments_offset = 20
+        self.dynamic_power_budgeting = dynamic_pbs
         self.parser = LogsParser()
         self.writer = ResultsWriter()
-        self.plotter = ExperimentsPlotter(self.app_name, self.experiments_group)
+        self.plotter = ExperimentsPlotter(self.app_name, plot_config_file)
 
     @staticmethod
     def get_experiment_metrics(metrics, containers, start, end):
@@ -97,19 +85,10 @@ class ExperimentsProfiler:
             df.to_csv(csv_file)
 
     @staticmethod
-    def create_experiment_times_dict(start, end, start_app, end_app):
-        if start and end and start_app and end_app:
-            return {
-                "start": start,                                 # Start of the plot
-                "end": end,                                     # End of the plot
-                "start_app": start_app,                         # Start of the application execution
-                "end_app": end_app,                             # End of the application execution
-                "start_s": 0,                                   # Start of the plot (in seconds)
-                "end_s": (end - start).seconds,                 # End of the plot (in seconds)
-                "start_app_s": (start_app - start).seconds,     # Start of the application execution (in seconds)
-                "end_app_s": (end_app - start).seconds          # End of the application execution (in seconds)
-            }
-        return None
+    def get_experiment_containers(exp_results_dir):
+        containers_file = os.path.join(exp_results_dir, "containers")
+        with open(containers_file, 'r') as f:
+            return [line.strip() for line in f if line.strip()]
 
     @staticmethod
     def search_convergence_point(rescalings, df, offset):
@@ -119,7 +98,7 @@ class ExperimentsProfiler:
         needed_scalings = 0
         for timestamp in timestamps:
             # Check scaling is valid
-            if 'avg_power' in rescalings[timestamp] and rescalings[timestamp]['elapsed_seconds'] > 0 and rescalings[timestamp]['amount'] != 0:
+            if 'avg_power' in rescalings[timestamp] and rescalings[timestamp]['elapsed_seconds'] > 0: # and rescalings[timestamp]['amount'] != 0:
                 needed_scalings += 1
                 # Check scaling average power is near the power budget (convergence)
                 if utils.value_is_near_limit(rescalings[timestamp]['avg_power'], power_budget, offset):
@@ -133,15 +112,39 @@ class ExperimentsProfiler:
                     }
         return None
 
-    def get_app_log_files(self, base_dir, containers):
-        return [f"{base_dir}/{c}-{self.app_type}-output/results.log" for c in containers]
+    @staticmethod
+    def get_app_log_files(base_dir):
+        # Search "results.log" files inside directories that contain "output" in their names
+        log_paths = []
+        for name in os.listdir(base_dir):
+            if "output" in name and os.path.isdir(os.path.join(base_dir, name)):
+                log_file = os.path.join(base_dir, name, "results.log")
+                if os.path.isfile(log_file):
+                    log_paths.append(log_file)
+        return log_paths
+
+    def create_experiment_times_dict(self, start_app, end_app):
+        if start_app and end_app:
+            start_plot = start_app - timedelta(seconds=self.experiments_offset)
+            end_plot = end_app + timedelta(seconds=self.experiments_offset)
+            return {
+                "start_plot": start_plot,                           # Start of the plot
+                "end_plot": end_plot,                               # End of the plot
+                "start_app": start_app,                             # Start of the application execution
+                "end_app": end_app,                                 # End of the application execution
+                "start_plot_s": 0,                                  # Start of the plot (in seconds)
+                "end_plot_s": (end_plot - start_plot).seconds,      # End of the plot (in seconds)
+                "start_app_s": (start_app - start_plot).seconds,    # Start of the application execution (in seconds)
+                "end_app_s": (end_app - start_plot).seconds         # End of the application execution (in seconds)
+            }
+        return None
 
     def get_experiment_rescalings(self, guardian_file, experiment_times):
         # Plot start + App start
         experiment_rescalings = {
-            experiment_times["start"]: {
-                "ts_str": experiment_times["start"].strftime("%Y-%m-%d %H:%M:%S%z"),
-                "elapsed_seconds": 0,
+            experiment_times["start_plot"]: {
+                "ts_str": experiment_times["start_plot"].strftime("%Y-%m-%d %H:%M:%S%z"),
+                "elapsed_seconds": experiment_times["start_plot_s"],
                 "amount": 0
             },
             experiment_times["start_app"]: {
@@ -155,11 +158,11 @@ class ExperimentsProfiler:
             for line in f.readlines():
                 for pattern_name in ["amount_pattern", "adjust_amount_pattern"]:
                     # Check pattern
-                    timestamp, line_info = self.parser.search_pattern(pattern_name, line, experiment_times["start"])
+                    timestamp, line_info = self.parser.search_pattern(pattern_name, line, experiment_times["start_plot"])
                     # If pattern is matched we add the extracted info from line and don't check other patterns
                     if timestamp and line_info:
                         # If scaling has been made before the application has finished
-                        if timestamp < experiment_times["end"]:
+                        if timestamp < experiment_times["end_plot"]:
                             # If scaling amount is greater than zero we add/update it
                             if line_info["amount"] != 0:
                                 print(f"Line was saved using pattern {pattern_name}: {timestamp}")
@@ -175,9 +178,9 @@ class ExperimentsProfiler:
             "elapsed_seconds": experiment_times["end_app_s"],
             "amount": 0
         }
-        experiment_rescalings[experiment_times["end"]] = {
-            "ts_str": experiment_times["end"].strftime("%Y-%m-%d %H:%M:%S%z"),
-            "elapsed_seconds": experiment_times["end_s"],
+        experiment_rescalings[experiment_times["end_plot"]] = {
+            "ts_str": experiment_times["end_plot"].strftime("%Y-%m-%d %H:%M:%S%z"),
+            "elapsed_seconds": experiment_times["end_plot_s"],
             "amount": 0
         }
         return experiment_rescalings
@@ -199,7 +202,7 @@ class ExperimentsProfiler:
                     pbs[timestamp] = {
                         "ts_str": timestamp_str,
                         "power_budget": int(line.split()[2]),
-                        "elapsed_seconds": (timestamp - experiment_times["start"]).seconds
+                        "elapsed_seconds": (timestamp - experiment_times["start_plot"]).seconds
                     }
                 except Exception as e:
                     print(f"Error reading line from power budget file: {file}. Line is: {line}. Error: {str(e)}")
@@ -213,25 +216,23 @@ class ExperimentsProfiler:
         return pbs
 
     def profile(self):
-        experiments_dates = self.parser.get_experiments_timestamps(experiments_log_file)
-        experiment_containers_map = self.parser.map_containers_to_experiments(containers_file, experiments_dates)
-
         global_results = {}
-        for experiment_name in experiments_dates:
+        with os.scandir(self.exp_root_dir) as entries:
+            experiment_names = [entry.name for entry in entries if entry.is_dir()]
+
+        for experiment_name in experiment_names:
             print(experiment_name.upper().replace("_", " "))
-            exp_results_dir = f"{self.results_dir}/{experiment_name}"
+            exp_results_dir = f"{self.exp_root_dir}/{experiment_name}"
             exp_data_file = f'{exp_results_dir}/{experiment_name}-data.csv'
             guardian_file = f"{exp_results_dir}/guardian.log"
-            containers = experiment_containers_map[experiment_name]
-
-            start_time, end_time = experiments_dates[experiment_name]["start"], experiments_dates[experiment_name]["stop"]
+            containers = self.get_experiment_containers(exp_results_dir)
 
             # Get experiment dates from application logs (more accurate than experiments log file)
-            app_log_files = self.get_app_log_files(exp_results_dir, containers)
+            app_log_files = self.get_app_log_files(exp_results_dir)
             start_app, end_app = self.parser.get_times_from_app_logs(app_log_files)
 
             # Create dictionary with useful time info for this experiment
-            experiment_times = self.create_experiment_times_dict(start_time, end_time, start_app, end_app)
+            experiment_times = self.create_experiment_times_dict(start_app, end_app)
             if not experiment_times:
                 print(f"Experiment times couldn't be retrieved for method {experiment_name}, ignoring...")
                 continue
@@ -249,8 +250,9 @@ class ExperimentsProfiler:
             # If metrics couldn't be retrieved from CSV file they are collected from OpenTSDB
             if experiment_df is None:
                 # Gather metrics for these period and create DataFrame
-                data_dict = self.get_experiment_metrics(RESOURCE_METRICS["all"], containers, start_time, end_time)
-                experiment_df = self.create_df_from_metrics(data_dict, start_time)
+                data_dict = self.get_experiment_metrics(RESOURCE_METRICS["all"], containers,
+                                                        experiment_times["start_plot"], experiment_times["end_plot"])
+                experiment_df = self.create_df_from_metrics(data_dict, experiment_times["start_plot"])
                 # Save experiment data
                 self.save_experiment_df(experiment_df, exp_data_file)
             # If metrics couldn't also be retrieved from OpenTSDB, this experiment is ignored
@@ -292,20 +294,20 @@ class ExperimentsProfiler:
             global_results[experiment_name] = self.writer.write_experiment_results(experiment_name, experiment_df,
                                                                                    experiment_times, convergence_point)
 
-        self.writer.set_output_dir(self.results_dir)
+        self.writer.set_output_dir(self.exp_root_dir)
         self.writer.write_global_results(global_results)
 
 
 if __name__ == "__main__":
 
     if len(sys.argv) < 5:
-        print(f"Usage: python {sys.argv[0]} <app-name> <experiments-log-file> <containers-file> <results-directory>")
+        print(f"Usage: python {sys.argv[0]} <app-name> <experiments-root-directory> <plot-config-file> <dynamic-pbs>")
         sys.exit(1)
 
     app_name = str(sys.argv[1])
-    experiments_log_file = sys.argv[2]
-    containers_file = sys.argv[3]
-    results_dir = sys.argv[4]
+    exp_root_dir = str(sys.argv[2])
+    plot_config_file = str(sys.argv[3])
+    dynamic_pbs = (int(sys.argv[4]) == 1)
 
-    profiler = ExperimentsProfiler(app_name, experiments_log_file, containers_file, results_dir)
+    profiler = ExperimentsProfiler(app_name, exp_root_dir, plot_config_file, dynamic_pbs)
     profiler.profile()

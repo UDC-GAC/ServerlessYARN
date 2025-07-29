@@ -1,164 +1,49 @@
+import json
 from copy import deepcopy
 
-PLOT_PARAMETERS = {
-    "default": {
-        "FONTSIZE": 20,
-        "SEPARATE_AXES": False,
-        "PLOT_LEGEND": False,
-        "PLOT_APP_LABELS": False,
-        "PLOT_CONVERGENCE_POINT": False,
-    },
-    "npb_1cont_1thread": {
-        "no-capping": {
-            "FONTSIZE": 20,
-            "SEPARATE_AXES": False,
-            "PLOT_LEGEND": True,
-            "PLOT_APP_LABELS": False,
-            "PLOT_CONVERGENCE_POINT": False,
-            "X_TICKS_FREQUENCY": 250,
-            "CPU_TICKS_FREQUENCY": 20,
-            "MARKER_FREQUENCY": 10,
-            "HARD_X_LIMIT": 2250,
-            "HARD_CPU_LIMIT": 120
-        },
-        "min": {
-            "FONTSIZE": 20,
-            "SEPARATE_AXES": False,
-            "PLOT_LEGEND": False,
-            "PLOT_APP_LABELS": False,
-            "PLOT_CONVERGENCE_POINT": True,
-            "X_TICKS_FREQUENCY": 250,
-            "CPU_TICKS_FREQUENCY": 20,
-            "MARKER_FREQUENCY": 10,
-            "HARD_X_LIMIT": 2250,
-            "HARD_CPU_LIMIT": 120,
-            #"CUSTOM_X_AXIS_VALUES": [0, 50, 125, 250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250],
-            #"CUSTOM_X_AXIS_FUNCTIONS": (lambda x: x**(1/2), lambda x: x**2)
-        },
-        "medium": {
-            "FONTSIZE": 20,
-            "SEPARATE_AXES": False,
-            "PLOT_LEGEND": False,
-            "PLOT_APP_LABELS": False,
-            "PLOT_CONVERGENCE_POINT": True,
-            "X_TICKS_FREQUENCY": 250,
-            "CPU_TICKS_FREQUENCY": 20,
-            "MARKER_FREQUENCY": 10,
-            "HARD_X_LIMIT": 2000,
-            "HARD_CPU_LIMIT": 120
-        },
-        "max": {
-            "FONTSIZE": 20,
-            "SEPARATE_AXES": False,
-            "PLOT_LEGEND": False,
-            "PLOT_APP_LABELS": False,
-            "PLOT_CONVERGENCE_POINT": True,
-            "X_TICKS_FREQUENCY": 250,
-            "CPU_TICKS_FREQUENCY": 20,
-            "MARKER_FREQUENCY": 10,
-            "HARD_X_LIMIT": 1900,
-            "HARD_CPU_LIMIT": 110
-        },
-        "dynamic_power_budget": {
-            "FONTSIZE": 20,
-            "SEPARATE_AXES": False,
-            "PLOT_LEGEND": False,
-            "PLOT_APP_LABELS": False,
-            "PLOT_CONVERGENCE_POINT": False,
-            "X_TICKS_FREQUENCY": 250,
-            "CPU_TICKS_FREQUENCY": 20,
-            "MARKER_FREQUENCY": 10,
-            "HARD_X_LIMIT": 1750,
-            "HARD_CPU_LIMIT": 120,
-            "HARD_ENERGY_LIMIT": 85
-        }
-    },
-    "npb_1cont_32threads": {
-        "no-capping": {
-            "FONTSIZE": 20,
-            "SEPARATE_AXES": True,
-            "PLOT_LEGEND": True,
-            "PLOT_APP_LABELS": False,
-            "PLOT_CONVERGENCE_POINT": False,
-            "X_TICKS_FREQUENCY": 100,
-            "CPU_TICKS_FREQUENCY": 500,
-            "ENERGY_TICKS_FREQUENCY": 20,
-            "MARKER_FREQUENCY": 4,
-            "HARD_X_LIMIT": 750,
-            "HARD_CPU_LIMIT": 3500,
-            "HARD_ENERGY_LIMIT": 220
-        },
-        "min": {
-            "FONTSIZE": 20,
-            "SEPARATE_AXES": True,
-            "PLOT_LEGEND": False,
-            "PLOT_APP_LABELS": False,
-            "PLOT_CONVERGENCE_POINT": True,
-            "X_TICKS_FREQUENCY": 100,
-            "CPU_TICKS_FREQUENCY": 500,
-            "ENERGY_TICKS_FREQUENCY": 20,
-            "MARKER_FREQUENCY": 4,
-            "HARD_X_LIMIT": 750,
-            "HARD_CPU_LIMIT": 3500,
-            "HARD_ENERGY_LIMIT": 220,
-            #"CUSTOM_X_AXIS_VALUES": [0, 25, 50, 100, 150, 200, 300, 400, 500],
-            #"CUSTOM_X_AXIS_FUNCTIONS": (lambda x: x**(1/2), lambda x: x**2)
-        },
-        "medium": {
-            "FONTSIZE": 20,
-            "SEPARATE_AXES": True,
-            "PLOT_LEGEND": False,
-            "PLOT_APP_LABELS": False,
-            "PLOT_CONVERGENCE_POINT": True,
-            "X_TICKS_FREQUENCY": 100,
-            "CPU_TICKS_FREQUENCY": 500,
-            "ENERGY_TICKS_FREQUENCY": 20,
-            "MARKER_FREQUENCY": 4,
-            "HARD_X_LIMIT": 600,
-            "HARD_CPU_LIMIT": 3500,
-            "HARD_ENERGY_LIMIT": 220
-        },
-        "max": {
-            "FONTSIZE": 20,
-            "SEPARATE_AXES": True,
-            "PLOT_LEGEND": False,
-            "PLOT_APP_LABELS": False,
-            "PLOT_CONVERGENCE_POINT": True,
-            "X_TICKS_FREQUENCY": 100,
-            "CPU_TICKS_FREQUENCY": 500,
-            "ENERGY_TICKS_FREQUENCY": 20,
-            "MARKER_FREQUENCY": 4,
-            "HARD_X_LIMIT": 600,
-            "HARD_CPU_LIMIT": 3500,
-            "HARD_ENERGY_LIMIT": 220
-        },
-        "dynamic_power_budget": {
-            "FONTSIZE": 20,
-            "SEPARATE_AXES": True,
-            "PLOT_LEGEND": False,
-            "PLOT_APP_LABELS": False,
-            "PLOT_CONVERGENCE_POINT": False,
-            "X_TICKS_FREQUENCY": 100,
-            "CPU_TICKS_FREQUENCY": 500,
-            "ENERGY_TICKS_FREQUENCY": 20,
-            "MARKER_FREQUENCY": 4,
-            "HARD_X_LIMIT": 800,
-            "HARD_CPU_LIMIT": 3500,
-            "HARD_ENERGY_LIMIT": 200
-        }
-    }
+# Default values
+DEFAULT_CONFIG = {
+    "FONTSIZE": 20,
+    "SEPARATE_AXES": False,
+    "PLOT_LEGEND": False,
+    "PLOT_APP_LABELS": False,
+    "PLOT_CONVERGENCE_POINT": False,
+}
+
+# Map names to custom axis functions
+AXIS_FUNCTION_MAP = {
+    "sqrt": (lambda x: x**0.5, lambda x: x**2),
+    "square": (lambda x: x**2, lambda x: x**0.5)
 }
 
 
 class PlotConfigLoader:
+    def __init__(self, config_source):
+        if isinstance(config_source, str):
+            if config_source.strip():
+                with open(config_source.strip(), 'r') as f:
+                    self._loaded_config = json.load(f)
+            else:
+                self._loaded_config = {}
+        elif isinstance(config_source, dict):
+            self._loaded_config = config_source
+        else:
+            raise TypeError("Configuration source must be a path to a JSON file or a dictionary")
 
-    @staticmethod
-    def load_config(app_name, experiments_group):
-        config = deepcopy(PLOT_PARAMETERS.get(app_name, {}).get(experiments_group, PLOT_PARAMETERS.get("default", {})))
+    def load(self):
+        # Load default values
+        config = deepcopy(DEFAULT_CONFIG)
 
-        # Check retrieved configuration is valid
+        # Overwrite default values with loaded config
+        config.update(self._loaded_config)
+
+        # Get pair of axis functions from the specified name
+        if "CUSTOM_X_AXIS_FUNCTION" in config:
+            config["CUSTOM_X_AXIS_FUNCTION"] = AXIS_FUNCTION_MAP.get(config["CUSTOM_X_AXIS_FUNCTION"], None)
+
+        # TODO: Check retrieved configuration is valid
         # if config.get("SEPARATE_AXES", False) and "HARD_ENERGY_LIMIT" not in config:
-        #     raise ValueError(f"Invalid configuration for app {app_name} in experiments group {experiments_group}"
-        #                      f"If axes are separated a hard energy limit must be defined")
+        #     raise ValueError(f"Invalid configuration. If axes are separated a hard energy limit must be defined")
 
         return config
+

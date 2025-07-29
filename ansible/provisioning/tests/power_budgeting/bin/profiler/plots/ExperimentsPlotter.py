@@ -14,13 +14,11 @@ APPLICATION_METRICS = ["structure.cpu.current", "structure.energy.max"]
 
 class ExperimentsPlotter:
 
-    def __init__(self, app_name, experiments_group, output_dir=None,
-                 config_loader=PlotConfigLoader(), metric_config_provider=MetricConfigProvider()):
-        self._output_dir = output_dir
+    def __init__(self, app_name, plot_config_file, output_dir=None, metric_config_provider=MetricConfigProvider()):
         self._app_name = app_name
-        self._experiments_group = experiments_group
-        self.__config = config_loader.load_config(app_name, experiments_group)
+        self.__config = PlotConfigLoader(plot_config_file).load()
         self._styler = PlotStyler(self.__config)
+        self._output_dir = output_dir
         self._metric_config_provider = metric_config_provider
 
     @staticmethod
@@ -87,12 +85,8 @@ class ExperimentsPlotter:
                 (times["start_app_s"], 0), times["end_app_s"] - times["start_app_s"], fig_ylim, "red", "x"))
 
     def __plot_app_lines(self, main_axis, start_app, end_app):
-        if self.__config.get("PLOT_APP_LABELS", None):
-            PlotUtils.plot_vertical_line(main_axis, start_app, "Start app", self.__config.get("FONTSIZE", 20))
-            PlotUtils.plot_vertical_line(main_axis, end_app, "End app", self.__config.get("FONTSIZE", 20))
-        else:
-            PlotUtils.plot_vertical_line(main_axis, start_app)
-            PlotUtils.plot_vertical_line(main_axis, end_app)
+        PlotUtils.plot_vertical_line(main_axis, start_app)
+        PlotUtils.plot_vertical_line(main_axis, end_app)
 
     def __plot_metric(self, df, metric, resource_config, container=None):
         metric_config = self._metric_config_provider.get(metric)
@@ -147,7 +141,7 @@ class ExperimentsPlotter:
         # Get axis of the main resource
         main_axis = resource_config[main_resource]["ax"]
         # Get end of the plot as potential x limit
-        xlim = exp_times["end_s"]
+        xlim = exp_times["end_plot_s"]
 
         # Plot all metrics and save its max values
         max_values = {}
@@ -178,6 +172,7 @@ class ExperimentsPlotter:
 
         # Configure plot style and save plot
         self._styler.apply_all(resource_config, main_resource, xlim)
-        PlotUtils.save_plot(self._output_dir, experiment_name, list(resource_config.keys()), containers)
+        PlotUtils.save_plot(self._output_dir, experiment_name, list(resource_config.keys()), containers, format='png')
+        PlotUtils.save_plot(self._output_dir, experiment_name, list(resource_config.keys()), containers, format='pdf')
 
         plt.close()
