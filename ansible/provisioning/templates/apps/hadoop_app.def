@@ -13,7 +13,7 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
     # Install basic software and Java
     export DEBIAN_FRONTEND=noninteractive
     apt-get -y update
-    apt-get install -y wget gettext-base openssh-client openssh-server
+    apt-get install -y curl wget gettext-base openssh-client openssh-server
     apt-get install -y openjdk-8-jdk
 
     # Trying to setup firewall (iptables prevent hadoop cluster from working)
@@ -41,7 +41,12 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
     ## Download and uncompress
     hadoop_download_dir=https://archive.apache.org/dist/hadoop/core/hadoop-{{ hadoop_version }}
     hadoop_download_file=hadoop-{{ hadoop_version }}.tar.gz
-    wget $hadoop_download_dir/$hadoop_download_file
+
+    ### Take advantage of the parallel script included in BDWatchdog to speed up the download
+    parallel_script_path=/opt/BDWatchdog/deployment/metrics/parallel_curl.sh
+    number_of_chunks=$(( $(nproc) * 2 ))
+    bash $parallel_script_path $hadoop_download_dir/$hadoop_download_file $hadoop_download_file "${number_of_chunks}"
+
     mkdir hadoop && tar xf $hadoop_download_file -C hadoop --strip-components 1 && rm $hadoop_download_file
     chown -R $(whoami):$(whoami) hadoop
 
