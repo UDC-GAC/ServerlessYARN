@@ -10,7 +10,7 @@ print_usage ()
     echo "       $blnk [-l --> clean logs] \\"
     echo "       $blnk [-r --> remove logical volumes] \\"
     echo "       $blnk [-s --> dont stop services] \\"
-    echo "       $blnk [-o --> dont stop opentsdb]"
+    echo "       $blnk [-o --> stop also opentsdb]"
 }
 
 ## Script flags

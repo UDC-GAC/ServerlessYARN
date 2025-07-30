@@ -14,4 +14,4 @@
   file:
     path: "{{ mongodb_path }}/config"
     state: directory
-    owner: "{{ user_info.user_name] }}"
+    owner: "{{ user_info.user_name }}"

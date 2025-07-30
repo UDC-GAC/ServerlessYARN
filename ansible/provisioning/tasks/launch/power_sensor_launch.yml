@@ -72,7 +72,7 @@
     - power_sensor_path: "{{ installation_path }}/{{ power_sensor }}"
     - definition_file: "{{ power_sensor }}.def"
     - image_file: "{{ power_sensor }}.sif"
-    - container_name: "sensor-{{ inventory_hostname }}"
+    - container_name: "{{ inventory_hostname }}-sensor"
 
 - name: Start power sensor inside a lxc container
   debug:
