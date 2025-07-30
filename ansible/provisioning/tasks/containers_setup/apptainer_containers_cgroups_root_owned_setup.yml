@@ -84,9 +84,9 @@
             && sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
               'echo {{ server_ip }} opentsdb >> /etc/hosts \
               && cat {{ bind_dir_on_container }}/hosts >> /etc/hosts \
-              && rm {{ bind_dir_on_container }}/hosts \
               && chown {{ user_info.user_name }} {{ user_home_on_container }} \
               && chmod 0755 {{ user_home_on_container }}' \
+            && rm {{ bind_dir }}/{{ item.container_name }}/hosts
             && python3 change_cgroups_permissions.py {{ cgroups_version }} {{ singularity_command_alias }} {{ singularity_cgroups_group }} {{ item.container_name }} &&
           {% endif  %}
         {% endfor %}true"
