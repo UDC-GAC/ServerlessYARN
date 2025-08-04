@@ -434,7 +434,7 @@ energy_exceeded_upper = dict(
         {"and": [
             {">": [
                 {"var": "energy.structure.energy.usage"},
-                {"var": "energy.structure.energy.max"}]}]}),
+                {"var": "energy.structure.energy.current"}]}]}),
     generates="events", action={"events": {"scale": {"down": 1}}},
     active=True
 )
@@ -448,7 +448,7 @@ energy_dropped_lower_and_cpu_exceeded_upper = dict(
         {"and": [
             {"<": [
                 {"var": "energy.structure.energy.usage"},
-                {"var": "energy.structure.energy.max"}]},
+                {"var": "energy.structure.energy.current"}]},
             {">": [
                 {"var": "cpu.structure.cpu.usage"},
                 {"var": "cpu.limits.cpu.upper"}]}]}),
