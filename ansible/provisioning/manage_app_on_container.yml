@@ -383,34 +383,23 @@
           owner: "{{ user_info.user_name }}"
 
       - block:
-          - name: Create runtime files subdirectory in container
-            file:
-              path: "{{ container_bind_dir }}/{{ runtime_files | basename }}"
-              state: directory
-
-          - name: Create runtime files subdirectory in temporary directory
-            delegate_to: localhost
-            run_once: yes
-            file:
-              path: "{{ tmpdir }}/{{ container }}/{{ runtime_files | basename }}"
-              state: directory
-              owner: "{{ user_info.user_name }}"
-
-          - name: Find runtime files to template in the app directory
-            delegate_to: localhost
-            run_once: yes
-            find:
-              paths: "apps/{{ app_dir }}/{{ runtime_files }}/"
-              recurse: yes
-            register: found_runtime_files
+          - name: Copy runtime files subdirectory in temporary directory
+            copy: ## synchronize module would be faster, but it ignores the 'delegate_to' directive
+              src: "apps/{{ app_dir }}/{{ runtime_files }}"
+              dest: "{{ app_tmpdir }}/{{ container }}/"
 
           - name: Template runtime files and store in temporary directory
-            delegate_to: localhost
+            when: file.state == 'file' and not file.path | regex_search('\.(jar|zip|tar|rar|gz|bz2|xz|7z|tgz)$') ## excluded extensions to template
             template:
-              src: "{{ item.path }}"
-              dest: "{{ tmpdir }}/{{ container }}/{{ runtime_files | basename }}/{{ item.path | basename }}"
-            loop: "{{ found_runtime_files.files }}"
+              src: "{{ file.src }}"
+              dest: "{{ app_tmpdir }}/{{ container }}/{{ runtime_files | basename }}/{{ file.path }}"
+            with_filetree: "apps/{{ app_dir }}/{{ runtime_files }}/"
+            loop_control:
+              loop_var: file
+
         when: "runtime_files != ''"
+        delegate_to: localhost
+        run_once: yes
 
       - name: Create output directory in container
         when: output_dir is defined and output_dir != ""

@@ -46,21 +46,16 @@
           when: install_files is defined and install_files != '' and item == 'generic_app'
           block:
             - name: Copy app optional files directory ({{ item }})
-              copy:
+              copy: ## synchronize module would be faster, but it ignores the 'delegate_to' directive
                 src: "{{ extra_files_directory }}/{{ install_files }}"
                 dest: "{{ installed_app_directory }}/"
 
-            - name: Find config files to template in the app directory ({{ item }})
-              find:
-                paths: "{{ extra_files_directory }}/{{ install_files }}"
-                recurse: yes
-              register: found_config_files
-
             - name: Process template for each config file ({{ item }})
+              when: file.state == 'file' and not file.path | regex_search('\.(jar|zip|tar|rar|gz|bz2|xz|7z|tgz)$') ## excluded extensions to template
               template:
-                src: "{{ file.path }}"
-                dest: "{{ installed_app_directory }}/{{ install_files }}/{{ file.path | regex_replace('^' + extra_files_directory + '/' + install_files, '') }}"
-              loop: "{{ found_config_files.files }}"
+                src: "{{ file.src }}"
+                dest: "{{ installed_app_directory }}/{{ install_files | basename }}/{{ file.path }}"
+              with_filetree: "{{ extra_files_directory }}/{{ install_files }}/"
               loop_control:
                 loop_var: file ## we need to change this inner loop variable to avoid collisions re-using the 'item' variable from the outer loop
 
