@@ -8,13 +8,12 @@
     - config/config.yml
 
   vars:
-    - ansible_async_dir: "{{ installation_path }}/async_jobs" # directory for Ansible to store async jobs. For some reason, Ansible is unable to write jobs in the default '$HOME/.ansible_async' dir when using the server as host
     - jid_file: "{{ ansible_async_dir }}/{{ container }}.jid"
     - container_bind_dir: "{{ bind_dir }}/{{ container }}"
     - hdfs_file_list: ["core-site.xml", "hdfs-site.xml", "hadoop-env.sh", "rack_topology.py"]
     - hadoop_file_list: ["yarn-site.xml", "mapred-site.xml", "yarn-env.sh"]
     - spark_file_list: ["spark-defaults.conf"]
-    - tmpdir: "{{ installation_path }}/tmpdir/{{ app_name }}"
+    - app_tmpdir: "{{ tmpdir }}/{{ app_name }}"
 
   environment:
     BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
@@ -153,7 +152,7 @@
             delegate_to: localhost
             run_once: yes
             file:
-              path: "{{ tmpdir }}"
+              path: "{{ app_tmpdir }}"
               state: directory
             tags: setup_hdfs
 
@@ -162,7 +161,7 @@
             run_once: yes
             template:
               src: "templates/hadoop/{{ item }}"
-              dest: "{{ tmpdir }}/{{ item }}"
+              dest: "{{ app_tmpdir }}/{{ item }}"
               mode: preserve
             loop: "{{ hdfs_file_list }}"
             tags: setup_hdfs
@@ -172,7 +171,7 @@
             run_once: yes
             template:
               src: "templates/hadoop/{{ item }}"
-              dest: "{{ tmpdir }}/{{ item }}"
+              dest: "{{ app_tmpdir }}/{{ item }}"
             loop: "{{ hadoop_file_list }}"
 
           - name: Copy spark config files to master
@@ -181,13 +180,13 @@
             run_once: yes
             template:
               src: "templates/spark/{{ item }}"
-              dest: "{{ tmpdir }}/{{ item }}"
+              dest: "{{ app_tmpdir }}/{{ item }}"
             loop: "{{ spark_file_list }}"
 
           - name: Copy config files to hosts
             synchronize:
-              src: "{{ tmpdir }}/"
-              dest: "{{ tmpdir }}/"
+              src: "{{ app_tmpdir }}/"
+              dest: "{{ app_tmpdir }}/"
             tags: setup_hdfs
 
           - name: Copy and update hdfs config files to containers
@@ -195,7 +194,7 @@
               {% if item.host == inventory_hostname %}
               {% for file in hdfs_file_list %}
               {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-              cp {{ tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
+              cp {{ app_tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
               {% endfor %}
               sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
               '{% for file in hdfs_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $HADOOP_CONF_DIR/{{ file }} && {% endfor %}true' && 
@@ -210,7 +209,7 @@
               {% if item.host == inventory_hostname %}
               {% for file in hadoop_file_list %}
               {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-              cp {{ tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
+              cp {{ app_tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
               {% endfor %}
               sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
               '{% for file in hadoop_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $HADOOP_CONF_DIR/{{ file }} && {% endfor %}true' && 
@@ -225,7 +224,7 @@
               {% if item.host == inventory_hostname %}
               {% for file in spark_file_list %}
               {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-              cp {{ tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
+              cp {{ app_tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
               {% endfor %}
               sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
               '{% for file in spark_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $SPARK_CONF_DIR/{{ file }} && {% endfor %}true' && 
@@ -236,7 +235,7 @@
 
           - name: Remove temporary directory in server and hosts
             file:
-              path: "{{ tmpdir }}"
+              path: "{{ app_tmpdir }}"
               state: absent
             delegate_to: "{{ item }}"
             run_once: yes
@@ -283,7 +282,7 @@
 
           - name: Create temporary app directory on hosts for ssh public key
             file:
-              path: "{{ installation_path }}/app_keys/{{ app_name }}/"
+              path: "{{ app_ssh_keys_dir }}/{{ app_name }}/"
               state: directory
 
           # - name: Copy RM/NN container ssh public key to hosts
@@ -295,7 +294,7 @@
             delegate_to: "{{ rm_host }}" # this will push from rm_host to each host, i.e., a remote host to remote host copy
             synchronize:
               src: "{{ bind_dir }}/{{ rm_container }}/{{ rm_container }}.pub"
-              dest: "{{ installation_path }}/app_keys/{{ app_name }}/{{ rm_container }}.pub"
+              dest: "{{ app_ssh_keys_dir }}/{{ app_name }}/{{ rm_container }}.pub"
             vars:
               bind_path: "{{ rm_container_bind_path }}"
 
@@ -303,7 +302,7 @@
             shell: "{% for item in containers_info %}
               {% if item.host == inventory_hostname and item.container_name != rm_container %}
               {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-              cp {{ installation_path }}/app_keys/{{ app_name }}/{{ rm_container }}.pub {{ bind_dir }}/{{ item.container_name }}/{{ rm_container }}.pub && \
+              cp {{ app_ssh_keys_dir }}/{{ app_name }}/{{ rm_container }}.pub {{ bind_dir }}/{{ item.container_name }}/{{ rm_container }}.pub && \
               sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
               'cat {{ bind_dir_on_container }}/{{ rm_container }}.pub >> ~/.ssh/authorized_keys \
               && rm {{ bind_dir_on_container }}/{{ rm_container }}.pub' && 
@@ -311,11 +310,6 @@
               {% endfor %}true"
             args:
               executable: /bin/bash
-
-          - name: Remove temporary directory with SSH keys on host
-            file:
-              path: "{{ installation_path }}/app_keys/{{ app_name }}/"
-              state: absent
 
       - name: Start HDFS + YARN
         tags: setup_hadoop
@@ -384,7 +378,7 @@
         delegate_to: localhost
         run_once: yes
         file:
-          path: "{{ tmpdir }}/{{ container }}"
+          path: "{{ app_tmpdir }}/{{ container }}"
           state: directory
           owner: "{{ user_info.user_name }}"
 
@@ -433,7 +427,7 @@
         delegate_to: localhost
         template:
           src: "apps/{{ app_dir }}/{{ start_script }}"
-          dest: "{{ tmpdir }}/{{ container }}/"
+          dest: "{{ app_tmpdir }}/{{ container }}/"
           mode: preserve
 
       - name: Copy app jar
@@ -441,13 +435,13 @@
         when: "app_jar != ''"
         copy:
           src: "apps/{{ app_dir }}/{{ app_jar }}"
-          dest: "{{ tmpdir }}/{{ container }}/"
+          dest: "{{ app_tmpdir }}/{{ container }}/"
 
       - name: Copy templated config files to remote container
         vars:
           ansible_ssh_extra_args: "-o ControlPath=~/.ansible/cp/socket-{{ inventory_hostname }}"
         synchronize:
-          src: "{{ tmpdir }}/{{ container }}/"
+          src: "{{ app_tmpdir }}/{{ container }}/"
           dest: "{{ container_bind_dir }}/"
           ssh_connection_multiplexing: yes
           use_ssh_args: yes
@@ -496,14 +490,14 @@
           delegate_to: localhost
           template:
             src: "apps/{{ app_dir }}/{{ stop_script }}"
-            dest: "{{ tmpdir }}/{{ container }}/"
+            dest: "{{ app_tmpdir }}/{{ container }}/"
             mode: preserve
 
         - name: Copy templated config files to remote container
           vars:
             ansible_ssh_extra_args: "-o ControlPath=~/.ansible/cp/socket-{{ inventory_hostname }}"
           synchronize:
-            src: "{{ tmpdir }}/{{ container }}/"
+            src: "{{ app_tmpdir }}/{{ container }}/"
             dest: "{{ container_bind_dir }}/"
             ssh_connection_multiplexing: yes
             use_ssh_args: yes
@@ -535,7 +529,7 @@
         delegate_to: localhost
         run_once: yes
         file:
-          path: "{{ tmpdir }}/{{ container }}/"
+          path: "{{ app_tmpdir }}/{{ container }}/"
           state: absent
 
       # Stop java snitcher

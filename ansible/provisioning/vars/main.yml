@@ -42,3 +42,8 @@ opentsdb_log_path: "{{ bdwatchdog_path }}/opentsdb/log"
 web_interface_path: services/serverless_containers_web
 singularity_cgroups_group: singularity
 user_home_on_container: /var/tmp # /tmp and /var/tmp are the only non-read-only directories writable by any user
+
+## Temporary dirs
+ansible_async_dir: "{{ installation_path }}/async_jobs" # directory for Ansible to store async jobs. For some reason, Ansible is unable to write jobs in the default '$HOME/.ansible_async' dir when using the server as host
+tmpdir: "{{ installation_path }}/tmpdir"
+app_ssh_keys_dir: "{{ installation_path }}/app_keys"
