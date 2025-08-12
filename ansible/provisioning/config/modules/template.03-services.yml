@@ -1,4 +1,5 @@
 ## Services Config
+# Some ports are still hardcoded in some scripts and services; it is recommended to keep the default values at the moment
 orchestrator_url: "{{ server_ip }}"
 orchestrator_port: 5000
 wattwizard_url: "{{ server_ip }}"
@@ -9,3 +10,7 @@ opentsdb_url: "{{ server_ip }}"
 opentsdb_port: 4242
 mongodb_url: "{{ server_ip }}"
 mongodb_port: 27017
+
+## TODO: add the node scaler (ServerlessContainers) and eve server (BDWatchdog) ports
+# Both currently use port 8000, which causes a conflict when using the server as host (due to the deployment of a node scaler on the server)
+# To fix this, it is required to remove the hardcoded ports in the code of SC and BDW and set them dynamically
