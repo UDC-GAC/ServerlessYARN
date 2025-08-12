@@ -33,3 +33,4 @@
   args:
     chdir: "{{ bdwatchdog_path }}/deployment/metrics/opentsdb/"
     executable: /bin/bash
+  timeout: 300
