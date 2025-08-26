@@ -1057,20 +1057,12 @@ class ScalerForm(forms.Form):
             )    
         )
 
-# CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 5, "DEBUG": True, "PERSIST_APPS": True, "RESOURCES_PERSISTED": ["cpu", "mem"], "ACTIVE": True}
+# CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 5, "DEBUG": True, "STRUCTURES_PERSISTED": ["application"], "RESOURCES_PERSISTED": ["cpu", "mem"], "ACTIVE": True}
 class StructuresSnapshoterForm(forms.Form):
     common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
     name = common_fields['name']
     debug = common_fields['debug']
     polling_frequency = common_fields['polling_frequency']
-
-    persist_apps = forms.ChoiceField(label="Persist Apps",
-            choices = (
-                ("True", "True"),
-                ("False", "False"),
-                ),
-            required=False
-            )
 
     resources_persisted = forms.MultipleChoiceField(label="Resources Persisted",
             choices = (
@@ -1079,11 +1071,22 @@ class StructuresSnapshoterForm(forms.Form):
                 ("disk_read", "Disk Read"),
                 ("disk_write", "Disk Write"),
                 ("net", "Network"),
-                #("energy", "Energy"),
+                ("energy", "Energy"),
                 ),
             widget=forms.CheckboxSelectMultiple,
             required=False
             )
+
+    structures_persisted = forms.MultipleChoiceField(label="Structures Persisted",
+            choices = (
+                ("application", "Applications"),
+                ("user", "Users"),
+            ),
+            widget=forms.CheckboxSelectMultiple,
+            required=False,
+            initial=["application"]
+            )
+
     def __init__(self, *args, **kwargs):
         super(StructuresSnapshoterForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()            
@@ -1094,9 +1097,9 @@ class StructuresSnapshoterForm(forms.Form):
         self.helper.layout = Layout(
             Field('name', type="hidden", readonly=True),
             Field('debug'),
-            Field('persist_apps'),
             Field('polling_frequency'),
             Field('resources_persisted'),
+            Field('structures_persisted'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
             )    
@@ -1128,15 +1131,23 @@ class SanityCheckerForm(forms.Form):
             )    
         )
 
-# CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 10, "WINDOW_TIMELAPSE": 10, "WINDOW_DELAY": 20, "GENERATED_METRICS": ["cpu","mem"], "DEBUG": True}
+# CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 10, "WINDOW_TIMELAPSE": 10, "WINDOW_DELAY": 20, "STRUCTURES_REFEEDED": ["application"], "GENERATED_METRICS": ["cpu","mem"], "DEBUG": True}
 class RefeederForm(forms.Form):
     common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
     name = common_fields['name']
     debug = common_fields['debug']
-    polling_frequency = common_fields['polling_frequency']
-    polling_frequency.required = False
     window_delay = common_fields['window_delay']
     window_timelapse = common_fields['window_timelapse']
+
+    structures_refeeded = forms.MultipleChoiceField(label="Structures Refeeded",
+                                                    choices = (
+                                                        ("application", "Applications"),
+                                                        ("user", "Users"),
+                                                        ),
+                                                    widget=forms.CheckboxSelectMultiple,
+                                                    required=False,
+                                                    initial=["application"]
+                                                    )
 
     generated_metrics = forms.MultipleChoiceField(label="Generated Metrics",
             choices = (
@@ -1161,8 +1172,8 @@ class RefeederForm(forms.Form):
         self.helper.layout = Layout(
             Field('name', type="hidden", readonly=True),
             Field('debug'),
+            Field('structures_refeeded'),
             Field('generated_metrics'),
-            Field('polling_frequency'),
             Field('window_delay'),
             Field('window_timelapse'),
             FormActions(
@@ -1170,7 +1181,7 @@ class RefeederForm(forms.Form):
             )    
         )
 
-# CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 30, "WINDOW_DELAY": 10, "REBALANCE_USERS": False, "DEBUG": True, "ENERGY_DIFF_PERCENTAGE": 0.40, "ENERGY_STOLEN_PERCENTAGE": 0.40, "RESOURCES_BALANCED": ["cpu"], "STRUCTURES_BALANCED": ["applications"], "BALANCING_METHOD": "pair_swapping"}
+# CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 30, "WINDOW_DELAY": 10, "DEBUG": True, "DIFF_PERCENTAGE": 0.40, "STOLEN_PERCENTAGE": 0.40, "RESOURCES_BALANCED": ["cpu"], "STRUCTURES_BALANCED": ["containers"], "CONTAINERS_SCOPE": "application", "BALANCING_POLICY": "rules", "BALANCING_METHOD": "pair_swapping"}
 class ReBalancerForm(forms.Form):
     common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
     name = common_fields['name']
@@ -1178,21 +1189,14 @@ class ReBalancerForm(forms.Form):
     window_delay = common_fields['window_delay']
     window_timelapse = common_fields['window_timelapse']
 
-    energy_diff_percentage = forms.DecimalField(label="Energy Diff Percentage",
+    diff_percentage = forms.DecimalField(label="Diff Percentage",
             min_value=0,
             max_value=1,
             required=False
             )
-    energy_stolen_percentage = forms.DecimalField(label="Energy Stolen Percentage",
+    stolen_percentage = forms.DecimalField(label="Stolen Percentage",
             min_value=0,
             max_value=1,
-            required=False
-            )
-    rebalance_users = forms.ChoiceField(label="Rebalance Users",
-            choices = (
-                ("True", "True"),
-                ("False", "False"),
-                ),
             required=False
             )
 
@@ -1203,19 +1207,39 @@ class ReBalancerForm(forms.Form):
                 ("disk_read", "Disk Read"),
                 ("disk_write", "Disk Write"),
                 #("net", "Network"),
-                #("energy", "Energy"),
+                ("energy", "Energy")
                 ),
             widget=forms.CheckboxSelectMultiple,
             required=False
             )
+
     structures_balanced = forms.MultipleChoiceField(label="Structures to perform balancing",
             choices = (
-                ("applications", "Applications"),
-                ("hosts", "Hosts"),
+                ("container", "Containers"),
+                ("application", "Applications"),
+                ("user", "Users"),
                 ),
             widget=forms.CheckboxSelectMultiple,
-            required=False
+            required=False,
+            initial=["container"]
             )
+
+    containers_scope = forms.ChoiceField(label="Containers scope to perform container balancing",
+                                         choices = (
+                                             ("application", "Applications"),
+                                             ("host", "Hosts"),
+                                         ),
+                                         required=False
+                                         )
+
+    balancing_policy = forms.ChoiceField(label="Balancing policy to split donors and receivers",
+                                         choices = (
+                                             ("rules", "Rules"),
+                                             ("thresholds", "Thresholds"),
+                                         ),
+                                         required=False
+                                         )
+
     balancing_method = forms.ChoiceField(label="Balancing method",
             choices = (
                 ("pair_swapping", "Pair swapping"),
@@ -1234,11 +1258,12 @@ class ReBalancerForm(forms.Form):
         self.helper.layout = Layout(
             Field('name', type="hidden", readonly=True),
             Field('debug'),
-            Field('energy_diff_percentage'),
-            Field('energy_stolen_percentage'),
-            Field('rebalance_users'),
+            Field('diff_percentage'),
+            Field('stolen_percentage'),
             Field('resources_balanced'),
             Field('structures_balanced'),
+            Field('containers_scope'),
+            Field('balancing_policy'),
             Field('balancing_method'),
             Field('window_delay'),
             Field('window_timelapse'),

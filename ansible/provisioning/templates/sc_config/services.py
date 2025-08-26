@@ -46,6 +46,7 @@ structures_snapshoter = dict(
     config=dict(
         ACTIVE=False,
         DEBUG=True,
+        STRUCTURES_PERSISTED=["application"],
         RESOURCES_PERSISTED=["cpu", "mem"{% if disk_capabilities and disk_scaling %}, "disk_read", "disk_write"{% endif %}{% if power_budgeting %}, "energy"{% endif %}]
     )
 )
@@ -57,6 +58,7 @@ refeeder = dict(
     config=dict(
         ACTIVE=False,
         DEBUG=True,
+        STRUCTURES_REFEEDED=["application"],
         GENERATED_METRICS=["cpu", "mem"{% if disk_capabilities and disk_scaling %}, "disk_read", "disk_write"{% endif %}{% if power_budgeting %}, "energy"{% endif %}]
     )
 )
@@ -66,8 +68,9 @@ sanity_checker = dict(
     type="service",
     heartbeat="",
     config=dict(
-        DELAY=30,
-        DEBUG=True
+        ACTIVE=False,
+        DEBUG=True,
+        DELAY=30
     )
 )
 
@@ -76,10 +79,15 @@ rebalancer  = dict(
     type="service",
     heartbeat="",
     config=dict(
+        ACTIVE=False,
         DEBUG=True,
+        DIFF_PERCENTAGE=0.40,
+        STOLEN_PERCENTAGE=0.40,
         RESOURCES_BALANCED=["cpu"{% if disk_capabilities and disk_scaling %}, "disk_read", "disk_write"{% endif %}],
-        STRUCTURES_BALANCED=["applications"],
+        STRUCTURES_BALANCED=["container"],
         BALANCING_METHOD="pair_swapping",
+        CONTAINERS_SCOPE="application",
+        BALANCING_POLICY="rules",
         WINDOW_DELAY=10,
         WINDOW_TIMELAPSE=35
     )
@@ -92,19 +100,21 @@ energy_manager = dict(
     type="service",
     heartbeat="",
     config=dict(
-        POLLING_FREQUENCY=10,
-        DEBUG=True
+        ACTIVE=False,
+        DEBUG=True,
+        POLLING_FREQUENCY=10
     )
 )
 
-{% if online_learning -%}
+{% if power_modelling and online_learning -%}
 watt_trainer = dict(
     name="watt_trainer",
     type="service",
     heartbeat="",
     config=dict(
-        WINDOW_TIMELAPSE={{ sampling_frequency }},
-        DEBUG=True
+        ACTIVE=False,
+        DEBUG=True,
+        WINDOW_TIMELAPSE={{ sampling_frequency }}
     )
 )
 

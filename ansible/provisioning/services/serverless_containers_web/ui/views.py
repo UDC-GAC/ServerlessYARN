@@ -1944,10 +1944,10 @@ def services(request):
     database_snapshoter_options = ["debug","documents_persisted","polling_frequency"]
     guardian_options = ["cpu_shares_per_watt", "debug", "event_timeout","guardable_resources","structure_guarded","window_delay","window_timelapse"]
     scaler_options = ["check_core_map","debug","polling_frequency","request_timeout"]
-    structures_snapshoter_options = ["polling_frequency","debug","persist_apps","resources_persisted"]
+    structures_snapshoter_options = ["polling_frequency","debug","structures_persisted","resources_persisted"]
     sanity_checker_options = ["debug","delay"]
-    refeeder_options = ["debug","generated_metrics","polling_frequency","window_delay","window_timelapse"]
-    rebalancer_options = ["debug","rebalance_users","energy_diff_percentage","energy_stolen_percentage","window_delay","window_timelapse","resources_balanced","structures_balanced","balancing_method"]
+    refeeder_options = ["debug","structures_refeeded","generated_metrics","window_delay","window_timelapse"]
+    rebalancer_options = ["debug","diff_percentage","stolen_percentage","window_delay","window_timelapse","resources_balanced","structures_balanced","containers_scope","balancing_policy","balancing_method"]
     energy_manager_options = ["polling_frequency", "debug"]
     watt_trainer_options = ["window_timelapse", "window_delay", "generated_metrics", "models_to_train", "debug"]
 
@@ -2128,7 +2128,8 @@ def processServiceConfigPost(request, url, service_name, config_name):
     full_url = url + service_name + "/" + config_name.upper()
 
     json_fields = []
-    multiple_choice_fields = ["guardable_resources","resources_persisted","generated_metrics","documents_persisted","resources_balanced","structures_balanced"]
+    multiple_choice_fields = ["guardable_resources","structures_persisted","resources_persisted","structures_refeeded",
+                              "generated_metrics","documents_persisted","resources_balanced","structures_balanced"]
 
     error = ""
     error_message = "Error submiting {0} for service {1}".format(config_name, service_name)
