@@ -52,7 +52,7 @@
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
   with_items:
-    - energy_manager
+    - limits_dispatcher
   tags: restart_services
 
 # Start WattWizard when power_modelling is "yes"

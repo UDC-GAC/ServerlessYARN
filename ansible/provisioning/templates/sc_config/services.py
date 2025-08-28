@@ -95,14 +95,14 @@ rebalancer  = dict(
 
 {% if power_budgeting -%}
 # Aditional services for power_budgeting
-energy_manager = dict(
-    name="energy_manager",
+limits_dispatcher = dict(
+    name="limits_dispatcher",
     type="service",
     heartbeat="",
     config=dict(
-        ACTIVE=False,
-        DEBUG=True,
-        POLLING_FREQUENCY=10
+        POLLING_FREQUENCY=10,
+        GENERATED_METRICS=["energy"],
+        DEBUG=True
     )
 )
 
@@ -140,7 +140,7 @@ if __name__ == "__main__":
 
         {% if power_budgeting -%}
         # Aditional services for power_budgeting
-        handler.add_service(energy_manager)
+        handler.add_service(limits_dispatcher)
         {% if online_learning -%}
         handler.add_service(watt_trainer)
         {%- endif %}

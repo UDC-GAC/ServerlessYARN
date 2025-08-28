@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect
-from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm, EnergyManagerForm, WattTrainerForm
+from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm, EnergyManagerForm, WattTrainerForm, LimitsDispatcherForm
 from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper, HostResourcesForm, HostResourcesFormSetHelper
 from ui.forms import AddHostForm, AddAppForm, AddHadoopAppForm, StartAppForm, AddDisksToHostsForm
 from ui.forms import AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddContainersToAppForm
@@ -1950,6 +1950,7 @@ def services(request):
     rebalancer_options = ["debug","diff_percentage","stolen_percentage","window_delay","window_timelapse","resources_balanced","structures_balanced","containers_scope","balancing_policy","balancing_method"]
     energy_manager_options = ["polling_frequency", "debug"]
     watt_trainer_options = ["window_timelapse", "window_delay", "generated_metrics", "models_to_train", "debug"]
+    limits_dispatcher_options = ["generated_metrics", "polling_frequency", "debug"]
 
     ## Optional options based on config
     if config['power_budgeting']: guardian_options.extend(["energy_model_name", "use_energy_model"])
@@ -1980,11 +1981,13 @@ def services(request):
 
             elif (service_name == 'watt_trainer'):          options = watt_trainer_options
 
+            elif (service_name == 'limits_dispatcher'):     options = limits_dispatcher_options
+
             for option in options:
                 error = processServiceConfigPost(request, url, service_name, option)
                 if (len(error) > 0): errors.append(error)
 
-        return redirect_with_errors('services',errors)
+        return redirect_with_errors('services', errors)
 
     response = urllib.request.urlopen(url)
     data_json = json.loads(response.read())
@@ -2059,7 +2062,7 @@ def services(request):
             serviceForm = ReBalancerForm(initial = form_initial_data)
 
         elif (item['name'] == 'energy_manager'):
-            for option in watt_trainer_options:
+            for option in energy_manager_options:
                 if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
 
             editable_data += 1
@@ -2071,7 +2074,14 @@ def services(request):
 
             editable_data += 1
             serviceForm = WattTrainerForm(initial = form_initial_data)
-        
+
+        elif (item['name'] == 'limits_dispatcher'):
+            for option in limits_dispatcher_options:
+                if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
+
+            editable_data += 1
+            serviceForm = LimitsDispatcherForm(initial = form_initial_data)
+
         else:
             not_recognized_services.append(item)
             continue # Not recognized service
