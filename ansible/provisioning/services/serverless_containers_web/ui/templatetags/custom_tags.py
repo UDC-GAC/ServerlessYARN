@@ -16,3 +16,8 @@ def get_view_list():
 @register.filter
 def is_not_none(value):
     return value is not None
+
+
+@register.filter(name='dict_key')
+def dict_key(d, k):
+    return d.get(k, "")

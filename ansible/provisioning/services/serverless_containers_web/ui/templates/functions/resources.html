@@ -1,3 +1,4 @@
+{% load custom_tags %}
 <button class="accordion">Resources</button>
 <div class="panel">
     <p></p>
@@ -17,8 +18,8 @@
                 <!-- this boolean condition evaluates as: (structure_type == "app") or (structure_type == "container" and resource != "disk") or (structure_type == "hosts" and resource != "disks" and resource != "cpu_cores") -->
                 <tr>
                     <th>{{ resource }}</th>
-                    {% for key, value in values.items %}
-                        <td>{{ value }}</td>
+                    {% for value_label in item.resources_values_labels %}
+                        <td>{{ values | dict_key:value_label }}</td>
                     {% endfor %}
                 </tr>
             {% endif %}

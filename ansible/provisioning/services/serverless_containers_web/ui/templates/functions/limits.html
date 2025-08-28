@@ -1,3 +1,4 @@
+{% load custom_tags %}
 <button class="accordion">Limits</button>
 <div class="panel">
     <p></p>
@@ -14,8 +15,8 @@
         {% for resource,values in item.limits.items %}
             <tr>
                 <th>{{ resource }}</th>
-                {% for key, value in values.items %}
-                    <td>{{ value }}</td>
+                {% for value_label in item.limits_values_labels %}
+                    <td>{{ values | dict_key:value_label }}</td>
                 {% endfor %}
             </tr>
         {% endfor %}
