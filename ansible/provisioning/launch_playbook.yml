@@ -23,7 +23,7 @@
 
   tasks:
     - import_tasks: tasks/utils/get_tmux_sessions.yml
-      tags: restart_services
+      tags: restart_services, start_opentsdb
 
     - import_tasks: tasks/launch/opentsdb_launch.yml
       tags: start_opentsdb
