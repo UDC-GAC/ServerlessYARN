@@ -53,6 +53,7 @@
     executable: /bin/bash
   with_items:
     - limits_dispatcher
+    - energy_controller
   tags: restart_services
 
 # Start WattWizard when power_modelling is "yes"
@@ -164,6 +165,17 @@
     - Refeeder
     - Rebalancer
   tags: restart_services
+
+- name: Activating energy services
+  when: "power_budgeting"
+  shell: "bash scripts/orchestrator/{{ item }}/activate.sh"
+  args:
+    chdir: "{{ serverless_containers_path }}"
+    executable: /bin/bash
+  with_items:
+    - EnergyController
+  tags: restart_services
+
 
 ### Limit containers BW when extending LV to speed up the extension process
 ## Disable services that may send scaling requests before limiting containers bw

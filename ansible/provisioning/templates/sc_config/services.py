@@ -88,6 +88,7 @@ rebalancer  = dict(
         BALANCING_METHOD="pair_swapping",
         CONTAINERS_SCOPE="application",
         BALANCING_POLICY="rules",
+        ONLY_RUNNING=False,
         WINDOW_DELAY=10,
         WINDOW_TIMELAPSE=35
     )
@@ -102,6 +103,20 @@ limits_dispatcher = dict(
     config=dict(
         POLLING_FREQUENCY=10,
         GENERATED_METRICS=["energy"],
+        DEBUG=True
+    )
+)
+
+energy_controller = dict(
+    name="energy_controller",
+    type="service",
+    heartbeat="",
+    config=dict(
+        EVENT_TIMEOUT=20,
+        WINDOW_TIMELAPSE=10,
+        WINDOW_DELAY=0,
+        POLLING_FREQUENCY=5,
+        ACTIVE=False,
         DEBUG=True
     )
 )
@@ -141,6 +156,7 @@ if __name__ == "__main__":
         {% if power_budgeting -%}
         # Aditional services for power_budgeting
         handler.add_service(limits_dispatcher)
+        handler.add_service(energy_controller)
         {% if online_learning -%}
         handler.add_service(watt_trainer)
         {%- endif %}

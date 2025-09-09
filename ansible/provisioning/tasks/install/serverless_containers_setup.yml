@@ -156,6 +156,5 @@
       owner: "{{ user_info.user_name }}"
     with_items:
       - "default"
-      - "hw_aware"
   when: "power_budgeting and power_modelling"
   tags: restart_services
