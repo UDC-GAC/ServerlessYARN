@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect
-from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm, EnergyManagerForm, WattTrainerForm, LimitsDispatcherForm
+from ui.forms import RuleForm, DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm, WattTrainerForm, LimitsDispatcherForm, EnergyControllerForm
 from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper, HostResourcesForm, HostResourcesFormSetHelper
 from ui.forms import AddHostForm, AddAppForm, AddHadoopAppForm, StartAppForm, AddDisksToHostsForm
 from ui.forms import AddContainersForm, AddNContainersFormSetHelper, AddNContainersForm, AddContainersToAppForm
@@ -46,6 +46,8 @@ max_load_dict = {}
 max_load_dict["HDD"] = 1
 max_load_dict["SSD"] = 4
 max_load_dict["LVM"] = 20
+
+EXCLUDED_VALUES_LABELS = {"cpu_cores", "alloc_ratio", "rebalanced"}
 
 class State(object):
 
@@ -442,19 +444,13 @@ def getScalerPollFreq():
     return scaler_polling_freq
 
 def getStructuresValuesLabels(item, field):
-
-    values_labels = []
-
-    if (field in item and len(list(item[field].keys())) > 0):
-        first_key = list(item[field].keys())[0]
-
-        if (first_key != 'cpu_cores'):
-            values_labels = item[field][first_key]
-        else:
-            ## just in case we get 'cpu_cores' field from a host as first key
-            values_labels = item[field]['cpu']
-
-    return values_labels
+    values_labels = set()
+    for key, values in item.get(field, {}).items():
+        if key != "cpu_cores":
+            for value_label in values:
+                if value_label not in EXCLUDED_VALUES_LABELS:
+                    values_labels.add(value_label)
+    return list(values_labels)
 
 
 def setStructureResourcesForm(structure, form_action):
@@ -1947,10 +1943,10 @@ def services(request):
     structures_snapshoter_options = ["polling_frequency","debug","structures_persisted","resources_persisted"]
     sanity_checker_options = ["debug","delay"]
     refeeder_options = ["debug","structures_refeeded","generated_metrics","window_delay","window_timelapse"]
-    rebalancer_options = ["debug","diff_percentage","stolen_percentage","window_delay","window_timelapse","resources_balanced","structures_balanced","containers_scope","balancing_policy","balancing_method"]
-    energy_manager_options = ["polling_frequency", "debug"]
+    rebalancer_options = ["debug","diff_percentage","stolen_percentage","window_delay","window_timelapse","resources_balanced","structures_balanced","containers_scope","balancing_policy","balancing_method","only_running"]
     watt_trainer_options = ["window_timelapse", "window_delay", "generated_metrics", "models_to_train", "debug"]
     limits_dispatcher_options = ["generated_metrics", "polling_frequency", "debug"]
+    energy_controller_options = ["polling_frequency", "event_timeout", "window_timelapse", "window_delay", "debug", "structure_guarded", "control_policy", "power_model"]
 
     ## Optional options based on config
     if config['power_budgeting']: guardian_options.extend(["energy_model_name", "use_energy_model"])
@@ -1977,11 +1973,11 @@ def services(request):
 
             elif (service_name == 'rebalancer'):            options = rebalancer_options
 
-            elif (service_name == 'energy_manager'):        options = energy_manager_options
-
             elif (service_name == 'watt_trainer'):          options = watt_trainer_options
 
             elif (service_name == 'limits_dispatcher'):     options = limits_dispatcher_options
+
+            elif (service_name == 'energy_controller'):     options = energy_controller_options
 
             for option in options:
                 error = processServiceConfigPost(request, url, service_name, option)
@@ -2061,13 +2057,6 @@ def services(request):
             editable_data += 1
             serviceForm = ReBalancerForm(initial = form_initial_data)
 
-        elif (item['name'] == 'energy_manager'):
-            for option in energy_manager_options:
-                if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
-
-            editable_data += 1
-            serviceForm = EnergyManagerForm(initial = form_initial_data)
-
         elif (item['name'] == 'watt_trainer'):
             for option in watt_trainer_options:
                 if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
@@ -2081,6 +2070,13 @@ def services(request):
 
             editable_data += 1
             serviceForm = LimitsDispatcherForm(initial = form_initial_data)
+
+        elif (item['name'] == 'energy_controller'):
+            for option in energy_controller_options:
+                if (option.upper() in item['config']): form_initial_data[option] = item['config'][option.upper()]
+
+            editable_data += 1
+            serviceForm = EnergyControllerForm(initial = form_initial_data)
 
         else:
             not_recognized_services.append(item)

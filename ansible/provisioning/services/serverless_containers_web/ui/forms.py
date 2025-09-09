@@ -1181,7 +1181,7 @@ class RefeederForm(forms.Form):
             )    
         )
 
-# CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 30, "WINDOW_DELAY": 10, "DEBUG": True, "DIFF_PERCENTAGE": 0.40, "STOLEN_PERCENTAGE": 0.40, "RESOURCES_BALANCED": ["cpu"], "STRUCTURES_BALANCED": ["containers"], "CONTAINERS_SCOPE": "application", "BALANCING_POLICY": "rules", "BALANCING_METHOD": "pair_swapping"}
+# CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 30, "WINDOW_DELAY": 10, "DEBUG": True, "DIFF_PERCENTAGE": 0.40, "STOLEN_PERCENTAGE": 0.40, "RESOURCES_BALANCED": ["cpu"], "STRUCTURES_BALANCED": ["containers"], "CONTAINERS_SCOPE": "application", "BALANCING_POLICY": "rules", "BALANCING_METHOD": "pair_swapping", "ONLY_RUNNING": False}
 class ReBalancerForm(forms.Form):
     common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
     name = common_fields['name']
@@ -1241,12 +1241,21 @@ class ReBalancerForm(forms.Form):
                                          )
 
     balancing_method = forms.ChoiceField(label="Balancing method",
-            choices = (
-                ("pair_swapping", "Pair swapping"),
-                ("weights", "Weights"),
-                ),
-            required=False
-            )
+                                        choices = (
+                                            ("pair_swapping", "Pair swapping"),
+                                            ("weights", "Weights"),
+                                            ),
+                                        required=False
+                                        )
+
+    only_running = forms.ChoiceField(label="Only rebalance structures that are running",
+                                     choices=(
+                                         ("True", "True"),
+                                         ("False", "False"),
+                                     ),
+                                     required=False,
+                                     initial=False
+                                     )
 
     def __init__(self, *args, **kwargs):
         super(ReBalancerForm, self).__init__(*args, **kwargs)
@@ -1265,35 +1274,12 @@ class ReBalancerForm(forms.Form):
             Field('containers_scope'),
             Field('balancing_policy'),
             Field('balancing_method'),
+            Field('only_running'),
             Field('window_delay'),
             Field('window_timelapse'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
             )    
-        )
-
-
-# CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 10, "DEBUG": True, "ACTIVE": True}
-class EnergyManagerForm(forms.Form):
-    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
-    name = common_fields['name']
-    debug = common_fields['debug']
-    polling_frequency = common_fields['polling_frequency']
-
-    def __init__(self, *args, **kwargs):
-        super(EnergyManagerForm, self).__init__(*args, **kwargs)
-        self.helper = FormHelper()
-        self.helper.form_id = 'id-energyManagerForm'
-        self.helper.form_class = 'form-group'
-        self.helper.form_method = 'post'
-        self.helper.form_action = 'services'
-        self.helper.layout = Layout(
-            Field('name', type="hidden", readonly=True),
-            Field('debug'),
-            Field('polling_frequency'),
-            FormActions(
-                Submit('save', 'Save changes', css_class='caja'),
-            )
         )
 
 
@@ -1383,6 +1369,63 @@ class LimitsDispatcherForm(forms.Form):
             Field('debug'),
             Field('polling_frequency'),
             Field('generated_metrics'),
+            FormActions(
+                Submit('save', 'Save changes', css_class='caja'),
+            )
+        )
+
+# CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 5, "EVENT_TIMEOUT": 20, "WINDOW_TIMELAPSE": 10, "WINDOW_DELAY": 0, "DEBUG": True, "STRUCTURE_GUARDED": "container", "CONTROL_POLICY": "ppe-proportional", "POWER_MODEL": "polyreg_General", "ACTIVE": True}
+class EnergyControllerForm(forms.Form):
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    name = common_fields['name']
+    debug = common_fields['debug']
+    polling_frequency = common_fields['polling_frequency']
+    window_delay = forms.IntegerField(label="Window Delay (seconds)", required=True, min_value=0)
+    window_timelapse = common_fields['window_timelapse']
+
+    event_timeout = forms.IntegerField(label="Event Timeout (seconds)",
+                                       required=True
+                                       )
+
+    structure_guarded = forms.ChoiceField(label="Structure Guarded",
+                                          choices = (
+                                              ("application", "Application"),
+                                              ("container", "Container"),
+                                          ),
+                                          required=True,
+                                          initial="container"
+                                          )
+
+    control_policy = forms.ChoiceField(label="Control policy",
+                                      choices = (
+                                          ("ppe-proportional", "PPE-Proportional"),
+                                          ("model-boosted", "PPE boosted by power models"),
+                                      ),
+                                      required=True,
+                                      initial="ppe-proportional"
+                                      )
+
+    power_model = forms.CharField(label= "Power model name",
+                                        required=False
+                                        )
+
+    def __init__(self, *args, **kwargs):
+        super(EnergyControllerForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-energyControllerForm'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'services'
+        self.helper.layout = Layout(
+            Field('name', type="hidden", readonly=True),
+            Field('debug'),
+            Field('polling_frequency'),
+            Field('event_timeout'),
+            Field('structure_guarded'),
+            Field('window_delay'),
+            Field('window_timelapse'),
+            Field('control_policy'),
+            Field('power_model'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
             )
