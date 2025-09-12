@@ -13,7 +13,7 @@
 
         <!-- rows -->
         {% for resource,values in item.resources.items %}
-            {% if structure_type == "app" or structure_type == "container" and resource != "disk" or structure_type == "host" and resource != "disks" and resource != "cpu_cores" %}
+            {% if structure_type == "app" or structure_type == "user" or structure_type == "container" and resource != "disk" or structure_type == "host" and resource != "disks" and resource != "cpu_cores" %}
                 <!-- parentheses are not supported in jinja2 templates within a HTML template. However, the 'and' operator has a higher precedence than 'or', i.e., it 'binds more tightly' -->
                 <!-- this boolean condition evaluates as: (structure_type == "app") or (structure_type == "container" and resource != "disk") or (structure_type == "hosts" and resource != "disks" and resource != "cpu_cores") -->
                 <tr>

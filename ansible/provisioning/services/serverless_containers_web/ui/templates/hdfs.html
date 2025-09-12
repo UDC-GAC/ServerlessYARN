@@ -51,7 +51,7 @@
                     {% include 'functions/resources.html' with item=global_hdfs_app structure_type="app" %}
                     {% include 'functions/limits.html' with item=global_hdfs_app %}
 
-                    <a class="button" href="{% url 'structure_detail' global_hdfs_app.name %}">Full details</a>
+                    <a class="button" href="{% url 'structure_detail' global_hdfs_app.name 'structure' %}">Full details</a>
                 </div>
                 <HR>
                 <HR>

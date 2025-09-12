@@ -135,7 +135,7 @@ if __name__ == "__main__":
                     print("App {0} already exists".format(app_config['app']['name']))
                     continue
 
-            if (error == ""):
+            if error == "":
 
                 # files_dir = os.path.basename(app_config['app']['files_dir'])
                 # install_script = os.path.basename(app_config['app']['install_script'])
@@ -167,4 +167,13 @@ if __name__ == "__main__":
             else:
                 raise Exception(error)
 
+
+            if config.get("user", "") != "":
+                # Subscribe app to user
+                user_url = "http://{0}:{1}/user/clusters/{2}/{3}".format(general_config['server_ip'],general_config['orchestrator_port'], config["user"], app_name)
+                error_message = "Error adding app {0} to user {1}".format(app_name, config["user"])
+                error, _ = request_to_state_db(user_url, "put", error_message)
+                if error and "already subscribed" in error:
+                    print("App {0} is already subscribed to user {1} (or other user)".format(app_name, config["user"]))
+                    continue
             print("Added succesfully: {0}".format(app_config))

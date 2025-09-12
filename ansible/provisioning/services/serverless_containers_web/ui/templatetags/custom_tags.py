@@ -8,7 +8,8 @@ def get_view_list():
         ('index', 'Home'), 
         ('containers', 'Containers'), 
         ('hosts', 'Hosts'), 
-        ('apps', 'Apps'), 
+        ('apps', 'Apps'),
+        ('users', 'Users'),
         ('services', 'Services'), 
         ('rules', 'Rules')
     ]

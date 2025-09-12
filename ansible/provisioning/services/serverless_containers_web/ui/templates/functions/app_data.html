@@ -1,0 +1,20 @@
+<button class="accordion">{{ app.name }}</button>
+<div class="panel">
+    <p></p>
+    <!-- Guard state -->
+    <table class="data_table">
+        <tr>
+            {% include 'functions/switch.html' with switch_url=guard_switch|add:'_guard_switch' item_name=app.name switch_name="guard_switch" switch_prefix="guard" cell_name="Guard" state=app.guard on_state_label="Unguard" off_state_label="Guard" %}
+        </tr>
+        <tr>
+            <td>Guard Policy</td> <td>{{ app.guard_policy }}</td>
+        </tr>
+    </table>
+    <p></p>
+
+    {% include 'functions/resources.html' with item=app structure_type="app" %}
+    {% include 'functions/limits.html' with item=app %}
+
+    <a class="button" href="{% url 'structure_detail' app.name 'structure' %}">Full details</a>
+    <p></p>
+</div>

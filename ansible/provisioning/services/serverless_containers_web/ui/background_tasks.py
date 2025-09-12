@@ -1,7 +1,5 @@
 import time
 import subprocess
-from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host, add_disks_to_hosts, add_containers_to_inventory
-from ui.utils import request_to_state_db
 from celery import shared_task, chain, chord, group
 from celery.result import AsyncResult, allow_join_result
 import redis
@@ -9,7 +7,10 @@ import json
 import timeit
 import yaml
 import urllib
+from django.conf import settings
 
+from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host, add_disks_to_hosts, add_containers_to_inventory
+from ui.utils import request_to_state_db
 import ui.run_playbooks as run_playbooks
 
 config_path = "../../config/config.yml"
@@ -393,39 +394,27 @@ def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk, measure
         run_playbooks.add_disks(host_list, formatted_added_disks)
 
 @shared_task
-def add_app_task(full_url, put_field_data, app, app_files):
-
+def add_app_task(full_url, put_field_data, app, app_files, user=None):
     error_message = "Error adding app {0}".format(app)
     error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
 
-    if (not error):
-
-        ## TODO: discuss which of the following versions should be used
-        ## V1: send install_script, install_files, etc into create_app script as args
-        #if (app_files['install_script'] != ""):
-
-        app_dir = app_files['app_dir']
-        #files_dir = app_files['files_dir']
-        install_script = app_files['install_script']
-        install_files = app_files['install_files']
-        runtime_files = app_files['runtime_files']
-        output_dir = app_files['output_dir']
-        app_type = app_files['app_type']
-        app_jar = app_files['app_jar']
-
-        # argument_list = [app_dir, install_script, install_files, runtime_files, output_dir, app_type, app_jar]
-        # error_message = "Error creating app {0}".format(app)
-        # process_script("create_app", argument_list, error_message)
+    if not error:
         run_playbooks.create_app(app_files)
-
-        # ## V2: just send app name as argument for the script
-        # argument_list = [app]
-        # error_message = "Error creating app {0}".format(app)
-        # process_script("create_app", argument_list, error_message)
-
     else:
         raise Exception(error)
 
+    # If a user is specified subscribe app to user
+    if user and user != "":
+        parsed_url = urllib.parse.urlparse(full_url)
+        user_url = "{0}://{1}/user/clusters/{2}/{3}".format(parsed_url.scheme, parsed_url.netloc, user, app)
+        add_app_to_user_in_db(user_url, app, user)
+
+@shared_task
+def add_user_task(full_url, put_field_data, user):
+    error_message = "Error adding user {0}".format(user)
+    error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
+    if error:
+        raise Exception(error)
 
 def add_container_to_app_in_db(full_url, container, app):
     max_retries = 10
@@ -445,6 +434,25 @@ def add_container_to_app_in_db(full_url, container, app):
 
     if actual_try >= max_retries:
         raise Exception("Reached max tries when adding {0} to app {1}".format(container, app))
+
+def add_app_to_user_in_db(full_url, app, user):
+    max_retries = 10
+    actual_try = 0
+
+    while actual_try < max_retries:
+
+        error_message = "Error adding app {0} to user {1}".format(app, user)
+        error, response = request_to_state_db(full_url, "put", error_message)
+
+        if response != "":
+            if not error: break
+            elif response.status_code == 400 and "already subscribed" in error: break # App is already subscribed
+            else: raise Exception(error)
+
+        actual_try += 1
+
+    if actual_try >= max_retries:
+        raise Exception("Reached max tries when adding {0} to user {1}".format( app, user))
 
 
 @shared_task
@@ -1006,7 +1014,7 @@ def remove_host_task(full_url, host_name):
         raise Exception(error)
 
 @shared_task
-def remove_app_task(url, structure_type_url, app_name, container_list, app_files):
+def remove_app_task(url, structure_type_url, app_name, container_list, app_files, user=None):
 
     # first, remove all containers from app
     if len(container_list) > 0:
@@ -1033,10 +1041,18 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
 
         for container in container_list:
             full_url = url + "container/{0}/{1}".format(container['name'], app_name)
-            bind_path = ""
-            if 'disk_path' in container: bind_path = container['disk_path']
+            bind_path = container.get('disk_path', "")
             task = stop_app_on_container_task.delay(container['host'], container['name'], bind_path, app_name, app_files, "", timestamp)
             register_task(task.id, "stop_app_on_container_task")
+
+    # If app is associated with a user, desubscribe app from user
+    if user and user != "":
+        full_url = settings.BASE_URL + "/user/clusters/" + user + "/" + app_name + "/"
+        error_message = "Error removing app {0} from user {1}".format(app_name, user)
+        error, _ = request_to_state_db(full_url, "delete", error_message)
+
+        if error:
+            raise Exception(error)
 
     # then, actually remove app
     full_url = url + structure_type_url + "/" + app_name
@@ -1044,10 +1060,8 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
     error_message = "Error removing app {0}".format(app_name)
     error, _ = request_to_state_db(full_url, "delete", error_message)
 
-    if (error): raise Exception(error)
-
 @shared_task
-def remove_containers(url, container_list):
+def remove_containers_task(url, container_list):
 
     ## Disable scaler, remove all containers from StateDB and re-enable scaler
     # argument_list = []
@@ -1129,6 +1143,24 @@ def remove_containers_from_app(url, container_list, app, app_files, scaler_polli
     #register_task(stop_group_task.id,"stop_containers_task")
 
     if len(errors) > 0: raise Exception(str(errors))
+
+@shared_task
+def remove_users_task(url, users):
+    run_playbooks.disable_scaler()
+
+    errors = []
+    for user_name in users:
+        full_url = "{0}/{1}".format(url, user_name)
+        error_message = "Error removing user {0}".format(user_name)
+        error, _ = request_to_state_db(full_url, "delete", error_message)
+        if error != "":
+            errors.append(error)
+
+
+    run_playbooks.enable_scaler()
+
+    if len(errors) > 0:
+        raise Exception(str(errors))
 
 def remove_container_from_db(full_url, container_name):
 

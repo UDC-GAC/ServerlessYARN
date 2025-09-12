@@ -20,7 +20,7 @@
                 <div class="panel">
                     <p></p>
                     {% include 'functions/resources.html' with item=item structure_type="host" %}
-                    <a class="button" href="{% url 'structure_detail' item.name %}">Full details</a>
+                    <a class="button" href="{% url 'structure_detail' item.name 'structure' %}">Full details</a>
                 </div>
                 <HR>
                 <HR>

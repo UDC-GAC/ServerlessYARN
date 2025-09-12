@@ -2,6 +2,14 @@ import requests
 import json
 from bs4 import BeautifulSoup
 
+# TODO: set and get values from config
+# TODO: set max loads more accurately
+MAX_DISK_LOAD_DICT = {
+    "HDD": 1,
+    "SSD": 4,
+    "LVM": 20
+}
+
 DEFAULT_APP_VALUES = {
     "install_script": "install.sh",
     "start_script": "start.sh",
@@ -34,6 +42,10 @@ DEFAULT_SERVICE_PARAMETERS = {
 }
 
 DEFAULT_HEADERS = {'Content-Type': 'application/json'}
+
+SUPPORTED_RESOURCES = {"cpu", "mem", "disk_read", "disk_write", "net", "energy"}
+
+EXCLUDED_VALUES_LABELS = {"cpu_cores", "alloc_ratio", "rebalanced"}
 
 def request_to_state_db(url, operation, error_message, data=None, headers=DEFAULT_HEADERS, session=None):
 

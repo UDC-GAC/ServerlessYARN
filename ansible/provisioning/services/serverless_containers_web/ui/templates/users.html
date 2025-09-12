@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block page_content %}
+
+<!-- Menu -->
+{% include 'functions/menu.html' with config=config active="users" %}
+
+<div class="content">
+
+    <H4>Users</H4>
+
+    <!-- Requests -->
+    {% include 'functions/alerts.html' with requests=requests %}
+
+    <!-- Apps -->
+    <ul id="tabs">
+        {% for item in data %}
+        <li>
+            <button class="accordion">{{ item.name }}</button>
+            <div class="panel">
+                <p></p>
+                <table class="data_table">
+
+                    {% if item.balancing_method %} <tr><td>Balancing method</td> <td>{{ item.balancing_method }}</td></tr> {% endif %}
+
+                </table>
+                <p></p>
+
+                {% include 'functions/resources.html' with item=item structure_type="user" %}
+
+                <a class="button" href="{% url 'structure_detail' item.name 'user' %}">Full details</a>
+            </div>
+            <HR>
+            <HR>
+
+            <!-- User apps -->
+            Applications:
+            {% for app in item.apps_full %}
+            {% include 'functions/app_data.html' with guard_switch="users" app=app %}
+            {% endfor %}
+
+            <!-- Forms -->
+            <p></p>
+            {% include 'functions/form.html' with form_id="add-app-to-"|add:item.name button_name="Add app" form_title="Add app to user "|add:item.name form=item.add_app_form %}
+
+        </li>
+        {% endfor %}
+    </ul>
+
+    {% include 'functions/form.html' with form_id="add-user"        button_name="Add User"        form_title="Add User"         form=addStructureForm.user %}
+    {% include 'functions/form.html' with form_id="remove-users"    button_name="Remove Users"    form_title="Remove Users"     form=removeStructuresForm %}
+
+</div>
+<HR>
+
+{% endblock %}

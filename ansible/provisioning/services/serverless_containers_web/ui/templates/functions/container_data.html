@@ -15,6 +15,6 @@
     {% include 'functions/resources.html' with item=cont structure_type="container" %}
     {% include 'functions/limits.html' with item=cont %}
 
-    <a class="button" href="{% url 'structure_detail' cont.name %}">Full details</a>
+    <a class="button" href="{% url 'structure_detail' cont.name 'structure' %}">Full details</a>
     <p></p>
 </div>

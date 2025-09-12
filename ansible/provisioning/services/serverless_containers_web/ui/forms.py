@@ -132,6 +132,7 @@ class HostResourcesForm(forms.Form):
                 ("application", "Application"),
                 ("container", "Container"),
                 ("host", "Host"),
+                ("user", "User")
                 ),
             initial="host",
             required=True
@@ -179,6 +180,7 @@ class StructureResourcesForm(forms.Form):
                 ("application", "Application"),
                 ("container", "Container"),
                 ("host", "Host"),
+                ("user", "User")
                 ),
             required=True
             )
@@ -199,6 +201,53 @@ class StructureResourcesForm(forms.Form):
     weight = forms.IntegerField(label="Weight",
             required=False
             )
+
+class UserResourcesFormSetHelper(FormHelper):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.form_method = 'post'
+        self.form_id = 'id-userresourcesForm'
+        self.form_class = 'form-group'
+        self.form_method = 'post'
+        self.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('name', type="hidden", readonly=True),
+            Field('structure_type', type="hidden", readonly=True),
+            Field('resource', readonly=True),
+            Field('max'),
+            Field('min'),
+            FormActions(
+                Submit('save-resources-', 'Save changes', css_class='caja'),
+            )
+        )
+        self.render_required_fields = True
+
+class UserResourcesForm(forms.Form):
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "resources"
+    name = common_fields['name']
+
+    resource = forms.CharField(label="Resource",
+                               required=True
+                               )
+    structure_type = forms.ChoiceField(label="Type",
+                                       choices = (
+                                           ("application", "Application"),
+                                           ("container", "Container"),
+                                           ("host", "Host"),
+                                           ("user", "User")
+                                       ),
+                                       required=True,
+                                       initial="user"
+                                       )
+
+    max = forms.IntegerField(label="Maximum",
+                             required=True
+                             )
+    min = forms.IntegerField(label="Minimum",
+                             required=True
+                             )
 
 class LimitsForm(forms.Form):
     common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
@@ -303,7 +352,7 @@ class AddHostForm(forms.Form):
     operation = common_fields['operation']
     operation.initial = "add"
     structure_type = common_fields['structure_type']
-    structure_type.initial = "host"
+    structure_type.initial = "hosts"
     name = common_fields['name']
 
     cpu_max = common_fields['cpu_max']
@@ -433,7 +482,7 @@ class AddContainersForm(forms.Form):
     operation = common_fields['operation']
     operation.initial = "add"
     structure_type = common_fields['structure_type']
-    structure_type.initial = "container"
+    structure_type.initial = "containers"
     name = common_fields['name']
 
     # Resources
@@ -477,7 +526,7 @@ class AddContainersForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super(AddContainersForm, self).__init__(*args, **kwargs)
-        self.helper = FormHelper()            
+        self.helper = FormHelper()
         self.helper.form_id = 'id-addcontainerform'
         self.helper.form_class = 'form-group'
         self.helper.form_method = 'post'
@@ -557,6 +606,67 @@ class AddNContainersForm(forms.Form):
             required=True
             )
 
+class AddUserForm(forms.Form):
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    operation = common_fields['operation']
+    operation.initial = "add"
+    structure_type = common_fields['structure_type']
+    structure_type.initial = "users"
+    name = common_fields['name']
+
+    # Resources
+    cpu_max = common_fields['cpu_max']
+    cpu_min = common_fields['cpu_min']
+
+    mem_max = common_fields['mem_max']
+    mem_min = common_fields['mem_min']
+
+    disk_read_max = common_fields['disk_read_max']
+    disk_read_min = common_fields['disk_read_min']
+    disk_write_max = common_fields['disk_write_max']
+    disk_write_min = common_fields['disk_write_min']
+
+    energy_max = common_fields['energy_max']
+    energy_min = common_fields['energy_min']
+
+    balancing_method = forms.ChoiceField(label="Balancing method",
+                                         choices = (
+                                             ("pair_swapping", "Pair swapping"),
+                                             ("pair_swapping", "Weights (not supported)"),
+                                         ),
+                                         required=False
+                                         )
+
+    def __init__(self, *args, **kwargs):
+        super(AddUserForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-adduserform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'users'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('structure_type', type="hidden", readonly=True),
+            Field('name'),
+            Field('balancing_method'),
+            Field('cpu_max'),
+            Field('cpu_min'),
+            Field('mem_max'),
+            Field('mem_min'),
+        )
+
+        if config['disk_capabilities'] and config['disk_scaling']:
+            self.helper.layout.append(Field('disk_read_max'))
+            self.helper.layout.append(Field('disk_read_min'))
+            self.helper.layout.append(Field('disk_write_max'))
+            self.helper.layout.append(Field('disk_write_min'))
+        if config['power_budgeting']:
+            self.helper.layout.append(Field('energy_max'))
+            self.helper.layout.append(Field('energy_min'))
+
+        # Submit button
+        self.helper.layout.append(FormActions(Submit('save', 'Add user', css_class='caja')))
+
 class AddAppForm(forms.Form):
     common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
     operation = common_fields['operation']
@@ -564,6 +674,7 @@ class AddAppForm(forms.Form):
     structure_type = common_fields['structure_type']
     structure_type.initial = "apps"
     name = common_fields['name']
+    user = forms.CharField(label="User (Optional)", required=False)
 
     # Resources
     cpu_max = common_fields['cpu_max']
@@ -628,6 +739,7 @@ class AddAppForm(forms.Form):
             Field('operation', type="hidden", readonly=True),
             Field('structure_type', type="hidden", readonly=True),
             Field('name'),
+            Field('user'),
             Field('cpu_max'),
             Field('cpu_min'),
             Field('cpu_weight'),
@@ -953,7 +1065,7 @@ class DBSnapshoterForm(forms.Form):
             )
         )
 
-# CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 10, "WINDOW_DELAY": 10, "EVENT_TIMEOUT": 40, "DEBUG": True, "STRUCTURE_GUARDED": "container", "GUARDABLE_RESOURCES": ["cpu"], "CPU_SHARES_PER_WATT": 5, "ACTIVE": True}
+# CONFIG_DEFAULT_VALUES = {"WINDOW_TIMELAPSE": 10, "WINDOW_DELAY": 10, "EVENT_TIMEOUT": 40, "DEBUG": True, "STRUCTURE_GUARDED": "container", "GUARDABLE_RESOURCES": ["cpu"], "ACTIVE": True}
 class GuardianForm(forms.Form):
     common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
     name = common_fields['name']
@@ -961,9 +1073,6 @@ class GuardianForm(forms.Form):
     window_delay = common_fields['window_delay']
     window_timelapse = common_fields['window_timelapse']
 
-    cpu_shares_per_watt = forms.IntegerField(label="Cpu Shares per Watt",
-            required=False
-            )
     event_timeout = forms.IntegerField(label="Event Timeout (seconds)",
             required=True
             )
@@ -988,13 +1097,6 @@ class GuardianForm(forms.Form):
             initial="container"
             )
 
-    energy_model_name = forms.CharField(label= "Energy model name",
-            required=False
-            )
-    use_energy_model = forms.BooleanField(label= "Use energy model?",
-            required=False
-            )
-
     def __init__(self, *args, **kwargs):
         super(GuardianForm, self).__init__(*args, **kwargs)
         self.helper = FormHelper()            
@@ -1004,7 +1106,6 @@ class GuardianForm(forms.Form):
         self.helper.form_action = 'services'
         self.helper.layout = Layout(
             Field('name', type="hidden", readonly=True),
-            Field('cpu_shares_per_watt'),
             Field('debug'),
             Field('event_timeout'),
             Field('guardable_resources'),
@@ -1015,10 +1116,6 @@ class GuardianForm(forms.Form):
                 Submit('save', 'Save changes', css_class='caja'),
             )    
         )
-
-        if config['power_budgeting']:
-            self.helper.layout.append(Field('energy_model_name'))
-            self.helper.layout.append(Field('use_energy_model'))
 
 # CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 5, "REQUEST_TIMEOUT": 60, "self.debug": True, "CHECK_CORE_MAP": True, "ACTIVE": True}
 class ScalerForm(forms.Form):
