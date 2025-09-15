@@ -54,7 +54,7 @@ def setRemoveContainersFromAppForm(app, containers, form_action):
         disk_path = ""
         if 'disk' in container['resources']:
             disk_path = container['resources']['disk']['path']
-        removeContainersFromAppForm.fields['containers_removed'].choices.append(((container['name'],container['host'],disk_path),container['name']))
+        removeContainersFromAppForm.fields['selected_structures'].choices.append(((container['name'],container['host'],disk_path),container['name']))
 
     app['remove_containers_from_app_form'] = removeContainersFromAppForm
     app['remove_containers_from_app_editable_data'] = editable_data

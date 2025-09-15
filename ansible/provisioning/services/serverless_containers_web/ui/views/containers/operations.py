@@ -96,9 +96,9 @@ def processAddContainers(request, url, **kwargs):
     return error
 
 
-def processRemoveContainers(url, containers):
+def processRemoveContainers(request, url, **kwargs):
     container_list = []
-    for container in containers:
+    for container in kwargs["selected_structures"]:
         cont_host = container.strip("(").strip(")").split(',')
         container = cont_host[0].strip().strip("'")
         host = cont_host[1].strip().strip("'")

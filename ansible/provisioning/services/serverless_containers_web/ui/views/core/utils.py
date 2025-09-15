@@ -223,10 +223,10 @@ def setRemoveStructureForm(structures, form_action):
     removeStructuresForm.helper.form_action = form_action
 
     for structure in structures:
-        if (form_action == "containers"):
-            removeStructuresForm.fields['structures_removed'].choices.append(((structure['name'],structure['host']),structure['name']))
+        if form_action == "containers":
+            removeStructuresForm.fields['selected_structures'].choices.append(((structure['name'],structure['host']),structure['name']))
         else:
-            removeStructuresForm.fields['structures_removed'].choices.append((structure['name'],structure['name']))
+            removeStructuresForm.fields['selected_structures'].choices.append((structure['name'],structure['name']))
 
     return removeStructuresForm
 
@@ -425,6 +425,6 @@ def getAppFiles(app):
         'install_script': os.path.basename(app['install_script']),
         'start_script': os.path.basename(app['start_script']),
         'stop_script': os.path.basename(app['stop_script']),
-        'app_jar': os.path.basename(app['app_jar'])
-        #'app_dir': os.path.dirname(app['start_script'])
+        'app_jar': os.path.basename(app['app_jar']),
+        'app_dir': os.path.dirname(app['start_script'])
     }

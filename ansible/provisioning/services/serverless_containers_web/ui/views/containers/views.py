@@ -7,9 +7,13 @@ from ui.views.containers.operations import getContainers, processAddContainers, 
 # ------------------------------------ Containers views ------------------------------------
 
 def containers(request):
-    add_operation, rm_operation, get_operation = processAddContainers, processRemoveContainers, getContainers
+    operations = {
+        "add": processAddContainers,
+        "remove": processRemoveContainers,
+        "get": getContainers
+    }
 
-    request, html_render, context, errors = processStructures(request, "containers", "containers.html", add_operation, rm_operation, get_operation)
+    request, html_render, context, errors = processStructures(request, "containers", "containers.html", operations)
     if request and html_render and context:
         return render(request, html_render, context)
 

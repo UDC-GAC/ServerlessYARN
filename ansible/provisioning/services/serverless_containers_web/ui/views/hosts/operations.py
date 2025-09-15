@@ -161,11 +161,9 @@ def processAddDisksToHosts(request, url, **kwargs):
     return error
 
 
-def processRemoveHosts(url, hosts):
-
+def processRemoveHosts(request, url, **kwargs):
     structure_type_url = "host"
-
-    for host in hosts:
+    for host in kwargs["selected_structures"]:
         container_list = getContainersFromHost(url, host)
         container_list = ["({0},{1})".format(container, host) for container in container_list]
 

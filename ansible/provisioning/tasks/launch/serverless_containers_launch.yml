@@ -14,7 +14,7 @@
     executable: /bin/bash
 
 - name: Initializing State Database - create other tables
-  when: "'events' not in couchdb_tables.stdout and 'requests' not in couchdb_tables.stdout and 'limits' not in couchdb_tables.stdout and 'structures' not in couchdb_tables.stdout"
+  when: "'events' not in couchdb_tables.stdout and 'requests' not in couchdb_tables.stdout and 'limits' not in couchdb_tables.stdout and 'structures' not in couchdb_tables.stdout and 'users' not in couchdb_tables.stdout"
   shell: python3 conf/StateDatabase/other_tables.py
   args:
     chdir: "{{ serverless_containers_path }}"

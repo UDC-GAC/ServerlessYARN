@@ -13,7 +13,7 @@ from ui.background_tasks import get_pending_tasks_messages, register_task, remov
 from ui.views.core.utils import setRemoveStructureForm, getScalerPollFreq
 
 
-def processStructures(request, structure_type, html_render, add_operation, rm_operation, get_operation):
+def processStructures(request, structure_type, html_render, operations):
     users_url = settings.BASE_URL + "/user/"
     structures_url = settings.BASE_URL + "/structure/"
     url = users_url if structure_type == "users" else structures_url
@@ -22,13 +22,11 @@ def processStructures(request, structure_type, html_render, add_operation, rm_op
         errors = []
         resources_errors = processResources(request, url)
         limits_errors = processLimits(request, url)
-        add_errors = processAdds(request, url, add_operation)
-        removes_errors = processRemoves(request, url, rm_operation)
+        operation_errors = processOperations(request, url, operations)
 
         if resources_errors: errors += resources_errors
         if limits_errors: errors += limits_errors
-        if add_errors: errors += add_errors
-        if removes_errors: errors += removes_errors
+        if operation_errors: errors += operation_errors
 
         return None, None, None, errors
 
@@ -57,9 +55,9 @@ def processStructures(request, structure_type, html_render, add_operation, rm_op
         except urllib.error.HTTPError:
             structures_json = {}
 
-        structures, addStructureForm = get_operation(data_json, structures_json)
+        structures, addStructureForm = operations["get"](data_json, structures_json)
     else:
-        structures, addStructureForm = get_operation(data_json)
+        structures, addStructureForm = operations["get"](data_json)
 
 
 
@@ -158,66 +156,18 @@ def processLimitsBoundary(request, url, structure_name, resource):
     return error
 
 
-def processAdds(request, url, add_operation):
+def processOperations(request, url, operations):
     errors = []
-    if "operation" in request.POST and request.POST["operation"] == "add":
+    if "operation" in request.POST:
         kwargs = {
             "structure_name": request.POST.get("name", None),
             "host_list": request.POST.get('host_list', None),
+            "selected_structures": request.POST.getlist('selected_structures', None)
         }
-        error = add_operation(request, url, **kwargs)
+
+        error = operations.get(request.POST["operation"], lambda: "Operation not found")(request, url, **kwargs)
 
         if error and len(error) > 0:
             errors.append(error)
 
     return errors
-
-
-def processRemoves(request, url, rm_operation):
-    errors = []
-    if "operation" in request.POST and request.POST["operation"] == "remove":
-        if "structures_removed" in request.POST:
-            structures_to_remove = request.POST.getlist('structures_removed', None)
-            error = rm_operation(url, structures_to_remove)
-            if error and len(error) > 0:
-                errors.append(error)
-
-        elif "containers_removed" in request.POST:
-            ## Remove containers from app scenario
-            containers_to_remove = request.POST.getlist('containers_removed', None)
-            app = request.POST['app']
-            app_files = {
-                'runtime_files': os.path.basename(request.POST['runtime_files']),
-                'output_dir': os.path.basename(request.POST['output_dir']),
-                'install_script': os.path.basename(request.POST['install_script']),
-                'start_script': os.path.basename(request.POST['start_script']),
-                'stop_script': os.path.basename(request.POST['stop_script']),
-                'app_dir': os.path.dirname(request.POST['start_script']),
-                'app_jar': os.path.basename(request.POST['app_jar']) if 'app_jar' in request.POST else ""
-            }
-
-            error = processRemoveContainersFromApp(url, containers_to_remove, app, app_files)
-            if len(error) > 0:
-                errors.append(error)
-
-    return errors
-
-
-def processRemoveContainersFromApp(url, container_host_duples, app, app_files):
-    container_list = []
-    for cont_hosts in container_host_duples:
-        cont_host = cont_hosts.strip("(").strip(")").split(',')
-        container = cont_host[0].strip().strip("'")
-        host = cont_host[1].strip().strip("'")
-        disk_path = cont_host[2].strip().strip("'")
-
-        container_list.append({'container_name': container, 'host': host, 'disk_path': disk_path})
-
-    scaler_polling_freq = getScalerPollFreq()
-
-    task = remove_containers_from_app.delay(url, container_list, app, app_files, scaler_polling_freq)
-    print("Starting task with id {0}".format(task.id))
-    register_task(task.id,"remove_containers_from_app")
-
-    error = ""
-    return error

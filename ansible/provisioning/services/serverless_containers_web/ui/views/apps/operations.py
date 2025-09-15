@@ -6,9 +6,8 @@ import functools
 from django.conf import settings
 
 from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, DEFAULT_HDFS_VALUES, SUPPORTED_RESOURCES
-from ui.background_tasks import register_task, add_app_task, start_app_task, start_hadoop_app_task, remove_app_task
+from ui.background_tasks import register_task, add_app_task, start_app_task, start_hadoop_app_task, remove_app_task, remove_containers_from_app
 from ui.views.core.utils import getHostsNames, getLimits, getHostFreeDiskLoad, getScalerPollFreq, setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels, compareStructureNames, retrieve_global_hdfs_app, getDataAndFilterByApp, getContainersFromApp, getAppFiles
-from ui.views.core.operations import processRemoveContainersFromApp
 from ui.views.apps.utils import getAppInfo, getContainerResourcesForApp, getContainerAssignationForApp, setStartAppForm, setRemoveContainersFromAppForm, setAddAppForm, checkAppUser
 
 
@@ -379,18 +378,17 @@ def processStopApp(url, structure_name):
             disk_path = container['resources']['disk']['path']
 
         container_list.append("({0},{1},{2})".format(container['name'],container['host'], disk_path))
-
-    error = processRemoveContainersFromApp(url, container_list, structure_name, app_files)
+    kwargs = {"containers_removed": container_list, "app": structure_name, "app_files": app_files}
+    error = processRemoveContainersFromApp(None, url, **kwargs)
     if len(error) > 0:
         errors.append(error)
 
     return errors
 
 
-def processRemoveApps(url, apps):
+def processRemoveApps(request, url, **kwargs):
     structure_type_url = "apps"
-
-    for app_name in apps:
+    for app_name in kwargs["selected_structures"]:
         # Get structures data
         data, app = getDataAndFilterByApp(url, app_name)
         app_containers = getContainersFromApp(data, app)
@@ -399,3 +397,40 @@ def processRemoveApps(url, apps):
         task = remove_app_task.delay(url, structure_type_url, app_name, app_containers, app_files, user)
         print("Starting task with id {0}".format(task.id))
         register_task(task.id, "remove_app_task")
+
+
+def processRemoveContainersFromApp(request, url, **kwargs):
+    if request:
+        container_host_duples = request.POST.getlist('containers_removed', None)
+        app = request.POST['app']
+        app_files = {
+            'runtime_files': os.path.basename(request.POST['runtime_files']),
+            'output_dir': os.path.basename(request.POST['output_dir']),
+            'install_script': os.path.basename(request.POST['install_script']),
+            'start_script': os.path.basename(request.POST['start_script']),
+            'stop_script': os.path.basename(request.POST['stop_script']),
+            'app_dir': os.path.dirname(request.POST['start_script']),
+            'app_jar': os.path.basename(request.POST['app_jar']) if 'app_jar' in request.POST else ""
+        }
+    else:
+        container_host_duples = kwargs["containers_removed"]
+        app = kwargs["app"]
+        app_files = kwargs["app_files"]
+
+    container_list = []
+    for cont_hosts in container_host_duples:
+        cont_host = cont_hosts.strip("(").strip(")").split(',')
+        container = cont_host[0].strip().strip("'")
+        host = cont_host[1].strip().strip("'")
+        disk_path = cont_host[2].strip().strip("'")
+
+        container_list.append({'container_name': container, 'host': host, 'disk_path': disk_path})
+
+    scaler_polling_freq = getScalerPollFreq()
+
+    task = remove_containers_from_app.delay(url, container_list, app, app_files, scaler_polling_freq)
+    print("Starting task with id {0}".format(task.id))
+    register_task(task.id,"remove_containers_from_app")
+
+    error = ""
+    return error

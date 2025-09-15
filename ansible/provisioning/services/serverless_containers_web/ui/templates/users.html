@@ -42,6 +42,8 @@
             <!-- Forms -->
             <p></p>
             {% include 'functions/form.html' with form_id="add-app-to-"|add:item.name button_name="Add app" form_title="Add app to user "|add:item.name form=item.add_app_form %}
+            {% include 'functions/form.html' with form_id="subscribe-apps-to-"|add:item.name button_name="Subscribe apps" form_title="Subscribe apps to user "|add:item.name form=item.subscribe_app_form %}
+            {% include 'functions/form.html' with form_id="desubscribe-apps-from-"|add:item.name button_name="Desubscribe apps" form_title="Desubscribe apps from user "|add:item.name form=item.desubscribe_app_form %}
 
         </li>
         {% endfor %}

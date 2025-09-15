@@ -328,23 +328,23 @@ class RemoveStructureForm(forms.Form):
     operation = common_fields['operation']
     operation.initial = "remove"
 
-    structures_removed = forms.MultipleChoiceField(label="Structures Removed",
+    selected_structures = forms.MultipleChoiceField(label="Structures to remove",
             choices = (),
             widget=forms.CheckboxSelectMultiple,
             required=False
             )
     def __init__(self, *args, **kwargs):
         super(RemoveStructureForm, self).__init__(*args, **kwargs)
-        self.helper = FormHelper()            
+        self.helper = FormHelper()
         self.helper.form_id = 'id-removestructureform'
         self.helper.form_class = 'form-group'
         self.helper.form_method = 'post'
         self.helper.layout = Layout(
             Field('operation', type="hidden", readonly=True),
-            Field('structures_removed'),
+            Field('selected_structures'),
             FormActions(
                 Submit('save', 'Remove structures', css_class='caja'),
-            )    
+            )
         )
 
 class AddHostForm(forms.Form):
@@ -667,6 +667,60 @@ class AddUserForm(forms.Form):
         # Submit button
         self.helper.layout.append(FormActions(Submit('save', 'Add user', css_class='caja')))
 
+
+class SubscribeAppForm(forms.Form):
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    name = common_fields['name']
+    operation = common_fields['operation']
+    operation.initial = "subscribe"
+    selected_structures = forms.MultipleChoiceField(label="Available applications",
+                                                   choices = (),
+                                                   widget=forms.CheckboxSelectMultiple,
+                                                   required=False
+                                                   )
+    def __init__(self, *args, **kwargs):
+        super(SubscribeAppForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-subscribeappform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'users'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('name'),
+            Field('selected_structures'),
+            FormActions(
+                Submit('save', 'Subscribe apps', css_class='caja'),
+            )
+        )
+
+class DesubscribeAppForm(forms.Form):
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    name = common_fields['name']
+    operation = common_fields['operation']
+    operation.initial = "desubscribe"
+    selected_structures = forms.MultipleChoiceField(label="User applications",
+                                                        choices = (),
+                                                        widget=forms.CheckboxSelectMultiple,
+                                                        required=False
+                                                        )
+    def __init__(self, *args, **kwargs):
+        super(DesubscribeAppForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-desubscribeappform'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'users'
+        self.helper.layout = Layout(
+            Field('operation', type="hidden", readonly=True),
+            Field('name'),
+            Field('selected_structures'),
+            FormActions(
+                Submit('save', 'Desubscribe apps', css_class='caja'),
+            )
+        )
+
+
 class AddAppForm(forms.Form):
     common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
     operation = common_fields['operation']
@@ -874,7 +928,7 @@ class AddHadoopAppForm(AddAppForm):
 class StartAppForm(forms.Form):
     common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
     operation = common_fields['operation']
-    operation.initial = "add"
+    operation.initial = "start"
     structure_type = common_fields['structure_type']
     structure_type.initial = "containers_to_app"
     name = common_fields['name']
@@ -986,12 +1040,12 @@ class AddContainersToAppForm(forms.Form):
 class RemoveContainersFromAppForm(forms.Form):
     common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
     operation = common_fields['operation']
-    operation.initial = "remove"
+    operation.initial = "desubscribe"
 
     app = forms.CharField(label= "App",
             required=True
             )
-    containers_removed = forms.MultipleChoiceField(label="Structures Removed",
+    selected_structures = forms.MultipleChoiceField(label="Structures Removed",
             choices = (),
             widget=forms.CheckboxSelectMultiple,
             required=False
@@ -1013,7 +1067,7 @@ class RemoveContainersFromAppForm(forms.Form):
         self.helper.layout = Layout(
             Field('operation', type="hidden", readonly=True),
             Field('app', type="hidden", readonly=True),
-            Field('containers_removed'),
+            Field('selected_structures'),
             #Field('files_dir',type="hidden", readonly=True),
             Field('runtime_files',type="hidden", readonly=True),
             Field('output_dir',type="hidden", readonly=True),

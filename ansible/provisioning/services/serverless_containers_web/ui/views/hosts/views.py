@@ -7,11 +7,15 @@ from ui.views.hosts.operations import getHosts, processAddDisksToHosts, processA
 # ------------------------------------ Hosts views ------------------------------------
 
 def hosts(request):
-    add_operation, rm_operation, get_operation = processAddHost, processRemoveHosts, getHosts
+    operations = {
+        "add": processAddHost,
+        "remove": processRemoveHosts,
+        "get": getHosts
+    }
     if request.POST.get('structure_type', "") == "disks_to_hosts":
         add_operation, rm_operation, get_operation = processAddDisksToHosts, processRemoveHosts, getHosts
 
-    request, html_render, context, errors = processStructures(request, "hosts", "hosts.html", add_operation, rm_operation, get_operation)
+    request, html_render, context, errors = processStructures(request, "hosts", "hosts.html", operations)
     if request and html_render and context:
         return render(request, html_render, context)
 

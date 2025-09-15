@@ -407,7 +407,7 @@ def add_app_task(full_url, put_field_data, app, app_files, user=None):
     if user and user != "":
         parsed_url = urllib.parse.urlparse(full_url)
         user_url = "{0}://{1}/user/clusters/{2}/{3}".format(parsed_url.scheme, parsed_url.netloc, user, app)
-        add_app_to_user_in_db(user_url, app, user)
+        manage_app_with_user_in_db(user_url, app, user, "put")
 
 @shared_task
 def add_user_task(full_url, put_field_data, user):
@@ -415,6 +415,20 @@ def add_user_task(full_url, put_field_data, user):
     error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
     if error:
         raise Exception(error)
+
+@shared_task
+def subscribe_apps_to_user(url, user_name, user_apps):
+    # Subscribe containers to app in ServerlessContainers database
+    for app_name in user_apps:
+        full_url = url + "clusters/{0}/{1}".format(user_name, app_name)
+        manage_app_with_user_in_db(full_url, user_name, app_name, "put")
+
+@shared_task
+def desubscribe_apps_from_user(url, user_name, user_apps):
+    # Subscribe containers to app in ServerlessContainers database
+    for app_name in user_apps:
+        full_url = url + "clusters/{0}/{1}".format(user_name, app_name)
+        manage_app_with_user_in_db(full_url, user_name, app_name, "delete")
 
 def add_container_to_app_in_db(full_url, container, app):
     max_retries = 10
@@ -435,25 +449,27 @@ def add_container_to_app_in_db(full_url, container, app):
     if actual_try >= max_retries:
         raise Exception("Reached max tries when adding {0} to app {1}".format(container, app))
 
-def add_app_to_user_in_db(full_url, app, user):
+def manage_app_with_user_in_db(full_url, app, user, operation):
     max_retries = 10
     actual_try = 0
 
     while actual_try < max_retries:
 
         error_message = "Error adding app {0} to user {1}".format(app, user)
-        error, response = request_to_state_db(full_url, "put", error_message)
+        error, response = request_to_state_db(full_url, operation, error_message)
 
         if response != "":
-            if not error: break
-            elif response.status_code == 400 and "already subscribed" in error: break # App is already subscribed
-            else: raise Exception(error)
+            if not error:
+                break
+            if response.status_code == 400:
+                if "already subscribed" in error or "missing in" in error: # App is already subscribed/desubscribed
+                    break
+            raise Exception(error)
 
         actual_try += 1
 
     if actual_try >= max_retries:
         raise Exception("Reached max tries when adding {0} to user {1}".format( app, user))
-
 
 @shared_task
 def wait_for_app_on_container_task(host, container, app):
@@ -1097,26 +1113,21 @@ def remove_containers_task(url, container_list):
 def remove_containers_from_app(url, container_list, app, app_files, scaler_polling_freq):
 
     # Disable scaler before removing containers
-    # argument_list = []
-    # error_message = "Error disabling scaler"
-    # process_script("disable_scaler", argument_list, error_message)
     run_playbooks.disable_scaler()
 
-    # Remove containers from StateDB
+    # Desubscribe containers from app in StateDB
     start_time = timeit.default_timer()
     errors = []
     for container in container_list:
         full_url = url + "container/{0}/{1}".format(container['container_name'],app)
         error = remove_container_from_app_db(full_url, container['container_name'], app)
-        if error != "": errors.append(error)
+        if error != "":
+            errors.append(error)
     end_time = timeit.default_timer()
 
     ## Wait at least for the scaler polling frequency time before re-enabling it
     time.sleep(scaler_polling_freq - (end_time - start_time))
 
-    # argument_list = []
-    # error_message = "Error re-enabling scaler"
-    # process_script("enable_scaler", argument_list, error_message)
     # Re-enable Scaler
     run_playbooks.enable_scaler()
 
@@ -1142,7 +1153,8 @@ def remove_containers_from_app(url, container_list, app, app_files, scaler_polli
     #stop_group_task = group(stop_containers_task)()
     #register_task(stop_group_task.id,"stop_containers_task")
 
-    if len(errors) > 0: raise Exception(str(errors))
+    if len(errors) > 0:
+        raise Exception(str(errors))
 
 @shared_task
 def remove_users_task(url, users):
@@ -1214,22 +1226,7 @@ def stop_container(host, container_name, bind_path):
 
 @shared_task
 def stop_app_on_container_task(host, container_name, bind_path, app, app_files, rm_container, timestamp=None):
-
-    ## Stop app on container
-    app_dir = app_files['app_dir']
-    #files_dir = app_files['files_dir']
-    runtime_files = app_files['runtime_files']
-    output_dir = app_files['output_dir']
-    install_script = app_files['install_script']
-    start_script = app_files['start_script']
-    stop_script = app_files['stop_script']
-    app_jar = app_files['app_jar']
-
-    # argument_list = [host, container_name, app, app_dir, runtime_files, output_dir, install_script, start_script, stop_script, app_jar, bind_path, rm_container]
-    # error_message = "Error stopping app {0} on container {1}".format(app, container_name)
-    # process_script("stop_app_on_container", argument_list, error_message)
     run_playbooks.stop_app_on_container(host, container_name, app, app_files, rm_container, bind_path, timestamp)
-
     stop_container(host, container_name, bind_path)
 
 

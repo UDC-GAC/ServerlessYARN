@@ -2,34 +2,46 @@ import functools
 
 from ui.utils import SUPPORTED_RESOURCES
 
-from ui.background_tasks import register_task, add_user_task, remove_users_task
+from ui.background_tasks import register_task, add_user_task, subscribe_apps_to_user, desubscribe_apps_from_user, remove_users_task
 
 from ui.views.core.utils import getStructuresValuesLabels, getLimits, setStructureResourcesForm, setLimitsForm, compareStructureNames
-from ui.views.users.utils import setAddAppToUserForm, setAddUserForm
+from ui.views.users.utils import setAddAppToUserForm, setSubscriptionManagementForm, setAddUserForm
 
 
 def getUsers(data, structures):
+    # Associate apps with users or set as available
+    available_apps, subscribed_apps = [], {}
+    for structure in structures:
+        if structure['subtype'] == 'application':
+            app_subscribed = False
+            for item in data:
+                if item['subtype'] == 'user' and structure['name'] in item['clusters']:
+                    subscribed_apps.setdefault(item['name'], []).append(structure)
+                    app_subscribed = True
+                    break
+            if not app_subscribed:
+                available_apps.append(structure)
+
     users = []
     for item in data:
         if item['subtype'] == 'user':
-            apps = []
-            for structure in structures:
-                if structure['subtype'] == 'application' and structure['name'] in item['clusters']:
-                    structure['limits'] = getLimits(structure['name'])
+            user_apps = []
+            for app in subscribed_apps.get(item['name'], []):
+                app['limits'] = getLimits(app['name'])
 
-                    ## Container Resources Form
-                    setStructureResourcesForm(structure,"users")
+                ## Container Resources Form
+                setStructureResourcesForm(app,"users")
 
-                    ## Container Limits Form
-                    setLimitsForm(structure,"users")
+                ## Container Limits Form
+                setLimitsForm(app, "users")
 
-                    ## Set labels for container values
-                    structure['resources_values_labels'] = getStructuresValuesLabels(structure, 'resources')
-                    structure['limits_values_labels'] = getStructuresValuesLabels(structure, 'limits')
+                ## Set labels for container values
+                app['resources_values_labels'] = getStructuresValuesLabels(app, 'resources')
+                app['limits_values_labels'] = getStructuresValuesLabels(app, 'limits')
 
-                    apps.append(structure)
+                user_apps.append(app)
 
-            item['apps_full'] = sorted(apps, key=functools.cmp_to_key(compareStructureNames))
+            item['apps_full'] = sorted(user_apps, key=functools.cmp_to_key(compareStructureNames))
             #item['limits'] = getLimits(item['name'])
 
             ## User Resources Form
@@ -40,6 +52,12 @@ def getUsers(data, structures):
 
             ## Set form to add apps to user
             setAddAppToUserForm(item, "apps")
+
+            ## Set form to subscribe available apps to user
+            setSubscriptionManagementForm(item, available_apps, "subscribe", "users")
+
+            ## Set form to desubscribe apps from user
+            setSubscriptionManagementForm(item, item['apps_full'], "desubscribe", "users")
 
             ## App RemoveAppFromUsersForm
             #setRemoveAppsFromUsersForm(item, containers, "apps")
@@ -85,7 +103,27 @@ def processAddUser(request, url, **kwargs):
     return error
 
 
-def processRemoveUsers(url, users):
-    task = remove_users_task.delay(url, users)
+def processSubscribeAppsToUser(request, url, **kwargs):
+    error = ""
+    task = subscribe_apps_to_user.delay(url, kwargs["structure_name"], kwargs["selected_structures"])
+    print("Starting task with id {0}".format(task.id))
+
+    register_task(task.id, "subscribe_apps_to_user")
+
+    return error
+
+
+def processDesubscribeAppsFromUser(request, url, **kwargs):
+    error = ""
+    task = desubscribe_apps_from_user.delay(url, kwargs["structure_name"], kwargs["selected_structures"])
+    print("Starting task with id {0}".format(task.id))
+
+    register_task(task.id, "desubscribe_apps_from_user")
+
+    return error
+
+
+def processRemoveUsers(request, url, **kwargs):
+    task = remove_users_task.delay(url, kwargs["selected_structures"])
     print("Starting task with id {0}".format(task.id))
     register_task(task.id, "remove_users_task")

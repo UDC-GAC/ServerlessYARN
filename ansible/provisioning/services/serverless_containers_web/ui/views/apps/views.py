@@ -4,16 +4,20 @@ from django.conf import settings
 
 from ui.views.core.operations import processStructures
 from ui.views.core.utils import guard_switch, redirect_with_errors
-from ui.views.apps.operations import getApps, processAddApp, processStartApp, processStopApp, processRemoveApps
+from ui.views.apps.operations import getApps, processAddApp, processStartApp, processStopApp, processRemoveApps, processRemoveContainersFromApp
 
 # ------------------------------------ Apps views ------------------------------------
 
 def apps(request):
-    add_operation, rm_operation, get_operation = processAddApp, processRemoveApps, getApps
-    if request.POST.get('structure_type', "") == "containers_to_app" and 'number_of_containers' in request.POST:
-        add_operation = processStartApp
+    operations = {
+        "add": processAddApp,
+        "remove": processRemoveApps,
+        "desubscribe": processRemoveContainersFromApp,
+        "get": getApps,
+        "start": processStartApp
+    }
 
-    request, html_render, context, errors = processStructures(request, "apps","apps.html", add_operation, rm_operation, get_operation)
+    request, html_render, context, errors = processStructures(request, "apps","apps.html", operations)
     if request and html_render and context:
         return render(request, html_render, context)
 
