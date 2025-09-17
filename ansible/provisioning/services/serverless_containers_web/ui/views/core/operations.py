@@ -20,8 +20,8 @@ def processStructures(request, structure_type, html_render, operations):
 
     if len(request.POST) > 0:
         errors = []
-        resources_errors = processResources(request, url)
-        limits_errors = processLimits(request, url)
+        resources_errors = processResources(request)
+        limits_errors = processLimits(request)
         operation_errors = processOperations(request, url, operations)
 
         if resources_errors: errors += resources_errors
@@ -79,7 +79,7 @@ def processStructures(request, structure_type, html_render, operations):
     return request, html_render, context, []
 
 
-def processResources(request, url):
+def processResources(request):
     structures_resources_field_list = ["guard","max","min","weight"]
     hosts_resources_field_list = ["max"]
     user_resources_field_list = ["max", "min"]
@@ -88,9 +88,11 @@ def processResources(request, url):
         total_forms = int(request.POST['form-TOTAL_FORMS'])
         if total_forms > 0 and request.POST['form-0-operation'] == "resources":
             name = request.POST['form-0-name']
+            url = settings.BASE_URL + "/structure/"
             if request.POST['form-0-structure_type'] == "host":
                 resources_field_list = hosts_resources_field_list
             elif request.POST['form-0-structure_type'] == "user":
+                url = settings.BASE_URL + "/user/"
                 resources_field_list = user_resources_field_list
             else:
                 resources_field_list = structures_resources_field_list
@@ -130,8 +132,9 @@ def processResourcesFields(request, url, structure_name, resource, field, field_
     return error
 
 
-def processLimits(request, url):
+def processLimits(request):
     errors = []
+    url = settings.BASE_URL + "/structure/"
     if "name" in request.POST and "operation" not in request.POST:
         structure_name = request.POST['name']
         resources = ["cpu", "mem", "disk_read", "disk_write", "net", "energy"]
@@ -158,6 +161,7 @@ def processLimitsBoundary(request, url, structure_name, resource):
 
 def processOperations(request, url, operations):
     errors = []
+    fallback = lambda *_, **__: "Operation not found"
     if "operation" in request.POST:
         kwargs = {
             "structure_name": request.POST.get("name", None),
@@ -165,8 +169,7 @@ def processOperations(request, url, operations):
             "selected_structures": request.POST.getlist('selected_structures', None)
         }
 
-        error = operations.get(request.POST["operation"], lambda: "Operation not found")(request, url, **kwargs)
-
+        error = operations.get(request.POST["operation"], fallback)(request, url, **kwargs)
         if error and len(error) > 0:
             errors.append(error)
 

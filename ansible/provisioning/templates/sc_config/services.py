@@ -44,6 +44,7 @@ structures_snapshoter = dict(
     type="service",
     heartbeat="",
     config=dict(
+        POLLING_FREQUENCY=5,
         ACTIVE=False,
         DEBUG=True,
         STRUCTURES_PERSISTED=["application"],
@@ -58,6 +59,8 @@ refeeder = dict(
     config=dict(
         ACTIVE=False,
         DEBUG=True,
+        WINDOW_DELAY=20,
+        WINDOW_TIMELAPSE=10,
         STRUCTURES_REFEEDED=["application"],
         GENERATED_METRICS=["cpu", "mem"{% if disk_capabilities and disk_scaling %}, "disk_read", "disk_write"{% endif %}{% if power_budgeting %}, "energy"{% endif %}]
     )
@@ -103,6 +106,7 @@ limits_dispatcher = dict(
     config=dict(
         POLLING_FREQUENCY=10,
         GENERATED_METRICS=["energy"],
+        ACTIVE=False,
         DEBUG=True
     )
 )

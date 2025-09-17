@@ -11,16 +11,17 @@ from ui.views.users.utils import setAddAppToUserForm, setSubscriptionManagementF
 def getUsers(data, structures):
     # Associate apps with users or set as available
     available_apps, subscribed_apps = [], {}
-    for structure in structures:
-        if structure['subtype'] == 'application':
-            app_subscribed = False
-            for item in data:
-                if item['subtype'] == 'user' and structure['name'] in item['clusters']:
-                    subscribed_apps.setdefault(item['name'], []).append(structure)
-                    app_subscribed = True
-                    break
-            if not app_subscribed:
-                available_apps.append(structure)
+    if data:
+        for structure in structures:
+            if structure['subtype'] == 'application':
+                app_subscribed = False
+                for item in data:
+                    if item['subtype'] == 'user' and structure['name'] in item['clusters']:
+                        subscribed_apps.setdefault(item['name'], []).append(structure)
+                        app_subscribed = True
+                        break
+                if not app_subscribed:
+                    available_apps.append(structure)
 
     users = []
     for item in data:
