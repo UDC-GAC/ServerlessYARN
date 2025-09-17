@@ -418,17 +418,29 @@ def add_user_task(full_url, put_field_data, user):
 
 @shared_task
 def subscribe_apps_to_user(url, user_name, user_apps):
+    run_playbooks.disable_scaler()
+    run_playbooks.disable_scaling_services()
+
     # Subscribe containers to app in ServerlessContainers database
     for app_name in user_apps:
         full_url = url + "clusters/{0}/{1}".format(user_name, app_name)
         manage_app_with_user_in_db(full_url, user_name, app_name, "put")
 
+    run_playbooks.enable_scaler()
+    run_playbooks.enable_scaling_services()
+
 @shared_task
 def desubscribe_apps_from_user(url, user_name, user_apps):
+    run_playbooks.disable_scaler()
+    run_playbooks.disable_scaling_services()
+
     # Subscribe containers to app in ServerlessContainers database
     for app_name in user_apps:
         full_url = url + "clusters/{0}/{1}".format(user_name, app_name)
         manage_app_with_user_in_db(full_url, user_name, app_name, "delete")
+
+    run_playbooks.enable_scaler()
+    run_playbooks.enable_scaling_services()
 
 def add_container_to_app_in_db(full_url, container, app):
     max_retries = 10
@@ -473,30 +485,15 @@ def manage_app_with_user_in_db(full_url, app, user, operation):
 
 @shared_task
 def wait_for_app_on_container_task(host, container, app):
-    #argument_list = [host, container['container_name']]
-    #error_message = "Error waiting for app {0} to finish on container {1}".format(app, container['container_name'])
-    #process_script("wait_for_app_on_container", argument_list, error_message)
     run_playbooks.wait_for_app_on_container(host, container['container_name'])
 
 
 @shared_task
 def start_app_on_container_task(full_url, host, container, app, app_files):
-    app_dir = app_files['app_dir']
-    #files_dir = app_files['files_dir']
-    runtime_files = app_files['runtime_files']
-    output_dir = app_files['output_dir']
-    install_script = app_files['install_script']
-    start_script = app_files['start_script']
-    stop_script = app_files['stop_script']
-    app_jar = app_files['app_jar']
-
     bind_path = ""
     if 'disk_path' in container:
         bind_path = container['disk_path']
 
-    # argument_list = [host, container['container_name'], app, app_dir, runtime_files, output_dir, install_script, start_script, stop_script, app_jar, bind_path]
-    # error_message = "Error starting app {0} on container {1}".format(app, container['container_name'])
-    # process_script("start_app_on_container", argument_list, error_message)
     run_playbooks.start_app_on_container(host, container['container_name'], app, app_files, bind_path)
 
 ## Start containers
@@ -663,16 +660,11 @@ def start_hadoop_app_task(self, url, app, app_files, new_containers, container_r
     update_task_runtime(self.request.id, runtime)
 
     # Stop hadoop cluster
-    # argument_list = [rm_host, rm_container]
-    # error_message = "Error stopping hadoop cluster for app {0}".format(app)
-    # process_script("stop_hadoop_cluster", argument_list, error_message)
     run_playbooks.stop_hadoop_cluster(rm_host, rm_container)
 
-    ## Disable scaler, remove all containers from StateDB and re-enable scaler
-    # argument_list = []
-    # error_message = "Error disabling scaler"
-    # process_script("disable_scaler", argument_list, error_message)
+    ## Disable scaler and other scaling services, remove all containers from StateDB and re-enable them
     run_playbooks.disable_scaler()
+    run_playbooks.disable_scaling_services()
 
     start_time = timeit.default_timer()
     errors = []
@@ -685,10 +677,8 @@ def start_hadoop_app_task(self, url, app, app_files, new_containers, container_r
     ## Wait at least for the scaler polling frequency time before re-enabling it
     time.sleep(scaler_polling_freq - (end_time - start_time))
 
-    # argument_list = []
-    # error_message = "Error re-enabling scaler"
-    # process_script("enable_scaler", argument_list, error_message)
     run_playbooks.enable_scaler()
+    run_playbooks.enable_scaling_services()
 
     ## Get timestamp to store output data
     timestamp = None
@@ -739,19 +729,21 @@ def setup_containers_network_task(url, app, app_containers, new_containers):
     hosts = ','.join(list(new_containers.keys()))
     formatted_app_containers = str(app_containers).replace(' ', '')
 
-    # argument_list = [hosts, formatted_app_containers]
-    # error_message = "Error setting network for app {0}".format(app)
-    # process_script("setup_network_on_containers", argument_list, error_message)
     run_playbooks.setup_network_on_containers(list(new_containers.keys()), formatted_app_containers)
 
 
 @shared_task
 def subscribe_containers_to_app(url, app, app_containers):
+    run_playbooks.disable_scaler()
+    run_playbooks.disable_scaling_services()
+
     # Subscribe containers to app in ServerlessContainers database
     for container in app_containers:
         full_url = url + "container/{0}/{1}".format(container['container_name'], app)
         add_container_to_app_in_db(full_url, container['container_name'], app)
 
+    run_playbooks.enable_scaler()
+    run_playbooks.enable_scaling_services()
 
 @shared_task
 def wait_for_app_on_containers(app, app_containers):
@@ -807,17 +799,9 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
     argument_list.extend(extracted_hadoop_resources)
 
     if not global_hdfs_data:
-        # error_message = "Error setting network for app {0}".format(app)
-        # process_script("setup_hadoop_network_on_containers", argument_list, error_message)
         run_playbooks.setup_hadoop_network_on_containers(list(new_containers.keys()), app, app_type, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"])
     else:
         ## Download required input data from global HDFS to local one
-        # argument_list.append(global_hdfs_data['namenode_container_name'])
-        # argument_list.append(global_hdfs_data['namenode_host'])
-        # argument_list.append(global_hdfs_data['global_input'])
-        # argument_list.append(global_hdfs_data['local_output'])
-        # error_message = "Error setting network for app {0} with global HDFS".format(app)
-        # process_script("hdfs/setup_hadoop_network_with_global_hdfs", argument_list, error_message)
         run_playbooks.setup_hadoop_network_with_global_hdfs(list(new_containers.keys()), app, app_type, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"], global_hdfs_data)
 
     # Subscribe containers to app in ServerlessContainers
@@ -832,12 +816,6 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
 
     if global_hdfs_data:
         ## Upload generated output data from local HDFS to global one
-        # argument_list = [rm_host, rm_container['container_name']]
-        # argument_list.append(global_hdfs_data['namenode_container_name'])
-        # argument_list.append(global_hdfs_data['local_input'])
-        # argument_list.append(global_hdfs_data['global_output'])
-        # error_message = "Error uploading output data from {0} in local HDFS to {1} in global one".format(global_hdfs_data['local_input'], global_hdfs_data['global_output'])
-        # process_script("hdfs/upload_local_hdfs_data_to_global", argument_list, error_message)
         run_playbooks.upload_local_hdfs_data_to_global(rm_host, rm_container['container_name'], global_hdfs_data)
 
     return rm_host, rm_container['container_name']
@@ -945,16 +923,11 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
 def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_freq, rm_host, rm_container):
 
     # Stop hadoop cluster
-    # argument_list = [rm_host, rm_container]
-    # error_message = "Error stopping hadoop cluster for app {0}".format(app)
-    # process_script("stop_hadoop_cluster", argument_list, error_message)
     run_playbooks.stop_hadoop_cluster(rm_host, rm_container)
 
-    ## Disable scaler, remove all containers from StateDB and re-enable scaler
-    # argument_list = []
-    # error_message = "Error disabling scaler"
-    # process_script("disable_scaler", argument_list, error_message)
+    ## Disable scaler and other scaling services, remove all containers from StateDB and re-enable them
     run_playbooks.disable_scaler()
+    run_playbooks.disable_scaling_services()
 
     start_time = timeit.default_timer()
     errors = []
@@ -967,10 +940,8 @@ def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_fre
     ## Wait at least for the scaler polling frequency time before re-enabling it
     time.sleep(scaler_polling_freq - (end_time - start_time))
 
-    # argument_list = []
-    # error_message = "Error re-enabling scaler"
-    # process_script("enable_scaler", argument_list, error_message)
     run_playbooks.enable_scaler()
+    run_playbooks.enable_scaling_services()
 
     # Remove app from db
     full_url = url + "apps" + "/" + app
@@ -1034,10 +1005,8 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
 
     # first, remove all containers from app
     if len(container_list) > 0:
-        # argument_list = []
-        # error_message = "Error disabling scaler"
-        # process_script("disable_scaler", argument_list, error_message)
         run_playbooks.disable_scaler()
+        run_playbooks.disable_scaling_services()
 
         errors = []
         for container in container_list:
@@ -1045,10 +1014,8 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
             error = remove_container_from_app_db(full_url, container['name'], app_name)
             if error != "": errors.append(error)
 
-        # argument_list = []
-        # error_message = "Error re-enabling scaler"
-        # process_script("enable_scaler", argument_list, error_message)
         run_playbooks.enable_scaler()
+        run_playbooks.enable_scaling_services()
 
         ## Get timestamp to store output data
         timestamp = None
@@ -1079,11 +1046,9 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
 @shared_task
 def remove_containers_task(url, container_list):
 
-    ## Disable scaler, remove all containers from StateDB and re-enable scaler
-    # argument_list = []
-    # error_message = "Error disabling scaler"
-    # process_script("disable_scaler", argument_list, error_message)
+    ## Disable scaler and other scaling services, remove all containers from StateDB and re-enable them
     run_playbooks.disable_scaler()
+    run_playbooks.disable_scaling_services()
 
     errors = []
     for container in container_list:
@@ -1091,10 +1056,8 @@ def remove_containers_task(url, container_list):
         error = remove_container_from_db(full_url, container['container_name'])
         if error != "": errors.append(error)
 
-    # argument_list = []
-    # error_message = "Error re-enabling scaler"
-    # process_script("enable_scaler", argument_list, error_message)
     run_playbooks.enable_scaler()
+    run_playbooks.enable_scaling_services()
 
     ## Stop Containers
     # Stop and remove containers
@@ -1112,8 +1075,9 @@ def remove_containers_task(url, container_list):
 @shared_task
 def remove_containers_from_app(url, container_list, app, app_files, scaler_polling_freq):
 
-    # Disable scaler before removing containers
+    # Disable scaler and other scaling services before removing containers
     run_playbooks.disable_scaler()
+    run_playbooks.disable_scaling_services()
 
     # Desubscribe containers from app in StateDB
     start_time = timeit.default_timer()
@@ -1130,6 +1094,7 @@ def remove_containers_from_app(url, container_list, app, app_files, scaler_polli
 
     # Re-enable Scaler
     run_playbooks.enable_scaler()
+    run_playbooks.enable_scaling_services()
 
     ## Get timestamp to store output data
     timestamp = None
@@ -1159,6 +1124,7 @@ def remove_containers_from_app(url, container_list, app, app_files, scaler_polli
 @shared_task
 def remove_users_task(url, users):
     run_playbooks.disable_scaler()
+    run_playbooks.disable_scaling_services()
 
     errors = []
     for user_name in users:
@@ -1170,6 +1136,7 @@ def remove_users_task(url, users):
 
 
     run_playbooks.enable_scaler()
+    run_playbooks.enable_scaling_services()
 
     if len(errors) > 0:
         raise Exception(str(errors))
