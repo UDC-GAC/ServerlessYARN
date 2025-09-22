@@ -442,6 +442,24 @@ def desubscribe_apps_from_user(url, user_name, user_apps):
     run_playbooks.enable_scaler()
     run_playbooks.enable_scaling_services()
 
+def change_app_execution_state_in_db(url, app, state):
+    max_retries = 10
+    actual_try = 0
+    full_url = url + "{0}/{1}".format(app, state)
+    while actual_try < max_retries:
+
+        error_message = "Error changing app {0} execution state to {1}".format(app, state)
+        error, response = request_to_state_db(full_url, "put", error_message)
+
+        if response != "":
+            if not error: break
+            else: raise Exception(error)
+
+        actual_try += 1
+
+    if actual_try >= max_retries:
+        raise Exception("Reached max tries when adding {0} to app {1}".format(container, app))
+
 def add_container_to_app_in_db(full_url, container, app):
     max_retries = 10
     actual_try = 0
@@ -613,6 +631,9 @@ def start_app_task(self, url, app, app_files, new_containers, container_resource
 
     start_time = timeit.default_timer()
 
+    # Set application in running state in ServerlessContainers
+    change_app_execution_state_in_db(url, app, "run")
+
     # Deploy all the containers in the remote hosts
     app_containers = deploy_app_containers(url, new_containers, app, app_files, container_resources, disk_assignation, app_type)
 
@@ -730,7 +751,6 @@ def setup_containers_network_task(url, app, app_containers, new_containers):
     formatted_app_containers = str(app_containers).replace(' ', '')
 
     run_playbooks.setup_network_on_containers(list(new_containers.keys()), formatted_app_containers)
-
 
 @shared_task
 def subscribe_containers_to_app(url, app, app_containers):
@@ -1079,6 +1099,9 @@ def remove_containers_from_app(url, container_list, app, app_files, scaler_polli
     run_playbooks.disable_scaler()
     run_playbooks.disable_scaling_services()
 
+    # Set application in stop state in ServerlessContainers
+    change_app_execution_state_in_db(url, app, "stop")
+
     # Desubscribe containers from app in StateDB
     start_time = timeit.default_timer()
     errors = []
@@ -1394,8 +1417,7 @@ def remove_container_task(full_url, host_name, cont_name):
     error, _ = request_to_state_db(full_url, "delete", error_message)
 
     ## stop container
-    if (error == ""):
-
+    if error == "":
         argument_list = [host_name, cont_name]
         error_message = "Error stopping container {0}".format(cont_name)
         process_script("stop_container", argument_list, error_message)
