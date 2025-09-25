@@ -35,6 +35,17 @@ def update_task_runtime(task_id, runtime):
 def remove_task(task_id):
     redis_server.delete("{0}:{1}".format(redis_prefix, task_id))
 
+def remove_task_by_name(task_name):
+    task_id = None
+    for key in redis_server.scan_iter("{0}:*".format(redis_prefix)):
+        stored_task_name = redis_server.hget(key, "task_name")
+        if stored_task_name and stored_task_name.decode("utf-8") == task_name:
+            task_id = key.decode("utf-8")[len(redis_prefix) + 1:]
+        break
+
+    if task_id:
+        remove_task(task_id)
+
 def get_pending_tasks():
     still_pending_tasks = []
     successful_tasks = []

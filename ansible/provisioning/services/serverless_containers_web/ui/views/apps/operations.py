@@ -6,7 +6,7 @@ import functools
 from django.conf import settings
 
 from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, DEFAULT_HDFS_VALUES, SUPPORTED_RESOURCES, SUPPORTED_FRAMEWORKS
-from ui.background_tasks import register_task, add_app_task, start_app_task, start_hadoop_app_task, remove_app_task, remove_containers_from_app
+from ui.background_tasks import register_task, remove_task_by_name, add_app_task, start_app_task, start_hadoop_app_task, remove_app_task, remove_containers_from_app
 from ui.views.core.utils import getHostsNames, getLimits, getHostFreeDiskLoad, getScalerPollFreq, setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels, compareStructureNames, retrieve_global_hdfs_app, getDataAndFilterByApp, getContainersFromApp, getAppFiles
 from ui.views.apps.utils import getAppInfo, getContainerResourcesForApp, getContainerAssignationForApp, setStartAppForm, setRemoveContainersFromAppForm, setAddAppForm, checkAppUser
 
@@ -363,6 +363,11 @@ def processStopApp(url, structure_name):
             disk_path = container['resources']['disk']['path']
 
         container_list.append("({0},{1},{2})".format(container['name'],container['host'], disk_path))
+
+    # Remove start app task to avoid FAILED state
+    remove_task_by_name("{0}_app_task".format(structure_name))
+
+    # Remove containers from app
     kwargs = {"containers_removed": container_list, "app": structure_name, "app_files": app_files}
     error = processRemoveContainersFromApp(None, url, **kwargs)
     if len(error) > 0:

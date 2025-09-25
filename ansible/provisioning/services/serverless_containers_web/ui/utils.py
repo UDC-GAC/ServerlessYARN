@@ -45,6 +45,8 @@ DEFAULT_HEADERS = {'Content-Type': 'application/json'}
 
 SUPPORTED_RESOURCES = {"cpu", "mem", "disk_read", "disk_write", "net", "energy"}
 
+SUPPORTED_FRAMEWORKS = {"hadoop", "spark"}
+
 EXCLUDED_VALUES_LABELS = {"cpu_cores", "alloc_ratio", "rebalanced"}
 
 def request_to_state_db(url, operation, error_message, data=None, headers=DEFAULT_HEADERS, session=None):
