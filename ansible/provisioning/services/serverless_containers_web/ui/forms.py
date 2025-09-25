@@ -955,6 +955,7 @@ class StartAppForm(forms.Form):
             initial=3,
             required=True
             )
+    allow_oversubscription = forms.BooleanField(label="Allow oversubscription?", required=False, initial=False)
 
     read_from_global = forms.BooleanField(label="Read files from global HDFS?", required=False)
     global_input = forms.CharField(label="Input file (or directory) to read from global HDFS", required=False)
@@ -976,6 +977,7 @@ class StartAppForm(forms.Form):
             Field('number_of_containers'),
             Field('assignation_policy'),
             Field('benevolence'),
+            Field('allow_oversubscription'),
         )
 
         if config['global_hdfs']:

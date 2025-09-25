@@ -213,12 +213,12 @@ def containersNotAllocated(containers_to_allocate):
     return sum([num for _, num in containers_to_allocate.items()])
 
 
-def assign_freest_disk(host, container, disk_assignation):
+def assign_freest_disk(host, container, disk_assignation, limit_key):
     host_disk = getFreestDisk(host)
     if host_disk is None:
         return False
 
-    if checkAvailableDisk(disk_assignation[host['name']][host_disk], container, "min"):
+    if checkAvailableDisk(disk_assignation[host['name']][host_disk], container, limit_key):
         disk_assignation[host['name']][host_disk]['free_read'] -= container['disk_read_min']
         disk_assignation[host['name']][host_disk]['free_write'] -= container['disk_write_min']
         disk_assignation[host['name']][host_disk]['free_total'] -= (container['disk_read_min'] + container['disk_write_min'])
@@ -233,7 +233,7 @@ def assign_freest_disk(host, container, disk_assignation):
     return True
 
 
-def assign_fill_up(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks):
+def assign_fill_up(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, limit_key):
     """
     Completely fills each host with as many containers as possible before moving to the next one. Iterates through the list of hosts sequentially.
     For each host, it allocates containers starting with the largest type ('bigger'), then 'regular', 'smaller', and finally 'rm-nn', until the
@@ -252,9 +252,9 @@ def assign_fill_up(hosts, containers_to_allocate, container_resources, assignati
         # We try to assign resources in the following order: bigger container, regular containers, smaller container and resourcemanager/namenode container
         for container_type in ["bigger", "regular", "smaller", "rm-nn"]:
             while containers_to_allocate[container_type] > 0:
-                available_resources = checkAvailableResources(host, container_resources[container_type], "max")
+                available_resources = checkAvailableResources(host, container_resources[container_type], limit_key)
                 if container_type != "rm-nn" and check_disks:
-                    available_resources = available_resources and checkAvailableDisk(available_host_disk, container_resources[container_type], "max")
+                    available_resources = available_resources and checkAvailableDisk(available_host_disk, container_resources[container_type], limit_key)
                 if not available_resources:
                     break
 
@@ -267,20 +267,19 @@ def assign_fill_up(hosts, containers_to_allocate, container_resources, assignati
                     available_host_disk["free_write"] -= container_resources["container_type"]['disk_write_max']
                     available_host_disk["free_total"] -= max(container_resources[container_type]['disk_read_max'], container_resources[container_type]['disk_read_max'])
                     for disk in disk_assignation[host['name']]:
-                        if checkAvailableDisk(disk_assignation[host['name']][disk], container_resources[container_type], "max"):
+                        if checkAvailableDisk(disk_assignation[host['name']][disk], container_resources[container_type], limit_key):
                             disk_assignation[host['name']][disk]['free_read'] -= container_resources[container_type]['disk_read_max']
                             disk_assignation[host['name']][disk]['free_write'] -= container_resources[container_type]['disk_write_max']
                             disk_assignation[host['name']][disk]['new_containers'] += 1
                             break
 
-def assign_cyclic(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks):
+def assign_cyclic(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, limit_key):
     """
     Distributes containers one by one across all available hosts in a round-robin fashion. Iterates through the list of available hosts,
     assigning only one container to each host per round, provided the host meets the container's minimum resource requirements (cpu_min, mem_min).
     Hosts that successfully receive a container in a round remain in the pool for the next round. This policy seeks to balance the load among all
     available hosts, preventing a single host from becoming overloaded.
     """
-    # Cyclic and Best-effort will now use allocate containers based on min resources instead of max to allow executing multiple containers that try to request all the availables resources from a host
     available_hosts = hosts
     while containersNotAllocated(containers_to_allocate) > 0 and len(available_hosts) > 0:
         next_round_hosts = []
@@ -297,17 +296,16 @@ def assign_cyclic(hosts, containers_to_allocate, container_resources, assignatio
             container_allocated = False
             for container_type in ['bigger', 'regular', 'smaller', 'rm-nn']:
                 if containers_to_allocate[container_type] > 0:
-                    # Checks "min" instead of "max" to allow executing multiple containers that try to request all the availables resources from a host
-                    available_resources = checkAvailableResources(host, container_resources[container_type], "min")
+                    available_resources = checkAvailableResources(host, container_resources[container_type], limit_key)
                     if container_type != "rm-nn" and check_disks:
-                        available_resources = available_resources and checkAvailableDisk(available_host_disk, container_resources[container_type], "min")
+                        available_resources = available_resources and checkAvailableDisk(available_host_disk, container_resources[container_type], limit_key)
 
                     if available_resources:
                         host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
                         host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
 
                         if container_type != "rm-nn" and check_disks:
-                            if not assign_freest_disk(host, container_resources[container_type], disk_assignation):
+                            if not assign_freest_disk(host, container_resources[container_type], disk_assignation, limit_key):
                                 break
 
                         containers_to_allocate[container_type] -= 1
@@ -323,7 +321,7 @@ def assign_cyclic(hosts, containers_to_allocate, container_resources, assignatio
         available_hosts = next_round_hosts
 
 
-def assign_best_effort(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks):
+def assign_best_effort(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, limit_key):
     """
     Prioritizes placing each container on the most suitable host available at that moment. In each step, the algorithm identifies a
     container to be allocated (starting with 'bigger', then 'regular', etc.) and the "freest" host that can fit the container's minimum
@@ -342,7 +340,7 @@ def assign_best_effort(hosts, containers_to_allocate, container_resources, assig
                 freest_host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
                 freest_host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
                 if container_type != 'rm-nn' and check_disks:
-                    if not assign_freest_disk(freest_host, container_resources[container_type], disk_assignation):
+                    if not assign_freest_disk(freest_host, container_resources[container_type], disk_assignation, limit_key):
                         break
 
                 containers_to_allocate[container_type] -= 1
@@ -353,10 +351,12 @@ def assign_best_effort(hosts, containers_to_allocate, container_resources, assig
         if not container_allocated:
             break
 
-def getContainerAssignationForApp(assignation_policy, hosts, number_of_containers, container_resources, app_name):
+def getContainerAssignationForApp(assignation_policy, allow_oversubscription, hosts, number_of_containers, container_resources, app_name):
     error = ""
     new_containers = {}
     disk_assignation = {}
+    # Checks "min" instead of "max" to allow executing multiple containers that try to request all the availables resources from a host
+    limit_key = "min" if allow_oversubscription else "max"
     check_disks = settings.PLATFORM_CONFIG['disk_capabilities'] and settings.PLATFORM_CONFIG['disk_scaling']
     containers_to_allocate = {
         "bigger": 1 if "bigger" in container_resources else 0,
@@ -385,11 +385,11 @@ def getContainerAssignationForApp(assignation_policy, hosts, number_of_container
 
     # Assign resources based on assignation policy
     if assignation_policy == "Fill-up":
-        assign_fill_up(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks)
+        assign_fill_up(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, limit_key)
     elif assignation_policy == "Cyclic":
-        assign_cyclic(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks)
+        assign_cyclic(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, limit_key)
     elif assignation_policy == "Best-effort":
-        assign_best_effort(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks)
+        assign_best_effort(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, limit_key)
 
     # Check all containers have been allocated
     if containersNotAllocated(containers_to_allocate) > 0:

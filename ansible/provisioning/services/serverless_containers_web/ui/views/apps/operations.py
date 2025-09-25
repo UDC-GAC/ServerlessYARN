@@ -72,27 +72,26 @@ def processAddApp(request, url, **kwargs):
     ## APP info
     app_files = {}
     # Mandatory fields
-    if 'app_dir' in request.POST: app_files['app_dir'] = request.POST['app_dir']
-    else: raise Exception("Missing mandatory parameter: {0}".format('app_dir'))
+    if 'app_dir' in request.POST:
+        app_files['app_dir'] = request.POST['app_dir']
+    else:
+        raise Exception("Missing mandatory parameter: {0}".format('app_dir'))
 
     # Optional parameters with default value
     for f in ['start_script', 'stop_script']:
-        if f in request.POST and request.POST[f] != "":
+        if request.POST.get(f, "") != "":
             app_files[f] = request.POST[f]
         else:
             app_files[f] = DEFAULT_APP_VALUES[f]
 
     # Pure optional parameters
     for f in ['app_jar']:
-        if f in request.POST and request.POST[f] != "":
-            app_files[f] = request.POST[f]
-        else:
-            app_files[f] = ""
+        app_files[f] = request.POST.get(f, "")
 
     # Additional files
     for condition, additional_file in [('add_install', 'install_script'), ('add_install_files', 'install_files'), ('add_runtime_files', 'runtime_files'), ('add_output_dir', 'output_dir')]:
-        if condition in request.POST and request.POST[condition]:
-            if additional_file in request.POST and request.POST[additional_file] != "":
+        if request.POST.get(condition, False):
+            if request.POST.get(additional_file, "") != "":
                 app_files[additional_file] = request.POST[additional_file]
             else:
                 app_files[additional_file] = DEFAULT_APP_VALUES[additional_file]
@@ -100,13 +99,15 @@ def processAddApp(request, url, **kwargs):
             app_files[additional_file] = ""
 
     # App type
-    if "app_type" in request.POST and request.POST["app_type"] != "": app_files["app_type"] = request.POST["app_type"]
-    elif "install_script" in app_files and app_files["install_script"] != "": app_files["app_type"] = "generic_app"
-    else: app_files["app_type"] = "base"
+    app_files["app_type"] = "base"
+    if request.POST.get("app_type", "") != "":
+        app_files["app_type"] = request.POST["app_type"]
+    elif app_files.get("install_script", "") != "":
+        app_files["app_type"] = "generic_app"
 
     ## Hadoop apps specific config
     if app_files["app_type"] == "hadoop_app":
-        if "add_extra_framework" in request.POST and request.POST["add_extra_framework"] and "framework" in request.POST:
+        if request.POST.get("add_extra_framework", False) and "framework" in request.POST:
             ## An extra framework has been selected (e.g., Spark), we change the app_type to build the corresponding container image
             app_files["framework"] = request.POST["framework"]
             if app_files["framework"] == "spark": app_files["app_type"] = "spark_app"
@@ -294,7 +295,8 @@ def processStartApp(request, url, **kwargs):
 
     ## Container assignation to hosts
     assignation_policy = request.POST['assignation_policy']
-    new_containers, disk_assignation, error = getContainerAssignationForApp(assignation_policy, hosts, number_of_containers, container_resources, app_name)
+    allow_oversubscription = request.POST.get('allow_oversubscription', False)
+    new_containers, disk_assignation, error = getContainerAssignationForApp(assignation_policy, allow_oversubscription, hosts, number_of_containers, container_resources, app_name)
     if error != "":
         return error
 
