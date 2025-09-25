@@ -5,7 +5,7 @@ import functools
 
 from django.conf import settings
 
-from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, DEFAULT_HDFS_VALUES, SUPPORTED_RESOURCES
+from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, DEFAULT_HDFS_VALUES, SUPPORTED_RESOURCES, SUPPORTED_FRAMEWORKS
 from ui.background_tasks import register_task, add_app_task, start_app_task, start_hadoop_app_task, remove_app_task, remove_containers_from_app
 from ui.views.core.utils import getHostsNames, getLimits, getHostFreeDiskLoad, getScalerPollFreq, setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels, compareStructureNames, retrieve_global_hdfs_app, getDataAndFilterByApp, getContainersFromApp, getAppFiles
 from ui.views.apps.utils import getAppInfo, getContainerResourcesForApp, getContainerAssignationForApp, setStartAppForm, setRemoveContainersFromAppForm, setAddAppForm, checkAppUser
@@ -196,25 +196,22 @@ def processStartApp(request, url, **kwargs):
 
     ## APP info
     app_files = {}
-    if 'start_script' in app and app['start_script']:
+    if app.get('start_script', ""):
         app_files['app_dir'] = os.path.dirname(app['start_script'])
     else:
         return "Error: there is no start script for app {0}".format(kwargs["structure_name"])
 
     for f in ['install_script', 'runtime_files', 'output_dir', 'start_script', 'stop_script', 'app_jar', 'framework']:
-        if f in app:
-            app_files[f] = os.path.basename(app[f])
-        else:
-            app_files[f] = ""
+        app_files[f] = os.path.basename(app[f]) if f in app else ""
 
     app_resources = {}
     for resource in app['resources']:
         if resource == "disk": continue
         app_resources[resource] = {}
         app_resources[resource]['max'] = app['resources'][resource]['max']
-        app_resources[resource]['current'] = 0 if 'current' not in app['resources'][resource] else app['resources'][resource]['current']
+        app_resources[resource]['current'] = app['resources'][resource].get('current', 0)
         app_resources[resource]['min'] = app['resources'][resource]['min']
-        app_resources[resource]['weight'] = DEFAULT_RESOURCE_VALUES["weight"] if 'weight' not in app['resources'][resource] else app['resources'][resource]['weight']
+        app_resources[resource]['weight'] = app['resources'][resource].get('weight', DEFAULT_RESOURCE_VALUES["weight"])
 
     ## Containers to create
     number_of_containers = int(request.POST['number_of_containers'])
@@ -245,37 +242,30 @@ def processStartApp(request, url, **kwargs):
 
         if free_disk_load < disk_load: space_left_for_app = False
 
-    error = ""
     if not space_left_for_app:
         error = "There is no space left for app {0}".format(app_name)
         return error
 
     ## App type
-    if 'framework' in app_files and app_files['framework'] != "":
-        if app_files['framework'] == "hadoop": app_type = "hadoop_app"
-        elif app_files['framework'] == "spark": app_type = "spark_app"
-        else: raise Exception("{0} framework not supported, currently supported frameworks: {1}".format(app_files['framework'], ["hadoop", "spark"]))
-    elif 'install_script' in app_files and app_files['install_script'] != "": app_type = "generic_app"
-    else: app_type = "base"
-
+    app_type = "base"
+    if app_files.get('framework', "") != "":
+        if app_files['framework'] not in SUPPORTED_FRAMEWORKS:
+            raise Exception("{0} framework not supported, currently supported frameworks: {1}".format(app_files['framework'], SUPPORTED_FRAMEWORKS))
+        app_type = "{0}_app".format(app_files['framework'])
+    elif app_files.get('install_script', "") != "":
+        app_type = "generic_app"
     is_hadoop_app = app_type in ["hadoop_app", "spark_app"]
 
+    ## ResourceManager/NameNode resources
+    rm_maximum_cpu, rm_minimum_cpu, rm_cpu_boundary = 100, 100, 25
+    rm_maximum_mem, rm_minimum_mem, rm_mem_boundary = 1024, 1024, 25
+    rm_maximum_energy, rm_minimum_energy, rm_energy_boundary = 50, 50, 10 # This value is provisional (it has to be tested)
     if is_hadoop_app:
-        ## ResourceManager/NameNode resources
-        rm_maximum_cpu = 100
-        rm_minimum_cpu = 100
-        rm_cpu_boundary = 25 # 25 = 25% * max
-        rm_maximum_mem = 1024
-        rm_minimum_mem = 1024
-        rm_mem_boundary = 25  # 256 = 25% * max
         app_resources['cpu']['max'] -= rm_maximum_cpu
         app_resources['cpu']['min'] -= rm_minimum_cpu
         app_resources['mem']['max'] -= rm_maximum_mem
         app_resources['mem']['min'] -= rm_minimum_mem
         if settings.PLATFORM_CONFIG['power_budgeting']:
-            rm_maximum_energy = 50  # This value is provisional (it has to be tested)
-            rm_minimum_energy = 10
-            rm_energy_boundary = 10  # 5 = 10% * max
             app_resources['energy']['max'] -= rm_maximum_energy
             app_resources['energy']['min'] -= rm_minimum_energy
 
@@ -283,7 +273,6 @@ def processStartApp(request, url, **kwargs):
     container_resources = getContainerResourcesForApp(number_of_containers, app_resources, app_limits, benevolence, is_hadoop_app)
 
     if is_hadoop_app:
-        container_resources['rm-nn'] = {}
         container_resources['rm-nn']['cpu_max'] = rm_maximum_cpu
         container_resources['rm-nn']['cpu_min'] = rm_minimum_cpu
         container_resources['rm-nn']['cpu_weight'] = DEFAULT_RESOURCE_VALUES['weight']
@@ -306,7 +295,8 @@ def processStartApp(request, url, **kwargs):
     ## Container assignation to hosts
     assignation_policy = request.POST['assignation_policy']
     new_containers, disk_assignation, error = getContainerAssignationForApp(assignation_policy, hosts, number_of_containers, container_resources, app_name)
-    if error != "": return error
+    if error != "":
+        return error
 
     container_resources["regular"] = {x: str(y) for x, y in container_resources["regular"].items()}
     if "bigger" in container_resources:
@@ -321,41 +311,35 @@ def processStartApp(request, url, **kwargs):
     virtual_cluster = settings.PLATFORM_CONFIG['virtual_mode']
 
     if is_hadoop_app:
-
         global_hdfs_data = None
         if settings.PLATFORM_CONFIG['global_hdfs']:
-
             use_global_hdfs = False
             for condition in ['read_from_global', 'write_to_global']:
-                if condition in request.POST and request.POST[condition]:
+                if request.POST.get(condition, False):
                     use_global_hdfs = True
                     break
 
-            global_hdfs_app = None
             if use_global_hdfs:
-
                 global_hdfs_data = {}
                 ## Add global Namenode
                 apps = getApps(data_json)
                 global_hdfs_app, namenode_container = retrieve_global_hdfs_app(apps)
-                if   not global_hdfs_app:    return "Global HDFS requested but not found"
-                elif not namenode_container: return "Namenode not found in global HDFS"
-                else:
-                    global_hdfs_data['namenode_container_name'] = namenode_container['name']
-                    global_hdfs_data['namenode_host'] = namenode_container['host']
-
+                if not global_hdfs_app:
+                    return "Global HDFS requested but not found"
+                if not namenode_container:
+                    return "Namenode not found in global HDFS"
+                global_hdfs_data['namenode_container_name'] = namenode_container['name']
+                global_hdfs_data['namenode_host'] = namenode_container['host']
 
                 ## Get additional info (read/write data from/to hdfs)
-                for condition, additional_info in [
-                    ('read_from_global', ['global_input', 'local_output']),
-                    ('write_to_global', ['local_input', 'global_output'])
-                ]:
-                    if condition in request.POST and request.POST[condition]:
+                for condition, additional_info in [('read_from_global', ['global_input', 'local_output']),
+                                                   ('write_to_global', ['local_input', 'global_output'])]:
+                    if request.POST.get(condition, False):
                         for info in additional_info:
-                            if info in request.POST and request.POST[info] != "": global_hdfs_data[info] = request.POST[info]
-                            else: global_hdfs_data[info] = DEFAULT_HDFS_VALUES[info]
+                            global_hdfs_data[info] = request.POST.get(info) if request.POST.get(info, "") != "" else DEFAULT_HDFS_VALUES[info]
                     else:
-                        for info in additional_info: global_hdfs_data[info] = ""
+                        for info in additional_info:
+                            global_hdfs_data[info] = ""
 
         task = start_hadoop_app_task.delay(url, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type, global_hdfs_data)
     else:
@@ -365,6 +349,7 @@ def processStartApp(request, url, **kwargs):
     register_task(task.id, "{0}_app_task".format(app_name))
 
     return error
+
 
 def processStopApp(url, structure_name):
     errors = []
