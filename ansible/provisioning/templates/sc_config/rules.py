@@ -434,25 +434,61 @@ energy_exceeded_upper = dict(
         {"and": [
             {">": [
                 {"var": "energy.structure.energy.usage"},
-                {"var": "energy.structure.energy.current"}]}]}),
-    generates="events", action={"events": {"scale": {"down": 1}}},
+                {"var": "energy.limits.energy.upper"}]},
+            {"<": [
+                {"var": "energy.limits.energy.upper"},
+                {"var": "energy.structure.energy.max"}]},
+            {"<": [
+                {"var": "energy.structure.energy.current"},
+                {"var": "energy.structure.energy.max"}]}
+        ]
+        }),
+    generates="events",
+    action={"events": {"scale": {"up": 1}}},
     active=True
 )
 
-energy_dropped_lower_and_cpu_exceeded_upper = dict(
-    _id='energy_dropped_lower_and_cpu_exceeded_upper',
+energy_dropped_lower = dict(
+    _id='energy_dropped_lower',
     type='rule',
     resource="energy",
-    name='energy_dropped_lower_and_cpu_exceeded_upper',
+    name='energy_dropped_lower',
     rule=dict(
         {"and": [
+            {">": [
+                {"var": "energy.structure.energy.usage"},
+                0]},
             {"<": [
                 {"var": "energy.structure.energy.usage"},
-                {"var": "energy.structure.energy.current"}]},
+                {"var": "energy.limits.energy.lower"}]},
             {">": [
-                {"var": "cpu.structure.cpu.usage"},
-                {"var": "cpu.limits.cpu.upper"}]}]}),
-    generates="events", action={"events": {"scale": {"up": 1}}},
+                {"var": "energy.limits.energy.lower"},
+                {"var": "energy.structure.energy.min"}]}]}),
+    generates="events",
+    action={"events": {"scale": {"down": 1}}},
+    active=True
+)
+
+# Avoid hysteresis by only rescaling when X underuse events and no bottlenecks are detected, or viceversa
+EnergyRescaleUp = dict(
+    _id='EnergyRescaleUp',
+    type='rule',
+    resource="energy",
+    name='EnergyRescaleUp',
+    rule=dict(
+        {"and": [
+            {">=": [
+                {"var": "events.scale.up"},
+                1]},
+            {"<=": [
+                {"var": "events.scale.down"},
+                2]}
+        ]}),
+    events_to_remove=1,
+    generates="requests",
+    action={"requests": ["EnergyRescaleUp"]},
+    rescale_policy="fit_to_usage",
+    rescale_type="up",
     active=True
 )
 
@@ -463,43 +499,19 @@ EnergyRescaleDown = dict(
     name='EnergyRescaleDown',
     rule=dict(
         {"and": [
-            {"<=": [
-                {"var": "events.scale.up"},
-                1]},
             {">=": [
                 {"var": "events.scale.down"},
-                5]}
+                6]},
+            {"<=": [
+                {"var": "events.scale.up"},
+                0]}
         ]}),
+    events_to_remove=6,
     generates="requests",
-    events_to_remove=5,
-    action={"requests": ["CpuRescaleDown"]},
-    amount=-20,
-    rescale_policy="{{ 'modelling' if power_modelling else 'proportional' }}",
+    action={"requests": ["EnergyRescaleDown"]},
+    rescale_policy="fit_to_usage",
     rescale_type="down",
-    active=True
-)
-
-EnergyRescaleUp = dict(
-    _id='EnergyRescaleUp',
-    type='rule',
-    resource="energy",
-    name='EnergyRescaleUp',
-    rule=dict(
-        {"and": [
-            {">=": [
-                {"var": "events.scale.up"},
-                4]},
-            {"<=": [
-                {"var": "events.scale.down"},
-                1]}
-        ]}),
-    generates="requests",
-    events_to_remove=4,
-    action={"requests": ["CpuRescaleUp"]},
-    amount=20,
-    rescale_policy="{{ 'modelling' if power_modelling else 'proportional' }}",
-    rescale_type="up",
-    active=True
+    active=True,
 )
 
 if __name__ == "__main__":
@@ -515,7 +527,7 @@ if __name__ == "__main__":
         # When power_budgeting is used only these rules must be applied
         handler.add_rule(energy_exceeded_upper)
         handler.add_rule(EnergyRescaleDown)
-        handler.add_rule(energy_dropped_lower_and_cpu_exceeded_upper)
+        handler.add_rule(energy_dropped_lower)
         handler.add_rule(EnergyRescaleUp)
 
         {%- else %}
