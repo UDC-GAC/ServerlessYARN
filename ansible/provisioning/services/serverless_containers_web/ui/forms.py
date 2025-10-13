@@ -1490,43 +1490,6 @@ class WattTrainerForm(forms.Form):
         )
 
 
-# CONFIG_DEFAULT_VALUES = {"GENERATED_METRICS": ["energy"], "DISPATCH_POLICY": "shares-based", "POLLING_FREQUENCY": 10, "DEBUG": True, "ACTIVE": True}
-class LimitsDispatcherForm(forms.Form):
-    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
-    name = common_fields['name']
-    debug = common_fields['debug']
-    polling_frequency = common_fields['polling_frequency']
-
-    generated_metrics = forms.MultipleChoiceField(label="Generated Metrics",
-                                                  choices = (
-                                                      ("cpu", "CPU"),
-                                                      ("mem", "Memory"),
-                                                      ("disk_read", "Disk Read"),
-                                                      ("disk_write", "Disk Write"),
-                                                      #("net", "Network"),
-                                                      ("energy", "Energy"),
-                                                  ),
-                                                  widget=forms.CheckboxSelectMultiple,
-                                                  required=False
-                                                  )
-
-    def __init__(self, *args, **kwargs):
-        super(LimitsDispatcherForm, self).__init__(*args, **kwargs)
-        self.helper = FormHelper()
-        self.helper.form_id = 'id-limitsDispatcherForm'
-        self.helper.form_class = 'form-group'
-        self.helper.form_method = 'post'
-        self.helper.form_action = 'services'
-        self.helper.layout = Layout(
-            Field('name', type="hidden", readonly=True),
-            Field('debug'),
-            Field('polling_frequency'),
-            Field('generated_metrics'),
-            FormActions(
-                Submit('save', 'Save changes', css_class='caja'),
-            )
-        )
-
 # CONFIG_DEFAULT_VALUES = {"POLLING_FREQUENCY": 5, "EVENT_TIMEOUT": 20, "WINDOW_TIMELAPSE": 10, "WINDOW_DELAY": 0, "DEBUG": True, "STRUCTURE_GUARDED": "container", "CONTROL_POLICY": "ppe-proportional", "POWER_MODEL": "polyreg_General", "ACTIVE": True}
 class EnergyControllerForm(forms.Form):
     common_fields = deepcopy(DEFAULT_COMMON_FIELDS)

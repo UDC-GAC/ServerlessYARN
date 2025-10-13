@@ -52,7 +52,6 @@
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
   with_items:
-    - limits_dispatcher
     - energy_controller
   tags: restart_services
 
