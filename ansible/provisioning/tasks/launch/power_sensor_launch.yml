@@ -58,7 +58,7 @@
 
     # TODO: Check if it is better to pin sensor to core 0 (--cpuset-cpus 0 --cpus 0.5)
     - name: Start power sensor apptainer container
-      shell: "sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --bind /proc:/proc --bind /sys:/sys --bind {{ sensor_reporting_path }}:/reporting image/{{ image_file }} {{ container_name }}"
+      shell: "sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --bind /proc:/host_proc --bind /sys:/sys --bind {{ sensor_reporting_path }}:/reporting image/{{ image_file }} {{ container_name }}"
       when: "container_name not in apptainer_list_output.stdout"
       args:
         chdir: "{{ power_sensor_path }}"

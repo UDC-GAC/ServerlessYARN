@@ -71,7 +71,7 @@ build_container_config_path(const char *cgroup_path)
         if (!regexec(&re, cgroup_path, CONTAINER_ID_REGEX_EXPECTED_MATCHES, matches, 0)) {
             target_id = strndup(cgroup_path + matches[1].rm_so, matches[1].rm_eo - matches[1].rm_so);
             if (target_id != NULL) {
-                snprintf(buffer, PATH_MAX, "/proc/%s/environ", target_id);
+                snprintf(buffer, PATH_MAX, "/host_proc/%s/environ", target_id);
                 config_path = strdup(buffer);
                 free(target_id);
             }
@@ -93,7 +93,7 @@ target_apptainer_resolve_name(struct target *target)
     char *config_path = NULL;
     size_t env_len;
 
-    /* Get path from process environment file belonging to the container (e.g., /proc/<pid>/environ) */
+    /* Get path from process environment file belonging to the container in host (e.g., /host_proc/<pid>/environ) */
     config_path = build_container_config_path(target->cgroup_path);
     if (!config_path)
         return NULL;
