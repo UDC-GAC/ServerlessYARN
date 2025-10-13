@@ -105,7 +105,7 @@
             {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
             cp /etc/hosts {{ bind_dir }}/{{ item.container_name }}/hosts \
             && {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
-            'echo {{ server_ip }} opentsdb >> /etc/hosts \
+            'echo {{ server_ip }} opentsdb data_server >> /etc/hosts \
             && cat {{ bind_dir_on_container }}/hosts >> /etc/hosts \
             && rm {{ bind_dir_on_container }}/hosts' &&
           {% endif  %}
