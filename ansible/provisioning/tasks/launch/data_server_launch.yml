@@ -1,0 +1,18 @@
+
+- name: Read data server setup job id
+  set_fact:
+    setup_job_id: "{{ lookup('file', ansible_async_dir ~ '/data_server_setup.jid') | trim }}"
+
+- name: Wait until data server setup has finished
+  async_status:
+    jid: "{{ setup_job_id }}"
+  register: setup_status
+  until: setup_status.finished
+  retries: 720
+  delay: 5
+
+- name: Launch data server in a tmux session
+  shell: bash start_tmux.sh
+  args:
+    chdir: "{{ data_server_path }}"
+    executable: /bin/bash

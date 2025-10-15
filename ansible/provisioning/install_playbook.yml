@@ -21,6 +21,9 @@
     - import_tasks: tasks/install/time_sync.yml
       when: virtual_mode
 
+    - import_tasks: tasks/install/data_server_setup.yml
+      when: local_data_server
+
     - import_tasks: tasks/install/apptainer_setup.yml
       when: "virtual_mode and container_engine == 'apptainer'"
       tags: install_apptainer

@@ -3,3 +3,10 @@
     path: "{{ installation_path }}"
     state: directory
     owner: "{{ user_info.user_name }}"
+
+- name: Create directory to store asynchronous job IDs
+  delegate_to: localhost
+  file:
+    path: "{{ installation_path }}/async_jobs"
+    state: directory
+    owner: "{{ user_info.user_name }}"

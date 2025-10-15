@@ -63,9 +63,3 @@
   make:
     chdir: "{{ installation_path }}/redis"
   when: not stat_output.stat.exists
-
-- name: Create directory to store asynchronous job IDs
-  file:
-    path: "{{ installation_path }}/async_jobs"
-    state: directory
-    owner: "{{ user_info.user_name }}"

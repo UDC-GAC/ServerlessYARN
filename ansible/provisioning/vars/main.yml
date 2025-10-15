@@ -1,5 +1,6 @@
 ## Installation path variables
 installation_path: "{{ lookup('env', 'HOME') }}/ServerlessYARN_install"
+data_server_path: "{{ installation_path }}/data_server"
 bdwatchdog_path: "{{ installation_path }}/BDWatchdog"
 bdwatchdog_source_path: "{{ installation_path }}/BDWatchdog_source"
 serverless_containers_path: "{{ installation_path }}/ServerlessContainers"

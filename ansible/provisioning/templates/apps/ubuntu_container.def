@@ -4,8 +4,11 @@ From: ubuntu:20.04
 %files
     "{{ bdwatchdog_source_path }}" /opt/BDWatchdog
 
-%post
+%environment
+    export DATA_SERVER_IP={{ data_server_url }}
+    export DATA_SERVER_PORT={{ data_server_port }}
 
+%post
     export ATOP_INSTALL_DIRECTORY="/opt/atop"
     export ATOP_VERSION="2.4.0"
 

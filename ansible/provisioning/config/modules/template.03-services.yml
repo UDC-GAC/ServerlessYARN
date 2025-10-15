@@ -14,3 +14,10 @@ mongodb_port: 27017
 ## TODO: add the node scaler (ServerlessContainers) and eve server (BDWatchdog) ports
 # Both currently use port 8000, which causes a conflict when using the server as host (due to the deployment of a node scaler on the server)
 # To fix this, it is required to remove the hardcoded ports in the code of SC and BDW and set them dynamically
+
+## Data server
+# Local data server to provide files to containers on demand
+# Access data server from withing containers using DATA_SERVER_IP and DATA_SERVER_PORT environment variables
+local_data_server: no # "yes" to deploy the local data server
+data_server_url: "{{ server_ip }}"
+data_server_port: 9001

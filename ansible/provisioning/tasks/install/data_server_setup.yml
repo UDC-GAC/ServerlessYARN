@@ -1,0 +1,34 @@
+- name: Create data server installation directory
+  file:
+    path: "{{ data_server_path }}"
+    state: directory
+    owner: "{{ user_info.user_name }}"
+
+- name: Copy data server install/start scripts
+  template:
+    src: "templates/data_server/{{ item }}"
+    dest: "{{ data_server_path }}/{{ item }}"
+  with_items:
+    - setup.sh
+    - start.sh
+    - start_tmux.sh
+
+- name: Copy parallel curl utility to speed up data server setup
+  synchronize:
+    src: "BDWatchdog/deployment//metrics/parallel_curl.sh"
+    dest: "{{ data_server_path }}/parallel_curl.sh"
+
+- name: Setup data server (download external sources)
+  shell: bash setup.sh
+  args:
+    chdir: "{{ data_server_path }}"
+    executable: /bin/bash
+  async: 3600
+  poll: 0
+  register: data_server_setup
+
+- name: Save job id to check status later
+  copy:
+    content: "{{ data_server_setup.ansible_job_id }}"
+    dest: "{{ ansible_async_dir }}/data_server_setup.jid"
+    owner: "{{ user_info.user_name }}"
