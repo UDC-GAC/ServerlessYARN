@@ -438,7 +438,7 @@
 
       - name: Execute start script on container
         #shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null"
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su -w DATA_SERVER_IP,DATA_SERVER_PORT - {{ user_info.user_name }} -c 'source {{ singularity_env_file }} && nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null'"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'source {{ singularity_env_file }} && nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null'"
         args:
           executable: /bin/bash
         async: 10800

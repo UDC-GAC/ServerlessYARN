@@ -39,13 +39,17 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
     mkdir -p hadoop_files/data_dir
 
     ## Download and uncompress
-    hadoop_download_dir=https://archive.apache.org/dist/hadoop/core/hadoop-{{ hadoop_version }}
     hadoop_download_file=hadoop-{{ hadoop_version }}.tar.gz
-
+    {% if local_data_server -%}
+    ### Take advantage of the local data server to speed up the download
+    wget -O $hadoop_download_file "http://${DATA_SERVER_IP}:${DATA_SERVER_PORT}/$hadoop_download_file"
+    {%- else -%}
     ### Take advantage of the parallel script included in BDWatchdog to speed up the download
     parallel_script_path=/opt/BDWatchdog/deployment/metrics/parallel_curl.sh
-    number_of_chunks=$(( $(nproc) * 2 ))
+    number_of_chunks=$(( $(nproc) * 2 )
+    hadoop_download_dir=https://archive.apache.org/dist/hadoop/core/hadoop-{{ hadoop_version }}
     bash $parallel_script_path $hadoop_download_dir/$hadoop_download_file $hadoop_download_file "${number_of_chunks}"
+    {%- endif %}
 
     mkdir hadoop && tar xf $hadoop_download_file -C hadoop --strip-components 1 && rm $hadoop_download_file
     chown -R $(whoami):$(whoami) hadoop

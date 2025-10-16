@@ -10,7 +10,13 @@ apt-get -y update
 apt-get -y install build-essential wget gfortran libopenmpi-dev openmpi-bin
 
 # Download NPB
-wget "${NPB_DOWNLOAD_URL}"
+{% if local_data_server -%}
+### Take advantage of the local data server to speed up the download
+wget -O "${NPB_TAR_FILE}" "http://${DATA_SERVER_IP}:${DATA_SERVER_PORT}/${NPB_TAR_FILE}"
+{%- else -%}
+wget -O "${NPB_TAR_FILE}" "${NPB_DOWNLOAD_URL}"
+{%- endif %}
+
 tar -xf "${NPB_TAR_FILE}" -C "${NPB_INSTALL_DIR}"
 rm "${NPB_TAR_FILE}"
 

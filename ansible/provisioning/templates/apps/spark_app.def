@@ -13,13 +13,17 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
     export SPARK_CONF_DIR=/opt/hadoop_files/spark_conf
 
     ## Download and uncompress
-    spark_download_dir=https://archive.apache.org/dist/spark/spark-{{ spark_version }}
     spark_download_file=spark-{{ spark_version }}-bin-without-hadoop.tgz
-
+    {% if local_data_server -%}
+    ### Take advantage of the local data server to speed up the download
+    wget -O $spark_download_file "http://${DATA_SERVER_IP}:${DATA_SERVER_PORT}/$spark_download_file"
+    {%- else -%}
     ### Take advantage of the parallel script included in BDWatchdog to speed up the download
     parallel_script_path=/opt/BDWatchdog/deployment/metrics/parallel_curl.sh
     number_of_chunks=$(( $(nproc) * 2 ))
+    spark_download_dir=https://archive.apache.org/dist/spark/spark-{{ spark_version }}
     bash $parallel_script_path $spark_download_dir/$spark_download_file $spark_download_file "${number_of_chunks}"
+    {%- endif %}
 
     mkdir spark && tar xf $spark_download_file -C spark --strip-components 1 && rm $spark_download_file
     chown -R $(whoami):$(whoami) spark
