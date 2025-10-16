@@ -22,6 +22,7 @@
       when: virtual_mode
 
     - import_tasks: tasks/install/data_server_setup.yml
+      tags: setup_data_server
       when: local_data_server
 
     - import_tasks: tasks/install/apptainer_setup.yml

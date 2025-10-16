@@ -9,6 +9,7 @@
     src: "templates/data_server/{{ item }}"
     dest: "{{ data_server_path }}/{{ item }}"
   with_items:
+    - sources.list
     - setup.sh
     - start.sh
     - start_tmux.sh

@@ -1,0 +1,28 @@
+spark-{{ spark_version }}-bin-hadoop3.tgz             https://archive.apache.org/dist/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-hadoop3.tgz
+spark-{{ spark_version }}-bin-without-hadoop.tgz      https://archive.apache.org/dist/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-without-hadoop.tgz
+hadoop-{{ hadoop_version }}.tar.gz                     https://archive.apache.org/dist/hadoop/core/hadoop-{{ hadoop_version }}/hadoop-{{ hadoop_version }}.tar.gz
+NPB3.4.2.tar.gz                         https://www.nas.nasa.gov/assets/nas/npb/NPB3.4.2.tar.gz
+frog1-360.mp4                           https://www.pexels.com/es-es/download/video/855631/?h=360&w=640
+frog1-540.mp4                           https://www.pexels.com/es-es/download/video/855631/?h=540&w=960
+frog1-720.mp4                           https://www.pexels.com/es-es/download/video/855631/?h=720&w=1280
+frog1-1080.mp4                          https://www.pexels.com/es-es/download/video/855631/?h=1080&w=1920
+frog2-360.mp4                           https://www.pexels.com/es-es/download/video/2422933/?h=360&w=640
+frog2-540.mp4                           https://www.pexels.com/es-es/download/video/2422933/?h=540&w=960
+frog2-720.mp4                           https://www.pexels.com/es-es/download/video/2422933/?h=720&w=1280
+frog2-1080.mp4                          https://www.pexels.com/es-es/download/video/2422933/?h=1080&w=1920
+frog3-360.mp4                           https://www.pexels.com/es-es/download/video/5450486/?h=360&w=640
+frog3-540.mp4                           https://www.pexels.com/es-es/download/video/5450486/?h=540&w=960
+frog3-720.mp4                           https://www.pexels.com/es-es/download/video/5450486/?h=720&w=1280
+frog3-1080.mp4                          https://www.pexels.com/es-es/download/video/5450486/?h=1080&w=1920
+frog4-360.mp4                           https://www.pexels.com/es-es/download/video/12516136/?h=360&w=640
+frog4-540.mp4                           https://www.pexels.com/es-es/download/video/12516136/?h=540&w=960
+frog4-720.mp4                           https://www.pexels.com/es-es/download/video/12516136/?h=720&w=1280
+frog4-1080.mp4                          https://www.pexels.com/es-es/download/video/12516136/?h=1080&w=1920
+frog5-360.mp4                           https://www.pexels.com/es-es/download/video/9083215/?h=360&w=640
+frog5-540.mp4                           https://www.pexels.com/es-es/download/video/9083215/?h=540&w=960
+frog5-720.mp4                           https://www.pexels.com/es-es/download/video/9083215/?h=720&w=1280
+frog5-1080.mp4                          https://www.pexels.com/es-es/download/video/9083215/?h=1080&w=1920
+frog6-360.mp4                           https://www.pexels.com/es-es/download/video/15996459/?h=360&w=640
+frog6-540.mp4                           https://www.pexels.com/es-es/download/video/15996459/?h=540&w=960
+frog6-720.mp4                           https://www.pexels.com/es-es/download/video/15996459/?h=720&w=1280
+frog6-1080.mp4                          https://www.pexels.com/es-es/download/video/15996459/?h=1080&w=1920

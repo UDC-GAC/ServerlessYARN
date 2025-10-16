@@ -64,6 +64,7 @@
       when: "power_budgeting"
 
     - import_tasks: tasks/launch/data_server_launch.yml
+      tags: start_data_server
       when: local_data_server
 
 # Setup nodes
