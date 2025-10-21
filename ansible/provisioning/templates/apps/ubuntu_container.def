@@ -66,7 +66,5 @@ From: ubuntu:20.04
 
 %startscript
 
-    # Run script as regular user
-    su - {{ user_info.user_name }} -c "\
-        cd /opt/BDWatchdog/MetricsFeeder \
-        && bash scripts/run_atop_stream_tmux.sh"
+    # Run script as root
+    cd /opt/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream_tmux.sh

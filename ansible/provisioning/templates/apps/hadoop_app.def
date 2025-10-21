@@ -46,7 +46,7 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
     {%- else -%}
     ### Take advantage of the parallel script included in BDWatchdog to speed up the download
     parallel_script_path=/opt/BDWatchdog/deployment/metrics/parallel_curl.sh
-    number_of_chunks=$(( $(nproc) * 2 )
+    number_of_chunks=$(( $(nproc) * 2 ))
     hadoop_download_dir=https://archive.apache.org/dist/hadoop/core/hadoop-{{ hadoop_version }}
     bash $parallel_script_path $hadoop_download_dir/$hadoop_download_file $hadoop_download_file "${number_of_chunks}"
     {%- endif %}
@@ -94,10 +94,10 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
 
     # Run as root
     bash /opt/setup.sh
+    cd /opt/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream_with_java_translation.sh
 
     # Run as regular user
     su - {{ user_info.user_name }} -c "source $ENVFILE \
         && bash /opt/setup.sh \
         && cd /opt/BDWatchdog/MetricsFeeder \
-        && bash scripts/run_atop_stream_with_java_translation.sh \
         && bash /opt/java_snitch.sh"
