@@ -274,6 +274,7 @@ def processStartApp(request, url, **kwargs):
     container_resources = getContainerResourcesForApp(number_of_containers, app_resources, app_limits, benevolence, is_hadoop_app)
 
     if is_hadoop_app:
+        container_resources['rm-nn'] = {}
         container_resources['rm-nn']['cpu_max'] = rm_maximum_cpu
         container_resources['rm-nn']['cpu_min'] = rm_minimum_cpu
         container_resources['rm-nn']['cpu_weight'] = DEFAULT_RESOURCE_VALUES['weight']
