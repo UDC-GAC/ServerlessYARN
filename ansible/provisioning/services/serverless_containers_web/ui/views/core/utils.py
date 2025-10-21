@@ -135,7 +135,7 @@ def getLimits(structure_name):
 def getStructuresValuesLabels(item, field):
     values_labels = set()
     for key, values in item.get(field, {}).items():
-        if key != "cpu_cores":
+        if key not in ["cpu_cores", "disks", "disk"]:
             for value_label in values:
                 if value_label not in EXCLUDED_VALUES_LABELS:
                     values_labels.add(value_label)
