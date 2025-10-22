@@ -325,7 +325,7 @@ def processStartApp(request, url, **kwargs):
             if use_global_hdfs:
                 global_hdfs_data = {}
                 ## Add global Namenode
-                apps = getApps(data_json)
+                apps, _ = getApps(data_json)
                 global_hdfs_app, namenode_container = retrieve_global_hdfs_app(apps)
                 if not global_hdfs_app:
                     return "Global HDFS requested but not found"

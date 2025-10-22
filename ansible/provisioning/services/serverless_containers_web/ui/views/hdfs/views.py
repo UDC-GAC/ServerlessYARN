@@ -87,7 +87,7 @@ def hdfs(request):
     except urllib.error.HTTPError:
         data_json = {}
 
-    apps = getApps(data_json)
+    apps, _ = getApps(data_json)
     global_hdfs_app, namenode_container_info = retrieve_global_hdfs_app(apps)
 
     namenode_container = None
