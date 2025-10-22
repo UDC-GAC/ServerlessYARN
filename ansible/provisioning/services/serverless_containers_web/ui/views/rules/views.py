@@ -90,6 +90,7 @@ def rules(request):
         item['editable_data'] = editable_data
 
     rulesResources = getRulesResources(data_json)
+    rulesResources.sort() # sort resources by alphabetical order
     ruleTypes = ['requests','events','']
 
     config_errors = checkInvalidConfig()
