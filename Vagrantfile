@@ -9,6 +9,7 @@ general_config        = YAML.load_file(File.exist?("#{config_dir}/01-general.yml
 host_config           = YAML.load_file(File.exist?("#{config_dir}/02-hosts.yml") ? "#{config_dir}/02-hosts.yml" : "#{config_dir}/template.02-hosts.yml")
 
 ## Server
+SERVER_HOSTNAME = "server"
 SERVER_IP = host_config['server_ip']
 CPU_SERVER_NODE = host_config['cpus_server_node']
 MEMORY_SERVER_NODE = host_config['memory_server_node']
@@ -36,11 +37,14 @@ Vagrant.configure("2") do |config|
 
     # Master Node aka Server
     config.vm.define "server", primary: true do |server|
-        server.vm.hostname = "server"
+        server.vm.hostname = SERVER_HOSTNAME
         server.vm.provision "main_setup", type: "shell", path: "provision/server.sh"
 
         server.vm.provision "cgroups_setup", type: "shell", path: "provision/cgroups_setup.sh", args: CGROUPS_VERSION
         server.vm.provision :reload
+
+        ## run only when explicitly specified
+        server.vm.provision "full_ssh_setup", type: "shell", path: "provision/full_passwordless_ssh.sh", args: SERVER_HOSTNAME, run: "never"
 
         server.vm.network "private_network", ip: SERVER_IP
         server.vm.network "forwarded_port", guest: WEB_INTERFACE_PORT, host: WEB_INTERFACE_PORT, host_ip: "127.0.0.1"
@@ -62,10 +66,13 @@ Vagrant.configure("2") do |config|
     (0..N-1).each do |i|
         config.vm.define "host#{i}" do |node|
             node.vm.hostname = "host#{i}"
-            node.vm.provision "main_setup", type: "shell", path: "provision/nodes.sh"
+            node.vm.provision "main_setup", type: "shell", path: "provision/nodes.sh", args: SERVER_HOSTNAME
 
             node.vm.provision "cgroups_setup", type: "shell", path: "provision/cgroups_setup.sh", args: CGROUPS_VERSION
             node.vm.provision :reload
+
+            ## run only when explicitly specified
+            node.vm.provision "full_ssh_setup", type: "shell", path: "provision/full_passwordless_ssh.sh", args: SERVER_HOSTNAME, run: "never"
 
             number_to_ip = [server_ip_to_number + 1 + i].pack('N').unpack('CCCC').join('.')
             node.vm.network "private_network", ip: number_to_ip

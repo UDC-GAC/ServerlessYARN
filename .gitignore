@@ -2,7 +2,7 @@
 __pycache__/
 .vagrant/
 .idea/
-id_rsa.pub
+id_rsa*.pub
 artifacts/
 *.log
 *.jar

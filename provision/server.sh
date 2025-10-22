@@ -17,9 +17,9 @@ cp /vagrant/ansible/ansible.cfg /etc/ansible
 USER_DIR=/home/vagrant/.ssh
 echo -e 'y\n' | sudo -u vagrant ssh-keygen -t rsa -f $USER_DIR/id_rsa -q -N ''
 chown vagrant:vagrant $USER_DIR/id_rsa*
-cp $USER_DIR/id_rsa.pub /vagrant/provision
+cp $USER_DIR/id_rsa.pub /vagrant/provision/id_rsa_`hostname`.pub
 sed -i '1!d' $USER_DIR/authorized_keys >& /dev/null
-cat /vagrant/provision/id_rsa.pub >> $USER_DIR/authorized_keys
+cat /vagrant/provision/id_rsa_`hostname`.pub >> $USER_DIR/authorized_keys
 chown vagrant:vagrant $USER_DIR/authorized_keys
 chmod 0600 $USER_DIR/authorized_keys >& /dev/null
 
