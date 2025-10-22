@@ -2,6 +2,9 @@ import os
 import json
 import urllib
 
+from ansible.parsing.dataloader import DataLoader
+from ansible.inventory.manager import InventoryManager
+
 from django.conf import settings
 
 from ui.utils import DEFAULT_LIMIT_VALUES
@@ -367,6 +370,23 @@ def getContainerAssignationForApp(assignation_policy, allow_oversubscription, ho
 
     # Initialise assignation
     assignation = {}
+
+    # Reserve server for master containers
+    if "rm-nn" in container_resources and settings.PLATFORM_CONFIG['server_as_host'] and settings.PLATFORM_CONFIG['reserve_server_for_master']:
+        loader = DataLoader()
+        ansible_inventory = InventoryManager(loader=loader, sources=settings.INVENTORY_FILE)
+        server_name = ansible_inventory.groups['platform_management'].get_hosts()[0].vars['ansible_host']
+
+        ## Remove server from host list to avoid adding containers to it
+        for h in hosts:
+            if server_name == h['name']:
+                hosts.remove(h)
+                break
+
+        assignation[server_name] = {"rm-nn": 1}
+        containers_to_allocate["rm-nn"] = 0
+
+
     for host in hosts:
         assignation[host['name']] = {"regular": 0}
         if check_disks and 'disks' in host['resources']:

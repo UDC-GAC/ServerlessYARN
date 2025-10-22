@@ -1,5 +1,9 @@
 # Big Data
 global_hdfs: no
 
+# reserve server node to exclusively deploy master containers for global hdfs and regular hadoop apps.
+# only applies if 'server_as_host' parameter is enabled
+reserve_server_for_master: yes
+
 local_namenode_port: 55555
 namenode_port: 9870

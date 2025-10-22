@@ -66,6 +66,10 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
 
     for host in hosts:
         ## Create DataNodes
+        if settings.PLATFORM_CONFIG['server_as_host'] and settings.PLATFORM_CONFIG['reserve_server_for_master']:
+            # Do not create a datanode in the server node if it is reserved for master containers
+            if host['name'] == server_name: continue
+
         container = {}
         container["container_name"] = dn_container_prefix + host_container_separator + host['name']
         container["host"] = host['name']
