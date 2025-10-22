@@ -10,3 +10,9 @@
     path: "{{ installation_path }}/async_jobs"
     state: directory
     owner: "{{ user_info.user_name }}"
+
+- name: Create temporary directory to store app temp files
+  file:
+    path: "{{ tmpdir }}"
+    state: directory
+    owner: "{{ user_info.user_name }}"
