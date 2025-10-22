@@ -106,9 +106,7 @@
           when: global_hdfs
           tags: never, setup_hdfs
           vars:
-            namenode_port: 9870
             frontend_port: 44444
-            local_port: 55555
 
     - import_tasks: tasks/containers_setup/node_rescaler_launch.yml
 

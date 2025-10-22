@@ -25,6 +25,7 @@ container_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/cont
 ## Global HDFS
 global_hdfs_data_dir: /vagrant/ansible/provisioning/hdfs_data
 hdfs_frontend_container_name: hdfs-frontend
+data_dir_on_container: /opt/transfer
 
 ## Container bind directories variables
 default_bind_path: "{{ installation_path }}"

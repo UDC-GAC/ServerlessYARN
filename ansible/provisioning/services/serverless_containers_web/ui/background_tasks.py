@@ -865,7 +865,12 @@ def add_file_to_hdfs(self, namenode_host, namenode_container, file_to_add, dest_
     # argument_list = [namenode_host, namenode_container, file_to_add, dest_path]
     # error_message = "Error uploading {0} to {1} on HDFS".format(file_to_add, dest_path)
     # process_script("hdfs/add_file_to_hdfs", argument_list, error_message)
-    run_playbooks.add_file_to_hdfs(namenode_host, namenode_container, file_to_add, dest_path)
+    if settings.PLATFORM_CONFIG["server_as_host"]:
+        frontend_container = namenode_container
+    else:
+        frontend_container = settings.VARS_CONFIG["hdfs_frontend_container_name"]
+
+    run_playbooks.add_file_to_hdfs(namenode_host, namenode_container, file_to_add, dest_path, frontend_container)
 
 @shared_task(bind=True)
 def get_file_from_hdfs(self, namenode_host, namenode_container, file_to_download, dest_path):
@@ -873,7 +878,12 @@ def get_file_from_hdfs(self, namenode_host, namenode_container, file_to_download
     # argument_list = [namenode_host, namenode_container, file_to_download, dest_path]
     # error_message = "Error downloading {0} from {1} on HDFS".format(file_to_download, dest_path)
     # process_script("hdfs/get_file_from_hdfs", argument_list, error_message)
-    run_playbooks.get_file_from_hdfs(namenode_host, namenode_container, file_to_download, dest_path)
+    if settings.PLATFORM_CONFIG["server_as_host"]:
+        frontend_container = namenode_container
+    else:
+        frontend_container = settings.VARS_CONFIG["hdfs_frontend_container_name"]
+
+    run_playbooks.get_file_from_hdfs(namenode_host, namenode_container, file_to_download, dest_path, frontend_container)
 
 @shared_task(bind=True)
 def remove_file_from_hdfs(self, namenode_host, namenode_container, path_to_delete):
@@ -887,7 +897,7 @@ def remove_file_from_hdfs(self, namenode_host, namenode_container, path_to_delet
 def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluster, put_field_data, hosts):
 
     # Calculate resources for HDFS cluster
-    number_of_workers = len(hosts) # or len(containers) - 1
+    number_of_workers = len(containers) - 1
 
     worker_resources = None
     for container in containers:
@@ -907,6 +917,23 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
     # update inventory file
     with redis_server.lock(lock_key): add_containers_to_inventory(containers)
 
+    nn_container = None
+    nn_host = None
+    for container in containers:
+        if "namenode" in container['container_name']:
+            nn_container = container['container_name']
+            nn_host = container['host']
+            if settings.PLATFORM_CONFIG["server_as_host"]:
+                # Set additional variables to this specific container
+                ## 'secondary_bind' --> bind directory that will be used to transfer data from local system to global HDFS
+                ## 'expose_ptp' --> expose ptp as primary network connection to allow communication from server to namenode
+                ## 'portmap' --> port mapping to allow direct communication from server to namenode
+                container['secondary_bind'] = "{0}:{1}".format(settings.VARS_CONFIG['global_hdfs_data_dir'], settings.VARS_CONFIG['data_dir_on_container'])
+                container['expose_ptp'] = 1
+                container['portmap'] = "portmap={0}:{1}/tcp".format(settings.PLATFORM_CONFIG['local_namenode_port'], settings.PLATFORM_CONFIG['namenode_port'])
+            break
+    if not nn_container: raise Exception("Namenode container not found in container list") # should not happen
+
     host_list = []
     for host in hosts: host_list.append(host['name'])
     formatted_host_list = ",".join(host_list)
@@ -919,16 +946,6 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
     run_playbooks.start_containers_with_app(host_list, formatted_containers_info, app_files['app_type'], app_files)
 
     ## Setup network and start HDFS
-    nn_container = None
-    nn_host = None
-    for container in containers:
-        if "namenode" in container['container_name']:
-            nn_container = container['container_name']
-            nn_host = container['host']
-            break
-
-    if not nn_container: raise Exception("Namenode container not found in container list") # should not happen
-
     # argument_list = [formatted_host_list, app, app_files['app_type'], formatted_containers_info, nn_host, nn_container, hdfs_resources["datanode_d_heapsize"]]
     # error_message = "Error setting HDFS network"
     # process_script("hdfs/setup_hdfs_network", argument_list, error_message)
@@ -944,7 +961,8 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
     # argument_list = [formatted_host_list, "hdfs_frontend", formatted_containers_info, nn_host, nn_container]
     # error_message = "Error setting HDFS frontend"
     # process_script("hdfs/start_hdfs_frontend", argument_list, error_message)
-    run_playbooks.start_hdfs_frontend(host_list, "hdfs_frontend", formatted_containers_info, nn_host, nn_container)
+    if not settings.PLATFORM_CONFIG["server_as_host"]:
+        run_playbooks.start_hdfs_frontend(host_list, "hdfs_frontend", formatted_containers_info, nn_host, nn_container)
 
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)
@@ -991,13 +1009,15 @@ def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_fre
     # argument_list = ["platform_server", vars_config['hdfs_frontend_container_name']]
     # error_message = "Error stopping hdfs frontend container {0}".format(vars_config['hdfs_frontend_container_name'])
     # process_script("stop_container", argument_list, error_message)
-    run_playbooks.stop_container("platform_server", vars_config['hdfs_frontend_container_name'])
+    if not settings.PLATFORM_CONFIG["server_as_host"]:
+        run_playbooks.stop_container("platform_server", vars_config['hdfs_frontend_container_name'])
 
     # Stop containers
     stop_containers_task = []
     for container in app_containers:
         bind_path = ""
-        if 'disk_path' in container: bind_path = container['disk_path']
+        #if 'disk_path' in container: bind_path = container['disk_path']
+        if 'disk' in container['resources'] and 'path' in container['resources']['disk']: bind_path = container['resources']['disk']['path']
         stop_task = stop_container.delay(container['host'], container['name'], bind_path)
         register_task(stop_task.id,"stop_container_task")
         # stop_task = stop_container.si(container['host'], container['name'], bind_path)

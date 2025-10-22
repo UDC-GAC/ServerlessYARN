@@ -35,7 +35,10 @@
       - name: Get containers IP addresses
         shell: "{% for item in containers_info %}
           {% if item.host == inventory_hostname %}
-          sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\" && 
+          sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \ 
+            {% if not 'expose_ptp' in item %}\"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\" &&
+            {% else %}\"printf '%s ' \\$(hostname -I | awk '{print \\$2}') && hostname\" &&
+            {% endif %}
           {% endif  %}
           {% endfor %}true"
         args:
@@ -89,9 +92,11 @@
     block:
       - name: Get global namenode IP address
         when: inventory_hostname == global_namenode_host
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ global_namenode_container }} su - {{ user_info.user_name }} -c \"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\""
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ global_namenode_container }} su - {{ user_info.user_name }} -c \"printf '%s ' \\$(hostname -I | awk '{print \\${{ internal_network_order }}}') && hostname\""
         args:
           executable: /bin/bash
+        vars:
+          internal_network_order: "{{ '2' if server_as_host else '1' }}"
         register: global_namenode_resolution
 
       - name: Update hostname resolution in containers
@@ -675,10 +680,10 @@
     delegate_to: localhost
     vars:
       global_namenode_url: "hdfs://{{ namenode_container }}:8020"
-      origin_container_path: "{{ bind_dir_on_container }}/{{ origin_path.rstrip('/') | basename }}"
+      origin_container_path: "{{ data_dir_on_container }}/{{ origin_path.rstrip('/') | basename }}"
     block:
       - name: Put data on HDFS
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ hdfs_frontend_container_name }} su - {{ user_info.user_name }} -c \
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ frontend_container }} su - {{ user_info.user_name }} -c \
           '$HADOOP_HOME/bin/hdfs dfs -put {{ origin_container_path }} {{ global_namenode_url }}/{{ dest_path }}'"
         args:
           executable: /bin/bash
@@ -689,10 +694,10 @@
     delegate_to: localhost
     vars:
       global_namenode_url: "hdfs://{{ namenode_container }}:8020"
-      dest_container_path: "{{ bind_dir_on_container }}/{{ dest_path.rstrip('/') }}" 
+      dest_container_path: "{{ data_dir_on_container }}/{{ dest_path.rstrip('/') }}"
     block:
       - name: Get data from HDFS
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ hdfs_frontend_container_name }} su - {{ user_info.user_name }} -c \ 
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ frontend_container }} su - {{ user_info.user_name }} -c \ 
           '$HADOOP_HOME/bin/hdfs dfs -get {{ global_namenode_url }}/{{ origin_path }} {{ dest_container_path }}'"
         args:
           executable: /bin/bash

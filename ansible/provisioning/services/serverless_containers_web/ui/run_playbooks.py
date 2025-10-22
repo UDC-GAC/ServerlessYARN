@@ -259,7 +259,6 @@ def start_hdfs_frontend(host_names, app_type, containers_info, nn_host, nn_conta
         "nn_host": nn_host,
         "nn_container": nn_container
     }
-    extravars.update(hdfs_resources)
 
     run_playbook(playbook_name="start_containers_playbook.yml", tags=["setup_hdfs"], limit=host_names, extravars=extravars)
 
@@ -269,18 +268,20 @@ def create_dir_on_hdfs(host_name, namenode_container, dir_to_create):
 def remove_file_from_hdfs(host_name, namenode_container, path_to_remove):
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["remove_file_from_hdfs"], limit=[host_name], extravars={"container": namenode_container, "dest_path": path_to_remove})
 
-def add_file_to_hdfs(host_name, namenode_container, file_to_add, dest_path):
+def add_file_to_hdfs(host_name, namenode_container, file_to_add, dest_path, frontend_container):
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["add_file_to_hdfs"], limit=[host_name], extravars={
         "namenode_container": namenode_container,
         "origin_path": file_to_add,
-        "dest_path": dest_path
+        "dest_path": dest_path,
+        "frontend_container": frontend_container
     })
 
-def get_file_from_hdfs(host_name, namenode_container, file_to_download, dest_path):
+def get_file_from_hdfs(host_name, namenode_container, file_to_download, dest_path, frontend_container):
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["get_file_from_hdfs"], limit=[host_name], extravars={
         "namenode_container": namenode_container,
         "origin_path": file_to_download,
-        "dest_path": dest_path
+        "dest_path": dest_path,
+        "frontend_container": frontend_container
     })
 
 def setup_hadoop_network_with_global_hdfs(host_names, app_name, app_type, containers_info, rm_host, rm_container, hadoop_conf, global_hdfs_data):

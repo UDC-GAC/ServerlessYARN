@@ -1,2 +1,5 @@
 # Big Data
 global_hdfs: no
+
+local_namenode_port: 55555
+namenode_port: 9870

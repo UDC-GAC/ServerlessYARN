@@ -2,6 +2,9 @@ import json
 import urllib
 from django.conf import settings
 
+from ansible.parsing.dataloader import DataLoader
+from ansible.inventory.manager import InventoryManager
+
 from ui.utils import DEFAULT_RESOURCE_VALUES, DEFAULT_LIMIT_VALUES
 from ui.update_inventory_file import host_container_separator
 from ui.background_tasks import register_task, get_pending_tasks_messages, stop_hdfs_task, remove_app_task, start_global_hdfs_task
@@ -40,7 +43,19 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
 
     if len(hosts) > 0:
         ## Create NameNode
-        host = hosts[0]
+        if settings.PLATFORM_CONFIG['server_as_host']:
+            # the namenode must be deployed on the server
+            loader = DataLoader()
+            ansible_inventory = InventoryManager(loader=loader, sources=settings.INVENTORY_FILE)
+            server_name = ansible_inventory.groups['platform_management'].get_hosts()[0].vars['ansible_host']
+
+            for h in hosts:
+                if server_name == h['name']:
+                    host = h
+                    break
+        else:
+            # just choose the first node otherwise
+            host = hosts[0]
         container = {}
         container["container_name"] = nn_container_prefix + host_container_separator + host['name']
         container["host"] = host['name']
