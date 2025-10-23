@@ -298,7 +298,7 @@ def setup_hadoop_network_with_global_hdfs(host_names, app_name, app_type, contai
 
     tags = ["setup_network", "setup_global_hdfs_connection", "setup_hadoop", "download_to_local"]
 
-    run_playbook(playbook_name="manage_app_on_container.yml", tags=tags, limit=(host_names + [global_hdfs_data["global_namenode_host"]]), extravars=extravars)
+    run_playbook(playbook_name="manage_app_on_container.yml", tags=tags, limit=(host_names + [global_hdfs_data["namenode_host"]]), extravars=extravars)
 
 def upload_local_hdfs_data_to_global(rm_host, rm_container, global_hdfs_data):
 
@@ -308,7 +308,8 @@ def upload_local_hdfs_data_to_global(rm_host, rm_container, global_hdfs_data):
     }
     extravars.update(global_hdfs_data)
 
-    run_playbook(playbook_name="manage_app_on_container.yml", tags=["upload_to_global"], limit=[rm_host], extravars=extravars)
+    run_playbook(playbook_name="manage_app_on_container.yml", tags=["upload_to_global"], limit=[global_hdfs_data['namenode_host']], extravars=extravars)
+    run_playbook(playbook_name="manage_app_on_container.yml", tags=["remove_global_hdfs_connection"], limit=[global_hdfs_data['namenode_host']], extravars=extravars)
 
 def clean_hdfs(host_name, container):
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["clean_hdfs"], limit=[host_name], extravars={"container": container})

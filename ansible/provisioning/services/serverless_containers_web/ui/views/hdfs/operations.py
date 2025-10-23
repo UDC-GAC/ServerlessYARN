@@ -31,11 +31,11 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
     hdfs_container_resources = {
         'namenode': {
             'cpu': {'max': 100, 'min': 100, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
-            'mem': {'max': 1024, 'min': 512, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
+            'mem': {'max': 1024, 'min': 1024, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
         },
         'datanode': {
-            'cpu': {'max': 100, 'min': 50, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
-            'mem': {'max': 1024, 'min': 512, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
+            'cpu': {'max': 300, 'min': 100, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
+            'mem': {'max': 3096, 'min': 1024, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
             'disk_read':  {'min': 10, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
             'disk_write': {'min': 10, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
         }

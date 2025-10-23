@@ -339,10 +339,11 @@ def processStartApp(request, url, **kwargs):
                                                    ('write_to_global', ['local_input', 'global_output'])]:
                     if request.POST.get(condition, False):
                         for info in additional_info:
-                            global_hdfs_data[info] = request.POST.get(info) if request.POST.get(info, "") != "" else DEFAULT_HDFS_VALUES[info]
-                    else:
-                        for info in additional_info:
-                            global_hdfs_data[info] = ""
+                            #global_hdfs_data[info] = request.POST.get(info) if request.POST.get(info, "") != "" else DEFAULT_HDFS_VALUES[info]
+                            global_hdfs_data[info] = request.POST.get(info)
+                    # else:
+                    #     for info in additional_info:
+                    #         global_hdfs_data[info] = ""
 
         task = start_hadoop_app_task.delay(url, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type, global_hdfs_data)
     else:

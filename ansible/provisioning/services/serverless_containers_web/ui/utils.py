@@ -29,8 +29,8 @@ DEFAULT_RESOURCE_VALUES = {
 }
 
 DEFAULT_HDFS_VALUES = {
-    "local_output": "/user/root",
-    "global_output": "/user/root"
+    "local_output": "/user/{username}",
+    "global_output": "/user/{username}"
 }
 
 DEFAULT_SERVICE_PARAMETERS = {

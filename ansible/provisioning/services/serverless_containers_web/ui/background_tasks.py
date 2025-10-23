@@ -949,7 +949,10 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
     # argument_list = [formatted_host_list, app, app_files['app_type'], formatted_containers_info, nn_host, nn_container, hdfs_resources["datanode_d_heapsize"]]
     # error_message = "Error setting HDFS network"
     # process_script("hdfs/setup_hdfs_network", argument_list, error_message)
-    run_playbooks.setup_hdfs_network(host_list, app, app_files['app_type'], formatted_containers_info, nn_host, nn_container, hdfs_resources)
+
+    ## Run HDFS + YARN on the global HDFS cluster, thus distcp may be run within the global cluster
+    run_playbooks.setup_hadoop_network_on_containers(host_list, app, app_files['app_type'], formatted_containers_info, nn_host, nn_container, hdfs_resources)
+
 
     # Add containers to app
     url = url[:url[:url.rfind('/')].rfind('/')]

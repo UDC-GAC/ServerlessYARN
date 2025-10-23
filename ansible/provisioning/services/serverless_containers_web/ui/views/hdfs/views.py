@@ -55,6 +55,9 @@ def hdfs(request):
                 entry_path = entry.get('inode-path')
                 entry_full_path = "/".join([parent_directory, entry_path])
 
+                ## Skip tmp directory used for YARN jobs
+                if entry_full_path == "/tmp": continue
+
                 for element in entry:
 
                     if element.text.strip():

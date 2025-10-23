@@ -88,20 +88,19 @@
       - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
     tags: never, setup_network
 
-  - name: Setup connection on containers with global hdfs
+  - name: Setup connection on global hdfs with containers
     block:
-      - name: Get global namenode IP address
-        when: inventory_hostname == global_namenode_host
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ global_namenode_container }} su - {{ user_info.user_name }} -c \"printf '%s ' \\$(hostname -I | awk '{print \\${{ internal_network_order }}}') && hostname\""
+      - name: Get container IP address
+        when: inventory_hostname == rm_host
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\""
         args:
           executable: /bin/bash
         vars:
-          internal_network_order: "{{ '2' if server_as_host else '1' }}"
-        register: global_namenode_resolution
+        register: local_namenode_resolution
 
-      - name: Update hostname resolution in containers
-        when: inventory_hostname == rm_host
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \
+      - name: Update hostname resolution in global namenode
+        when: inventory_hostname == namenode_host
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} bash -c \
           'cp /etc/hosts {{ user_home_on_container }} \
           && sed -i '\\''1s/^/{{ namenode_iface_ip }}\\n/'\\'' {{ user_home_on_container }}/hosts \
           && cat {{ user_home_on_container }}/hosts > /etc/hosts \
@@ -109,8 +108,19 @@
         args:
           executable: /bin/bash
         vars:
-          namenode_iface_ip: "{{ (ansible_play_hosts | map('extract', hostvars, 'global_namenode_resolution') | first).stdout }}"
+          namenode_iface_ip: "{{ (ansible_play_hosts | map('extract', hostvars, 'local_namenode_resolution') | first).stdout }}"
     tags: never, setup_global_hdfs_connection
+
+  - name: Remove connection on global hdfs with containers
+    when: inventory_hostname == namenode_host
+    shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} bash -c \
+      'cp /etc/hosts {{ user_home_on_container }} \
+      && sed -n '/{{ rm_container }}/!p' {{ user_home_on_container }}/hosts > {{ user_home_on_container }}/hosts.tmp; mv {{ user_home_on_container }}/hosts.tmp {{ user_home_on_container }}/hosts \
+      && cat {{ user_home_on_container }}/hosts > /etc/hosts \
+      && rm {{ user_home_on_container }}/hosts'"
+    args:
+      executable: /bin/bash
+    tags: never, remove_global_hdfs_connection
 
   - name: Setup hadoop on containers
     block:
@@ -702,29 +712,46 @@
         args:
           executable: /bin/bash
 
+  ## Run distcp within the global cluster
   - name: Move data between global and local HDFS
     tags: never
-    when: inventory_hostname == rm_host
+    when: inventory_hostname == namenode_host
     vars:
-      global_namenode_ip: "\\$(getent hosts {{ global_namenode_container }} | awk '{print \\$1 }')" ## for some reason distcp does not resolve hostnames, so this workaround is needed to resolve ip before executing distcp
-      global_namenode_url: "hdfs://{{ global_namenode_ip }}:8020"
+      local_namenode_ip: "\\$(getent hosts {{ rm_container }} | awk '{print \\$1 }')" ## for some reason distcp does not resolve hostnames, so this workaround is needed to resolve ip before executing distcp
+      local_namenode_url: "hdfs://{{ local_namenode_ip }}:8020"
     block:
       - name: Download data from global HDFS to local one
         tags: download_to_local
-        when: global_input is defined and global_input != '' and local_output is defined and local_output != ''
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \"\\$HADOOP_HOME/bin/hadoop distcp {{ origin }} {{ dest }}\""
+        when: global_input is defined and global_input != ''
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \"\\$HADOOP_HOME/bin/hadoop distcp {{ origin }} {{ dest }}\""
         args:
           executable: /bin/bash
         vars:
-          origin: "{{ global_namenode_url }}/{{ global_input }}"
-          dest: "{{ local_output }}/{{ global_input | basename }}"
+          origin: "{{ global_input }}"
+          dest_output: >-
+            {%- if local_output is not defined -%}
+              {{ '/user/' + user_info.user_name +'/' }}
+            {%- elif not local_output.startswith('/') -%}
+              {{ '/user/' + user_info.user_name +'/' + local_output }}
+            {%- else -%}
+              {{ local_output }}
+            {%- endif -%}
+          dest: "{{ local_namenode_url }}/{{ dest_output }}/{{ global_input | basename }}"
 
       - name: Upload data from local HDFS to global one
         tags: upload_to_global
-        when: local_input is defined and local_input != '' and global_output is defined and global_output != ''
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \"\\$HADOOP_HOME/bin/hadoop distcp {{ origin }} {{ dest }}\""
+        when: local_input is defined and local_input != ''
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \"\\$HADOOP_HOME/bin/hadoop distcp {{ origin }} {{ dest }}\""
         args:
           executable: /bin/bash
         vars:
-          origin: "{{ local_input }}"
-          dest: "{{ global_namenode_url }}/{{ global_output }}/{{ local_input | basename }}"
+          origin: "{{ local_namenode_url }}/{{ local_input }}"
+          dest_output: >-
+            {%- if global_output is not defined -%}
+              {{ '/user/' + user_info.user_name +'/' }}
+            {%- elif not global_output.startswith('/') -%}
+              {{ '/user/' + user_info.user_name +'/' + global_output }}
+            {%- else -%}
+              {{ global_output }}
+            {%- endif -%}
+          dest: "{{ dest_output }}/{{ local_input | basename }}"
