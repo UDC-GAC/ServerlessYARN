@@ -712,46 +712,79 @@
         args:
           executable: /bin/bash
 
-  ## Run distcp within the global cluster
   - name: Move data between global and local HDFS
     tags: never
     when: inventory_hostname == namenode_host
     vars:
-      local_namenode_ip: "\\$(getent hosts {{ rm_container }} | awk '{print \\$1 }')" ## for some reason distcp does not resolve hostnames, so this workaround is needed to resolve ip before executing distcp
+      local_namenode_ip: "\\$(getent hosts {{ rm_container }} | awk '{print \\$1 }' | head -n 1)"  # Resolve IP for distcp, ensuring to get only one IP
       local_namenode_url: "hdfs://{{ local_namenode_ip }}:8020"
     block:
-      - name: Download data from global HDFS to local one
-        tags: download_to_local
-        when: global_input is defined and global_input != ''
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \"\\$HADOOP_HOME/bin/hadoop distcp {{ origin }} {{ dest }}\""
-        args:
-          executable: /bin/bash
+      - name: Handle data transfer between global and local HDFS
+        tags: download_to_local, upload_to_global
+        when:
+          - ('download_to_local' in ansible_run_tags and global_input is defined and global_input != '') or
+            ('upload_to_global' in ansible_run_tags  and local_input is defined and local_input != '')
         vars:
-          origin: "{{ global_input }}"
-          dest_output: >-
-            {%- if local_output is not defined -%}
-              {{ '/user/' + user_info.user_name +'/' }}
-            {%- elif not local_output.startswith('/') -%}
-              {{ '/user/' + user_info.user_name +'/' + local_output }}
+          # Set variables dynamically based on the tag
+          origin: >-
+            {%- if 'download_to_local' in ansible_run_tags -%}
+              {{ global_input }}
             {%- else -%}
-              {{ local_output }}
+              {{ local_namenode_url }}/{{ local_input }}
             {%- endif -%}
-          dest: "{{ local_namenode_url }}/{{ dest_output }}/{{ global_input | basename }}"
+          dest_output: >-
+            {%- if 'download_to_local' in ansible_run_tags -%}
+              {%- if local_output is not defined -%}
+                {{ '/user/' + user_info.user_name +'/' }}
+              {%- elif not local_output.startswith('/') -%}
+                {{ '/user/' + user_info.user_name +'/' + local_output }}
+              {%- else -%}
+                {{ local_output }}
+              {%- endif -%}
+            {%- else -%}
+              {%- if global_output is not defined -%}
+                {{ '/user/' + user_info.user_name +'/' }}
+              {%- elif not global_output.startswith('/') -%}
+                {{ '/user/' + user_info.user_name +'/' + global_output }}
+              {%- else -%}
+                {{ global_output }}
+              {%- endif -%}
+            {%- endif -%}
+          dest: >-
+            {%- if 'download_to_local' in ansible_run_tags -%}
+              {{ local_namenode_url }}/{{ dest_output }}/{{ global_input | basename }}
+            {%- else -%}
+              {{ dest_output }}/{{ local_input | basename }}
+            {%- endif -%}
+        block:
+          - name: Get requested data size
+            shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \"\\$HADOOP_HOME/bin/hdfs dfs -du -s {{ origin }} | awk '{print \\$1}' \""
+            args:
+              executable: /bin/bash
+            register: data_size
 
-      - name: Upload data from local HDFS to global one
-        tags: upload_to_global
-        when: local_input is defined and local_input != ''
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \"\\$HADOOP_HOME/bin/hadoop distcp {{ origin }} {{ dest }}\""
-        args:
-          executable: /bin/bash
-        vars:
-          origin: "{{ local_namenode_url }}/{{ local_input }}"
-          dest_output: >-
-            {%- if global_output is not defined -%}
-              {{ '/user/' + user_info.user_name +'/' }}
-            {%- elif not global_output.startswith('/') -%}
-              {{ '/user/' + user_info.user_name +'/' + global_output }}
-            {%- else -%}
-              {{ global_output }}
-            {%- endif -%}
-          dest: "{{ dest_output }}/{{ local_input | basename }}"
+          - name: Small data size ({{ data_size.stdout }}) --> Run get/put
+            when: (data_size.stdout | int) <= (distcp_threshold | size_to_bytes)
+            block:
+              - name: "[Small data size ({{ data_size.stdout }} <= {{ distcp_threshold }}) --> Run get/put] Get input data"
+                shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
+                  \"\\$HADOOP_HOME/bin/hdfs dfs -get -f {{ origin }} {{ user_home_on_container }}\""
+                args:
+                  executable: /bin/bash
+
+              - name: "[Small data size ({{ data_size.stdout }} <= {{ distcp_threshold }}) --> Run get/put] Put input data into target HDFS"
+                shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
+                  \"\\$HADOOP_HOME/bin/hdfs dfs -mkdir -p {{ dest | dirname }} && \\$HADOOP_HOME/bin/hdfs dfs -put -f {{ user_home_on_container }}/{{ origin | basename }} {{ dest }}\""
+                args:
+                  executable: /bin/bash
+
+              - name: "[Small data size ({{ data_size.stdout }} <= {{ distcp_threshold }}) --> Run get/put] Remove file in temporary location"
+                shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c 'rm {{ user_home_on_container }}/{{ origin | basename }}'"
+                args:
+                  executable: /bin/bash
+
+          - name: Large data size ({{ data_size.stdout }} > {{ distcp_threshold }}) --> Run distcp
+            when: (data_size.stdout | int) > (distcp_threshold | size_to_bytes)
+            shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \"\\$HADOOP_HOME/bin/hadoop distcp {{ origin }} {{ dest }}\""
+            args:
+              executable: /bin/bash
