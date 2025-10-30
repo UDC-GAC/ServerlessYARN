@@ -8,7 +8,7 @@ reserve_server_for_master: yes
 local_namenode_port: 55555
 namenode_port: 9870
 
-default_hdfs_replication: 2
+default_hdfs_replication: 3
 global_hdfs_replication: "{{ default_hdfs_replication }}"
 local_hdfs_replication: 1
 
