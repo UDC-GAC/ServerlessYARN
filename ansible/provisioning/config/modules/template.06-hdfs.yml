@@ -17,3 +17,12 @@ local_hdfs_replication: 1
 ## if data size is higher than threshold --> run distcp
 ## by default the threshold is set to 2g to leverage the tmpfs of the containers and avoid disk I/O
 distcp_threshold: 2g
+
+# mode of assigning the 'blocksperchunk' parameter of distcp, that will modulate the number of mappers created
+# 'best-effort': it will try to assign the best distribution
+# 'distcp-default': 0 (do not slice files, create 1 mapper per file)
+# 'mapred-default': 1 (slice per every block, create 1 mapper per block)
+# 'datanode-mapping': try to assign a mapper per datanode;
+  ## this is a best-effort estimation, since it depends on the number of blocks of the selected path
+  ## an unbalanced block distribution in the files may lower the precision of the resulting distribution
+mappers_assignation: 'best-effort'

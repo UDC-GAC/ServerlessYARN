@@ -397,6 +397,8 @@ def getHostFreeDiskBw(host):
 def retrieve_global_hdfs_app(apps):
     global_hdfs_app = None
     namenode_container_info = None
+    datanodes = []
+
     for app in apps:
         if app['name'] == "global_hdfs":
             global_hdfs_app = app
@@ -406,9 +408,10 @@ def retrieve_global_hdfs_app(apps):
         for container in global_hdfs_app['containers_full']:
             if 'namenode' in container['name']:
                 namenode_container_info = container
-                break
+            elif 'datanode' in container['name']:
+                datanodes.append(container)
 
-    return global_hdfs_app, namenode_container_info
+    return global_hdfs_app, namenode_container_info, datanodes
 
 
 def getDataAndFilterByApp(url, app_name):

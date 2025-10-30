@@ -326,13 +326,14 @@ def processStartApp(request, url, **kwargs):
                 global_hdfs_data = {}
                 ## Add global Namenode
                 apps, _ = getApps(data_json)
-                global_hdfs_app, namenode_container = retrieve_global_hdfs_app(apps)
+                global_hdfs_app, namenode_container, datanodes = retrieve_global_hdfs_app(apps)
                 if not global_hdfs_app:
                     return "Global HDFS requested but not found"
                 if not namenode_container:
                     return "Namenode not found in global HDFS"
                 global_hdfs_data['namenode_container_name'] = namenode_container['name']
                 global_hdfs_data['namenode_host'] = namenode_container['host']
+                global_hdfs_data['number_of_datanodes'] = len(datanodes)
 
                 ## Get additional info (read/write data from/to hdfs)
                 for condition, additional_info in [('read_from_global', ['global_input', 'local_output']),

@@ -785,6 +785,37 @@
 
           - name: Large data size ({{ data_size.stdout }} > {{ distcp_threshold }}) --> Run distcp
             when: (data_size.stdout | int) > (distcp_threshold | size_to_bytes)
-            shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \"\\$HADOOP_HOME/bin/hadoop distcp {{ origin }} {{ dest }}\""
-            args:
-              executable: /bin/bash
+            block:
+
+              - name: Get blocks_per_chunk when mappers_assignation == 'distcp-default' or 'mapred-default' --> avoid additional calculations
+                when: mappers_assignation == 'distcp-default' or mappers_assignation == 'mapred-default'
+                set_fact:
+                  blocks_per_chunk: "{{ '0' if mappers_assignation == 'distcp-default' else '1' }}"
+
+              - name: Calculate blocks_per_chunk based on additional calculations
+                when: blocks_per_chunk is not defined
+                block:
+                - name: "Get number of files and blocks to transfer"
+                  shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
+                    \"\\$HADOOP_HOME/bin/hdfs dfs -count {{ origin }} | awk '{print \\$2}' && \
+                    \\$HADOOP_HOME/bin/hdfs fsck {{ origin }} | grep -o 'Total blocks.*' | awk '{print \\$4}' \""
+                  args:
+                    executable: /bin/bash
+                  register: data_transfer_info
+
+                - name: Calculate mappers
+                  get_mappers:
+                    number_of_blocks: "{{ data_transfer_info.stdout_lines[0] }}"
+                    number_of_files: "{{ data_transfer_info.stdout_lines[1] }}"
+                    number_of_datanodes: "{{ number_of_datanodes }}"
+                    mode: "{{ mappers_assignation }}"
+                  register: mappers_result
+
+                - name: Calculate blocks_per_chunk based on additional calculations
+                  set_fact:
+                    blocks_per_chunk: "{{ mappers_result.mappers }}"
+
+              - name: "[Large data size ({{ data_size.stdout }} > {{ distcp_threshold }}) --> Run distcp] Transfer data"
+                shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \"\\$HADOOP_HOME/bin/hadoop distcp -strategy dynamic -blocksperchunk {{ blocks_per_chunk }} {{ origin }} {{ dest }}\""
+                args:
+                  executable: /bin/bash
