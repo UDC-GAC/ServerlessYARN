@@ -6,7 +6,7 @@ from django.conf import settings
 from ui.utils import DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, SUPPORTED_RESOURCES
 from ui.background_tasks import register_task, start_containers_task_v2, remove_containers_task
 
-from ui.views.core.utils import getHostsNames, getLimits, setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels, compareStructureNames, getFreestDisk
+from ui.views.core.utils import getHostsNames, getLimits, getScalerPollFreq, setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels, compareStructureNames, getFreestDisk
 from ui.views.containers.utils import setAddContainersForm
 
 
@@ -105,6 +105,8 @@ def processRemoveContainers(request, url, **kwargs):
 
         container_list.append({'container_name': container, 'host': host})
 
-    task = remove_containers_task.delay(url, container_list)
+    scaler_polling_freq = getScalerPollFreq()
+
+    task = remove_containers_task.delay(url, container_list, scaler_polling_freq)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"remove_containers_task")

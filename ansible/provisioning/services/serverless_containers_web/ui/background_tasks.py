@@ -1075,11 +1075,14 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
     error, _ = request_to_state_db(full_url, "delete", error_message)
 
 @shared_task
-def remove_containers_task(url, container_list):
+def remove_containers_task(url, container_list, scaler_polling_freq):
 
     ## Disable scaler and other scaling services, remove all containers from StateDB and re-enable them
     run_playbooks.disable_scaler()
     run_playbooks.disable_scaling_services()
+
+    # Ensure Scaler finish current iteration and persist host info before removing containers
+    time.sleep(scaler_polling_freq)
 
     errors = []
     for container in container_list:
@@ -1110,6 +1113,9 @@ def remove_containers_from_app(url, container_list, app, app_files, scaler_polli
     run_playbooks.disable_scaler()
     run_playbooks.disable_scaling_services()
 
+    # Ensure Scaler finish current iteration and persist host info before removing containers
+    time.sleep(scaler_polling_freq)
+
     # Set application in stop state in ServerlessContainers
     change_app_execution_state_in_db(url, app, "stop")
 
@@ -1124,7 +1130,7 @@ def remove_containers_from_app(url, container_list, app, app_files, scaler_polli
     end_time = timeit.default_timer()
 
     ## Wait at least for the scaler polling frequency time before re-enabling it
-    time.sleep(scaler_polling_freq - (end_time - start_time))
+    #time.sleep(scaler_polling_freq - (end_time - start_time))
 
     # Re-enable Scaler
     run_playbooks.enable_scaler()
