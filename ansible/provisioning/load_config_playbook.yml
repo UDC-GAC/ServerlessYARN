@@ -2,8 +2,42 @@
   hosts: localhost
   gather_facts: no
 
+  # TODO: avoid redundancy of the list of module files
+  # It is required to load the module files as vars in order to template variables
+  # e.g., to template the variable 'orchestrator_url' in 03-services.yml to the value of "{{ server_ip }}"
+  # templating all variables in the resulting config.yml file allows scripts to properly get the actual values
+  vars_files:
+      - config/modules/01-general.yml
+      - config/modules/02-hosts.yml
+      - config/modules/03-services.yml
+      - config/modules/04-disk.yml
+      - config/modules/05-power.yml
+      - config/modules/06-hdfs.yml
+      - config/modules/07-containers.yml
+      - config/modules/08-apps.yml
+
+  vars:
+    modules:
+      - config/modules/01-general.yml
+      - config/modules/02-hosts.yml
+      - config/modules/03-services.yml
+      - config/modules/04-disk.yml
+      - config/modules/05-power.yml
+      - config/modules/06-hdfs.yml
+      - config/modules/07-containers.yml
+      - config/modules/08-apps.yml
+
   tasks:
-    - name: Dump modules into config.yml
-      template:
-        src: config/config.j2
+    - name: Render and load each module as data
+      set_fact:
+        merged_config: >-
+          {{
+            merged_config | default({}) |
+            combine((lookup('template', item) | from_yaml), recursive=True)
+          }}
+      loop: "{{ modules | sort }}" ## sort to keep the file order
+
+    - name: Write merged configuration to file
+      copy:
         dest: config/config.yml
+        content: "{{ merged_config | to_nice_yaml(sort_keys=False) }}" ## disable the default alphabetical order of parameters
