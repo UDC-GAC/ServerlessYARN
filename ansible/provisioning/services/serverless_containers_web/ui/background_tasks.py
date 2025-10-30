@@ -1106,8 +1106,8 @@ def remove_containers_task(url, container_list):
 
     errors = []
     for container in container_list:
-        full_url = url + "container/{0}".format(container['container_name'])
-        error = remove_container_from_db(full_url, container['container_name'])
+        full_url = url + "container/{0}".format(container['name'])
+        error = remove_container_from_db(full_url, container['name'])
         if error != "": errors.append(error)
 
     run_playbooks.enable_scaler()
@@ -1116,10 +1116,11 @@ def remove_containers_task(url, container_list):
     ## Stop Containers
     # Stop and remove containers
     for container in container_list:
-        full_url = url + "container/{0}".format(container['container_name'])
+        full_url = url + "container/{0}".format(container['name'])
         bind_path = ""
-        if 'disk_path' in container: bind_path = container['disk_path']
-        stop_task = stop_container.delay(container['host'], container['container_name'], bind_path)
+        #if 'disk_path' in container: bind_path = container['disk_path']
+        if 'disk' in container['resources'] and 'path' in container['resources']['disk']: bind_path = container['resources']['disk']['path']
+        stop_task = stop_container.delay(container['host'], container['name'], bind_path)
         register_task(stop_task.id,"stop_container_task")
 
     # It would be great to execute tasks on a group, but the group task ID is not trackable

@@ -6,22 +6,23 @@ from django.conf import settings
 from ui.utils import DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, SUPPORTED_RESOURCES
 from ui.background_tasks import register_task, start_containers_task_v2, remove_containers_task
 
-from ui.views.core.utils import getHostsNames, getLimits, setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels, compareStructureNames, getFreestDisk
+from ui.views.core.utils import getHostsNames, getLimits, setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels, compareStructureNames, getFreestDisk, getDbData
 from ui.views.containers.utils import setAddContainersForm
 
 
-def getContainers(data):
+def getContainers(data, include_forms=True):
     containers = []
     hosts = getHostsNames(data)
     for item in data:
         if item['subtype'] == 'container':
             item['limits'] = getLimits(item['name'])
 
-            ## Container Resources Form
-            setStructureResourcesForm(item,"containers")
+            if include_forms:
+                ## Container Resources Form
+                setStructureResourcesForm(item,"containers")
 
-            ## Container Limits Form
-            setLimitsForm(item,"containers")
+                ## Container Limits Form
+                setLimitsForm(item,"containers")
 
             ## Set labels for container values
             item['resources_values_labels'] = getStructuresValuesLabels(item, 'resources')
@@ -98,12 +99,17 @@ def processAddContainers(request, url, **kwargs):
 
 def processRemoveContainers(request, url, **kwargs):
     container_list = []
+    db_containers, _ = getContainers(getDbData(settings.BASE_URL + "/structure/"), include_forms=False)
+
     for container in kwargs["selected_structures"]:
         cont_host = container.strip("(").strip(")").split(',')
-        container = cont_host[0].strip().strip("'")
-        host = cont_host[1].strip().strip("'")
+        container_name = cont_host[0].strip().strip("'")
+        host_name = cont_host[1].strip().strip("'")
 
-        container_list.append({'container_name': container, 'host': host})
+        for db_cont in db_containers:
+            if db_cont['name'] == container_name and db_cont['host'] == host_name:
+                container_list.append(db_cont)
+                break
 
     task = remove_containers_task.delay(url, container_list)
     print("Starting task with id {0}".format(task.id))

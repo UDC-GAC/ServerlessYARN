@@ -119,6 +119,15 @@ def checkInvalidConfig():
 
     return error_lines
 
+def getDbData(url):
+
+    try:
+        response = urllib.request.urlopen(url)
+        data_json = json.loads(response.read())
+    except urllib.error.HTTPError:
+        data_json = {}
+
+    return data_json
 
 # ------------------------------------ Common functions for resource/limits management ------------------------------------
 
