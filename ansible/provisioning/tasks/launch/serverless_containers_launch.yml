@@ -183,9 +183,7 @@
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-  with_items:
-    - Guardian
-    - Rebalancer
+  loop: "{{ ['Guardian', 'Rebalancer'] + (['EnergyController'] if power_budgeting else []) }}"
   tags: never, disable_scaling_services
 
 ## Limit containers bw
@@ -201,7 +199,5 @@
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-  with_items:
-    - Guardian
-    - Rebalancer
+  loop: "{{ ['Guardian', 'Rebalancer'] + (['EnergyController'] if power_budgeting else []) }}"
   tags: never, enable_scaling_services
