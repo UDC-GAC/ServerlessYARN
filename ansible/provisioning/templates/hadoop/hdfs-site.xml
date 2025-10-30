@@ -21,7 +21,7 @@
 
 	<property>
 		<name>dfs.replication</name>
-		<value>3</value>
+		<value>{{ hdfs_replication }}</value>
 	</property>
 
 	<property>

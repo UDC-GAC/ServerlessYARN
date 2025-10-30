@@ -161,7 +161,7 @@ def get_min_container_size(node_memory):
 
     return min_container_size
 
-def set_hadoop_resources(container_resources, virtual_cluster, number_of_workers):
+def set_hadoop_resources(container_resources, virtual_cluster, number_of_workers, replication_factor=settings.PLATFORM_CONFIG['default_hdfs_replication']):
 
     hadoop_resources = {}
 
@@ -259,7 +259,8 @@ def set_hadoop_resources(container_resources, virtual_cluster, number_of_workers
         "mapreduce_am_memory": str(mapreduce_am_memory),
         "mapreduce_am_memory_java_opts": str(mapreduce_am_memory_java_opts),
         "datanode_heapsize": str(datanode_heapsize),
-        "nodemanager_heapsize": str(nodemanager_heapsize)
+        "nodemanager_heapsize": str(nodemanager_heapsize),
+        "hdfs_replication": str(replication_factor),
     }
 
     # Check assigned resources are valid
@@ -680,7 +681,7 @@ def start_hadoop_app_task(self, url, app, app_files, new_containers, container_r
             for host in new_containers:
                 if container_type in new_containers[host]: number_of_workers += new_containers[host][container_type]
 
-            hadoop_resources[container_type] = set_hadoop_resources(container_resources[container_type], virtual_cluster, number_of_workers)
+            hadoop_resources[container_type] = set_hadoop_resources(container_resources[container_type], virtual_cluster, number_of_workers, replication_factor=settings.PLATFORM_CONFIG['local_hdfs_replication'])
 
     start_time = timeit.default_timer()
 
@@ -906,7 +907,7 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
             break
     if not worker_resources: raise Exception("Worker container not found when starting global hdfs: {0}".format(containers))
 
-    hdfs_resources = set_hadoop_resources(worker_resources, virtual_cluster, number_of_workers)
+    hdfs_resources = set_hadoop_resources(worker_resources, virtual_cluster, number_of_workers, replication_factor=settings.PLATFORM_CONFIG['global_hdfs_replication'])
 
     start_time = timeit.default_timer()
 

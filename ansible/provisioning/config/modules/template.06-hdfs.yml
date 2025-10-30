@@ -8,8 +8,12 @@ reserve_server_for_master: yes
 local_namenode_port: 55555
 namenode_port: 9870
 
+default_hdfs_replication: 2
+global_hdfs_replication: "{{ default_hdfs_replication }}"
+local_hdfs_replication: 1
+
 # data size threshold when moving data between global and local HDFSs
-# if data size is lower than threshold  --> run a simple get/put data transfer
-# if data size is higher than threshold --> run distcp
-# by default the threshold is set to 2g to leverage the tmpfs of the containers and avoid disk I/O
+## if data size is lower than threshold  --> run a simple get/put data transfer
+## if data size is higher than threshold --> run distcp
+## by default the threshold is set to 2g to leverage the tmpfs of the containers and avoid disk I/O
 distcp_threshold: 2g
