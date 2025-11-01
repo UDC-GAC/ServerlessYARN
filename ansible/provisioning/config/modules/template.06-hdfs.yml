@@ -1,6 +1,10 @@
 # Big Data
 global_hdfs: no
 
+# Directory in the server to store files to transfer/transferred to/from global HDFS
+global_hdfs_data_dir: $HOME/ssd/transfer
+global_hdfs_disk_name: "ssd_hdfs"
+
 # reserve server node to exclusively deploy master containers for global hdfs and regular hadoop apps.
 # only applies if 'server_as_host' parameter is enabled
 reserve_server_for_master: yes

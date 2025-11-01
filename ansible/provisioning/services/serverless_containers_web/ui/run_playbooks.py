@@ -14,11 +14,11 @@ config_path = scriptDir + "/../../../config/config.yml"
 # Ansible runner doc: https://ansible.readthedocs.io/projects/runner/en/stable/ansible_runner/
 
 # Auxiliary
-def check_bind_path(bind_path):
+def check_container_bind_path(container, bind_path):
     with open(vars_path, "r") as vars_file: vars_config = yaml.load(vars_file, Loader=yaml.FullLoader)
 
     if not bind_path:
-        return vars_config['default_bind_path']
+        return "/".join([vars_config['bind_dir'], container])
     else: 
         return bind_path
 
@@ -127,7 +127,7 @@ def start_containers_with_app(host_names, containers_info, app_type, app_files):
     run_playbook(playbook_name="start_containers_playbook.yml", tags=["start_containers"], limit=(host_names + ["localhost"]), extravars=extravars)
     run_playbook(playbook_name="launch_playbook.yml", tags=["start_containers"], extravars={"host_list": host_names, "containers_info_str": containers_info})
 
-def stop_container(host_name, container, bind_path=None):
+def stop_container(host_name, container, bind_path=None, clean_bind_dir=True):
 
     with open(config_path, "r") as config_file: config = yaml.load(config_file, Loader=yaml.FullLoader)
 
@@ -148,12 +148,11 @@ def stop_container(host_name, container, bind_path=None):
         raise Exception("No valid container engine")
 
     # Remove bind directory
-    with open(vars_path, "r") as vars_file: vars_config = yaml.load(vars_file, Loader=yaml.FullLoader)
-    bind_path = check_bind_path(bind_path)
-    vars_config.update({"bind_path": bind_path})
-    container_bind_dir = "/".join([vars_config['bind_dir'], container])
+    if clean_bind_dir:
+        with open(vars_path, "r") as vars_file: vars_config = yaml.load(vars_file, Loader=yaml.FullLoader)
+        bind_path = check_container_bind_path(container, bind_path)
 
-    run_adhoc(hosts=[host_name], module="file", module_args="path={0} state=absent".format(container_bind_dir), extravars=vars_config)
+        run_adhoc(hosts=[host_name], module="file", module_args="path={0} state=absent".format(bind_path), extravars=vars_config)
 
 def setup_network_on_containers(host_names, containers_info):
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["setup_network"], limit=host_names, extravars={"containers_info_str": containers_info})
@@ -169,12 +168,12 @@ def create_app(app_files):
 
 def start_app_on_container(host_name, container, app_name, app_files, bind_path=None):
 
-    bind_path = check_bind_path(bind_path)
+    bind_path = check_container_bind_path(container, bind_path)
 
     extravars = {
         "container": container,
         "app_name": app_name,
-        "bind_path": bind_path
+        "container_bind_dir": bind_path
     }
     extravars.update(app_files)
 
@@ -186,12 +185,12 @@ def wait_for_app_on_container(host_name, container):
 
 def stop_app_on_container(host_name, container, app_name, app_files, rm_container, bind_path=None, timestamp=None):
 
-    bind_path = check_bind_path(bind_path)
+    bind_path = check_container_bind_path(container, bind_path)
 
     extravars = {
         "container": container,
         "app_name": app_name,
-        "bind_path": bind_path,
+        "container_bind_dir": bind_path,
         "rm_container": rm_container,
         "timestamp": timestamp
     }

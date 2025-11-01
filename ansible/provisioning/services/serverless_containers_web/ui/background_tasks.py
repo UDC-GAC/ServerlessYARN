@@ -550,7 +550,7 @@ def start_containers_task_v2(new_containers, container_resources, disks):
 
             if len(disks) > 0:
                 container_info['disk'] = disks[host]['name']
-                container_info['disk_path'] = disks[host]['path']
+                container_info['disk_path'] = "/".join([disks[host]['path'], settings.VARS_CONFIG['bind_dir_name'], container])
             # # Disks
             # for disk in disk_assignation[host]:
             #     if disk_assignation[host][disk]['new_containers'] > 0:
@@ -611,7 +611,7 @@ def deploy_app_containers(url, new_containers, app, app_files, container_resourc
                             if disk_assignation[host][disk]['new_containers'] > 0:
                                 disk_assignation[host][disk]['new_containers'] -= 1
                                 container_info['disk'] = disk
-                                container_info['disk_path'] = disk_assignation[host][disk]['disk_path']
+                                container_info['disk_path'] = "/".join([disk_assignation[host][disk]['disk_path'], settings.VARS_CONFIG['bind_dir_name'], container])
                                 for resource in ['disk_read', 'disk_write']:
                                     for key in ['max', 'min', 'weight', 'boundary', 'boundary_type']:
                                         resource_key = "{0}_{1}".format(resource,key)
@@ -929,7 +929,6 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
                 ## 'secondary_bind' --> bind directory that will be used to transfer data from local system to global HDFS
                 ## 'expose_ptp' --> expose ptp as primary network connection to allow communication from server to namenode
                 ## 'portmap' --> port mapping to allow direct communication from server to namenode
-                container['secondary_bind'] = "{0}:{1}".format(settings.VARS_CONFIG['global_hdfs_data_dir'], settings.VARS_CONFIG['data_dir_on_container'])
                 container['expose_ptp'] = 1
                 container['portmap'] = "portmap={0}:{1}/tcp".format(settings.PLATFORM_CONFIG['local_namenode_port'], settings.PLATFORM_CONFIG['namenode_port'])
             break
@@ -1019,10 +1018,13 @@ def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_fre
     # Stop containers
     stop_containers_task = []
     for container in app_containers:
-        bind_path = ""
-        #if 'disk_path' in container: bind_path = container['disk_path']
-        if 'disk' in container['resources'] and 'path' in container['resources']['disk']: bind_path = container['resources']['disk']['path']
-        stop_task = stop_container.delay(container['host'], container['name'], bind_path)
+        bind_path, clean_bind_dir = "", True
+        if 'disk' in container['resources'] and 'path' in container['resources']['disk']:
+            bind_path = container['resources']['disk']['path']
+        if "namenode" in container['name']:
+            clean_bind_dir = False
+
+        stop_task = stop_container.delay(container['host'], container['name'], bind_path, clean_bind_dir)
         register_task(stop_task.id,"stop_container_task")
         # stop_task = stop_container.si(container['host'], container['name'], bind_path)
         # stop_containers_task.append(stop_task)
@@ -1238,13 +1240,13 @@ def remove_container_from_app_db(full_url, container_name, app):
     return error
 
 @shared_task
-def stop_container(host, container_name, bind_path):
+def stop_container(host, container_name, bind_path=None, clean_bind_dir=True):
 
     ## Stop container
     # argument_list = [host, container_name]
     # error_message = "Error stopping container {0}".format(container_name)
     # process_script("stop_container", argument_list, error_message)
-    run_playbooks.stop_container(host, container_name, bind_path)
+    run_playbooks.stop_container(host, container_name, bind_path, clean_bind_dir)
 
     # update inventory file
     with redis_server.lock(lock_key):

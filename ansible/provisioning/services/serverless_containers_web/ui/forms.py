@@ -1596,7 +1596,7 @@ class AddHdfsFileForm(forms.Form):
     operation = common_fields['operation']
     operation.initial = "add_file"
 
-    origin_path = forms.CharField(label= "Origin path of file or directory to upload (relative to 'hdfs_data')",
+    origin_path = forms.CharField(label= "Origin path of file or directory to upload (relative to {0})".format(config['global_hdfs_data_dir']),
             required=True
             )
     dest_path = forms.CharField(label= "Destination directory on the HDFS",
@@ -1627,7 +1627,7 @@ class GetHdfsFileForm(forms.Form):
     origin_path = forms.CharField(label= "Origin path of file or directory to download from HDFS",
             required=True
             )
-    dest_path = forms.CharField(label= "Destination directory (relative to 'hdfs_data')",
+    dest_path = forms.CharField(label= "Destination directory (relative to {0})".format(config['global_hdfs_data_dir']),
             required=False
             )
 

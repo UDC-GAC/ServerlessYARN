@@ -23,7 +23,6 @@ host_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/host"
 container_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/container"
 
 ## Global HDFS
-global_hdfs_data_dir: /vagrant/ansible/provisioning/hdfs_data
 hdfs_frontend_container_name: hdfs-frontend
 data_dir_on_container: /opt/transfer
 

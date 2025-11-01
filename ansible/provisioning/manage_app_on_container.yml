@@ -209,8 +209,8 @@
             shell: "{% for item in containers_info %}
               {% if item.host == inventory_hostname %}
               {% for file in hdfs_file_list %}
-              {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-              cp {{ app_tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
+              {% set container_bind_dir = item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') %}
+              cp {{ app_tmpdir }}/{{ file }} {{ container_bind_dir }}/{{ file }} && 
               {% endfor %}
               sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
               '{% for file in hdfs_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $HADOOP_CONF_DIR/{{ file }} && {% endfor %}true' && 
@@ -224,8 +224,8 @@
             shell: "{% for item in containers_info %}
               {% if item.host == inventory_hostname %}
               {% for file in hadoop_file_list %}
-              {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-              cp {{ app_tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
+              {% set container_bind_dir = item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') %}
+              cp {{ app_tmpdir }}/{{ file }} {{ container_bind_dir }}/{{ file }} && 
               {% endfor %}
               sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
               '{% for file in hadoop_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $HADOOP_CONF_DIR/{{ file }} && {% endfor %}true' && 
@@ -239,8 +239,8 @@
             shell: "{% for item in containers_info %}
               {% if item.host == inventory_hostname %}
               {% for file in spark_file_list %}
-              {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-              cp {{ app_tmpdir }}/{{ file }} {{ bind_dir }}/{{ item.container_name }}/{{ file }} && 
+              {% set container_bind_dir = item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') %}
+              cp {{ app_tmpdir }}/{{ file }} {{ container_bind_dir }}/{{ file }} && 
               {% endfor %}
               sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
               '{% for file in spark_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $SPARK_CONF_DIR/{{ file }} && {% endfor %}true' && 
@@ -276,7 +276,7 @@
           - name: Prepare RM/NN container bind path variable
             when: "item.container_name == rm_container"
             set_fact:
-              rm_container_bind_path: "{{ item.disk_path if item.disk_path is defined else default_bind_path }}"
+              rm_container_bind_path: "{{ item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') }}"
             with_items:
             - "{{ containers_info }}"
 
@@ -309,16 +309,14 @@
           - name: Copy RM/NN container ssh public key to hosts
             delegate_to: "{{ rm_host }}" # this will push from rm_host to each host, i.e., a remote host to remote host copy
             synchronize:
-              src: "{{ bind_dir }}/{{ rm_container }}/{{ rm_container }}.pub"
+              src: "{{ rm_container_bind_path }}/{{ rm_container }}.pub"
               dest: "{{ app_ssh_keys_dir }}/{{ app_name }}/{{ rm_container }}.pub"
-            vars:
-              bind_path: "{{ rm_container_bind_path }}"
 
           - name: Copy and append RM/NN container ssh public key to the other containers
             shell: "{% for item in containers_info %}
               {% if item.host == inventory_hostname and item.container_name != rm_container %}
-              {% set bind_dir = item.disk_path + '/' + bind_dir_name if item.disk_path is defined else default_bind_path + '/' + bind_dir_name %}
-              cp {{ app_ssh_keys_dir }}/{{ app_name }}/{{ rm_container }}.pub {{ bind_dir }}/{{ item.container_name }}/{{ rm_container }}.pub && \
+              {% set container_bind_dir = item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') %}
+              cp {{ app_ssh_keys_dir }}/{{ app_name }}/{{ rm_container }}.pub {{ container_bind_dir }}/{{ rm_container }}.pub && \
               sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
               'cat {{ bind_dir_on_container }}/{{ rm_container }}.pub >> ~/.ssh/authorized_keys \
               && rm {{ bind_dir_on_container }}/{{ rm_container }}.pub' && 
@@ -690,7 +688,7 @@
     delegate_to: localhost
     vars:
       global_namenode_url: "hdfs://{{ namenode_container }}:8020"
-      origin_container_path: "{{ data_dir_on_container }}/{{ origin_path.rstrip('/') | basename }}"
+      origin_container_path: "{{ bind_dir_on_container }}/{{ origin_path.rstrip('/') | basename }}"
     block:
       - name: Put data on HDFS
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ frontend_container }} su - {{ user_info.user_name }} -c \
@@ -704,7 +702,7 @@
     delegate_to: localhost
     vars:
       global_namenode_url: "hdfs://{{ namenode_container }}:8020"
-      dest_container_path: "{{ data_dir_on_container }}/{{ dest_path.rstrip('/') }}"
+      dest_container_path: "{{ bind_dir_on_container }}/{{ dest_path.rstrip('/') }}"
     block:
       - name: Get data from HDFS
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ frontend_container }} su - {{ user_info.user_name }} -c \ 

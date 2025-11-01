@@ -32,6 +32,8 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
         'namenode': {
             'cpu': {'max': 100, 'min': 100, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
             'mem': {'max': 1024, 'min': 1024, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
+            'disk_read':  {'min': 10, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
+            'disk_write': {'min': 10, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
         },
         'datanode': {
             'cpu': {'max': 300, 'min': 100, 'weight': def_weight, 'boundary': 5, 'boundary_type': "percentage_of_max"},
@@ -56,12 +58,27 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
         else:
             # just choose the first node otherwise
             host = hosts[0]
+
         container = {}
         container["container_name"] = nn_container_prefix + host_container_separator + host['name']
         container["host"] = host['name']
         for resource in ["cpu", "mem"]:
             for key in ["max", "min", "weight", "boundary", "boundary_type"]:
                 container["{0}_{1}".format(resource,key)] = hdfs_container_resources['namenode'][resource][key]
+
+        # Disk
+        if settings.PLATFORM_CONFIG['disk_capabilities'] and settings.PLATFORM_CONFIG['disk_scaling'] and 'disks' in host["resources"] and len(host["resources"]['disks']) > 0:
+            if settings.PLATFORM_CONFIG['global_hdfs_disk_name'] in host["resources"]["disks"]:
+                disk = settings.PLATFORM_CONFIG['global_hdfs_disk_name']
+                container["disk"] = disk
+                container['disk_path'] = host["resources"]['disks'][disk]["path"]
+                container["disk_read_max"] = host["resources"]['disks'][disk]["max_read"]
+                container["disk_write_max"] = host["resources"]['disks'][disk]["max_write"]
+                for res in ["disk_read", "disk_write"]:
+                    for key in ["min", "weight", "boundary", "boundary_type"]:
+                        res_key = "{0}_{1}".format(res, key)
+                        container[res_key] = hdfs_container_resources['datanode'][res][key]
+
         containers.append(container)
 
     for host in hosts:
@@ -78,9 +95,9 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
                 container["{0}_{1}".format(resource,key)] = hdfs_container_resources['datanode'][resource][key]
         # Disk
         if settings.PLATFORM_CONFIG['disk_capabilities'] and settings.PLATFORM_CONFIG['disk_scaling'] and 'disks' in host["resources"] and len(host["resources"]['disks']) > 0:
-            disk = next(iter(host["resources"]["disks"]))
+            disk = next((d for d in host["resources"]["disks"] if d != settings.PLATFORM_CONFIG['global_hdfs_disk_name']), None) ## avoid getting the frontend global hdfs disk
             container["disk"] = disk
-            container['disk_path'] = host["resources"]['disks'][disk]["path"] # verificar que funciona
+            container['disk_path'] = "/".join([host["resources"]['disks'][disk]["path"], settings.VARS_CONFIG['bind_dir_name'], container["container_name"]])
             container["disk_read_max"] = host["resources"]['disks'][disk]["max_read"]
             container["disk_write_max"] = host["resources"]['disks'][disk]["max_write"]
             for res in ["disk_read", "disk_write"]:

@@ -177,6 +177,21 @@ def processStartApp(request, url, **kwargs):
         data_json = {}
 
     hosts = getHostsNames(data_json)
+
+    ## Remove host disks reserved for other uses
+    if settings.PLATFORM_CONFIG['disk_capabilities'] and settings.PLATFORM_CONFIG['disk_scaling']:
+        reservations = {}
+
+        ## Global HDFS frontend data transfer
+        if settings.PLATFORM_CONFIG['global_hdfs'] and settings.PLATFORM_CONFIG['server_as_host']:
+            if "server" not in reservations: reservations["server"] = []
+            reservations["server"].append(settings.PLATFORM_CONFIG['global_hdfs_disk_name'])
+
+        for h in hosts:
+            if h['name'] in reservations:
+                for disk in reservations[h['name']]:
+                    del h['resources']['disks'][disk]
+
     # # Data to test
     # for i in range(2,5):
     #     hosts.append(hosts[0].copy())

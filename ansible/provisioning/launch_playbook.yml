@@ -36,10 +36,22 @@
               {%- for host in nodes -%}
                 {%- for container_name in hostvars[host].containers -%}
                   {%- set container_info = dict() -%}
-                    {{ container_info.update({'container_name': container_name, 'host': host, 'cpu_max': max_cpu_percentage_per_container, 'cpu_min': min_cpu_percentage_per_container, 'mem_max': max_memory_per_container, 'mem_min': min_memory_per_container, 'cpu_boundary': cpu_boundary, 'cpu_boundary_type': cpu_boundary_type, 'mem_boundary': mem_boundary, 'mem_boundary_type': mem_boundary_type }) }}
+                    {{ container_info.update({
+                      'container_name': container_name, 'host': host,
+                      'cpu_max': max_cpu_percentage_per_container, 'cpu_min': min_cpu_percentage_per_container,
+                      'mem_max': max_memory_per_container, 'mem_min': min_memory_per_container,
+                      'cpu_boundary': cpu_boundary, 'cpu_boundary_type': cpu_boundary_type,
+                      'mem_boundary': mem_boundary, 'mem_boundary_type': mem_boundary_type })
+                    }}
                     {%- if disk_capabilities and disk_scaling and hostvars[host].disks|length > 0 -%}
-                      {%- set first_disk = hostvars[host].disks | first -%}
-                      {{ container_info.update( {'disk': first_disk, 'disk_path': hostvars[host].disks[first_disk]['path']} ) }}
+                      {%- if create_lvm -%}
+                        {%- set path = [hostvars[host].disks['lvm']['path'], bind_dir_name, container_name] | join('/') -%}
+                        {{ container_info.update( {'disk': 'lvm', 'disk_path': path} ) }}
+                      {%- else -%}
+                        {%- set first_disk = hostvars[host].disks | first -%}
+                        {%- set path = [hostvars[host].disks[first_disk]['path'], bind_dir_name, container_name] | join('/') -%}
+                        {{ container_info.update( {'disk': first_disk, 'disk_path': path} ) }}
+                      {%- endif -%}
                       {{ container_info.update( {'disk_read_max': max_disk_read_bw_per_container, 'disk_read_min': min_disk_read_bw_per_container, 'disk_read_boundary': disk_read_boundary, 'disk_read_boundary_type': disk_read_boundary_type} ) }}
                       {{ container_info.update( {'disk_write_max': max_disk_write_bw_per_container, 'disk_write_min': min_disk_write_bw_per_container, 'disk_write_boundary': disk_write_boundary, 'disk_write_boundary_type': disk_write_boundary_type} ) }}
                     {%- endif -%}

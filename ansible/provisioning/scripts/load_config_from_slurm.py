@@ -7,8 +7,9 @@ import os
 import subprocess
 import re
 import yaml
-from load_inventory_from_conf import write_container_list, get_disks_dict
+from load_inventory_from_conf import write_container_list, get_disks_dict, resolve_disk_path
 import socket
+from copy import deepcopy
 
 def getHostList(server_as_host=False):
     rc = subprocess.Popen(["scontrol", "show", "hostnames"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -157,7 +158,7 @@ def update_config_file(config_file, server, server_ip, hosts, cpus_per_node, mem
     yaml_utils.dump(data, out)
     #yaml_utils.dump(data, sys.stdout)
 
-def update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_per_node, disks_dict):
+def update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_per_node, disks_dict, config):
 
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -172,7 +173,17 @@ def update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_p
 
     # Nodes
     for host in hosts:
-        write_container_list([],host,cpus_per_node,memory_per_node,disks_dict, energy_per_node)
+
+        host_disk_dict = disks_dict
+
+        if host == server and config['global_hdfs']:
+            ## Add specific disk for HDFS namenode when also acting as frontend
+            disk_name = config['global_hdfs_disk_name']
+            host_disk_dict = deepcopy(disks_dict)
+            host_disk_dict[disk_name] = {}
+            host_disk_dict[disk_name]['path'] = resolve_disk_path(config['global_hdfs_data_dir'])
+
+        write_container_list([], host, cpus_per_node, memory_per_node, host_disk_dict, energy_per_node)
 
 if __name__ == "__main__":
 
@@ -196,4 +207,4 @@ if __name__ == "__main__":
     # TODO: Update vars YAML file to update installation path to cluster user home (not vagrant)
 
     # Update ansible inventory file
-    update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_per_node, disks_dict)
+    update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_per_node, disks_dict, config)
