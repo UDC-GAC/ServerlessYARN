@@ -61,14 +61,12 @@ def get_mappers(blocks, files, datanodes, mode):
     if blocks <= 0: return DEFAULT_BLOCKS_PER_CHUNKS
 
     proportional_approximation = False
-    match mode:
-        case 'distcp-default': return DEFAULT_BLOCKS_PER_CHUNKS
-        case 'mapred-default': return 1
-        case 'best-effort':
-            if files >= datanodes: return DEFAULT_BLOCKS_PER_CHUNKS
-        case 'datanode-mapping':
-            if files == datanodes: return DEFAULT_BLOCKS_PER_CHUNKS
-            elif files > datanodes: proportional_approximation = True
+    if mode   == 'distcp-default': return DEFAULT_BLOCKS_PER_CHUNKS
+    elif mode == 'mapred-default': return 1
+    elif mode == 'best-effort' and files >= datanodes: return DEFAULT_BLOCKS_PER_CHUNKS
+    elif mode == 'datanode-mapping':
+        if files == datanodes: return DEFAULT_BLOCKS_PER_CHUNKS
+        elif files > datanodes: proportional_approximation = True
 
     if blocks <= datanodes: return 1
 
