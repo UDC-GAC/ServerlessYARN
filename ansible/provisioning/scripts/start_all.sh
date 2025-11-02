@@ -8,15 +8,18 @@ INVENTORY=${scriptDir}/../../ansible.inventory
 print_usage ()
 {
     echo "Usage: $arg0 [-h --> print usage for help] \\"
-    echo "       $blnk [-s --> skip inventory load]"
+    echo "       $blnk [-s --> skip inventory load]  \\"
+    echo "       $blnk [-d --> update disk paths]" #useful in clusters where the disk paths may be dynamically assigned based on Job ID
 }
 
 ## Script flags
 load_inventory_flag='true'
+update_disk_paths_flag='false'
 
-while getopts 'sh' flag; do
+while getopts 'shd' flag; do
   case "${flag}" in
     s) load_inventory_flag='false' ;;
+    d) update_disk_paths_flag='true' ;;
     h) print_usage
        exit 0 ;;
     *) print_usage
@@ -65,10 +68,6 @@ setup_config ()
     echo ""
     ansible-galaxy collection install ansible.posix:==1.5.0
 
-    echo "Load platform configuration from modules..."
-    ansible-playbook ${scriptDir}/../load_config_playbook.yml -i $INVENTORY
-    echo "Configuration loaded!"
-
     # Check if we are in a SLURM environment
     if [ ! -z ${SLURM_JOB_ID} ]
     then
@@ -76,8 +75,18 @@ setup_config ()
         echo "Downloading required packages for scripts"
         pip3 install -r ${scriptDir}/requirements.txt
         echo "Loading config from SLURM"
-        python3 ${scriptDir}/load_config_from_slurm.py
+        if [ "$update_disk_paths_flag" = false ]
+        then
+            python3 ${scriptDir}/load_config_from_slurm.py
+        else
+            python3 ${scriptDir}/load_config_from_slurm.py update_disks
+        fi
     fi
+
+    echo "Load platform configuration from modules..."
+    ansible-playbook ${scriptDir}/../load_config_playbook.yml -i $INVENTORY
+    echo "Configuration loaded!"
+
 }
 
 load_inventory_file ()

@@ -10,6 +10,8 @@ import yaml
 from load_inventory_from_conf import write_container_list, get_disks_dict, resolve_disk_path
 import socket
 from copy import deepcopy
+from ansible.parsing.dataloader import DataLoader
+from ansible.inventory.manager import InventoryManager
 
 def getHostList(server_as_host=False):
     rc = subprocess.Popen(["scontrol", "show", "hostnames"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -97,10 +99,7 @@ def getNodesMemory():
 
     return allocMem
 
-def getDisksFromConfig(config_file):
-
-    with open(config_file, "r") as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+def getDisksFromConfig(config):
 
     if config['disk_capabilities']:
         hdd_disks_per_host = config['hdd_disks_per_host']
@@ -113,7 +112,21 @@ def getDisksFromConfig(config_file):
     else:
         return None
 
-def update_config_file(config_file, server, server_ip, hosts, cpus_per_node, memory_per_node):
+def update_config_file(config_file_list, server, server_ip, hosts, cpus_per_node, memory_per_node):
+
+    def update_config_fields(config_file, new_config):
+        out = Path(config_file)
+        data = yaml_utils.load(out)
+
+        for field in new_config:
+            try:
+                data[field] = new_config[field]
+            except KeyError:
+                raise Exception("Configuration file {0} does not have the field {1}".format(config_file, field))
+
+        yaml_utils.dump(data, out)
+        #yaml_utils.dump(data, sys.stdout)
+
     #server_ip = server
     cpus_server_node = cpus_per_node
     memory_server_node = memory_per_node
@@ -121,50 +134,42 @@ def update_config_file(config_file, server, server_ip, hosts, cpus_per_node, mem
     cpus_per_host = cpus_per_node
     memory_per_host = memory_per_node
 
-    ## Change config file
+    ## Change required config modules
     yaml_utils = YAML()
     yaml_utils.default_flow_style = False
     yaml_utils.preserve_quotes = True
-    out = Path(config_file)
-    data = yaml_utils.load(out)
 
-    for elem in data:
-        # General
-        if elem == 'virtual_mode':
-            data[elem] = "no"
-        elif elem == 'container_engine':
-            data[elem] = "apptainer"
-        elif elem == 'cgroups_version':
-            data[elem] = "v1"
+    ### 01-general.yml
+    update_config_fields(config_file_list[0], {
+        'virtual_mode': 'no',
+        'container_engine': 'apptainer',
+        'cgroups_version': 'v1'
+    })
 
-        # Server
-        elif elem == 'server_ip':
-            data[elem] = server_ip
-        elif elem == 'cpus_server_node':
-            data[elem] = cpus_server_node
-        elif elem == 'memory_server_node':
-            data[elem] = memory_server_node
+    ### 02-hosts.yml
+    update_config_fields(config_file_list[1], {
+        'server_ip': server_ip,
+        'cpus_server_node': cpus_server_node,
+        'memory_server_node': memory_server_node,
+        'number_of_hosts': number_of_hosts,
+        'cpus_per_host': cpus_per_host,
+        'memory_per_host': memory_per_host
+    })
 
-        # Client nodes
-        elif elem == 'number_of_hosts':
-            data[elem] = number_of_hosts
-        elif elem == 'cpus_per_host':
-            data[elem] = cpus_per_host
-        elif elem == 'memory_per_host':
-            data[elem] = memory_per_host
-        elif elem == "number_of_containers_per_node":
-            data[elem] = 0
+    ### 07-containers.yml
+    update_config_fields(config_file_list[6], {
+        'number_of_containers_per_node': 0
+    })
 
-    yaml_utils.dump(data, out)
-    #yaml_utils.dump(data, sys.stdout)
-
-def update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_per_node, disks_dict, config):
-
-    with open(config_file, "r") as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+def update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_per_node, disks_dict, config, flag=None):
 
     # TODO: Get energy value according to node CPUs
     energy_per_node = config['energy_per_host'] if config['power_budgeting'] else None
+
+    if flag and flag == "update_disks":
+        loader = DataLoader()
+        ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
+        inventory_hosts = ansible_inventory.groups['nodes'].get_hosts()
 
     # Server
     with open(inventory_file, 'w') as f:
@@ -174,37 +179,71 @@ def update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_p
     # Nodes
     for host in hosts:
 
-        host_disk_dict = disks_dict
+        host_disk_dict = deepcopy(disks_dict)
 
         if host == server and config['global_hdfs']:
             ## Add specific disk for HDFS namenode when also acting as frontend
             disk_name = config['global_hdfs_disk_name']
-            host_disk_dict = deepcopy(disks_dict)
             host_disk_dict[disk_name] = {}
             host_disk_dict[disk_name]['path'] = resolve_disk_path(config['global_hdfs_data_dir'])
+
+        ## Look for matching disks and update their read and write bandwidths
+        if flag and flag == "update_disks":
+            match_host = None
+            for h in inventory_hosts:
+                if h.name == host:
+                    match_host = h
+                    break
+            if match_host:
+                inventory_host_disks = match_host.vars['disks']
+                for disk in inventory_host_disks:
+                    if disk in host_disk_dict:
+                        for resource in ['read_bw', 'write_bw']:
+                            if resource in inventory_host_disks[disk]:
+                                host_disk_dict[disk][resource] = inventory_host_disks[disk][resource]
 
         write_container_list([], host, cpus_per_node, memory_per_node, host_disk_dict, energy_per_node)
 
 if __name__ == "__main__":
 
+    flag = None
+    if (len(sys.argv) > 1):
+        flag = sys.argv[1]
+
     scriptDir = os.path.realpath(os.path.dirname(__file__))
-    config_file = scriptDir + "/../config/config.yml"
     inventory_file = scriptDir + "/../../ansible.inventory"
 
-    with open(config_file, "r") as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config_module_list = [
+        "01-general.yml", "02-hosts.yml", "03-services.yml", "04-disk.yml",
+        "05-power.yml", "06-hdfs.yml", "07-containers.yml", "08-apps.yml"
+    ]
+
+    config_file_list = []
+    for module in config_module_list:
+        config_file_list.append("{0}/../config/modules/{1}".format(scriptDir, module))
+
+    config = dict()
+    for config_file in config_file_list:
+        with open(config_file, "r") as f:
+            config.update(yaml.load(f, Loader=yaml.FullLoader))
 
     # Get config values
     server_as_host = config['server_as_host']
     server, server_ip, hosts = getHostList(server_as_host)
     cpus_per_node = getNodesCpus()
     memory_per_node = getNodesMemory()
-    disks_dict = getDisksFromConfig(config_file)
 
     # Change config
-    update_config_file(config_file, server, server_ip, hosts, cpus_per_node, memory_per_node)
+    update_config_file(config_file_list, server, server_ip, hosts, cpus_per_node, memory_per_node)
 
     # TODO: Update vars YAML file to update installation path to cluster user home (not vagrant)
 
+    ## Reload config after update
+    for config_file in config_file_list:
+        with open(config_file, "r") as f:
+            config.update(yaml.load(f, Loader=yaml.FullLoader))
+
+    disks_dict = getDisksFromConfig(config)
+
     # Update ansible inventory file
-    update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_per_node, disks_dict, config)
+    update_inventory_file(inventory_file, server, hosts, cpus_per_node, memory_per_node, disks_dict, config, flag)
