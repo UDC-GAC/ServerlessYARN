@@ -519,12 +519,12 @@ def wait_for_app_on_container_task(host, container, app):
 
 
 @shared_task
-def start_app_on_container_task(full_url, host, container, app, app_files):
+def start_app_on_container_task(full_url, host, container, app, app_files, global_hdfs_data=None):
     bind_path = ""
     if 'disk_path' in container:
         bind_path = container['disk_path']
 
-    run_playbooks.start_app_on_container(host, container['container_name'], app, app_files, bind_path)
+    run_playbooks.start_app_on_container(host, container['container_name'], app, app_files, bind_path, global_hdfs_data)
 
 ## Start containers
 @shared_task
@@ -841,7 +841,7 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
 
     # Lastly, start app on RM container
     full_url = url + "container/{0}/{1}".format(rm_container['container_name'],app)
-    start_app_on_container_task(full_url, rm_host, rm_container, app, app_files)
+    start_app_on_container_task(full_url, rm_host, rm_container, app, app_files, global_hdfs_data)
 
     # Wait for RM container to finish
     wait_for_app_on_container_task(rm_host, rm_container, app)

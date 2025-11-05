@@ -331,35 +331,27 @@ def processStartApp(request, url, **kwargs):
     if is_hadoop_app:
         global_hdfs_data = None
         if settings.PLATFORM_CONFIG['global_hdfs']:
-            use_global_hdfs = False
-            for condition in ['read_from_global', 'write_to_global']:
+
+            ## Currently this block of code will return an error when running a Hadoop app if the global HDFS is enabled but not running
+
+            global_hdfs_data = {}
+            ## Add global Namenode
+            apps, _ = getApps(data_json)
+            global_hdfs_app, namenode_container, datanodes = retrieve_global_hdfs_app(apps)
+            if not global_hdfs_app:
+                return "Global HDFS requested but not found"
+            if not namenode_container:
+                return "Namenode not found in global HDFS"
+            global_hdfs_data['namenode_container_name'] = namenode_container['name']
+            global_hdfs_data['namenode_host'] = namenode_container['host']
+            global_hdfs_data['number_of_datanodes'] = len(datanodes)
+
+            ## Get additional info (read/write data from/to hdfs)
+            for condition, additional_info in [('read_from_global', ['global_input', 'local_output']),
+                                                ('write_to_global', ['local_input', 'global_output'])]:
                 if request.POST.get(condition, False):
-                    use_global_hdfs = True
-                    break
-
-            if use_global_hdfs:
-                global_hdfs_data = {}
-                ## Add global Namenode
-                apps, _ = getApps(data_json)
-                global_hdfs_app, namenode_container, datanodes = retrieve_global_hdfs_app(apps)
-                if not global_hdfs_app:
-                    return "Global HDFS requested but not found"
-                if not namenode_container:
-                    return "Namenode not found in global HDFS"
-                global_hdfs_data['namenode_container_name'] = namenode_container['name']
-                global_hdfs_data['namenode_host'] = namenode_container['host']
-                global_hdfs_data['number_of_datanodes'] = len(datanodes)
-
-                ## Get additional info (read/write data from/to hdfs)
-                for condition, additional_info in [('read_from_global', ['global_input', 'local_output']),
-                                                   ('write_to_global', ['local_input', 'global_output'])]:
-                    if request.POST.get(condition, False):
-                        for info in additional_info:
-                            #global_hdfs_data[info] = request.POST.get(info) if request.POST.get(info, "") != "" else DEFAULT_HDFS_VALUES[info]
-                            global_hdfs_data[info] = request.POST.get(info)
-                    # else:
-                    #     for info in additional_info:
-                    #         global_hdfs_data[info] = ""
+                    for info in additional_info:
+                        global_hdfs_data[info] = request.POST.get(info)
 
         task = start_hadoop_app_task.delay(url, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type, global_hdfs_data)
     else:

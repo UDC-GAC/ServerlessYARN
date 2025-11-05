@@ -90,25 +90,34 @@
 
   - name: Setup connection on global hdfs with containers
     block:
-      - name: Get container IP address
-        when: inventory_hostname == rm_host
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\""
+      - name: Get containers IP addresses for cross-resolution
+        when: inventory_hostname == item.host
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item.container }} su - {{ user_info.user_name }} -c \"printf '%s ' \\$(hostname -I | awk '{print \\${{ item.ip_position }}}') && hostname\""
         args:
           executable: /bin/bash
-        vars:
-        register: local_namenode_resolution
+        loop:
+          - { container: "{{ rm_container }}",            host: "{{ rm_host }}",       ip_position: 1 }
+          - { container: "{{ namenode_container_name }}", host: "{{ namenode_host }}", ip_position: "{{ '2' if server_as_host else '1' }}" }
+        register: container_resolutions
 
-      - name: Update hostname resolution in global namenode
-        when: inventory_hostname == namenode_host
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} bash -c \
+      - name: Update hostname resolution in containers
+        when: inventory_hostname == item.host
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ item.container }} bash -c \
           'cp /etc/hosts {{ user_home_on_container }} \
-          && sed -i '\\''1s/^/{{ namenode_iface_ip }}\\n/'\\'' {{ user_home_on_container }}/hosts \
+          && sed -i '\\''1s/^/{{ iface_ip_dict[item.container] }}\\n/'\\'' {{ user_home_on_container }}/hosts \
           && cat {{ user_home_on_container }}/hosts > /etc/hosts \
           && rm {{ user_home_on_container }}/hosts'"
         args:
           executable: /bin/bash
+        loop:
+          - { container: "{{ namenode_container_name }}", host: "{{ namenode_host }}" }
+          - { container: "{{ rm_container }}",            host: "{{ rm_host }}" }
         vars:
-          namenode_iface_ip: "{{ (ansible_play_hosts | map('extract', hostvars, 'local_namenode_resolution') | first).stdout }}"
+          iface_ip_list:
+            - { key: "{{ namenode_container_name }}", value: "{{ (container_resolutions.results | selectattr('item.container', 'equalto', rm_container) | first).stdout }}" }
+            - { key: "{{ rm_container }}",            value: "{{ (container_resolutions.results | selectattr('item.container', 'equalto', namenode_container_name) | first).stdout }}" }
+          iface_ip_dict: "{{ iface_ip_list | items2dict }}"
+
     tags: never, setup_global_hdfs_connection
 
   - name: Remove connection on global hdfs with containers

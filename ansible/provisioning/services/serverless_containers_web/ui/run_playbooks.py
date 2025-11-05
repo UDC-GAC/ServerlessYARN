@@ -166,7 +166,7 @@ def create_app(app_files):
     ## Create app
     run_playbook(playbook_name="start_containers_playbook.yml", tags=["create_app"], extravars=app_files)
 
-def start_app_on_container(host_name, container, app_name, app_files, bind_path=None):
+def start_app_on_container(host_name, container, app_name, app_files, bind_path=None, global_hdfs_data=None):
 
     bind_path = check_container_bind_path(container, bind_path)
 
@@ -176,6 +176,7 @@ def start_app_on_container(host_name, container, app_name, app_files, bind_path=
         "container_bind_dir": bind_path
     }
     extravars.update(app_files)
+    if global_hdfs_data: extravars.update(global_hdfs_data)
 
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["start_app"], limit=[host_name], extravars=extravars)
 
