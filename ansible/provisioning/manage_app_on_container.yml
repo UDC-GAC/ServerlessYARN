@@ -754,6 +754,12 @@
             {%- else -%}
               {{ dest_output }}/{{ local_input | basename }}
             {%- endif -%}
+          replication_factor: >-
+            {%- if 'download_to_local' in ansible_run_tags -%}
+              {{ local_hdfs_replication }}
+            {%- else -%}
+              {{ global_hdfs_replication }}
+            {%- endif -%}
         block:
           - name: Get requested data size
             shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \"\\$HADOOP_HOME/bin/hdfs dfs -du -s {{ origin }} | awk '{print \\$1}' \""
@@ -772,7 +778,7 @@
 
               - name: "[Small data size ({{ data_size.stdout }} <= {{ distcp_threshold }}) --> Run get/put] Put input data into target HDFS"
                 shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
-                  \"\\$HADOOP_HOME/bin/hdfs dfs -mkdir -p {{ dest | dirname }} && \\$HADOOP_HOME/bin/hdfs dfs -put -f {{ user_home_on_container }}/{{ origin | basename }} {{ dest }}\""
+                  \"\\$HADOOP_HOME/bin/hdfs dfs -mkdir -p {{ dest | dirname }} && \\$HADOOP_HOME/bin/hdfs dfs -D dfs.replication={{ replication_factor }} -put -f {{ user_home_on_container }}/{{ origin | basename }} {{ dest }}\""
                 args:
                   executable: /bin/bash
 
@@ -814,6 +820,7 @@
                     blocks_per_chunk: "{{ mappers_result.mappers }}"
 
               - name: "[Large data size ({{ data_size.stdout }} > {{ distcp_threshold }}) --> Run distcp] Transfer data"
-                shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \"\\$HADOOP_HOME/bin/hadoop distcp -strategy dynamic -blocksperchunk {{ blocks_per_chunk }} {{ origin }} {{ dest }}\""
+                shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
+                  \"\\$HADOOP_HOME/bin/hadoop distcp -D dfs.replication={{ replication_factor }} -strategy dynamic -blocksperchunk {{ blocks_per_chunk }} {{ origin }} {{ dest }}\""
                 args:
                   executable: /bin/bash
