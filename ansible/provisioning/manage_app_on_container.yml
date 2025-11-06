@@ -833,3 +833,12 @@
                   \"\\$HADOOP_HOME/bin/hadoop distcp -D dfs.replication={{ replication_factor }} -strategy dynamic -blocksperchunk {{ blocks_per_chunk }} {{ origin }} {{ dest }}\""
                 args:
                   executable: /bin/bash
+
+
+  - name: Set global HDFS replication replication_factor
+    tags: never, set_hdfs_replication
+    when: inventory_hostname == namenode_host
+    shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
+      \"\\$HADOOP_HOME/bin/hdfs dfs -setrep -R {{ replication_factor }} /\""
+    args:
+      executable: /bin/bash

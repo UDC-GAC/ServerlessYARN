@@ -313,3 +313,13 @@ def upload_local_hdfs_data_to_global(rm_host, rm_container, global_hdfs_data):
 
 def clean_hdfs(host_name, container):
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["clean_hdfs"], limit=[host_name], extravars={"container": container})
+
+def set_global_hdfs_replication(nn_host, nn_container, replication_factor):
+
+    extravars = {
+        "namenode_host": nn_host,
+        "namenode_container_name": nn_container,
+        "replication_factor": replication_factor
+    }
+
+    run_playbook(playbook_name="manage_app_on_container.yml", tags=["set_hdfs_replication"], limit=[nn_host], extravars=extravars)

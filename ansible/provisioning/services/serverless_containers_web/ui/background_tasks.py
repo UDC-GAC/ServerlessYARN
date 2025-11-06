@@ -13,6 +13,8 @@ from ui.update_inventory_file import add_containers_to_hosts,remove_container_fr
 from ui.utils import request_to_state_db
 import ui.run_playbooks as run_playbooks
 
+from ui.views.core.utils import getDbData
+
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file: config = yaml.load(config_file, Loader=yaml.FullLoader)
 
@@ -895,6 +897,38 @@ def remove_file_from_hdfs(self, namenode_host, namenode_container, path_to_delet
     run_playbooks.remove_file_from_hdfs(namenode_host, namenode_container, path_to_delete)
 
 @shared_task(bind=True)
+def monitor_global_hdfs_replication(self, global_app_name, global_namenode_host, global_namenode_name):
+
+    ## TODO: make the polling frequency and thresholds dynamically configurable variables from the interface
+    polling_frequency = 60
+    threshold = 0.15
+    read_threshold = threshold
+    write_threshold = threshold
+
+    global_app_url = "/".join([settings.BASE_URL, "structure", global_app_name ])
+    global_namenode_url = "/".join([settings.BASE_URL, "structure", global_namenode_name ])
+
+    ## HDFS has just started, wait until next polling period
+    time.sleep(polling_frequency)
+
+    ## Update global HDFS information from StateDB
+    global_app = getDbData(global_app_url)
+    global_namenode = getDbData(global_namenode_url)
+
+    ## Loop until global HDFS is stopped
+    while bool(global_app) and bool(global_namenode) and global_namenode['name'] in global_app['containers']:
+
+        if ((not "disk" in global_app["resources"]) 
+            or (all(global_app["resources"][res]["usage"] < global_app["resources"][res]["max"] * thresh for res, thresh in [("disk_read", read_threshold), ("disk_write", write_threshold)]))
+        ):
+            ## Enforce HDFS replication only if global cluster has low I/O usage (at least below the threshold)
+            run_playbooks.set_global_hdfs_replication(global_namenode_host, global_namenode_name, settings.PLATFORM_CONFIG['global_hdfs_replication'])
+
+        time.sleep(polling_frequency)
+        global_app = getDbData(global_app_url)
+        global_namenode = getDbData(global_namenode_url)
+
+@shared_task(bind=True)
 def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluster, put_field_data, hosts):
 
     # Calculate resources for HDFS cluster
@@ -966,6 +1000,10 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
     # process_script("hdfs/start_hdfs_frontend", argument_list, error_message)
     if not settings.PLATFORM_CONFIG["server_as_host"]:
         run_playbooks.start_hdfs_frontend(host_list, "hdfs_frontend", formatted_containers_info, nn_host, nn_container)
+
+    ## Run the replication factor monitor
+    monitor_task = monitor_global_hdfs_replication.delay(app, nn_host, nn_container)
+    register_task(monitor_task.id,"monitor_hdfs_task")
 
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)
