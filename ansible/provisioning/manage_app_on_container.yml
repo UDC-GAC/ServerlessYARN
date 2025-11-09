@@ -835,10 +835,19 @@
                   executable: /bin/bash
 
 
-  - name: Set global HDFS replication replication_factor
+  - name: Set global HDFS replication
     tags: never, set_hdfs_replication
     when: inventory_hostname == namenode_host
     shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
       \"\\$HADOOP_HOME/bin/hdfs dfs -setrep -R {{ replication_factor }} /\""
+    args:
+      executable: /bin/bash
+
+
+  - name: Get HDFS filesystem
+    tags: never, get_hdfs_filesystem
+    when: inventory_hostname == namenode_host
+    shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
+      \"\\$HADOOP_HOME/bin/hdfs dfs -ls -R -h /\""
     args:
       executable: /bin/bash

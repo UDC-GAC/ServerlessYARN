@@ -86,23 +86,31 @@
                         {% include 'functions/form.html' with form_id="add-hdfs-file" button_name="Upload File or Directory" form_title="Add HDFS File or Directory" form=addFileForm icon="fa fa-cloud-upload" %}
                     </th>
                 </tr>
-                {% for item in data %}
+                {% for entry in data %}
                     <tr>
-                        {% for element in item %}
-                            {% if 'get_hdfs_file' in element %}
-                                <td class="hdfs_actions">
-                                    {% include 'functions/form.html' with form_id="get-hdfs-file-"|add:element.get_hdfs_file.origin_path.initial button_name="Download" form_title="Download HDFS File or Directory" form=element.get_hdfs_file icon="fa fa-cloud-download" %}
-                                </td>
-                            {% elif 'del_hdfs_file' in element %}
-                                <td class="hdfs_actions">
-                                    {% include 'functions/form.html' with form_id="del-hdfs-file-"|add:element.del_hdfs_file.dest_path.initial button_name="Delete" form_title="Delete HDFS File or Directory" form=element.del_hdfs_file icon="fa fa-trash" %}
-                                </td>
-                            {% else %}
-                                {% autoescape off %}
-                                    <td class="hdfs_data">{{ element }}</td>
-                                {% endautoescape %}
-                            {% endif %}
-                        {% endfor %}
+                        <td class="hdfs_data">{% autoescape off %}{% if 'parent_dir'    in entry %} {{entry.parent_dir}}    {% else %}-{% endif %}{% endautoescape %}</td>
+                        <td class="hdfs_data">{% autoescape off %}{% if 'permissions'   in entry %} {{entry.permissions }}  {% else %}-{% endif %}{% endautoescape %}</td>
+                        <td class="hdfs_data">{% autoescape off %}{% if 'owner'         in entry %} {{entry.owner}}         {% else %}-{% endif %}{% endautoescape %}</td>
+                        <td class="hdfs_data">{% autoescape off %}{% if 'group'         in entry %} {{entry.group}}         {% else %}-{% endif %}{% endautoescape %}</td>
+                        <td class="hdfs_data">{% autoescape off %}{% if 'size'          in entry %} {{entry.size}}          {% else %}-{% endif %}{% endautoescape %}</td>
+                        <td class="hdfs_data">{% autoescape off %}{% if 'last_update'   in entry %} {{entry.last_update}}   {% else %}-{% endif %}{% endautoescape %}</td>
+                        <td class="hdfs_data">{% autoescape off %}{% if 'replication'   in entry %} {{entry.replication}}   {% else %}-{% endif %}{% endautoescape %}</td>
+                        <td class="hdfs_data">{% autoescape off %}{% if 'blocksize'     in entry %} {{entry.blocksize }}    {% else %}-{% endif %}{% endautoescape %}</td>
+                        <td class="hdfs_data">{% autoescape off %}{% if 'name'          in entry %} {{entry.name }}         {% else %}-{% endif %}{% endautoescape %}</td>
+                        <td class="hdfs_actions">
+                            {% if 'get_hdfs_file' in entry %}
+                                {% include 'functions/form.html' with form_id="get-hdfs-file-"|add:entry.get_hdfs_file.origin_path.initial button_name="Download" form_title="Download HDFS File or Directory" form=entry.get_hdfs_file icon="fa fa-cloud-download" %}
+                                {% else %}
+                                    -
+                                {% endif %}
+                        </td>
+                        <td class="hdfs_actions">
+                            {% if 'del_hdfs_file' in entry %}
+                                {% include 'functions/form.html' with form_id="del-hdfs-file-"|add:entry.del_hdfs_file.dest_path.initial button_name="Delete" form_title="Delete HDFS File or Directory" form=entry.del_hdfs_file icon="fa fa-trash" %}
+                                {% else %}
+                                    -
+                                {% endif %}
+                        </td>
                     </tr>
                 {% endfor %}
             </table>

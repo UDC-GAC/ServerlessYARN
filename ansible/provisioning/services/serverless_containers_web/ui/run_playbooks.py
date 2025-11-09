@@ -76,7 +76,23 @@ def run_playbook(playbook_name, tags=None, limit=None, extravars=None, ignore_fa
     if status[1] != 0 and not ignore_failure:
         raise Exception("Playbook {0} has failed on hosts {1}, with tags {2} and extravars {3}. Please consult Celery log under services/celery for further details".format(playbook_name, limit, tags, extravars))
 
+    # Create a dict to store ouptut variables
+    ouptut = {}
 
+    # Process events to extract registered variables
+    for event in r.events:
+        if event.get('event') == 'runner_on_ok':
+            # Get the event data which contains registered variables
+            event_data = event.get('event_data', {})
+            if 'res' in event_data and 'ansible_facts' in event_data['res']:
+                # Store ansible facts
+                ouptut.update(event_data['res']['ansible_facts'])
+            if 'res' in event_data and 'stdout' in event_data['res']:
+                # Store command outputs
+                task_name = event_data.get('task')
+                ouptut[f"{task_name}_stdout"] = event_data['res']['stdout']
+
+    return ouptut
 
 # Call playbook tasks
 ## Manage hosts
@@ -323,3 +339,17 @@ def set_global_hdfs_replication(nn_host, nn_container, replication_factor):
     }
 
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["set_hdfs_replication"], limit=[nn_host], extravars=extravars)
+
+def get_hdfs_filesystem(namenode_host, namenode_container_name):
+
+    extravars = {
+        "namenode_host": namenode_host,
+        "namenode_container_name": namenode_container_name,
+    }
+
+    output = run_playbook(playbook_name="manage_app_on_container.yml", tags=["get_hdfs_filesystem"], limit=[namenode_host], extravars=extravars)
+
+    ## Access to listed files
+    task_name = "Get HDFS filesystem"
+    output_key = "{0}_stdout".format(task_name)
+    return output[output_key]

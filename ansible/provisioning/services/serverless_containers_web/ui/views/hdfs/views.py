@@ -19,6 +19,8 @@ from ui.views.hdfs.utils import State, addDirHDFS, addFileHDFS, getFileHDFS, rem
 from ui.views.hdfs.operations import start_global_hdfs, stop_global_hdfs
 from ui.views.core.utils import redirect_with_errors, getHostsNames, getScalerPollFreq, retrieve_global_hdfs_app
 
+from ui.run_playbooks import get_hdfs_filesystem
+
 webdriver_state = State()
 
 ## we force the instance to be the first to cleanup when closing (or reloading) server
@@ -30,7 +32,7 @@ atexit.register(webdriver_state.__stop_webdriver__)
 
 def hdfs(request):
 
-    def get_entries(url, driver, parent_directory=""):
+    def get_entries_via_html(url, driver, parent_directory=""):
 
         hdfs_entries = []
 
@@ -69,19 +71,59 @@ def hdfs(request):
                             inner_url = "/".join([url,inner_element])
                             link_tag = '<a inode-type="DIRECTORY" href="{0}">{1}</a>'.format(inner_url, inner_element)
                             entry_elements.append(link_tag)
-                            inner_entries = get_entries(inner_url, driver, "/".join([parent_directory, inner_element]))
+                            inner_entries = get_entries_via_html(inner_url, driver, "/".join([parent_directory, inner_element]))
                         else:
                             entry_elements.append(inner_element)
 
-                ## Add delete form
-                entry_elements.append({'get_hdfs_file': GetHdfsFileForm(initial={'origin_path': entry_full_path})})
-                entry_elements.append({'del_hdfs_file': DeleteHdfsFileForm(initial={'dest_path': entry_full_path})})
+                ## Add download and delete form
+                entry_elements.append(GetHdfsFileForm(initial={'origin_path': entry_full_path}))
+                entry_elements.append(DeleteHdfsFileForm(initial={'dest_path': entry_full_path}))
 
                 hdfs_entries.append(entry_elements)
                 hdfs_entries.extend(inner_entries)
 
             return hdfs_entries
 
+    def get_entries_via_ansible(namenode_host, namenode_container):
+        output_lines = get_hdfs_filesystem(namenode_host, namenode_container)
+        if not output_lines: return []
+
+        parent_dir = "/"
+        filesystem = []
+        for output in output_lines.split("\n"):
+            output_info = output.split()
+            entry = {
+                'permissions': output_info[0],
+                'replication': output_info[1],
+                'owner': output_info[2],
+                'group': output_info[3],
+                'size': output_info[4],
+                'last_update': "{0} - {1}".format(output_info[5],output_info[6]),
+                'full_path': output_info[7]
+            }
+
+            ## Check if entry is a child of current parent dir; look for its closest parent otherwise
+            if not parent_dir in entry['full_path']:
+                for file in reversed(filesystem):
+                    if file['parent_dir'] in entry['full_path']:
+                        parent_dir = file['parent_dir']
+                        break
+
+            ## Set current parent as parent for the current entry
+            entry['parent_dir'] = parent_dir
+            entry['name'] = entry['full_path'].replace(parent_dir, "")
+
+            ## Update current parent if entry is a directory
+            if entry['permissions'].startswith("d"):
+                parent_dir = entry['full_path'] + "/"
+
+            ## Add download and delete form
+            entry['get_hdfs_file'] = GetHdfsFileForm(initial={'origin_path': entry['full_path']})
+            entry['del_hdfs_file'] = DeleteHdfsFileForm(initial={'dest_path': entry['full_path']})
+
+            filesystem.append(entry)
+
+        return filesystem
 
     ## Get global hdfs app and its containers
     try:
@@ -124,10 +166,33 @@ def hdfs(request):
 
         namenode_url = 'http://{0}:{1}/explorer.html#'.format("localhost", 55555)
 
-        webdriver_state.__start_webdriver__() ## will only start webdriver if not started yet
-        driver = webdriver_state.__get_webdriver__()
+        ## Selenium webdriver method
+        use_html_method = True
+        if use_html_method:
+            webdriver_state.__start_webdriver__() ## will only start webdriver if not started yet
+            driver = webdriver_state.__get_webdriver__()
+            hdfs_entries_list = get_entries_via_html(namenode_url, driver)
+            hdfs_entries = []
+            for entry in hdfs_entries_list:
+                entry_dict = {
+                    'parent_dir': entry[0],
+                    'permissions': entry[1],
+                    'owner': entry[2],
+                    'group': entry[3],
+                    'size': entry[4],
+                    'last_update': entry[5],
+                    'replication': entry[6],
+                    'blocksize': entry[7],
+                    'name': entry[8],
+                    'get_hdfs_file': entry[9],
+                    'del_hdfs_file': entry[10]
+                }
 
-        hdfs_entries = get_entries(namenode_url, driver)
+                hdfs_entries.append(entry_dict)
+
+        else:
+            ## Currently this method is slower than the HTML one, but its scalability needs be further assessed
+            hdfs_entries = get_entries_via_ansible(namenode_host, namenode_container)
 
         context['data'] = hdfs_entries
         context['namenode_url'] = namenode_url
