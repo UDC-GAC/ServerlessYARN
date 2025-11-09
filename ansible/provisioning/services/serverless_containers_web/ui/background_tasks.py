@@ -472,7 +472,7 @@ def change_app_execution_state_in_db(url, app, state):
         actual_try += 1
 
     if actual_try >= max_retries:
-        raise Exception("Reached max tries when adding {0} to app {1}".format(container, app))
+        raise Exception("Reached max tries when changing app {0} execution state to {1}".format(app, state))
 
 def add_container_to_app_in_db(full_url, container, app):
     max_retries = 10
@@ -900,7 +900,7 @@ def remove_file_from_hdfs(self, namenode_host, namenode_container, path_to_delet
 def monitor_global_hdfs_replication(self, global_app_name, global_namenode_host, global_namenode_name):
 
     ## TODO: make the polling frequency and thresholds dynamically configurable variables from the interface
-    polling_frequency = 60
+    polling_frequency = 300
     threshold = 0.15
     read_threshold = threshold
     write_threshold = threshold
