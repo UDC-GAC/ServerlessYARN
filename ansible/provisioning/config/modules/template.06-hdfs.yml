@@ -1,4 +1,4 @@
-# Big Data
+# HDFS
 global_hdfs: no
 
 # Directory in the server to store files to transfer/transferred to/from global HDFS
@@ -6,15 +6,23 @@ global_hdfs_data_dir: $HOME/ssd/transfer
 global_hdfs_disk_name: "ssd_hdfs"
 
 # reserve server node to exclusively deploy master containers for global hdfs and regular hadoop apps.
-# only applies if 'server_as_host' parameter is enabled
+## only applies if 'server_as_host' parameter is enabled
 reserve_server_for_master: yes
 
+# used for HDFS frontend container to map the namenode port with a local port within the server node
 local_namenode_port: 55555
 namenode_port: 9870
 
+# replication factor
 default_hdfs_replication: 3
 global_hdfs_replication: "{{ default_hdfs_replication }}"
 local_hdfs_replication: 1
+
+# HDFS mode:
+## 'single': deploys a single global HDFS --> to be implemented
+## 'local': deploys a global HDFS + a local HDFS in each app Hadoop cluster
+## 'rbf': deploys a Router-based Federated HDFS cluster, i.e., a global HDFS + local HDFS in each app Hadoop cluster with routing between them
+hdfs_mode: rbf
 
 # data size threshold when moving data between global and local HDFSs
 ## if data size is lower than threshold  --> run a simple get/put data transfer
@@ -23,10 +31,10 @@ local_hdfs_replication: 1
 distcp_threshold: 2g
 
 # mode of assigning the 'blocksperchunk' parameter of distcp, that will modulate the number of mappers created
-# 'best-effort': it will try to assign the best distribution
-# 'distcp-default': 0 (do not slice files, create 1 mapper per file)
-# 'mapred-default': 1 (slice per every block, create 1 mapper per block)
-# 'datanode-mapping': try to assign a mapper per datanode;
-  ## this is a best-effort estimation, since it depends on the number of blocks of the selected path
-  ## an unbalanced block distribution in the files may lower the precision of the resulting distribution
+## 'best-effort': it will try to assign the best distribution
+## 'distcp-default': 0 (do not slice files, create 1 mapper per file)
+## 'mapred-default': 1 (slice per every block, create 1 mapper per block)
+## 'datanode-mapping': try to assign a mapper per datanode;
+  ### this is a best-effort estimation, since it depends on the number of blocks of the selected path
+  ### an unbalanced block distribution in the files may lower the precision of the resulting distribution
 mappers_assignation: 'best-effort'

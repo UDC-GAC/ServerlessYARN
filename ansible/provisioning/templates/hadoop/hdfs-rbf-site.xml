@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  https://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+
+<!-- Put site-specific property overrides in this file. -->
+
+<configuration>
+
+    <property>
+        <name>dfs.federation.router.default.nameserviceId</name>
+        <value>ns-{{ app_name }}</value>
+    </property>
+
+    <property>
+        <name>dfs.federation.router.monitor.namenode</name>
+        <value>ns-{{ app_name }}.nn1</value>
+    </property>
+
+    <property>
+        <name>dfs.federation.router.store.zk.quorum</name>
+        <value>{{ namenode_container_name if namenode_container_name is defined else rm_container }}:2181</value>
+    </property>
+
+    <property>
+        <name>dfs.federation.router.store.enable</name>
+        <value>true</value>
+    </property>
+
+    <property>
+        <name>dfs.federation.router.store.driver.class</name>
+        <value>org.apache.hadoop.hdfs.server.federation.store.driver.impl.StateStoreZooKeeperImpl</value>
+    </property>
+
+    <property>
+        <name>dfs.federation.router.store.zk.parent-path</name>
+        <value>/hdfs-federation</value>
+    </property>
+
+    <property>
+        <name>dfs.federation.router.heartbeat.enable</name>
+        <value>true</value>
+    </property>
+
+    <property>
+        <name>dfs.federation.router.heartbeat.interval</name>
+        <value>5000</value>
+    </property>
+
+    <!-- It is important to keep these two values low to allow the router to exit safe mode quickly -->
+    <property>
+        <name>dfs.federation.router.safemode.extension</name>
+        <value>10s</value>
+    </property>
+
+    <property>
+        <name>dfs.federation.router.cache.ttl</name>
+        <value>10000</value>
+    </property>
+    <!--  -->
+
+    <property>
+        <name>dfs.federation.router.store.membership.expiration</name>
+        <value>180000</value>
+    </property>
+
+    <property>
+        <name>dfs.federation.router.store.router.expirationn</name>
+        <value>180000</value>
+    </property>
+
+    <property>
+        <name>dfs.federation.router.store.membership.expiration.deletion</name>
+        <value>120000</value>
+    </property>
+
+    <property>
+        <name>dfs.federation.router.store.router.expiration.deletion</name>
+        <value>120000</value>
+    </property>
+
+    <property>
+        <name>dfs.federation.router.monitor.localnamenode.enable</name>
+        <value>false</value>
+    </property>
+
+</configuration>

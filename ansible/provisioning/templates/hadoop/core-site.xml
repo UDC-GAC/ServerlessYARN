@@ -17,32 +17,31 @@
 <!-- Put site-specific property overrides in this file. -->
 
 <configuration>
-	<property>
-		<name>fs.defaultFS</name>
-		<value>hdfs://{{ rm_container }}:8020</value>
-	</property>
 
-	<!-- <property>
-		<name>hadoop.tmp.dir</name>
-		<value>{{ bind_dir_on_container }}/tmp/hadoop</value>
-	</property> -->
+    <property>
+        <name>fs.defaultFS</name>
+        <!-- port 8020 for regular namenode, 8888 for federated router -->
+        <value>hdfs://{{ rm_container }}:{{ 8888 if global_hdfs and hdfs_mode == 'rbf' else 8020 }}</value>
+    </property>
 
-	<property>
-		<name>io.file.buffer.size</name>
-		<value>8192</value>
-	</property>
-	<property>
-		<name>ipc.client.rpc-timeout.ms</name>
-		<value>120000</value>
-	</property>
-	<property>
-		<name>ipc.ping.interval</name>
-		<value>90000</value>
-	</property>
+    <property>
+        <name>io.file.buffer.size</name>
+        <value>8192</value>
+    </property>
 
-	<property>
-		<name>net.topology.script.file.name</name>
-		<value>{{ bind_dir_on_container }}/hadoop_files/hadoop_conf/rack_topology.py</value>
-	</property>
+    <property>
+        <name>ipc.client.rpc-timeout.ms</name>
+        <value>120000</value>
+    </property>
+
+    <property>
+        <name>ipc.ping.interval</name>
+        <value>90000</value>
+    </property>
+
+    <property>
+        <name>net.topology.script.file.name</name>
+        <value>{{ bind_dir_on_container }}/hadoop_files/hadoop_conf/rack_topology.py</value>
+    </property>
 
 </configuration>

@@ -92,15 +92,28 @@ def hdfs(request):
         filesystem = []
         for output in output_lines.split("\n"):
             output_info = output.split()
-            entry = {
-                'permissions': output_info[0],
-                'replication': output_info[1],
-                'owner': output_info[2],
-                'group': output_info[3],
-                'size': output_info[4],
-                'last_update': "{0} - {1}".format(output_info[5],output_info[6]),
-                'full_path': output_info[7]
-            }
+            if len(output_info) < 9:
+                ## size in bytes
+                entry = {
+                    'permissions': output_info[0],
+                    'replication': output_info[1],
+                    'owner': output_info[2],
+                    'group': output_info[3],
+                    'size': output_info[4],
+                    'last_update': "{0} - {1}".format(output_info[5],output_info[6]),
+                    'full_path': output_info[7]
+                }
+            else:
+                ## human-readable size (adds an additional field for size unit)
+                entry = {
+                    'permissions': output_info[0],
+                    'replication': output_info[1],
+                    'owner': output_info[2],
+                    'group': output_info[3],
+                    'size': output_info[4] + output_info[5],
+                    'last_update': "{0} - {1}".format(output_info[6],output_info[7]),
+                    'full_path': output_info[8]
+                }
 
             ## Check if entry is a child of current parent dir; look for its closest parent otherwise
             if not parent_dir in entry['full_path']:
@@ -223,7 +236,7 @@ def manage_global_hdfs(request):
     resources = ["cpu", "mem"]
     if settings.PLATFORM_CONFIG['disk_capabilities'] and settings.PLATFORM_CONFIG['disk_scaling']: resources.extend(["disk_read", "disk_write"])
     url = settings.BASE_URL + "/structure/"
-    app_name = "global_hdfs"
+    app_name = settings.VARS_CONFIG['global_hdfs_app_name']
     nn_container_prefix = "namenode"
     dn_container_prefix = "datanode"
 

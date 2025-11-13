@@ -234,7 +234,7 @@ def stop_host_scaler(host_name):
 
 
 ## Hadoop
-def setup_hadoop_network_on_containers(host_names, app_name, app_type, containers_info, rm_host, rm_container, hadoop_conf):
+def setup_hadoop_network_on_containers(host_names, app_name, app_type, containers_info, rm_host, rm_container, hadoop_conf, start_zookeeper=False):
     extravars = {
         "app_name": app_name,
         "app_type": app_type,
@@ -243,8 +243,10 @@ def setup_hadoop_network_on_containers(host_names, app_name, app_type, container
         "rm_container": rm_container
     }
     extravars.update(hadoop_conf)
+    tags = ["setup_network", "setup_hadoop"]
+    if start_zookeeper: tags.append("start_zookeeper")
 
-    run_playbook(playbook_name="manage_app_on_container.yml", tags=["setup_network", "setup_hadoop"], limit=host_names, extravars=extravars)
+    run_playbook(playbook_name="manage_app_on_container.yml", tags=tags, limit=host_names, extravars=extravars)
 
 def stop_hadoop_cluster(rm_host, rm_container):
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["stop_hadoop_cluster"], limit=[rm_host], extravars={"rm_host": rm_host, "rm_container": rm_container})

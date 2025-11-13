@@ -110,7 +110,7 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
     if len(containers) == 0: raise Exception("Cannot create any containers for HDFS cluster")
 
     virtual_cluster = settings.PLATFORM_CONFIG['virtual_mode']
-    app_name = "global_hdfs"
+    app_name = settings.VARS_CONFIG['global_hdfs_app_name']
     app_directory = "apps/" + app_name
     url = url + "apps/" + app_name
 

@@ -19,117 +19,116 @@
 
 <configuration>
 
-	<property>
-		<name>mapreduce.framework.name</name>
-		<value>yarn</value>
-	</property>
+    <property>
+        <name>mapreduce.framework.name</name>
+        <value>yarn</value>
+    </property>
 
-	<property>
-	 	<name>yarn.app.mapreduce.am.env</name>
-		<value>HADOOP_MAPRED_HOME=${HADOOP_HOME}</value>
-	</property>
-	
-	<property>
-	 	<name>mapreduce.map.env</name>
-		<value>HADOOP_MAPRED_HOME=${HADOOP_HOME}</value>
-	</property>
-	
-	<property>
-		<name>mapreduce.reduce.env</name>
-		<value>HADOOP_MAPRED_HOME=${HADOOP_HOME}</value>
-	</property>
+    <property>
+        <name>yarn.app.mapreduce.am.env</name>
+        <value>HADOOP_MAPRED_HOME=${HADOOP_HOME}</value>
+    </property>
 
-	<!-- YARN APPLICATION MASTER -->
-	<property>
-		<name>yarn.app.mapreduce.am.resource.cpu-vcores</name>
-		<value>1</value>
-	</property>
-	<property>
-	 	<name>yarn.app.mapreduce.am.resource.mb</name>
-		<value>{{ mapreduce_am_memory }}</value>
-	</property>
-	<property>
-	 	<name>yarn.app.mapreduce.am.command-opts</name>
-		<value>-Xmx{{ mapreduce_am_memory_java_opts }}m</value>
-	</property>
+    <property>
+        <name>mapreduce.map.env</name>
+        <value>HADOOP_MAPRED_HOME=${HADOOP_HOME}</value>
+    </property>
 
-	<!-- MAP -->
-	<property>
-		<name>mapreduce.map.cpu.vcores</name>
-		<value>1</value>
-	</property>
-	<property>
-	 	<name>mapreduce.map.memory.mb</name>
-		<value>{{ map_memory }}</value>
-	</property>
+    <property>
+        <name>mapreduce.reduce.env</name>
+        <value>HADOOP_MAPRED_HOME=${HADOOP_HOME}</value>
+    </property>
 
-	<property>
-	 	<name>mapreduce.map.java.opts</name>
-		<value>-Xmx{{ map_memory_java_opts }}m</value>
-	</property>
+    <!-- YARN APPLICATION MASTER -->
+    <property>
+        <name>yarn.app.mapreduce.am.resource.cpu-vcores</name>
+        <value>1</value>
+    </property>
+    <property>
+        <name>yarn.app.mapreduce.am.resource.mb</name>
+        <value>{{ mapreduce_am_memory }}</value>
+    </property>
+    <property>
+        <name>yarn.app.mapreduce.am.command-opts</name>
+        <value>-Xmx{{ mapreduce_am_memory_java_opts }}m</value>
+    </property>
 
-	<!-- REDUCE -->
-	<property>
-		<name>mapreduce.reduce.cpu.vcores</name>
-		<value>1</value>
-	</property>
-	<property>
-	 	<name>mapreduce.reduce.memory.mb</name>
-		<value>{{ reduce_memory }}</value>
-	</property>
+    <!-- MAP -->
+    <property>
+        <name>mapreduce.map.cpu.vcores</name>
+        <value>1</value>
+    </property>
+    <property>
+        <name>mapreduce.map.memory.mb</name>
+        <value>{{ map_memory }}</value>
+    </property>
 
-	<property>
-	 	<name>mapreduce.reduce.java.opts</name>
-		<value>-Xmx{{ reduce_memory_java_opts }}m</value>
-	</property>
+    <property>
+        <name>mapreduce.map.java.opts</name>
+        <value>-Xmx{{ map_memory_java_opts }}m</value>
+    </property>
 
-  <property>
-    <name>mapreduce.cluster.local.dir</name>
-    <value>{{ bind_dir_on_container }}/hadoop_files/mapred/local</value>
-  </property>
+    <!-- REDUCE -->
+    <property>
+        <name>mapreduce.reduce.cpu.vcores</name>
+        <value>1</value>
+    </property>
+    <property>
+        <name>mapreduce.reduce.memory.mb</name>
+        <value>{{ reduce_memory }}</value>
+    </property>
 
-  <property>
-    <name>mapreduce.jobhistory.address</name>
-    <value>{{ rm_container }}:10020</value>
-  </property>
+    <property>
+        <name>mapreduce.reduce.java.opts</name>
+        <value>-Xmx{{ reduce_memory_java_opts }}m</value>
+    </property>
 
-  <property>   
-    <name>mapreduce.tasktracker.map.tasks.maximum</name>   
-    <value>{{ vcores | int // 2 }}</value>
-  </property> 
-  <property>   
-   <name>mapreduce.tasktracker.reduce.tasks.maximum</name>   
-   <value>{{ vcores | int // 2 }}</value>
-  </property>
+    <property>
+        <name>mapreduce.cluster.local.dir</name>
+        <value>{{ bind_dir_on_container }}/hadoop_files/mapred/local</value>
+    </property>
 
+    <property>
+        <name>mapreduce.jobhistory.address</name>
+        <value>{{ rm_container }}:10020</value>
+    </property>
 
-  <property>
-    <name>mapreduce.task.io.sort.factor</name>
-    <value>{{ (map_memory_java_opts | int // 4) // 10}}</value>
-  </property>
-  <property>
-    <name>mapreduce.task.io.sort.mb</name>
-    <value>{{ map_memory_java_opts | int // 4}}</value>
-  </property>
-  <property>
-    <name>mapreduce.map.sort.spill.percent</name>
-    <value>0.80</value>
-  </property>
-  <property>
-    <name>mapreduce.job.reduce.slowstart.completedmaps</name>
-    <value>0.75</value>  
-  </property>
-  <property>
-    <name>mapreduce.reduce.shuffle.parallelcopies</name>   
-    <value>10</value>  
-  </property>
-  
-<!--
-  <property>
-    <name>mapreduce.tasktracker.dns.interface</name>
-    <value>eth0</value>
-  </property>
--->
+    <property>
+        <name>mapreduce.tasktracker.map.tasks.maximum</name>
+        <value>{{ vcores | int // 2 }}</value>
+    </property>
+    <property>
+        <name>mapreduce.tasktracker.reduce.tasks.maximum</name>
+        <value>{{ vcores | int // 2 }}</value>
+    </property>
+
+    <property>
+        <name>mapreduce.task.io.sort.factor</name>
+        <value>{{ (map_memory_java_opts | int // 4) // 10}}</value>
+    </property>
+    <property>
+        <name>mapreduce.task.io.sort.mb</name>
+        <value>{{ map_memory_java_opts | int // 4}}</value>
+    </property>
+    <property>
+        <name>mapreduce.map.sort.spill.percent</name>
+        <value>0.80</value>
+    </property>
+    <property>
+        <name>mapreduce.job.reduce.slowstart.completedmaps</name>
+        <value>0.75</value>
+    </property>
+    <property>
+        <name>mapreduce.reduce.shuffle.parallelcopies</name>
+        <value>10</value>
+    </property>
+
+    <!--
+    <property>
+        <name>mapreduce.tasktracker.dns.interface</name>
+        <value>eth0</value>
+    </property>
+    -->
 
 </configuration>
 

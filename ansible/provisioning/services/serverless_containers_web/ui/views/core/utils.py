@@ -400,7 +400,7 @@ def retrieve_global_hdfs_app(apps):
     datanodes = []
 
     for app in apps:
-        if app['name'] == "global_hdfs":
+        if app['name'] == settings.VARS_CONFIG['global_hdfs_app_name']:
             global_hdfs_app = app
             break
 

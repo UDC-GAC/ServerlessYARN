@@ -10,11 +10,10 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
     #"{{ installed_app_directory }}/hadoop-{{ hadoop_version }}.tar.gz" /opt/hadoop-{{ hadoop_version }}.tar.gz
 
 %post
-    # Install basic software and Java
+    ############################ Install basic software ######################################
     export DEBIAN_FRONTEND=noninteractive
     apt-get -y update
-    apt-get install -y curl wget gettext-base openssh-client openssh-server
-    apt-get install -y openjdk-8-jdk
+    apt-get install -y curl wget gettext-base
 
     # Trying to setup firewall (iptables prevent hadoop cluster from working)
     #apt-get remove -y iptables
@@ -26,13 +25,16 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
     #modprobe /lib/modules/$(uname -r)/kernel/net/ipv4/netfilter/iptable_filter.ko
     #ufw --force enable
 
-    export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-
-    # Setup SSH
+    ##################################### SSH ###############################################
+    apt-get install -y openssh-client openssh-server
     mkdir /run/sshd
     chmod 0711 /run/sshd
 
-    # Setup hadoop
+    ##################################### Java ##############################################
+    apt-get install -y openjdk-8-jdk
+    export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+
+    ##################################### Hadoop ############################################
     cd /opt
     export HADOOP_CONF_DIR=/opt/hadoop_files/hadoop_conf
     export DATA_DIR="{{ bind_dir_on_container }}/hadoop_files/data_dir"
@@ -66,30 +68,57 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
     ## Set regular user as owner of required files
     chown -R {{ user_info.user_name }} hadoop_files
 
+    ##################################### Zookeper ##########################################
+    ## Zookeeper is required for global HDFS rbf mode
+    cd /opt
+    zookeeper_download_file=apache-zookeeper-{{ zookeeper_version }}-bin.tar.gz
+    zookeeper_download_dir=https://dlcdn.apache.org/zookeeper/zookeeper-{{ zookeeper_version }}
+
+    # Use simple wget since the file to download is lightweight
+    wget -O $zookeeper_download_file $zookeeper_download_dir/$zookeeper_download_file
+
+    mkdir zookeeper && tar xf $zookeeper_download_file -C zookeeper --strip-components 1 && rm $zookeeper_download_file
+    chown -R $(whoami):$(whoami) zookeeper
+
+    ## Setup config
+    zoo_conf_file=zookeeper/conf/zoo.cfg
+    touch $zoo_conf_file
+    for line in \
+        "tickTime=2000" \
+        "dataDir={{ user_home_on_container }}/zookeeper/data" \
+        "clientPort=2181" \
+        "initLimit=5" \
+        "syncLimit=2"; do
+        echo "$line" >> "$zoo_conf_file"
+    done
+
 %environment
+    # Java
     export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
     export JAVA_MAPPINGS_FOLDER_PATH="{{ bind_dir_on_container }}/hadoop_files/java_mappings"
+
     # Hadoop
     export DATA_DIR="{{ bind_dir_on_container }}/hadoop_files/data_dir"
     export HADOOP_HOME=/opt/hadoop
     export HADOOP_CONF_DIR="{{ bind_dir_on_container }}/hadoop_files/hadoop_conf"
-    #export YARN_CONF_DIR=$HADOOP_CONF_DIR
     export HADOOP_LOG_DIR="{{ bind_dir_on_container }}/hadoop_logs"
+
+    # YARN (if conf and log dir are undefined they will default to the hadoop ones)
+    #export YARN_CONF_DIR=$HADOOP_CONF_DIR
     #export YARN_LOG_DIR=$HADOOP_LOG_DIR
-    ## Hadoop users (hadoop 3.3.5)
+
+    ## Hadoop and YARN users (required for hadoop 3.3.5+)
     export HDFS_NAMENODE_USER=$(whoami)
     export HDFS_DATANODE_USER=$(whoami)
     export HDFS_SECONDARYNAMENODE_USER=$(whoami)
     export YARN_RESOURCEMANAGER_USER=$(whoami)
     export YARN_NODEMANAGER_USER=$(whoami)
 
-%startscript
-    #cd /opt/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream_tmux.sh && \
-    # cd /opt/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream_with_java_translation.sh && bash /opt/java_snitch.sh && \
-    # bash /opt/setup.sh
-    #su - vagrant -c "cd /opt/BDWatchdog/MetricsFeeder && bash scripts/run_atop_stream_with_java_translation.sh && bash /opt/java_snitch.sh"
+    # Zookeeper
+    export ZOO_LOG_DIR="{{ user_home_on_container }}/zookeeper/logs"
 
-    ## File with the variables defined in the %environment section
+%startscript
+    ## File with the variables defined in the %environment section that will be read by the "setup.sh" script
     ENVFILE="/.singularity.d/env/90-environment.sh"
 
     # Run as root

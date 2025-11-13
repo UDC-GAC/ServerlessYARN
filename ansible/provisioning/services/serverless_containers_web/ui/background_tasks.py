@@ -985,7 +985,8 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
     # process_script("hdfs/setup_hdfs_network", argument_list, error_message)
 
     ## Run HDFS + YARN on the global HDFS cluster, thus distcp may be run within the global cluster
-    run_playbooks.setup_hadoop_network_on_containers(host_list, app, app_files['app_type'], formatted_containers_info, nn_host, nn_container, hdfs_resources)
+    start_zookeeper = settings.PLATFORM_CONFIG['hdfs_mode'] == 'rbf'
+    run_playbooks.setup_hadoop_network_on_containers(host_list, app, app_files['app_type'], formatted_containers_info, nn_host, nn_container, hdfs_resources, start_zookeeper=start_zookeeper)
 
 
     # Add containers to app
