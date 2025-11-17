@@ -11,9 +11,7 @@
     - jid_file: "{{ ansible_async_dir }}/{{ container }}.jid"
     - singularity_env_file: "/.singularity.d/env/90-environment.sh"
     - container_bind_dir: "{{ [bind_dir, container] | join('/') if container is defined }}"
-    - hdfs_file_list: >
-        {{ ["core-site.xml", "hdfs-site.xml", "hadoop-env.sh", "rack_topology.py"] +
-          (["hdfs-rbf-site.xml"] if global_hdfs and hdfs_mode == 'rbf' else []) }}
+    - hdfs_file_list: ["core-site.xml", "hdfs-site.xml", "hadoop-env.sh", "rack_topology.py", "hdfs-rbf-site.xml"]
     - hadoop_file_list: ["yarn-site.xml", "mapred-site.xml", "yarn-env.sh"]
     - spark_file_list: ["spark-defaults.conf"]
     - app_tmpdir: "{{ tmpdir }}/{{ app_name }}"
@@ -179,90 +177,78 @@
                       reject('search', rm_container) | list}}"
 
       - name: Prepare and copy all config files to containers
-        tags: setup_hadoop
+        tags: setup_hadoop, setup_hdfs
         block:
-          - name: Create temporary directory to store templated config files
+          - name: Setup configuration files to transfer
             delegate_to: localhost
             run_once: yes
-            file:
-              path: "{{ app_tmpdir }}"
-              state: directory
-            tags: setup_hdfs
+            block:
+              - name: Create temporary directory to store templated config files
+                file:
+                  path: "{{ app_tmpdir }}"
+                  state: directory
 
-          - name: Copy hdfs config files to master
-            delegate_to: localhost
-            run_once: yes
-            template:
-              src: "templates/hadoop/{{ item }}"
-              dest: "{{ app_tmpdir }}/{{ item }}"
-              mode: preserve
-            loop: "{{ hdfs_file_list }}"
-            tags: setup_hdfs
+              - name: Set file list to transfer
+                vars:
+                  start_hdfs: "{{ not global_hdfs or hdfs_mode != 'single' or app_name == global_hdfs_app_name }}"
+                  start_rbf: "{{ global_hdfs and hdfs_mode == 'rbf' }}"
+                  setup_spark: "{{ app_type is defined and app_type == 'spark_app' }}"
+                set_fact:
+                  transfer_file_dict:
+                    - {
+                        # remove hdfs-rbf-site if not using RBF
+                        file_list: "{{ hdfs_file_list if start_rbf else hdfs_file_list | difference(['hdfs-rbf-site.xml']) }}",
+                        destination: "\"$HADOOP_CONF_DIR\"",
+                        template_dir: "hadoop",
+                        condition: "{{ start_hdfs }}"
+                      }
+                    - {
+                        file_list: "{{ hadoop_file_list + (['core-site.xml'] if not start_hdfs else []) }}",
+                        destination: "\"$HADOOP_CONF_DIR\"",
+                        template_dir: "hadoop",
+                        condition: "{{ 'setup_hdfs' not in ansible_run_tags }}"
+                      }
+                    - {
+                        file_list: "{{ spark_file_list }}",
+                        destination: "\"$SPARK_CONF_DIR\"",
+                        template_dir: "spark",
+                        condition: "{{ setup_spark and 'setup_hdfs' not in ansible_run_tags }}"
+                      }
 
-          - name: Copy hadoop config files to master
-            delegate_to: localhost
-            run_once: yes
-            template:
-              src: "templates/hadoop/{{ item }}"
-              dest: "{{ app_tmpdir }}/{{ item }}"
-            loop: "{{ hadoop_file_list }}"
-
-          - name: Copy spark config files to master
-            when: app_type is defined and app_type == 'spark_app'
-            delegate_to: localhost
-            run_once: yes
-            template:
-              src: "templates/spark/{{ item }}"
-              dest: "{{ app_tmpdir }}/{{ item }}"
-            loop: "{{ spark_file_list }}"
+              - name: Copy config files to master
+                when: item.0.condition | default(true)
+                template:
+                  src: "templates/{{ item.0.template_dir }}/{{ item.1 }}"
+                  dest: "{{ app_tmpdir }}/{{ item.1 }}"
+                loop: "{{ transfer_file_dict | subelements('file_list') }}"
 
           - name: Copy config files to hosts
             synchronize:
               src: "{{ app_tmpdir }}/"
               dest: "{{ app_tmpdir }}/"
-            tags: setup_hdfs
 
-          - name: Copy and update hdfs config files to containers
-            shell: "{% for item in containers_info %}
-              {% if item.host == inventory_hostname %}
-              {% set container_bind_dir = item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') %}
-              {% for file in hdfs_file_list %}
-              cp {{ app_tmpdir }}/{{ file }} {{ container_bind_dir }}/{{ file }} && 
-              {% endfor %}
-              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
-              '{% for file in hdfs_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $HADOOP_CONF_DIR/{{ file }} && {% endfor %}true' && 
-              {% endif  %}
-              {% endfor %}true"
-            args:
-              executable: /bin/bash
-            tags: setup_hdfs
-
-          - name: Copy and update hadoop config files to containers
-            shell: "{% for item in containers_info %}
-              {% if item.host == inventory_hostname %}
-              {% set container_bind_dir = item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') %}
-              {% for file in hadoop_file_list %}
-              cp {{ app_tmpdir }}/{{ file }} {{ container_bind_dir }}/{{ file }} && 
-              {% endfor %}
-              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
-              '{% for file in hadoop_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $HADOOP_CONF_DIR/{{ file }} && {% endfor %}true' && 
-              {% endif  %}
-              {% endfor %}true"
-            args:
-              executable: /bin/bash
-
-          - name: Copy and update spark config files to containers
-            when: app_type is defined and app_type == 'spark_app'
-            shell: "{% for item in containers_info %}
-              {% if item.host == inventory_hostname %}
-              {% set container_bind_dir = item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') %}
-              {% for file in spark_file_list %}
-              cp {{ app_tmpdir }}/{{ file }} {{ container_bind_dir }}/{{ file }} && 
-              {% endfor %}
-              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
-              '{% for file in spark_file_list %}cp {{ bind_dir_on_container }}/{{ file }} $SPARK_CONF_DIR/{{ file }} && {% endfor %}true' && 
-              {% endif  %}
-              {% endfor %}true"
+          - name: Copy and update config files to containers
+            shell: |
+              {% for item in containers_info -%}
+                {% if item.host == inventory_hostname -%}
+                  {% set container_bind_dir = item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') -%}
+                  {% for file_set in transfer_file_dict -%}
+                    {% if file_set.condition | default (true) -%}
+                      {% for file in file_set.file_list -%}
+                        cp {{ app_tmpdir }}/{{ file }} {{ container_bind_dir }}/{{ file }} && \
+                      {% endfor -%}
+                    {% endif -%}
+                  {% endfor -%}
+                  sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
+                  '{% for file_set in transfer_file_dict -%}
+                    {% if file_set.condition | default (true) -%}
+                      {% for file in file_set.file_list -%}
+                        cp {{ bind_dir_on_container }}/{{ file }} {{ file_set.destination }}/{{ file }} && \
+                      {% endfor -%}
+                    {% endif -%}
+                  {% endfor -%}true' && \
+                {% endif -%}
+              {% endfor -%}true
             args:
               executable: /bin/bash
 
@@ -342,57 +328,71 @@
             args:
               executable: /bin/bash
 
-      - name: Start HDFS + YARN
-        tags: setup_hadoop
+      - name: Start Hadoop services
+        vars:
+          start_hdfs: "{{ not global_hdfs or hdfs_mode != 'single' or app_name == global_hdfs_app_name }}"
         block:
-          - name: Format filesystem, start HDFS and YARN (Master)
-            when: rm_host == inventory_hostname
-            shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
-              '(cd $HADOOP_HOME && bash format_filesystem.sh) && ( \
-              nohup $HADOOP_HOME/bin/hdfs --daemon start namenode & \
-              nohup $HADOOP_HOME/bin/yarn --daemon start resourcemanager & \
-              {% if global_hdfs and hdfs_mode == 'rbf' %}nohup $HADOOP_HOME/bin/hdfs --daemon start dfsrouter & \ {% endif %}
-              )'"
-            args:
-              executable: /bin/bash
+          - name: Start HDFS + YARN
+            tags: setup_hadoop
+            block:
+              - name: Format filesystem, start HDFS and YARN (Master)
+                when: rm_host == inventory_hostname
+                shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
+                  ' \
+                  {% if start_hdfs %}
+                    (cd $HADOOP_HOME && bash format_filesystem.sh) && \
+                  {% endif %}
+                  ( \
+                  {% if start_hdfs %}
+                    nohup $HADOOP_HOME/bin/hdfs --daemon start namenode & \ 
+                  {% endif %}
+                  nohup $HADOOP_HOME/bin/yarn --daemon start resourcemanager & \
+                  {% if global_hdfs and hdfs_mode == 'rbf' %}nohup $HADOOP_HOME/bin/hdfs --daemon start dfsrouter & \ {% endif %}
+                  )'"
+                args:
+                  executable: /bin/bash
 
-          - name: Start HDFS and YARN (Worker)
-            shell: "{% for item in containers_info %}
-              {% if item.host == inventory_hostname and item.container_name != rm_container %}
-              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
-              'nohup $HADOOP_HOME/bin/hdfs --daemon start datanode & \
-              nohup $HADOOP_HOME/bin/yarn --daemon start nodemanager &' && 
-              {% endif  %}
-              {% endfor %}true"
-            args:
-              executable: /bin/bash
+              - name: Start HDFS and YARN (Worker)
+                shell: "{% for item in containers_info %}
+                  {% if item.host == inventory_hostname and item.container_name != rm_container %}
+                    sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
+                    ' \
+                    {% if start_hdfs %}
+                      nohup $HADOOP_HOME/bin/hdfs --daemon start datanode & \ 
+                    {% endif %}
+                    nohup $HADOOP_HOME/bin/yarn --daemon start nodemanager &' && 
+                  {% endif  %}
+                  {% endfor %}true"
+                args:
+                  executable: /bin/bash
 
-      - name: Start only HDFS
-        tags: setup_hdfs
-        block:
-          - name: Format filesystem and start HDFS (Master)
-            when: rm_host == inventory_hostname
-            shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
-              '(cd $HADOOP_HOME \
-              && bash format_filesystem.sh) \
-              && (nohup $HADOOP_HOME/bin/hdfs --daemon start namenode &)'"
-            args:
-              executable: /bin/bash
+          - name: Start only HDFS
+            tags: setup_hdfs
+            block:
+              - name: Format filesystem and start HDFS (Master)
+                when: rm_host == inventory_hostname
+                shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
+                  '(cd $HADOOP_HOME \
+                  && bash format_filesystem.sh) \
+                  && (nohup $HADOOP_HOME/bin/hdfs --daemon start namenode &)'"
+                args:
+                  executable: /bin/bash
 
-          - name: Start HDFS (Worker)
-            shell: "{% for item in containers_info %}
-              {% if item.host == inventory_hostname and item.container_name != rm_container %}
-              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
-              'nohup $HADOOP_HOME/bin/hdfs --daemon start datanode &' && 
-              {% endif  %}
-              {% endfor %}true"
-            args:
-              executable: /bin/bash
+              - name: Start HDFS (Worker)
+                shell: "{% for item in containers_info %}
+                  {% if item.host == inventory_hostname and item.container_name != rm_container %}
+                  sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
+                  'nohup $HADOOP_HOME/bin/hdfs --daemon start datanode &' && 
+                  {% endif  %}
+                  {% endfor %}true"
+                args:
+                  executable: /bin/bash
 
-      - name: Wait some seconds for Namenode to exit safe mode
-        tags: setup_hadoop, setup_hdfs
-        pause:
-          seconds: 10
+          - name: Wait some seconds for Namenode to exit safe mode
+            when: start_hdfs
+            tags: setup_hadoop, setup_hdfs
+            pause:
+              seconds: 10
     vars:
       - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
     tags: never

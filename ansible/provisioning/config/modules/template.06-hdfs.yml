@@ -19,7 +19,7 @@ global_hdfs_replication: "{{ default_hdfs_replication }}"
 local_hdfs_replication: 1
 
 # HDFS mode:
-## 'single': deploys a single global HDFS --> to be implemented
+## 'single': deploys a single global HDFS
 ## 'local': deploys a global HDFS + a local HDFS in each app Hadoop cluster
 ## 'rbf': deploys a Router-based Federated HDFS cluster, i.e., a global HDFS + local HDFS in each app Hadoop cluster with routing between them
 hdfs_mode: rbf
