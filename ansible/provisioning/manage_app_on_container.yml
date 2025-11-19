@@ -132,7 +132,8 @@
     tags: never, remove_global_hdfs_connection
 
   - name: Start zookeeper
-    when: rm_host == inventory_hostname
+    delegate_to: "{{ rm_host }}"
+    run_once: yes
     shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
       'nohup /opt/zookeeper/bin/zkServer.sh start &'"
     tags: never, start_zookeeper
@@ -220,6 +221,7 @@
                 template:
                   src: "templates/{{ item.0.template_dir }}/{{ item.1 }}"
                   dest: "{{ app_tmpdir }}/{{ item.1 }}"
+                  mode: preserve
                 loop: "{{ transfer_file_dict | subelements('file_list') }}"
 
           - name: Copy config files to hosts
@@ -267,7 +269,8 @@
         tags: setup_hadoop, setup_hdfs
         block:
           - name: Update ssh known_hosts on ResourceManager/Namenode container & Move RM/NN container ssh public key
-            when: rm_host == inventory_hostname
+            delegate_to: "{{ rm_host }}"
+            run_once: yes
             shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
               'ssh-keyscan -t rsa `hostname` >> ~/.ssh/known_hosts \
               && ssh-keyscan -t rsa -f $HADOOP_CONF_DIR/workers >> ~/.ssh/known_hosts \
@@ -333,24 +336,29 @@
           start_hdfs: "{{ not global_hdfs or hdfs_mode != 'single' or app_name == global_hdfs_app_name }}"
         block:
           - name: Start HDFS + YARN
-            tags: setup_hadoop
+            tags: setup_hadoop, setup_hdfs
             block:
               - name: Format filesystem, start HDFS and YARN (Master)
-                when: rm_host == inventory_hostname
+                delegate_to: "{{ rm_host }}"
+                run_once: yes
                 shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
                   ' \
                   {% if start_hdfs %}
-                    (cd $HADOOP_HOME && bash format_filesystem.sh) && \
+                    cd $HADOOP_HOME && bash format_filesystem.sh && \ 
+                    $HADOOP_HOME/bin/hdfs --daemon start namenode && \ 
+                    {% if global_hdfs and hdfs_mode == 'rbf' %}
+                      $HADOOP_HOME/bin/hdfs --daemon start dfsrouter && \ 
+                    {% endif %}
                   {% endif %}
-                  ( \
-                  {% if start_hdfs %}
-                    nohup $HADOOP_HOME/bin/hdfs --daemon start namenode & \ 
+                  {% if 'setup_hdfs' not in ansible_run_tags %}
+                    $HADOOP_HOME/bin/yarn --daemon start resourcemanager && \ 
                   {% endif %}
-                  nohup $HADOOP_HOME/bin/yarn --daemon start resourcemanager & \
-                  {% if global_hdfs and hdfs_mode == 'rbf' %}nohup $HADOOP_HOME/bin/hdfs --daemon start dfsrouter & \ {% endif %}
-                  )'"
+                  'true"
                 args:
                   executable: /bin/bash
+                async: 10800
+                poll: 0
+                register: start_rm_services
 
               - name: Start HDFS and YARN (Worker)
                 shell: "{% for item in containers_info %}
@@ -358,41 +366,37 @@
                     sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
                     ' \
                     {% if start_hdfs %}
-                      nohup $HADOOP_HOME/bin/hdfs --daemon start datanode & \ 
+                      $HADOOP_HOME/bin/hdfs --daemon start datanode && \ 
                     {% endif %}
-                    nohup $HADOOP_HOME/bin/yarn --daemon start nodemanager &' && 
-                  {% endif  %}
+                    {% if 'setup_hdfs' not in ansible_run_tags %}
+                      $HADOOP_HOME/bin/yarn --daemon start nodemanager' && \
+                    {% endif %}
+                  {% endif %}
                   {% endfor %}true"
                 args:
                   executable: /bin/bash
+                async: 10800
+                poll: 0
+                register: start_worker_services
 
-          - name: Start only HDFS
-            tags: setup_hdfs
-            block:
-              - name: Format filesystem and start HDFS (Master)
-                when: rm_host == inventory_hostname
-                shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
-                  '(cd $HADOOP_HOME \
-                  && bash format_filesystem.sh) \
-                  && (nohup $HADOOP_HOME/bin/hdfs --daemon start namenode &)'"
-                args:
-                  executable: /bin/bash
+              - name: Wait for master services to start
+                async_status:
+                  jid: "{{ start_rm_services.ansible_job_id }}"
+                delegate_to: "{{ rm_host }}"
+                run_once: yes
+                register: rm_job_result
+                until: rm_job_result.finished
+                retries: 120
+                delay: 0.5
 
-              - name: Start HDFS (Worker)
-                shell: "{% for item in containers_info %}
-                  {% if item.host == inventory_hostname and item.container_name != rm_container %}
-                  sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
-                  'nohup $HADOOP_HOME/bin/hdfs --daemon start datanode &' && 
-                  {% endif  %}
-                  {% endfor %}true"
-                args:
-                  executable: /bin/bash
-
-          - name: Wait some seconds for Namenode to exit safe mode
-            when: start_hdfs
-            tags: setup_hadoop, setup_hdfs
-            pause:
-              seconds: 10
+              - name: Wait for worker services to start
+                async_status:
+                  jid: "{{ start_worker_services.ansible_job_id }}"
+                register: worker_job_result
+                until: worker_job_result.finished
+                retries: 120
+                delay: 0.5
+                when: start_worker_services.ansible_job_id is defined
     vars:
       - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
     tags: never
