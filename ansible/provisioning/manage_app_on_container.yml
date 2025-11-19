@@ -658,11 +658,16 @@
   - name: Stop hadoop cluster
     block:
       - name: Stop hadoop cluster
-        when: rm_host == inventory_hostname
+        delegate_to: "{{ rm_host }}"
+        run_once: yes
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
           'cd $HADOOP_HOME \
+          {% if global_hdfs and hdfs_mode == 'rbf' %}
+            && bin/hdfs --daemon stop dfsrouter \ 
+          {% endif %}
           && sbin/stop-yarn.sh \
-          && sbin/stop-dfs.sh'"
+          && sbin/stop-dfs.sh \
+          '"
         args:
           executable: /bin/bash
     tags: never, stop_hadoop_cluster
