@@ -512,7 +512,7 @@
           jid: "{{ start_job_id }}"
         register: start_status
         until: start_status.finished
-        retries: 60  # 54 * 20 = 1200 seconds (20 minutes)
+        retries: 360  # 360 * 20 = 7200 seconds (120min - 2h)
         delay: 20
 
     tags: never, wait_app
