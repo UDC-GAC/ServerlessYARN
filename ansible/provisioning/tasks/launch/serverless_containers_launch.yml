@@ -120,28 +120,58 @@
   with_items: "{{ nodes }}"
   tags: never, extend_lv
 
-## Disable scaler service before adding containers
-- name: Disabling Scaler service
-  shell: "bash scripts/orchestrator/Scaler/deactivate.sh"
+## Disable scaling services
+- name: Disabling services that generate scaling requests
+  shell: |
+    {% for item in services_to_disable | select | list %}
+      bash scripts/orchestrator/{{ item }}/deactivate.sh &&
+    {% endfor %}true
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-  tags: never, start_containers, disable_scaler
+  vars:
+    tags_active: "{{ ansible_run_tags | list }}"
+    disable_scaler: "{{ tags_active | intersect(['disable_scaler', 'start_containers']) | length > 0 }}"
+    disable_scaling: "{{ tags_active | intersect(['disable_scaling_services', 'start_containers']) | length > 0 }}"
+    services_to_disable:
+      - "{{ 'Scaler' if disable_scaler else '' }}"
+      - "{{ 'Guardian' if disable_scaling else '' }}"
+      - "{{ 'Rebalancer' if disable_scaling else '' }}"
+  tags: never, start_containers, disable_scaler, disable_scaling_services
 
 ## Containers
 - name: Initializing State Database - containers
-  shell: "python3 scripts/stateDatabase/add_containers_API_v3.py {{ containers_info | replace(' ','') | quote }} config/config.yml"
+  shell: "python3 scripts/stateDatabase/add_containers_API_v3.py {{ containers_info | replace(' ','') | quote }} config/config.yml {{ app_name if app_name is defined else '' }}"
   args:
     executable: /bin/bash
   tags: start_containers
 
-## Reactivate Scaler after adding containers
-- name: Activating Scaler service
-  shell: "bash scripts/orchestrator/Scaler/activate.sh"
+## Limit containers BW when extending LV to speed up the extension process
+### Services that may send scaling requests should be disabled before limiting containers bw
+- name: Limiting containers bw
+  shell: "python3 scripts/stateDatabase/limit_containers_bw.py {{ host_list }} config/config.yml"
+  args:
+    executable: /bin/bash
+  tags: never, limit_containers_bw
+
+## Re-enable services
+- name: Re-enabling services that generate scaling requests
+  shell: |
+    {% for item in services_to_enable | select | list %}
+      bash scripts/orchestrator/{{ item }}/activate.sh &&
+    {% endfor %}true
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-  tags: never, start_containers, enable_scaler
+  vars:
+    tags_active: "{{ ansible_run_tags | list }}"
+    enable_scaler: "{{ tags_active | intersect(['enable_scaler', 'start_containers']) | length > 0 }}"
+    enable_scaling: "{{ tags_active | intersect(['enable_scaling_services', 'start_containers']) | length > 0 }}"
+    services_to_enable:
+      - "{{ 'Scaler' if enable_scaler else '' }}"
+      - "{{ 'Guardian' if enable_scaling else '' }}"
+      - "{{ 'Rebalancer' if enable_scaling else '' }}"
+  tags: never, start_containers, enable_scaler, enable_scaling_services
 
 - name: Guardian - Set power model
   when: "power_budgeting and power_modelling"
@@ -174,34 +204,3 @@
   with_items:
     - EnergyController
   tags: restart_services
-
-
-### Limit containers BW when extending LV to speed up the extension process
-## Disable services that may send scaling requests before limiting containers bw
-- name: Disabling services that generate scaling requests
-  shell: "bash scripts/orchestrator/{{ item }}/deactivate.sh"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-  with_items:
-    - Guardian
-    - Rebalancer
-  tags: never, disable_scaling_services
-
-## Limit containers bw
-- name: Limiting containers bw
-  shell: "python3 scripts/stateDatabase/limit_containers_bw.py {{ host_list }} config/config.yml"
-  args:
-    executable: /bin/bash
-  tags: never, limit_containers_bw
-
-## Re-enable services after extending LV
-- name: Enabling services that generate scaling requests
-  shell: "bash scripts/orchestrator/{{ item }}/activate.sh"
-  args:
-    chdir: "{{ serverless_containers_path }}"
-    executable: /bin/bash
-  with_items:
-    - Guardian
-    - Rebalancer
-  tags: never, enable_scaling_services

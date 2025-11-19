@@ -131,7 +131,7 @@ def start_containers(host_names, containers_info):
     run_playbook(playbook_name="start_containers_playbook.yml", tags=["start_containers"], limit=(host_names + ["localhost"]), extravars={"host_list": ",".join(host_names), "containers_info_str": containers_info})
     run_playbook(playbook_name="launch_playbook.yml", tags=["start_containers"], extravars={"host_list": ",".join(host_names), "containers_info_str": containers_info})
 
-def start_containers_with_app(host_names, containers_info, app_type, app_files):
+def start_containers_with_app(host_names, containers_info, app_name, app_type, app_files):
 
     extravars = {
         "host_list": ",".join(host_names),
@@ -141,7 +141,7 @@ def start_containers_with_app(host_names, containers_info, app_type, app_files):
     extravars.update(app_files)
 
     run_playbook(playbook_name="start_containers_playbook.yml", tags=["start_containers"], limit=(host_names + ["localhost"]), extravars=extravars)
-    run_playbook(playbook_name="launch_playbook.yml", tags=["start_containers"], extravars={"host_list": host_names, "containers_info_str": containers_info})
+    run_playbook(playbook_name="launch_playbook.yml", tags=["start_containers"], extravars={"host_list": host_names, "containers_info_str": containers_info, "app_name": app_name})
 
 def stop_container(host_name, container, bind_path=None, clean_bind_dir=True):
 

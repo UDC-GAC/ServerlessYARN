@@ -634,7 +634,7 @@ def deploy_app_containers(url, new_containers, app, app_files, container_resourc
     # argument_list = [hosts, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar'], app_type]
     # error_message = "Error starting containers {0}".format(formatted_containers_info)
     # process_script("start_containers_with_app", argument_list, error_message)
-    run_playbooks.start_containers_with_app(list(added_containers.keys()), formatted_containers_info, app_type, app_files)
+    run_playbooks.start_containers_with_app(list(added_containers.keys()), formatted_containers_info, app, app_type, app_files)
 
     return containers_info
 
@@ -648,11 +648,8 @@ def start_app_task(self, url, app, app_files, new_containers, container_resource
     # Set application in running state in ServerlessContainers
     change_app_execution_state_in_db(url, app, "run")
 
-    # Deploy all the containers in the remote hosts
+    # Deploy all the containers in the remote hosts and subscribe them to the app
     app_containers = deploy_app_containers(url, new_containers, app, app_files, container_resources, disk_assignation, app_type)
-
-    # Subscribe containers to app in ServerlessContainers
-    subscribe_containers_to_app(url, app, app_containers)
 
     # Setup containers network to enable communications between containers
     setup_containers_network_task(url, app, app_containers, new_containers)
@@ -720,41 +717,16 @@ def start_hadoop_app_task(self, url, app, app_files, new_containers, container_r
     if 'output_dir' in app_files and app_files['output_dir'] != '':
         timestamp = time.strftime("%Y-%m-%d--%H-%M-%S")
 
-    ## Stop Containers
-    # Remove master container first
-    for container in app_containers:
-        if container['container_name'] == rm_container:
-            full_url = url + "container/{0}/{1}".format(rm_container,app)
-            bind_path = ""
-            if 'disk_path' in container: bind_path = container['disk_path']
-            stop_app_on_container_task(rm_host, rm_container, bind_path, app, app_files, rm_container, timestamp)
-            break
-
     # Stop and remove containers
     stop_containers_task = []
     for container in app_containers:
-        if container['container_name'] != rm_container:
-            full_url = url + "container/{0}/{1}".format(container['container_name'],app)
-            bind_path = ""
-            if 'disk_path' in container: bind_path = container['disk_path']
-            stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, rm_container, timestamp)
-            register_task(stop_task.id,"stop_container_task")
-            # stop_task = stop_app_on_container_task.si(container['host'], container['container_name'], bind_path, app, app_files, rm_container, timestamp)
-            # stop_containers_task.append(stop_task)
-
-    # set_hadoop_logs_timestamp_task = set_hadoop_logs_timestamp.si(app, app_files, rm_host, rm_container)
-    # log_task = chord(stop_containers_task)(set_hadoop_logs_timestamp_task)
-    # register_task(log_task.id,"stop_containers_task")
+        full_url = url + "container/{0}/{1}".format(container['container_name'],app)
+        bind_path = ""
+        if 'disk_path' in container: bind_path = container['disk_path']
+        stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, rm_container, timestamp)
+        register_task(stop_task.id,"stop_container_task")
 
     if len(errors) > 0: raise Exception(str(errors))
-
-# @shared_task
-# def set_hadoop_logs_timestamp(app, app_files, rm_host, rm_container):
-
-#     # argument_list = [app_files['app_jar'], rm_host, rm_container]
-#     # error_message = "Error setting timestamp for hadoop logs for app {0}".format(app)
-#     # process_script("set_hadoop_logs_timestamp", argument_list, error_message)
-#     run_playbooks.set_hadoop_logs_timestamp(app_files['app_jar'], rm_host, rm_container)
 
 
 @shared_task
@@ -837,9 +809,6 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
     else:
         ## Download required input data from global HDFS to local one
         run_playbooks.setup_hadoop_network_with_global_hdfs(list(new_containers.keys()), app, app_type, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"], global_hdfs_data)
-
-    # Subscribe containers to app in ServerlessContainers
-    subscribe_containers_to_app(url, app, app_containers)
 
     # Lastly, start app on RM container
     full_url = url + "container/{0}/{1}".format(rm_container['container_name'],app)
@@ -977,7 +946,7 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
     # argument_list = [formatted_host_list, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar'], app_files['app_type']]
     # error_message = "Error starting containers {0}".format(formatted_containers_info)
     # process_script("start_containers_with_app", argument_list, error_message)
-    run_playbooks.start_containers_with_app(host_list, formatted_containers_info, app_files['app_type'], app_files)
+    run_playbooks.start_containers_with_app(host_list, formatted_containers_info, app, app_files['app_type'], app_files)
 
     ## Setup network and start HDFS
     # argument_list = [formatted_host_list, app, app_files['app_type'], formatted_containers_info, nn_host, nn_container, hdfs_resources["datanode_d_heapsize"]]
@@ -987,13 +956,6 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
     ## Run HDFS + YARN on the global HDFS cluster, thus distcp may be run within the global cluster
     start_zookeeper = settings.PLATFORM_CONFIG['hdfs_mode'] == 'rbf'
     run_playbooks.setup_hadoop_network_on_containers(host_list, app, app_files['app_type'], formatted_containers_info, nn_host, nn_container, hdfs_resources, start_zookeeper=start_zookeeper)
-
-
-    # Add containers to app
-    url = url[:url[:url.rfind('/')].rfind('/')]
-    for container in containers:
-        full_url = url + "/container/{0}/{1}".format(container['container_name'], app)
-        add_container_to_app_in_db(full_url, container['container_name'], app)
 
     # Start hdfs frontend container
     # argument_list = [formatted_host_list, "hdfs_frontend", formatted_containers_info, nn_host, nn_container]

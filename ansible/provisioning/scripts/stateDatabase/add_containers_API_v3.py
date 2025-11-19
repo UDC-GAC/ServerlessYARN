@@ -32,6 +32,32 @@ from utils import request_to_state_db
 
 # usage example: add_containers_API_v3.py [{'container_name': 'host1-cont1', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'energy_max': 100, 'energy_min': 30, 'cpu_boundary': 25, 'mem_boundary': 256, 'energy_boundary': 10, 'disk': 'hdd_0', 'disk_path: '$HOME/hdd', 'disk_max': 200, 'disk_min': 50}, {'container_name': 'host1-cont1'...}] config/config.yml
 
+def subscribe_containers_to_app(url, app_name, app_containers):
+
+    def add_container_to_app_in_db(full_url, container_name, app_name):
+        max_retries = 10
+        actual_try = 0
+
+        while actual_try < max_retries:
+
+            error_message = "Error adding container {0} to app {1}".format(container_name, app_name)
+            error, response = request_to_state_db(full_url, "put", error_message)
+
+            if response != "":
+                if not error: break
+                elif response.status_code == 400 and "already subscribed" in error: break # Container is already subscribed
+                else: raise Exception(error)
+
+            actual_try += 1
+
+        if actual_try >= max_retries:
+            raise Exception("Reached max tries when adding {0} to app {1}".format(container_name, app_name))
+
+    # Subscribe containers to app in ServerlessContainers database
+    for container in app_containers:
+        full_url = url + "container/{0}/{1}".format(container['container_name'], app_name)
+        add_container_to_app_in_db(full_url, container['container_name'], app_name)
+
 if __name__ == "__main__":
 
     if (len(sys.argv) > 2):
@@ -41,6 +67,11 @@ if __name__ == "__main__":
 
         orchestrator_url = "http://{0}:{1}".format(config['server_ip'], config['orchestrator_port'])
         session = requests.Session()
+
+        ## Check if an app has been passed as argument to add the containers to it
+        app_name = None
+        if len(sys.argv) == 4:
+            app_name = sys.argv[3]
 
         ## Add containers
         for cont in containers:
@@ -106,3 +137,11 @@ if __name__ == "__main__":
             if response != "" and error:
                 if response.status_code == 400 and "already exists" in error: print("Container {0} already exists".format(cont['container_name']))
                 else: raise Exception(error)
+
+
+        ## Add containers to the app
+        if app_name: subscribe_containers_to_app(
+            url="{0}/structure/".format(orchestrator_url),
+            app_name=app_name,
+            app_containers=containers
+        )
