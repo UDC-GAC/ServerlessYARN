@@ -26,3 +26,5 @@ disk_write_boundary_type: "percentage_of_max"
 start_script: start.sh
 stop_script: stop.sh
 app_jar: app_jar.jar
+
+output_dir: output_dir

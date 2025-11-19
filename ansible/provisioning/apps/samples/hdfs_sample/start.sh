@@ -2,6 +2,9 @@
 cd {{ bind_dir_on_container }}
 set -e
 
+OUTPUT_DIR="{{ bind_dir_on_container }}/{{ output_dir }}"
+runtime_file="$OUTPUT_DIR/hdfs_sample_`date +%H-%M-%S`"
+
 # Mode of transfering data to/from global HDFS
 ## 0: only access local HDFS --> this requires previously transfering the input data from global HDFS and posteriosly transfering the output data to global HDFS
 ## 1: direct transfer --> transfer data from/to global HDFS directly
@@ -29,10 +32,17 @@ case $DATA_TRANSFER in
 esac
 
 ## Download data
+get_start=`date +%s.%N`
 $HADOOP_HOME/bin/hdfs dfs -get $INPUT_DATA_PREFIX/input_data {{ user_home_on_container }}/input_data
+get_end=`date +%s.%N`
 
 ## Modify downloaded data
 echo "Test to upload data in HDFS: local --> global" >> {{ user_home_on_container }}/input_data
 
 ## Upload data
-$HADOOP_HOME/bin/hdfs dfs -put {{ user_home_on_container }}/input_data $OUTPUT_DATA_PREFIX/output_data
+put_start=`date +%s.%N`
+$HADOOP_HOME/bin/hdfs dfs -put -f {{ user_home_on_container }}/input_data $OUTPUT_DATA_PREFIX/output_data
+put_end=`date +%s.%N`
+
+echo Get time: $(echo $get_end - $get_start | bc -l) >> $runtime_file
+echo Put time: $(echo $put_end - $put_start | bc -l) >> $runtime_file
