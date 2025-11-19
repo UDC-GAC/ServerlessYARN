@@ -60,7 +60,7 @@
     <!-- It is important to keep these two values low to allow the router to exit safe mode quickly -->
     <property>
         <name>dfs.federation.router.safemode.extension</name>
-        <value>10s</value>
+        <value>0</value>
     </property>
 
     <property>
