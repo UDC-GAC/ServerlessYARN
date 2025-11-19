@@ -46,7 +46,7 @@
 - name: Install requisites in hosts
   hosts: nodes
   become: "{{ virtual_mode }}"
-  gather_facts: yes
+  gather_facts: no
 
   vars_files:
     - vars/main.yml
@@ -91,7 +91,7 @@
 - name: Install requisites in nodes and server
   hosts: platform_management,nodes
   become: "{{ virtual_mode }}"
-  gather_facts: yes
+  gather_facts: no
 
   vars_files:
     - vars/main.yml
