@@ -131,6 +131,7 @@
   - name: Verify that the InfluxDB server is reachable
     delegate_to: localhost
     run_once: true
+    ignore_errors: yes
     wait_for:
       host: "{{ influxdb_host }}"
       port: 8086

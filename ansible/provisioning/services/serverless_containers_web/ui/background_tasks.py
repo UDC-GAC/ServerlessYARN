@@ -52,7 +52,8 @@ def get_pending_tasks():
     failed_tasks = []
 
     for key in redis_server.scan_iter("{0}:*".format(redis_prefix)):
-        task_name = redis_server.hget(key, "task_name").decode("utf-8")
+        task_name = redis_server.hget(key, "task_name")
+        task_name = "None" if task_name is None else task_name.decode("utf-8")
         task_id = key.decode("utf-8")[len(redis_prefix) + 1:]
         task_result = AsyncResult(task_id)
         status = task_result.status
@@ -60,8 +61,10 @@ def get_pending_tasks():
         if status != "SUCCESS" and status != "FAILURE":
             still_pending_tasks.append((task_id,task_name))
         elif status == "SUCCESS":
-            if redis_server.hexists(key, "runtime"): runtime = redis_server.hget(key, "runtime").decode("utf-8")
-            else: runtime = None
+            if redis_server.hexists(key, "runtime"):
+                runtime = redis_server.hget(key, "runtime").decode("utf-8")
+            else:
+                runtime = None
             successful_tasks.append((task_id,task_name,runtime))
         else:
             failed_tasks.append((task_id,task_name,task_result.result))

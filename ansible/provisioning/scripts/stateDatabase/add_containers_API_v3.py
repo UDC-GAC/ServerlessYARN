@@ -71,7 +71,7 @@ if __name__ == "__main__":
                 cont_resources.append("energy")
                 put_field_data['container']['resources']["energy"] = dict()
                 put_field_data['container']['resources']["energy"]["max"] = int(cont['energy_max'])
-                put_field_data['container']['resources']["energy"]["current"] = int(cont['energy_min'])
+                put_field_data['container']['resources']["energy"]["current"] = int(cont['energy_max'])
                 put_field_data['container']['resources']["energy"]["min"] = int(cont['energy_min'])
                 put_field_data['container']['resources']["energy"]["guard"] = (cont.get('energy_guard', 'true') == 'true')
                 if 'energy_weight' in cont: put_field_data['container']['resources']["energy"]["weight"] = int(cont['energy_weight'])

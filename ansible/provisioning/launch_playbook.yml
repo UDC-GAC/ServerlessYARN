@@ -70,6 +70,8 @@
 # Setup nodes
 - name: Launch services from hosts
   hosts: nodes
+  become: no
+  gather_facts: no
 
   vars_files:
     - vars/main.yml
