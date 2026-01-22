@@ -15,7 +15,7 @@ while read -r FILENAME URL; do
   if [ ! -f "${OUTPUT_FILE}" ]; then
     SIZE=$(curl -sI "${URL}" | awk '/^Content-Length:/ {print $2}' | tr -d '\r')
     # Parallel curl needs to know the size of the file before proceeding
-    if [ -z "${SIZE}" ] || [ "${SIZE}" -eq "0" ]; then
+    if [ -z "${SIZE}" ] || [ "${SIZE}" -eq "0" ] || [ "${FILENAME}" == "NPB3.4.2.tar.gz" ]; then
       wget -qO "${OUTPUT_FILE}" "${URL}"
     else
       bash "${SCRIPT_DIR}/parallel_curl.sh" "${URL}" "${OUTPUT_FILE}" "${NUM_CHUNKS}"
