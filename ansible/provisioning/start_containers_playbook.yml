@@ -127,7 +127,12 @@
     PYTHONPATH: "{{ bdwatchdog_path }}:{{ serverless_containers_path }}"
 
   tasks:
+    - import_tasks: tasks/utils/get_user_ids.yml
+      tags: start_couchdb
+
     - import_tasks: tasks/launch/couchdb_launch.yml
+      tags: start_couchdb
+
     - import_tasks: tasks/containers_setup/node_rescaler_containers_init.yml
       tags: 
         - start_containers

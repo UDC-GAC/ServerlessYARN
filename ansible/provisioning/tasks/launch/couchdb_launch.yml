@@ -19,6 +19,8 @@
             - "{{ definition_file }}"
             - debian_couchdb_conf.dat
             - local.ini
+            - logrotate-couchdb
+            - logrotate-loop.sh
 
         - name: Build image
           shell: "{{ singularity_command_alias }} build {{ image_file }} {{ definition_file }}"
