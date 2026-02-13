@@ -441,7 +441,7 @@
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'source {{ singularity_env_file }} && nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null'"
         args:
           executable: /bin/bash
-        async: 10800
+        async: 20800
         poll: 0
         register: start_job
 
@@ -466,7 +466,7 @@
           jid: "{{ start_job_id}}"
         register: start_status
         until: start_status.finished
-        retries: 120
+        retries: 300
         delay: 60
 
     tags: never, wait_app
