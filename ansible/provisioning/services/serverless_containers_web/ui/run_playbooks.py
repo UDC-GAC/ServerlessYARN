@@ -213,6 +213,12 @@ def disable_scaling_services():
 def enable_scaling_services():
     run_playbook(playbook_name="launch_playbook.yml", tags=["enable_scaling_services"])
 
+def manage_scaling_services(enable):
+    if enable:
+        run_playbook(playbook_name="manage_scaling_services.yml", tags=["enable_scaling_services"])
+    else:
+        run_playbook(playbook_name="manage_scaling_services.yml", tags=["disable_scaling_services"])
+
 def stop_host_scaler(host_name):
     run_playbook(playbook_name="stop_services_playbook.yml", tags=["stop_node_scaler"], limit=[host_name])
 

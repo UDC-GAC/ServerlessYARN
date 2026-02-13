@@ -1,0 +1,46 @@
+# Manage scaling services
+- name: Manage scaling services
+  hosts: localhost
+  become: no
+  gather_facts: no
+
+  vars_files:
+    - vars/main.yml
+    - config/config.yml
+
+  environment:
+    INSTALLATION_PATH: "{{ installation_path }}"
+    SERVERLESS_PATH: "{{ serverless_containers_path }}"
+    PYTHONPATH: "{{ bdwatchdog_path }}:{{ serverless_containers_path }}"
+
+  tasks:
+    - name: Activating Scaler service
+      shell: "bash scripts/orchestrator/Scaler/activate.sh"
+      args:
+        chdir: "{{ serverless_containers_path }}"
+        executable: /bin/bash
+      tags: never, enable_scaler
+
+    - name: Disabling Scaler service
+      shell: "bash scripts/orchestrator/Scaler/deactivate.sh"
+      args:
+        chdir: "{{ serverless_containers_path }}"
+        executable: /bin/bash
+      tags: never, disable_scaler
+
+    - name: Disabling all scaling services
+      shell: "bash scripts/orchestrator/{{ item }}/deactivate.sh"
+      args:
+        chdir: "{{ serverless_containers_path }}"
+        executable: /bin/bash
+      loop: "{{ ['Scaler', 'Rebalancer', 'EnergyController'] if power_budgeting else ['Scaler', 'Guardian', 'Rebalancer'] }}"
+      tags: never, disable_scaling_services
+
+    - name: Enabling all scaling services
+      shell: "bash scripts/orchestrator/{{ item }}/activate.sh"
+      args:
+        chdir: "{{ serverless_containers_path }}"
+        executable: /bin/bash
+      #loop: "{{ ['Scaler', 'Guardian', 'Rebalancer'] + (['EnergyController'] if power_budgeting else []) }}"
+      loop: "{{ ['Scaler', 'Rebalancer', 'EnergyController'] if power_budgeting else ['Scaler', 'Guardian', 'Rebalancer'] }}"
+      tags: never, enable_scaling_services

@@ -126,7 +126,7 @@
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-  tags: never, start_containers, disable_scaler
+  tags: never, disable_scaler # start_containers
 
 ## Containers
 - name: Initializing State Database - containers
@@ -141,7 +141,7 @@
   args:
     chdir: "{{ serverless_containers_path }}"
     executable: /bin/bash
-  tags: never, start_containers, enable_scaler
+  tags: never, enable_scaler # start_containers
 
 - name: Guardian - Set power model
   when: "power_budgeting and power_modelling"
