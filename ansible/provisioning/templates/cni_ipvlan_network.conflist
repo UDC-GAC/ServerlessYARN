@@ -11,10 +11,7 @@
                         "subnet": "{{ subnet }}",
                         "rangeStart": "{{ rangeStart }}",
                         "rangeEnd": "{{ rangeEnd }}"
-                } ] ],
-                "routes": [ { 
-                    "dst": "0.0.0.0/0"
-                } ]
+                } ] ]
             }
         },
         {
