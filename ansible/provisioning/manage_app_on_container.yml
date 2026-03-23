@@ -13,6 +13,7 @@
     - container_bind_dir: "{{ [bind_dir, container] | join('/') if container is defined }}"
     - hdfs_file_list: ["core-site.xml", "hdfs-site.xml", "hadoop-env.sh", "rack_topology.py", "hdfs-rbf-site.xml"]
     - hadoop_file_list: ["yarn-site.xml", "mapred-site.xml", "yarn-env.sh", "capacity-scheduler.xml"]
+    - shellprofile_file_list: ["tools.sh"]
     - spark_file_list: ["spark-defaults.conf"]
     - app_tmpdir: "{{ tmpdir }}/{{ app_name }}"
 
@@ -374,6 +375,12 @@
                         destination: "\"$HADOOP_CONF_DIR\"",
                         template_dir: "hadoop",
                         condition: "{{ setup_yarn }}"
+                      }
+                    - {
+                        file_list: "{{ shellprofile_file_list }}",
+                        destination: "\"$HADOOP_CONF_DIR\"/shellprofile.d",
+                        template_dir: "hadoop/shellprofile.d",
+                        condition: "{{ start_hdfs }}"
                       }
                     - {
                         file_list: "{{ spark_file_list }}",
