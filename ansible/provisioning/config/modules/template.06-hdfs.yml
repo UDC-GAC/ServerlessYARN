@@ -18,6 +18,10 @@ default_hdfs_replication: 3
 global_hdfs_replication: "{{ default_hdfs_replication }}"
 local_hdfs_replication: 1
 
+# HDFS replication mode:
+## 'monitor': enables a background process that monitors the global HDFS and enforces its replication to 'global_hdfs_replication' (avoiding interference with running apps)
+hdfs_replication_mode: monitor
+
 # HDFS mode:
 ## 'single': global HDFS + local app YARN clusters
 ## 'open': global HDFS + local app HDFS+YARN clusters --> data transfers with global must be done using its address

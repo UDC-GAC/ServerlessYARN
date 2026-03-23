@@ -680,7 +680,8 @@ def start_hadoop_app_task(self, url, app, app_files, new_containers, container_r
             for host in new_containers:
                 if container_type in new_containers[host]: number_of_workers += new_containers[host][container_type]
 
-            hadoop_resources[container_type] = set_hadoop_resources(container_resources[container_type], virtual_cluster, number_of_workers, replication_factor=settings.PLATFORM_CONFIG['local_hdfs_replication'])
+            replication_factor = settings.PLATFORM_CONFIG['local_hdfs_replication'] if settings.PLATFORM_CONFIG['hdfs_mode'] != 'single' else settings.PLATFORM_CONFIG['global_hdfs_replication']
+            hadoop_resources[container_type] = set_hadoop_resources(container_resources[container_type], virtual_cluster, number_of_workers, replication_factor=replication_factor)
 
     start_time = timeit.default_timer()
 
@@ -870,8 +871,25 @@ def remove_file_from_hdfs(self, namenode_host, namenode_container, path_to_delet
 @shared_task(bind=True)
 def monitor_global_hdfs_replication(self, global_app_name, global_namenode_host, global_namenode_name):
 
+    from ui.views.core.utils import getHostsNames
+    def reload_db_info(global_app_url, global_namenode_url):
+        ## Global app
+        global_app = getDbData(global_app_url)
+        global_namenode = getDbData(global_namenode_url)
+
+        ## Hosts
+        if global_app and "disk" in global_app["resources"]:
+            try:
+                response = urllib.request.urlopen("/".join([settings.BASE_URL, "structure"]))
+                data_json = json.loads(response.read())
+            except urllib.error.HTTPError:
+                data_json = {}
+            hosts = getHostsNames(data_json)
+
+        return global_app, global_namenode, hosts
+
     ## TODO: make the polling frequency and thresholds dynamically configurable variables from the interface
-    polling_frequency = 300
+    polling_frequency = 30
     threshold = 0.15
     read_threshold = threshold
     write_threshold = threshold
@@ -882,22 +900,48 @@ def monitor_global_hdfs_replication(self, global_app_name, global_namenode_host,
     ## HDFS has just started, wait until next polling period
     time.sleep(polling_frequency)
 
-    ## Update global HDFS information from StateDB
-    global_app = getDbData(global_app_url)
-    global_namenode = getDbData(global_namenode_url)
+    ## Reload DB info
+    global_app, global_namenode, hosts = reload_db_info(global_app_url, global_namenode_url)
+
+    ## Get disks used by global HDFS
+    datanode_list = {}
+    if global_app and "disk" in global_app["resources"]:
+        for host in hosts:
+            datanode_list[host['name']] = []
+
+        for container_name in global_app['containers']:
+            if container_name != global_namenode_name:
+                container = getDbData("/".join([settings.BASE_URL, "structure", container_name ]))
+                if "disk" in container:
+                    datanode_list[container['host']].append(container)
 
     ## Loop until global HDFS is stopped
     while bool(global_app) and bool(global_namenode) and global_namenode['name'] in global_app['containers']:
 
-        if ((not "disk" in global_app["resources"]) 
-            or (all(global_app["resources"][res]["usage"] < global_app["resources"][res]["max"] * thresh for res, thresh in [("disk_read", read_threshold), ("disk_write", write_threshold)]))
-        ):
+        run_replication = True
+        for host in hosts:
+            for datanode in datanode_list[host['name']]:
+                match_disk = None
+                for host_disk in host['resources']['disks']:
+                    if host_disk['name'] == datanode['resources']['disk']['name']:
+                        match_disk = host_disk
+                        break
+                if not match_disk: raise Exception("Disk {0} not found in host {1}. Host data: {2}".format(datanode['resources']['disk']['name'], host['name'], host))
+                if any(
+                    (match_disk['max_{0}'.format(res)] - datanode['resources'][res]['min']) * thresh < match_disk['max_{0}'.format(res)] - datanode['resources'][res]['min'] - match_disk['free_{0}'.format(res)] 
+                    or global_app["resources"][res]["max"] * thresh < global_app["resources"][res]["usage"] 
+                    for res, thresh in [("disk_read", read_threshold), ("disk_write", write_threshold)]
+                ):
+                    run_replication = False
+                    break
+
+        if run_replication:
+            ## Check all app usage for that
             ## Enforce HDFS replication only if global cluster has low I/O usage (at least below the threshold)
             run_playbooks.set_global_hdfs_replication(global_namenode_host, global_namenode_name, settings.PLATFORM_CONFIG['global_hdfs_replication'])
 
         time.sleep(polling_frequency)
-        global_app = getDbData(global_app_url)
-        global_namenode = getDbData(global_namenode_url)
+        global_app, global_namenode, hosts = reload_db_info(global_app_url, global_namenode_url)
 
 @shared_task(bind=True)
 def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluster, put_field_data, hosts):
@@ -967,8 +1011,9 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
         run_playbooks.start_hdfs_frontend(host_list, "hdfs_frontend", formatted_containers_info, nn_host, nn_container)
 
     ## Run the replication factor monitor
-    monitor_task = monitor_global_hdfs_replication.delay(app, nn_host, nn_container)
-    register_task(monitor_task.id,"monitor_hdfs_task")
+    if settings.PLATFORM_CONFIG["hdfs_replication_mode"] == "monitor":
+        monitor_task = monitor_global_hdfs_replication.delay(app, nn_host, nn_container)
+        register_task(monitor_task.id,"monitor_hdfs_task")
 
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)

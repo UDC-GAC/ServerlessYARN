@@ -1083,7 +1083,7 @@
     tags: never, set_hdfs_replication
     when: inventory_hostname == namenode_host
     shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
-      '$HADOOP_HOME/bin/hdfs dfs -setrep -R {{ replication_factor }} /'"
+      '$HADOOP_HOME/bin/hdfs dfs -setrep -w -R {{ replication_factor }} /'"
     args:
       executable: /bin/bash
 
