@@ -72,6 +72,17 @@
           loop_control:
             loop_var: file
 
+        - name: Copy hadoop patch files ({{ item }})
+          when: "item == 'hadoop_app' and hdfs_replication_mode == 'hdfs_patch'"
+          copy:
+            src: "{{ extra_files_directory }}/{{ file }}"
+            dest: "{{ installed_app_directory }}/"
+          with_items:
+            - "hadoop-hdfs-{{ hadoop_version }}.jar"
+            - "hadoop-hdfs-client-{{ hadoop_version }}.jar"
+          loop_control:
+            loop_var: file
+
         - name: Build app image ({{ item }})
           shell: "{{ singularity_command_alias }} build {{ installed_app_directory }}/{{ image_file }} {{ installed_app_directory }}/{{ definition_file }}"
           args:

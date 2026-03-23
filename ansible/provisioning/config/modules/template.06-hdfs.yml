@@ -20,7 +20,9 @@ local_hdfs_replication: 1
 
 # HDFS replication mode:
 ## 'monitor': enables a background process that monitors the global HDFS and enforces its replication to 'global_hdfs_replication' (avoiding interference with running apps)
-hdfs_replication_mode: monitor
+## 'hdfs_patch': enables a patch for Hadoop container images that enforces the destination replication when writing without an explicit replication 
+### (e.g., if a local app does not declare a replication and writes to global HDFS, the resulting files will have the replication of the global NN instead of the default 3)
+hdfs_replication_mode: hdfs_patch
 
 # HDFS mode:
 ## 'single': global HDFS + local app YARN clusters

@@ -86,13 +86,21 @@
 
         {% endif %}
 
-    <property>
-        <name>dfs.replication</name>
-        <value>{{ hdfs_replication }}</value>
-    </property>
+    <!-- Replication  -->
+    {% if hdfs_replication_mode == 'hdfs_patch' %}
+        <property>
+            <name>dfs.namenode.replication.default.override</name>
+            <value>{{ hdfs_replication }}</value>
+        </property>
+    {% else %}
+        <property>
+            <name>dfs.replication</name>
+            <value>{{ hdfs_replication }}</value>
+        </property>
+    {% endif %}
 
     <property>
-        <name>dfs.permissions.enable</name>
+        <name>dfs.permissions.enabled</name>
         <value>false</value>
     </property>
 
@@ -189,6 +197,25 @@
     <property>
         <name>dfs.heartbeat.interval</name>
         <value>5</value>
+    </property>
+
+    <!-- Speed for replication process -->
+    <property>
+        <name>dfs.namenode.replication.work.multiplier.per.iteration</name>
+        <!-- Default = 2 -->
+        <value>10</value>
+    </property>
+
+    <property>
+        <name>dfs.namenode.replication.max-streams</name>
+        <!-- Default = 2 -->
+        <value>32</value>
+    </property>
+
+    <property>
+        <name>dfs.namenode.replication.max-streams-hard-limit</name>
+        <!-- Default = 4 -->
+        <value>32</value>
     </property>
 
     <!-- Required for RBF -->

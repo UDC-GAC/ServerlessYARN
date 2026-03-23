@@ -20,6 +20,8 @@ ansible/provisioning/apps/*
 !ansible/provisioning/apps/README.md
 !ansible/provisioning/apps/base/
 !ansible/provisioning/apps/base/global_hdfs/runtime_files/simple-distcp.jar
+!ansible/provisioning/apps/base/hadoop_app/hadoop-hdfs-3.4.2.jar
+!ansible/provisioning/apps/base/hadoop_app/hadoop-hdfs-client-3.4.2.jar
 !ansible/provisioning/apps/samples/
 
 ## Exclude user apps, but include specific ones
