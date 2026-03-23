@@ -4,7 +4,7 @@
   block:
     - name: Create images directory
       file:
-        path: "{{ installation_path }}/images"
+        path: "{{ images_dist_dir }}"
         state: directory
 
     - name: Copy apptainer containers cgroup config
@@ -22,7 +22,7 @@
     - name: Copy app image to host
       synchronize:
         src: "{{ installed_app_directory }}/{{ image_file }}"
-        dest: "{{ installation_path }}/images/"
+        dest: "{{ images_dist_dir }}/"
         perms: true
 
 - name: Containers startup
@@ -62,7 +62,7 @@
               {% endif -%}
               --hostname {{ item.container_name }} --apply-cgroups {{ cgroups_file }} \
               --bind {{ container_bind_dir }}:{{ bind_dir_on_container }} \
-              images/{{ image_file }} {{ item.container_name }} && 
+              {{ images_dist_dir }}/{{ image_file }} {{ item.container_name }} && 
           {% endif -%}
         {% endfor -%}true"
       args:

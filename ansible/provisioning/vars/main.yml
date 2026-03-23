@@ -9,6 +9,9 @@ lxd_key_path: "{{ serverless_containers_path }}"
 app_output_data: "{{ installation_path }}/output_data"
 #app_output_data: /vagrant/ansible/provisioning/output_data # --> this is useful for testing in virtual_mode
 
+images_build_dir: "{{ installation_path }}/apps"
+images_dist_dir: "{{ installation_path }}/images"
+
 ## Power budgeting
 # MongoDB
 mongodb_path: "{{ installation_path }}/mongodb"

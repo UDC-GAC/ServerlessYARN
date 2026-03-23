@@ -10,7 +10,7 @@
     - app_base_type: "{{ app_mapping[item]['image_dependency'] if 'image_dependency' in app_mapping[item] }}"
     - app_base_image_file: "{{ app_mapping[app_base_type]['image'] if app_base_type is not none }}" # will be used in the definition image templates
     - extra_files_directory: "apps/{{ app_mapping[item]['install_extra_files'] if 'install_extra_files' in app_mapping[item] }}" # directory on server with the app configuration, relative to 'ansible/provisioning'
-    - installed_app_directory: "{{ installation_path }}/apps/{{ app_dir|basename if item == 'generic_app' else item }}" # installation path of app on server
+    - installed_app_directory: "{{ images_build_dir }}/{{ app_dir|basename if item == 'generic_app' else item }}" # installation path of app on server
   block:
     - name: Check if app image already exists ({{ item }})
       stat:
@@ -75,6 +75,6 @@
         - name: Build app image ({{ item }})
           shell: "{{ singularity_command_alias }} build {{ installed_app_directory }}/{{ image_file }} {{ installed_app_directory }}/{{ definition_file }}"
           args:
-            chdir: "{{ installed_app_directory }}/../.." ## equivalent to installation_path
+            chdir: "{{ installed_app_directory }}/../.."
             executable: /bin/bash
             creates: "{{ installed_app_directory }}/{{ image_file }}"

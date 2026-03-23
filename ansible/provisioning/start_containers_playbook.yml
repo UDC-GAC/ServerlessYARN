@@ -72,7 +72,7 @@
             - container_owner: root # 'root' or 'user'
               # note: root is required at the moment to start containers with cgroups support on cgroups v1 and with specific network on both cgroups versions
             - image_file: "{{ app_mapping[app_type]['image'] }}"
-            - installed_app_directory: "{{ installation_path }}/apps/{{ app_dir|basename if app_type == 'generic_app' else app_type }}" # installation path of app on server
+            - installed_app_directory: "{{ images_build_dir }}/{{ app_dir|basename if app_type == 'generic_app' else app_type }}" # installation path of app on server
             # Other config
             - cgroups_file: "apptainer_containers_cgroup.toml"
             - containers_info_str: >
