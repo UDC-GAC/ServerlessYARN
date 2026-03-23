@@ -356,9 +356,10 @@
 
               - name: Set file list to transfer
                 vars:
-                  start_hdfs: "{{ not global_hdfs or hdfs_mode != 'single' or app_name == global_hdfs_app_name }}"
+                  start_hdfs: yes
                   start_rbf: "{{ global_hdfs and hdfs_mode == 'rbf' }}"
-                  setup_spark: "{{ app_type is defined and app_type == 'spark_app' }}"
+                  setup_spark: "{{ app_type is defined and app_type == 'spark_app' and 'setup_hdfs' not in ansible_run_tags }}"
+                  setup_yarn: "{{ (not global_hdfs or app_name != global_hdfs_app_name or hdfs_mode in ['isolated', 'rbf']) and 'setup_hdfs' not in ansible_run_tags }}" ## RBF requires yarn-site.xml for zookeeper conf
                 set_fact:
                   transfer_file_dict:
                     - {
@@ -372,13 +373,13 @@
                         file_list: "{{ hadoop_file_list + (['core-site.xml'] if not start_hdfs else []) }}",
                         destination: "\"$HADOOP_CONF_DIR\"",
                         template_dir: "hadoop",
-                        condition: "{{ 'setup_hdfs' not in ansible_run_tags }}"
+                        condition: "{{ setup_yarn }}"
                       }
                     - {
                         file_list: "{{ spark_file_list }}",
                         destination: "\"$SPARK_CONF_DIR\"",
                         template_dir: "spark",
-                        condition: "{{ setup_spark and 'setup_hdfs' not in ansible_run_tags }}"
+                        condition: "{{ setup_spark }}"
                       }
 
               - name: Copy config files to master
@@ -499,6 +500,7 @@
       - name: Start Hadoop services
         vars:
           start_hdfs: "{{ not global_hdfs or hdfs_mode != 'single' or app_name == global_hdfs_app_name }}"
+          start_yarn: "{{ (not global_hdfs or app_name != global_hdfs_app_name or hdfs_mode == 'isolated') and 'setup_hdfs' not in ansible_run_tags }}"
         block:
           - name: Start HDFS + YARN
             tags: setup_hadoop, setup_hdfs
@@ -515,7 +517,7 @@
                       $HADOOP_HOME/bin/hdfs --daemon start dfsrouter && \ 
                     {% endif %}
                   {% endif %}
-                  {% if 'setup_hdfs' not in ansible_run_tags %}
+                  {% if start_yarn %}
                     $HADOOP_HOME/bin/yarn --daemon start resourcemanager && \ 
                   {% endif %}
                   'true"
@@ -533,9 +535,10 @@
                     {% if start_hdfs %}
                       $HADOOP_HOME/bin/hdfs --daemon start datanode && \ 
                     {% endif %}
-                    {% if 'setup_hdfs' not in ansible_run_tags %}
-                      $HADOOP_HOME/bin/yarn --daemon start nodemanager' && \
+                    {% if start_yarn %}
+                      $HADOOP_HOME/bin/yarn --daemon start nodemanager && \
                     {% endif %}
+                    true' &&
                   {% endif %}
                   {% endfor %}true"
                 args:
@@ -575,6 +578,7 @@
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'cp -pr /opt/{{ app_dir | basename }}/* {{ bind_dir_on_container }}'"
         args:
           executable: /bin/bash
+        ignore_errors: yes
 
       - name: Create temporary directory to store templated config files
         delegate_to: localhost
@@ -770,6 +774,7 @@
           shell: "mv {{ container_bind_dir }}/hadoop_logs {{ container_bind_dir }}/{{ output_dir }}/hadoop_logs"
           args:
             executable: /bin/bash
+          ignore_errors: true
 
         - block:
           - name: Create output directory on server
@@ -836,6 +841,7 @@
           '"
         args:
           executable: /bin/bash
+        ignore_errors: true
     tags: never, stop_hadoop_cluster
 
   # ## Clean HDFS files
