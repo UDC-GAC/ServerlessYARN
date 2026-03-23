@@ -25,26 +25,61 @@
     </property>
 
     <!-- Nameservices -->
-    <property>
-        <name>dfs.nameservices</name>
-        <value>ns-{{ app_name }}</value>
-    </property>
+        <!-- Self nameservice -->
+        <property>
+            <name>dfs.internal.nameservices</name>
+            <value>ns-{{ app_name | replace('_','-') }}</value>
+        </property>
 
-    <property>
-        <name>dfs.nameservice.id</name>
-        <value>nn1</value>
-    </property>
+        <property>
+            <name>dfs.nameservice.id</name>
+            <value>nn1</value>
+        </property>
 
-    <property>
-        <name>dfs.ha.namenodes.ns-{{ app_name }}</name>
-        <value>nn1</value>
-    </property>
+        <property>
+            <name>dfs.ha.namenodes.ns-{{ app_name | replace('_','-') }}</name>
+            <value>nn1</value>
+        </property>
 
-    <property>
-        <name>dfs.namenode.rpc-address.ns-{{ app_name }}.nn1</name>
-        <value>{{ rm_container }}:8020</value>
-    </property>
-    <!-- -->
+        <property>
+            <name>dfs.namenode.rpc-address.ns-{{ app_name | replace('_','-') }}.nn1</name>
+            <value>{{ rm_container }}:8020</value>
+        </property>
+
+        <property>
+            <name>dfs.namenode.rpc-bind-host.ns-{{ app_name | replace('_','-') }}.nn1</name>
+            <value>0.0.0.0</value>
+        </property>
+
+        <!-- Other nameservices -->
+        {% if global_hdfs and namenode_container_name is defined %}
+
+            <!-- Local apps if global hdfs is enabled -->
+
+            <property>
+                <name>dfs.nameservices</name>
+                <value>ns-{{ app_name | replace('_','-') }},ns-{{ global_hdfs_app_name | replace('_','-') }}</value>
+            </property>
+
+            <property>
+                <name>dfs.ha.namenodes.ns-{{ global_hdfs_app_name | replace('_','-') }}</name>
+                <value>nn1</value>
+            </property>
+
+            <property>
+                <name>dfs.namenode.rpc-address.ns-{{ global_hdfs_app_name | replace('_','-') }}.nn1</name>
+                <value>{{ namenode_container_name }}:8020</value>
+            </property>
+
+        {% else %}
+
+            <!-- Global HDFS (or local apps if global hdfs is not enabled) -->
+            <property>
+                <name>dfs.nameservices</name>
+                <value>ns-{{ app_name | replace('_','-') }}</value>
+            </property>
+
+        {% endif %}
 
     <property>
         <name>dfs.replication</name>
@@ -149,6 +184,14 @@
     <property>
         <name>dfs.heartbeat.interval</name>
         <value>5</value>
+    </property>
+
+    <!-- Required for RBF -->
+    <property>
+        <name>dfs.namenode.ip-proxy-users</name>
+        <!-- Default: empty -->
+        <!-- This allows the router to pass the client IP address to the NN when routing a request and thus leverage data locality -->
+        <value>{{ user_info.user_name }}</value>
     </property>
 
 </configuration>

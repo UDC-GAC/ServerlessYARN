@@ -22,7 +22,7 @@
         <name>fs.defaultFS</name>
         <!-- HOST: global namenode if running a single global HDFS without local app HDFS, local namenode otherwise -->
         <!-- PORT: 8020 for regular namenode (global or local), 8888 for federated router -->
-        <value>hdfs://{{ namenode_container_name if global_hdfs and hdfs_mode == 'single' else rm_container }}:{{ 8888 if global_hdfs and hdfs_mode == 'rbf' else 8020 }}</value>
+        <value>hdfs://{{ namenode_container_name if global_hdfs and hdfs_mode == 'single' and namenode_container_name is defined else rm_container }}:{{ 8888 if global_hdfs and hdfs_mode == 'rbf' else 8020 }}</value>
     </property>
 
     <property>
@@ -43,6 +43,17 @@
     <property>
         <name>net.topology.script.file.name</name>
         <value>{{ bind_dir_on_container }}/hadoop_files/hadoop_conf/rack_topology.py</value>
+    </property>
+
+    <!-- Enable user impersonation to enable router proxy -->
+    <property>
+        <name>hadoop.proxyuser.{{ user_info.user_name }}.hosts</name>
+        <value>*</value>
+    </property>
+
+    <property>
+        <name>hadoop.proxyuser.{{ user_info.user_name }}.users</name>
+        <value>{{ user_info.user_name }}</value>
     </property>
 
 </configuration>

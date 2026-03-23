@@ -19,12 +19,12 @@
 
     <property>
         <name>dfs.federation.router.default.nameserviceId</name>
-        <value>ns-{{ app_name }}</value>
+        <value>ns-{{ app_name | replace('_','-') }}</value>
     </property>
 
     <property>
         <name>dfs.federation.router.monitor.namenode</name>
-        <value>ns-{{ app_name }}.nn1</value>
+        <value>ns-{{ app_name | replace('_','-') }}.nn1</value>
     </property>
 
     <property>
@@ -93,5 +93,18 @@
         <name>dfs.federation.router.monitor.localnamenode.enable</name>
         <value>false</value>
     </property>
+
+    <!-- Failover classes to manage nameservice resolution errors -->
+    <property>
+        <name>dfs.client.failover.proxy.provider.ns-{{ app_name | replace('_','-') }}</name>
+        <value>org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider</value>
+    </property>
+
+    {% if global_hdfs and namenode_container_name is defined %}
+        <property>
+            <name>dfs.client.failover.proxy.provider.ns-{{ global_hdfs_app_name | replace('_','-') }}</name>
+            <value>org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider</value>
+        </property>
+    {% endif %}
 
 </configuration>

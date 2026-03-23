@@ -100,7 +100,12 @@
           - { container: "{{ namenode_container_name }}", host: "{{ namenode_host }}", ip_position: "{{ '2' if server_as_host else '1' }}" }
         register: container_resolutions
 
-      - name: Update hostname resolution in containers
+      - name: Store container resolutions as facts for cross-host access
+        set_fact:
+          global_container_resolutions: "{{ container_resolutions }}"
+        when: container_resolutions.results is defined
+
+      - name: Update hostname resolution in namenodes
         when: inventory_hostname == item.host
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ item.container }} bash -c \
           'cp /etc/hosts {{ user_home_on_container }} \
@@ -118,6 +123,135 @@
             - { key: "{{ rm_container }}",            value: "{{ (container_resolutions.results | selectattr('item.container', 'equalto', namenode_container_name) | first).stdout }}" }
           iface_ip_dict: "{{ iface_ip_list | items2dict }}"
 
+      - name: Add global namenode to local datanodes
+        shell: "
+          {% for item in containers_info -%}
+            {% if item.host == inventory_hostname and item.container_name != rm_container  -%}
+              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+                'cp /etc/hosts {{ user_home_on_container }} \
+                && sed -i '\\''1s/^/{{ global_namenode_resolution }}\\n/'\\'' {{ user_home_on_container }}/hosts \
+                && cat {{ user_home_on_container }}/hosts > /etc/hosts \
+                && rm {{ user_home_on_container }}/hosts' &&
+            {% endif -%}
+          {% endfor -%}true"
+        args:
+          executable: /bin/bash
+        vars:
+          global_namenode_resolution: "{{ (hostvars[namenode_host]['global_container_resolutions'].results | selectattr('item.container', 'equalto', namenode_container_name) | first).stdout }}"
+          containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
+
+      - name: Add local namenode to global datanodes
+        shell: "
+          {% for item in global_datanodes_info -%}
+            {% if item.host == inventory_hostname -%}
+              sudo {{ singularity_command_alias }} exec instance://{{ item.name }} bash -c \
+                'cp /etc/hosts {{ user_home_on_container }} \
+                && sed -i '\\''1s/^/{{ local_namenode_resolution }}\\n/'\\'' {{ user_home_on_container }}/hosts \
+                && cat {{ user_home_on_container }}/hosts > /etc/hosts \
+                && rm {{ user_home_on_container }}/hosts' &&
+            {% endif -%}
+          {% endfor -%}true"
+        args:
+          executable: /bin/bash
+        vars:
+          local_namenode_resolution: "{{ (hostvars[rm_host]['global_container_resolutions'].results | selectattr('item.container', 'equalto', rm_container) | first).stdout }}"
+          global_datanodes_info: "{{ datanodes_info_str | replace('\n','') | replace(' ','') }}"
+
+      - name: Get local DataNodes IP addresses
+        shell: "
+          {% for item in containers_info -%}
+            {% if item.host == inventory_hostname and item.container_name != rm_container -%}
+              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
+                \"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\" &&
+            {% endif -%}
+          {% endfor -%}true"
+        args:
+          executable: /bin/bash
+        register: local_datanodes_resolution
+        vars:
+          containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
+
+      - name: Get global DataNodes IP addresses
+        shell: "
+          {% for item in global_datanodes_info -%}
+            {% if item.host == inventory_hostname -%}
+              sudo {{ singularity_command_alias }} exec instance://{{ item.name }} su - {{ user_info.user_name }} -c \
+                \"printf '%s ' \\$(hostname -I | awk '{print \\$1}') && hostname\" &&
+            {% endif -%}
+          {% endfor -%}true"
+        args:
+          executable: /bin/bash
+        register: global_datanodes_resolution
+        vars:
+          global_datanodes_info: "{{ datanodes_info_str | replace('\n','') | replace(' ','') }}"
+
+      - name: Local DNs must know Global DNs
+        shell: "
+          {% for item in containers_info -%}
+            {% if item.host == inventory_hostname and item.container_name != rm_container  -%}
+              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
+                'cp /etc/hosts {{ user_home_on_container }} \
+                && {% for host_ip in resolution_list.split('\n') | select() %}sed -i '\\''1s/^/{{ host_ip }}\\n/'\\'' {{ user_home_on_container }}/hosts && {% endfor %}true \
+                && cat {{ user_home_on_container }}/hosts > /etc/hosts \
+                && rm {{ user_home_on_container }}/hosts' &&
+            {% endif -%}
+          {% endfor -%}true"
+        args:
+          executable: /bin/bash
+        vars:
+          containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
+          iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'global_datanodes_resolution') | list }}"
+          resolution_list: "{% for result in iface_ip_list | flatten(levels=1) %}{{ result.stdout }}\n{% endfor %}"
+
+      - name: Global DNs must know Local DNs
+        shell: "
+          {% for item in global_datanodes_info -%}
+            {% if item.host == inventory_hostname -%}
+              sudo {{ singularity_command_alias }} exec instance://{{ item.name }} bash -c \
+                'cp /etc/hosts {{ user_home_on_container }} \
+                && {% for host_ip in resolution_list.split('\n') | select() %}sed -i '\\''1s/^/{{ host_ip }}\\n/'\\'' {{ user_home_on_container }}/hosts && {% endfor %}true \
+                && cat {{ user_home_on_container }}/hosts > /etc/hosts \
+                && rm {{ user_home_on_container }}/hosts' &&
+            {% endif -%}
+          {% endfor -%}true"
+        args:
+          executable: /bin/bash
+        vars:
+          global_datanodes_info: "{{ datanodes_info_str | replace('\n','') | replace(' ','') }}"
+          iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'local_datanodes_resolution') | list }}"
+          resolution_list: "{% for result in iface_ip_list | flatten(levels=1) %}{{ result.stdout }}\n{% endfor %}"
+
+      - name: Global NN must know local DNs
+        when: inventory_hostname == namenode_host
+        shell: "
+          sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} bash -c \
+            'cp /etc/hosts {{ user_home_on_container }} \
+            && {% for host_ip in resolution_list.split('\n') | select() %}sed -i '\\''1s/^/{{ host_ip }}\\n/'\\'' {{ user_home_on_container }}/hosts && {% endfor %}true \
+            && cat {{ user_home_on_container }}/hosts > /etc/hosts \
+            && rm {{ user_home_on_container }}/hosts'
+          "
+        args:
+          executable: /bin/bash
+        vars:
+          iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'local_datanodes_resolution') | list }}"
+          resolution_list: "{% for result in iface_ip_list | flatten(levels=1) %}{{ result.stdout }}\n{% endfor %}"
+          containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
+
+      - name: Local NN must know global DNs
+        when: inventory_hostname == rm_host
+        shell: "
+          sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} bash -c \
+            'cp /etc/hosts {{ user_home_on_container }} \
+            && {% for host_ip in resolution_list.split('\n') | select() %}sed -i '\\''1s/^/{{ host_ip }}\\n/'\\'' {{ user_home_on_container }}/hosts && {% endfor %}true \
+            && cat {{ user_home_on_container }}/hosts > /etc/hosts \
+            && rm {{ user_home_on_container }}/hosts'
+          "
+        args:
+          executable: /bin/bash
+        vars:
+          iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'global_datanodes_resolution') | list }}"
+          resolution_list: "{% for result in iface_ip_list | flatten(levels=1) %}{{ result.stdout }}\n{% endfor %}"
+
     tags: never, setup_global_hdfs_connection
 
   - name: Remove connection on global hdfs with containers
@@ -130,6 +264,37 @@
     args:
       executable: /bin/bash
     tags: never, remove_global_hdfs_connection
+
+  - name: clean connection on global HDFS
+    tags: never, remove_global_hdfs_connection
+    vars:
+      global_datanodes_info: "{{ datanodes_info_str | replace('\n','') | replace(' ','') }}"
+      containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
+    block:
+      - name: Remove connection on global hdfs with local DNs + NN
+        when: inventory_hostname == namenode_host
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} bash -c \
+          'cp /etc/hosts {{ user_home_on_container }} \
+          && {% for cont in containers_info %}sed -n '/{{ cont.container_name }}/!p' {{ user_home_on_container }}/hosts > {{ user_home_on_container }}/hosts.tmp; mv {{ user_home_on_container }}/hosts.tmp {{ user_home_on_container }}/hosts &&{% endfor %}true \
+          && cat {{ user_home_on_container }}/hosts > /etc/hosts \
+          && rm {{ user_home_on_container }}/hosts'"
+        args:
+          executable: /bin/bash
+
+      - name: Remove connection on global DNs with local DNs + NN
+        shell: "
+          {% for item in global_datanodes_info -%}
+            {% if item.host == inventory_hostname -%}
+            sudo {{ singularity_command_alias }} exec instance://{{ item.name }} bash -c \
+              'cp /etc/hosts {{ user_home_on_container }} \
+              && {% for cont in containers_info %}sed -n '/{{ cont.container_name }}/!p' {{ user_home_on_container }}/hosts > {{ user_home_on_container }}/hosts.tmp; mv {{ user_home_on_container }}/hosts.tmp {{ user_home_on_container }}/hosts &&{% endfor %}true \
+              && cat {{ user_home_on_container }}/hosts > /etc/hosts \
+              && rm {{ user_home_on_container }}/hosts' &&
+            {% endif -%}
+          {% endfor -%}true
+          "
+        args:
+          executable: /bin/bash
 
   - name: Start zookeeper
     delegate_to: "{{ rm_host }}"
@@ -399,6 +564,7 @@
                 when: start_worker_services.ansible_job_id is defined
     vars:
       - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
+      - global_datanodes_info: "{{ datanodes_info_str | replace('\n','') | replace(' ','') }}"
     tags: never
 
   ## Copy app files
@@ -706,7 +872,7 @@
     when: dest_path is defined and dest_path != ''
     shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c \
       '$HADOOP_HOME/bin/hdfs dfs -mkdir -p {{ dest_path }} \
-      {% if hdfs_mode == 'rbf' %}&& $HADOOP_HOME/bin/hdfs dfsrouteradmin -add {{ dest_path }} ns-{{ global_hdfs_app_name }} {{ dest_path }}{% endif %}
+      {% if hdfs_mode == 'rbf' %}&& $HADOOP_HOME/bin/hdfs dfsrouteradmin -add {{ dest_path }} ns-{{ global_hdfs_app_name | replace('_','-') }} {{ dest_path }}{% endif %}
       '"
     args:
       executable: /bin/bash
