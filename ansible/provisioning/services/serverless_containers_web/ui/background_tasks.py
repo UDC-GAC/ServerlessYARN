@@ -783,6 +783,8 @@ def start_app_on_containers(url, app, app_containers, app_files):
 @shared_task
 def setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type="hadoop_app", global_hdfs_data=None):
 
+    app_files['app_type'] = app_type
+
     # Get rm-nn container (it is the first container from the host that got that container)
     for host in new_containers:
         if "rm-nn" in new_containers[host]:
@@ -955,7 +957,7 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
 
     ## Run HDFS + YARN on the global HDFS cluster, thus distcp may be run within the global cluster
     start_zookeeper = settings.PLATFORM_CONFIG['hdfs_mode'] == 'rbf'
-    run_playbooks.setup_hadoop_network_on_containers(host_list, app, app_files['app_type'], formatted_containers_info, nn_host, nn_container, hdfs_resources, start_zookeeper=start_zookeeper)
+    run_playbooks.setup_hadoop_network_on_containers(host_list, app, app_files, formatted_containers_info, nn_host, nn_container, hdfs_resources, start_zookeeper=start_zookeeper)
 
     # Start hdfs frontend container
     # argument_list = [formatted_host_list, "hdfs_frontend", formatted_containers_info, nn_host, nn_container]

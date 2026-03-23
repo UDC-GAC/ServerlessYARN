@@ -6,6 +6,7 @@ id_rsa*.pub
 artifacts/
 *.log
 *.jar
+ansible/provisioning/java_libraries/*/target
 
 # Dynamic configuration files
 ansible/ansible.inventory
@@ -18,6 +19,7 @@ ansible/provisioning/config/modules/*.yml
 ansible/provisioning/apps/*
 !ansible/provisioning/apps/README.md
 !ansible/provisioning/apps/base/
+!ansible/provisioning/apps/base/global_hdfs/runtime_files/simple-distcp.jar
 !ansible/provisioning/apps/samples/
 
 ## Exclude user apps, but include specific ones

@@ -31,6 +31,11 @@ hdfs_mode: rbf
 ## by default the threshold is set to 2g to leverage the tmpfs of the containers and avoid disk I/O
 distcp_threshold: 2g
 
+# distcp executable to use when transfering more than 'distcp_threshold' of data between global and local HDFSs
+## 'hadoop_distcp': the regular distcp shipped with Hadoop
+## 'simple_distcp': a simpler distcp included in the platform, which runs a mapper per block and makes better use of data locality
+distcp_executable: simple_distcp
+
 # mode of assigning the 'blocksperchunk' parameter of distcp, that will modulate the number of mappers created
 ## 'best-effort': it will try to assign the best distribution
 ## 'distcp-default': 0 (do not slice files, create 1 mapper per file)

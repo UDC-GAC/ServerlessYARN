@@ -234,17 +234,18 @@ def stop_host_scaler(host_name):
 
 
 ## Hadoop
-def setup_hadoop_network_on_containers(host_names, app_name, app_type, containers_info, rm_host, rm_container, hadoop_conf, start_zookeeper=False):
+def setup_hadoop_network_on_containers(host_names, app_name, app_files, containers_info, rm_host, rm_container, hadoop_conf, start_zookeeper=False):
     extravars = {
         "app_name": app_name,
-        "app_type": app_type,
         "containers_info_str": containers_info,
         "rm_host": rm_host,
         "rm_container": rm_container
     }
+    extravars.update(app_files)
     extravars.update(hadoop_conf)
     tags = ["setup_network", "setup_hadoop"]
     if start_zookeeper: tags.append("start_zookeeper")
+    if app_name == "global_hdfs": tags.append("copy_files")
 
     run_playbook(playbook_name="manage_app_on_container.yml", tags=tags, limit=host_names, extravars=extravars)
 
