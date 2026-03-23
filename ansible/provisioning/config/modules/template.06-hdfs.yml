@@ -19,9 +19,10 @@ global_hdfs_replication: "{{ default_hdfs_replication }}"
 local_hdfs_replication: 1
 
 # HDFS mode:
-## 'single': deploys a single global HDFS
-## 'local': deploys a global HDFS + a local HDFS in each app Hadoop cluster
-## 'rbf': deploys a Router-based Federated HDFS cluster, i.e., a global HDFS + local HDFS in each app Hadoop cluster with routing between them
+## 'single': global HDFS + local app YARN clusters
+## 'open': global HDFS + local app HDFS+YARN clusters --> data transfers with global must be done using its address
+## 'isolated': global HDFS+YARN + local app HDFS+YARN clusters --> data transfers with global must be done via the interface. YARN in global is required for distcp operations
+## 'rbf': global HDFS + local app HDFS+YARN clusters --> data transfers with global are done through routing between clusters
 hdfs_mode: rbf
 
 # data size threshold when moving data between global and local HDFSs
