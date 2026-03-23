@@ -24,6 +24,11 @@
         <value>{{ rm_container }}:8020</value>
     </property>
 
+    <property>
+        <name>dfs.namenode.rpc-bind-host</name>
+        <value>0.0.0.0</value>
+    </property>
+
     <!-- Nameservices -->
         <!-- Self nameservice -->
         <property>

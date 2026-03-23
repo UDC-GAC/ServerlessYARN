@@ -31,8 +31,8 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
     chmod 0711 /run/sshd
 
     ##################################### Java ##############################################
-    apt-get install -y openjdk-8-jdk
-    export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+    apt-get install -y openjdk-{{ openjdk_version }}-jdk
+    export JAVA_HOME=/usr/lib/jvm/java-{{ openjdk_version }}-openjdk-amd64
 
     ##################################### Hadoop ############################################
     cd /opt
@@ -94,7 +94,7 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
 
 %environment
     # Java
-    export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+    export JAVA_HOME=/usr/lib/jvm/java-{{ openjdk_version }}-openjdk-amd64
     export JAVA_MAPPINGS_FOLDER_PATH="{{ bind_dir_on_container }}/hadoop_files/java_mappings"
 
     # Hadoop

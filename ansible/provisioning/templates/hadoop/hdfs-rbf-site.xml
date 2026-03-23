@@ -94,6 +94,20 @@
         <value>false</value>
     </property>
 
+    <!-- Rename between nameservices (available in Hadoop 3.4.0+) -->
+    <property>
+        <name>dfs.federation.router.federation.rename.option</name>
+        <!-- default = NONE -->
+        <value>DISTCP</value>
+    </property>
+
+    <property>
+        <name>dfs.federation.router.federation.rename.trash</name>
+        <!-- default = thrash -->
+        <!-- possible values: thrash, delete, skip -->
+        <value>delete</value>
+    </property>
+
     <!-- Failover classes to manage nameservice resolution errors -->
     <property>
         <name>dfs.client.failover.proxy.provider.ns-{{ app_name | replace('_','-') }}</name>

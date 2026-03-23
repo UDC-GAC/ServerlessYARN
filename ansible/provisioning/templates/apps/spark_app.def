@@ -6,9 +6,10 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
     #"{{ installed_app_directory }}/spark-{{ spark_version }}-bin-without-hadoop.tgz" /opt/spark-{{ spark_version }}-bin-without-hadoop.tgz
 
 %post
-    export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+    ##################################### Java ##############################################
+    export JAVA_HOME=/usr/lib/jvm/java-{{ openjdk_version }}-openjdk-amd64
 
-    # Setup Spark
+    ##################################### Spark ############################################
     cd /opt
     export SPARK_CONF_DIR=/opt/hadoop_files/spark_conf
 
