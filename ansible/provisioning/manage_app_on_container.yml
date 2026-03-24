@@ -708,6 +708,15 @@
         until: start_status.finished
         retries: 120
         delay: 0.5
+        failed_when: >
+          (start_status.finished | default(false)) and
+          (
+            (start_status.ansible_job_result.rc is defined and start_status.ansible_job_result.rc != 0)
+            or
+            (start_status.rc is defined and start_status.rc != 0)
+            or
+            (start_status.failed | default(false))
+          )
 
       # Phase 2: Slower polling if job is still running
       - name: Wait until start script has finished - Continue polling with longer intervals
