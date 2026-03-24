@@ -4,6 +4,11 @@ from ansible_runner import Runner, RunnerConfig
 from celery import shared_task
 import yaml
 import os
+import json
+from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 scriptDir = os.path.realpath(os.path.dirname(__file__))
 playbook_dir = scriptDir + "/../../.."
@@ -21,6 +26,45 @@ def check_container_bind_path(container, bind_path):
         return "/".join([vars_config['bind_dir'], container])
     else: 
         return bind_path
+
+def format_ansible_output(runner):
+    """Format ansible runner output for better readability"""
+    output_lines = []
+
+    for event in runner.events:
+        event_data = event.get('event_data', {})
+        event_type = event.get('event')
+
+        # Capture task failures
+        if event_type in ['runner_on_failed', 'runner_on_async_failed']:
+            task = event_data.get('task', 'Unknown task')
+            host = event_data.get('host', 'Unknown host')
+            output_lines.append(f"\n{'='*60}")
+            output_lines.append(f"FAILED TASK: {task}")
+            output_lines.append(f"HOST: {host}")
+            output_lines.append(f"{'='*60}")
+
+            res = event_data.get('res', {})
+            if 'msg' in res:
+                output_lines.append(f"Message: {res['msg']}")
+            if 'stderr' in res:
+                output_lines.append(f"STDERR:\n{res['stderr']}")
+            if 'stdout' in res:
+                output_lines.append(f"STDOUT:\n{res['stdout']}")
+            if 'exception' in res:
+                output_lines.append(f"Exception:\n{res['exception']}")
+
+        # Capture unreachable hosts
+        elif event_type == 'runner_on_unreachable':
+            host = event_data.get('host', 'Unknown host')
+            output_lines.append(f"\n{'='*60}")
+            output_lines.append(f"UNREACHABLE HOST: {host}")
+            output_lines.append(f"{'='*60}")
+            res = event_data.get('res', {})
+            if 'msg' in res:
+                output_lines.append(f"Message: {res['msg']}")
+
+    return "\n".join(output_lines) if output_lines else "No detailed error information available"
 
 # Configure and run playbooks
 def run_adhoc(hosts, module, module_args=None, extravars=None, ignore_failure=False):
@@ -74,7 +118,21 @@ def run_playbook(playbook_name, tags=None, limit=None, extravars=None, ignore_fa
     status = r.run()
 
     if status[1] != 0 and not ignore_failure:
-        raise Exception("Playbook {0} has failed on hosts {1}, with tags {2} and extravars {3}. Please consult Celery log under services/celery for further details".format(playbook_name, limit, tags, extravars))
+        printable_extravars = json.dumps(extravars, sort_keys=False, indent=4) if extravars is not None else None
+
+        # Format detailed error output
+        detailed_error = format_ansible_output(r)
+
+        # Log the formatted output
+        logger.error(f"\n{'#'*80}\nPlaybook Execution Failed\n{'#'*80}")
+        logger.error(f"Playbook: {playbook_name}")
+        logger.error(f"Hosts: {limit}")
+        logger.error(f"Tags: {tags}")
+        logger.error(f"Extra vars:\n{printable_extravars}")
+        logger.error(f"\nDetailed Error Output:\n{detailed_error}")
+        logger.error(f"{'#'*80}\n")
+
+        raise Exception("Playbook {0} has failed on hosts {1}, with tags {2}. Please consult Celery log under services/celery for further details".format(playbook_name, limit, tags))
 
     # Create a dict to store ouptut variables
     ouptut = {}
