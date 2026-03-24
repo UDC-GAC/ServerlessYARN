@@ -6,6 +6,7 @@ from django.conf import settings
 from django.shortcuts import render, redirect
 from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import WebDriverException
@@ -40,6 +41,11 @@ def hdfs(request):
             driver.get(url)
             driver.refresh() # this refresh is key to avoid getting data from older url and producing an infinite loop
             WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, "table-explorer")))
+
+            ## Change max shown elements to 'All' (only 25 elements are shown by default)
+            max_entries_selector = Select(driver.find_element(By.NAME, "table-explorer_length"))
+            max_entries_selector.select_by_visible_text('All')
+
         except WebDriverException:
             return []
         finally:
@@ -114,6 +120,10 @@ def hdfs(request):
                     'last_update': "{0} - {1}".format(output_info[6],output_info[7]),
                     'full_path': output_info[8]
                 }
+
+            ## Skip tmp directory used for YARN jobs
+            full_path_split = entry['full_path'].split('/')
+            if len(full_path_split) > 1 and full_path_split[1] == 'tmp': continue
 
             ## Check if entry is a child of current parent dir; look for its closest parent otherwise
             if not parent_dir in entry['full_path']:
@@ -212,6 +222,8 @@ def hdfs(request):
 
         context['addDirForm'] = AddHdfsDirForm()
         context['addFileForm'] = AddHdfsFileForm()
+        context['delFileForm'] = DeleteHdfsFileForm()
+        context['delFileForm'].helper.layout[1].attrs['readonly'] = False
 
     ## Pending tasks
     requests_errors = request.GET.getlist("errors", None)

@@ -394,15 +394,20 @@ def getHostFreeDiskBw(host):
 
 # ------------------------------------ Common functions for app management ------------------------------------
 
-def retrieve_global_hdfs_app(apps):
-    global_hdfs_app = None
-    namenode_container_info = None
-    datanodes = []
+def retrieve_app(apps, app_name):
+    found_app = None
 
     for app in apps:
-        if app['name'] == settings.VARS_CONFIG['global_hdfs_app_name']:
-            global_hdfs_app = app
+        if app['name'] == app_name:
+            found_app = app
             break
+
+    return found_app
+
+def retrieve_global_hdfs_app(apps):
+    namenode_container_info = None
+    datanodes = []
+    global_hdfs_app = retrieve_app(apps, settings.VARS_CONFIG['global_hdfs_app_name'])
 
     if global_hdfs_app:
         for container in global_hdfs_app['containers_full']:

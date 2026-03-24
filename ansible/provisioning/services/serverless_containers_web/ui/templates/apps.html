@@ -12,9 +12,14 @@
     <!-- Requests -->
     {% include 'functions/alerts.html' with requests=requests %}
 
+    {% if opentsdb %}
+        <p><a href="{{ opentsdb }}">OpenTSDB</a></p>
+    {% endif %}
+
     <!-- Apps -->
     <ul id="tabs">
         {% for item in data %}
+        {% if item.name != "global_hdfs" %}
             <li>
                 <button class="accordion">{{ item.name }}</button>
                 <div class="panel">
@@ -72,6 +77,7 @@
                 {% endif %}
 
             </li>
+        {% endif %}
         {% endfor %}
     </ul>
 

@@ -85,6 +85,9 @@
                     <th class="hdfs_actions">
                         {% include 'functions/form.html' with form_id="add-hdfs-file" button_name="Upload File or Directory" form_title="Add HDFS File or Directory" form=addFileForm icon="fa fa-cloud-upload" %}
                     </th>
+                    <th class="hdfs_actions">
+                        {% include 'functions/form.html' with form_id="del-hdfs-file" button_name="Delete File or Directory" form_title="Delete HDFS File or Directory" form=delFileForm icon="fa fa-trash" %}
+                    </th>
                 </tr>
                 {% for entry in data %}
                     <tr>
