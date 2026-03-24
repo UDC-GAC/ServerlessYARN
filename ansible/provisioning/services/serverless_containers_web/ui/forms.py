@@ -957,12 +957,18 @@ class StartAppForm(forms.Form):
             )
     allow_oversubscription = forms.BooleanField(label="Allow oversubscription?", required=False, initial=False)
 
+    input_width = "500px"
     read_from_global = forms.BooleanField(label="Read files from global HDFS?", required=False)
-    global_input = forms.CharField(label="Input file (or directory) to read from global HDFS", required=False)
-    local_output = forms.CharField(label="Output directory to write to local HDFS (absolute or relative to '{0}')".format(DEFAULT_HDFS_VALUES["local_output"]), required=False)
     write_to_global = forms.BooleanField(label="Write files to global HDFS?", required=False)
-    local_input = forms.CharField(label="Input file (or directory) to read from local HDFS", required=False)
-    global_output = forms.CharField(label="Output directory to write to global HDFS (absolute or relative to '{0}')".format(DEFAULT_HDFS_VALUES["global_output"]), required=False)
+
+    global_input = forms.CharField(label="Input file (or directory) to read from global HDFS", required=False, 
+        widget=forms.TextInput(attrs={'style': 'width: {0};'.format(input_width)}))
+    local_output = forms.CharField(label="Output directory to write to local HDFS (absolute or relative to '{0}')".format(DEFAULT_HDFS_VALUES["local_output"]), required=False, 
+        widget=forms.TextInput(attrs={'style': 'width: {0};'.format(input_width)}))
+    local_input = forms.CharField(label="Input file (or directory) to read from local HDFS", required=False, 
+        widget=forms.TextInput(attrs={'style': 'width: {0};'.format(input_width)}))
+    global_output = forms.CharField(label="Output directory to write to global HDFS (absolute or relative to '{0}')".format(DEFAULT_HDFS_VALUES["global_output"]), 
+        required=False, widget=forms.TextInput(attrs={'style': 'width: {0};'.format(input_width)}))
 
     def __init__(self, *args, **kwargs):
         super(StartAppForm, self).__init__(*args, **kwargs)
@@ -980,7 +986,7 @@ class StartAppForm(forms.Form):
             Field('allow_oversubscription'),
         )
 
-        if config['global_hdfs']:
+        if config['global_hdfs'] and config['hdfs_mode'] == 'isolated':
             self.helper.layout.append(Field('read_from_global', type="hidden", css_class='read_from_global_condition'))
             self.helper.layout.append(Field('global_input', css_class='global_input'))
             self.helper.layout.append(Field('local_output', css_class='local_output'))

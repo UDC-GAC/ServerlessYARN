@@ -686,7 +686,7 @@ def start_hadoop_app_task(self, url, app, app_files, new_containers, container_r
     start_time = timeit.default_timer()
 
     app_containers = deploy_app_containers(url, new_containers, app, app_files, container_resources, disk_assignation, app_type)
-    rm_host, rm_container = setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type, global_hdfs_data)
+    rm_host, rm_container, download_time, upload_time = setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type, global_hdfs_data)
 
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)
@@ -724,7 +724,10 @@ def start_hadoop_app_task(self, url, app, app_files, new_containers, container_r
         full_url = url + "container/{0}/{1}".format(container['container_name'],app)
         bind_path = ""
         if 'disk_path' in container: bind_path = container['disk_path']
-        stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, rm_container, timestamp)
+        if container['container_name'] == rm_container:
+            stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, rm_container, timestamp, download_time, upload_time)
+        else:
+            stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, rm_container, timestamp)
         register_task(stop_task.id,"stop_container_task")
 
     if len(errors) > 0: raise Exception(str(errors))
@@ -807,11 +810,13 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
     argument_list = [hosts, app, app_type, formatted_app_containers, rm_host, rm_container['container_name']]
     argument_list.extend(extracted_hadoop_resources)
 
+    download_time, upload_time = 0,0
     if not global_hdfs_data:
-        run_playbooks.setup_hadoop_network_on_containers(list(new_containers.keys()), app, app_type, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"])
+        run_playbooks.setup_hadoop_network_on_containers(list(new_containers.keys()), app, app_files, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"])
     else:
         ## Download required input data from global HDFS to local one
-        run_playbooks.setup_hadoop_network_with_global_hdfs(list(new_containers.keys()), app, app_type, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"], global_hdfs_data)
+        download_time = run_playbooks.setup_hadoop_network_with_global_hdfs(list(new_containers.keys()), app, app_files, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"], global_hdfs_data)
+
 
     # Lastly, start app on RM container
     full_url = url + "container/{0}/{1}".format(rm_container['container_name'],app)
@@ -822,9 +827,9 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
 
     if global_hdfs_data:
         ## Upload generated output data from local HDFS to global one
-        run_playbooks.upload_local_hdfs_data_to_global(rm_host, rm_container['container_name'], global_hdfs_data)
+        upload_time = run_playbooks.upload_local_hdfs_data_to_global(rm_host, rm_container['container_name'], global_hdfs_data, formatted_app_containers)
 
-    return rm_host, rm_container['container_name']
+    return rm_host, rm_container['container_name'], download_time, upload_time
 
 @shared_task(bind=True)
 def create_dir_on_hdfs(self, namenode_host, namenode_container, dir_to_create):
@@ -1301,8 +1306,8 @@ def stop_container(host, container_name, bind_path=None, clean_bind_dir=True):
         remove_container_from_host(container_name, host)
 
 @shared_task
-def stop_app_on_container_task(host, container_name, bind_path, app, app_files, rm_container, timestamp=None):
-    run_playbooks.stop_app_on_container(host, container_name, app, app_files, rm_container, bind_path, timestamp)
+def stop_app_on_container_task(host, container_name, bind_path, app, app_files, rm_container, timestamp=None, download_time=0, upload_time=0):
+    run_playbooks.stop_app_on_container(host, container_name, app, app_files, rm_container, bind_path, timestamp, download_time, upload_time)
     stop_container(host, container_name, bind_path)
 
 

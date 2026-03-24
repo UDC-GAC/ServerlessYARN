@@ -835,8 +835,18 @@
               mode: pull
               ssh_connection_multiplexing: yes
               use_ssh_args: yes
+
+          - name: Add info about download and upload time
+            when: download_time > 0 or upload_time > 0
+            copy:
+              dest: "{{ stored_output_dir }}/transfer_times_{{ timestamp }}.txt"
+              content: |
+                "Download time (global-->local) = {{ download_time }}"
+                "Upload time (local-->global) = {{ upload_time }}"
+
           vars:
             stored_output_dir: "{{ app_output_data }}/{{ app_name }}/{{ timestamp }}/{{ output_dir }}-{{ container }}"
+
         when: "output_dir is defined and output_dir != ''"
 
       # ## Clean hadoop apps

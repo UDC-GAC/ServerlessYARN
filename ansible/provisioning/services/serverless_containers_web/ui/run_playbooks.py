@@ -78,6 +78,7 @@ def run_playbook(playbook_name, tags=None, limit=None, extravars=None, ignore_fa
 
     # Create a dict to store ouptut variables
     ouptut = {}
+    task_timings = {}
 
     # Process events to extract registered variables
     for event in r.events:
@@ -92,7 +93,14 @@ def run_playbook(playbook_name, tags=None, limit=None, extravars=None, ignore_fa
                 task_name = event_data.get('task')
                 ouptut[f"{task_name}_stdout"] = event_data['res']['stdout']
 
-    return ouptut
+            # Extract task duration
+            if 'start' in event_data and 'end' in event_data:
+                start = datetime.fromisoformat(event_data['start'].replace('Z', '+00:00'))
+                end = datetime.fromisoformat(event_data['end'].replace('Z', '+00:00'))
+                duration = (end - start).total_seconds()
+                task_timings[task_name] = duration
+
+    return ouptut, task_timings
 
 # Call playbook tasks
 ## Manage hosts
@@ -200,7 +208,7 @@ def wait_for_app_on_container(host_name, container):
     extravars = {"container": container}
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["wait_app"], limit=[host_name], extravars=extravars)
 
-def stop_app_on_container(host_name, container, app_name, app_files, rm_container, bind_path=None, timestamp=None):
+def stop_app_on_container(host_name, container, app_name, app_files, rm_container, bind_path=None, timestamp=None, download_time=0, upload_time=0):
 
     bind_path = check_container_bind_path(container, bind_path)
 
@@ -209,7 +217,9 @@ def stop_app_on_container(host_name, container, app_name, app_files, rm_containe
         "app_name": app_name,
         "container_bind_dir": bind_path,
         "rm_container": rm_container,
-        "timestamp": timestamp
+        "timestamp": timestamp,
+        "download_time": download_time,
+        "upload_time": upload_time
     }
     extravars.update(app_files)
 
@@ -303,32 +313,47 @@ def get_file_from_hdfs(host_name, namenode_container, file_to_download, dest_pat
         "frontend_container": frontend_container
     })
 
-def setup_hadoop_network_with_global_hdfs(host_names, app_name, app_type, containers_info, rm_host, rm_container, hadoop_conf, global_hdfs_data):
+def setup_hadoop_network_with_global_hdfs(host_names, app_name, app_files, containers_info, rm_host, rm_container, hadoop_conf, global_hdfs_data):
 
     extravars = {
         "app_name": app_name,
-        "app_type": app_type,
         "containers_info_str": containers_info,
         "rm_host": rm_host,
         "rm_container": rm_container
     }
+    extravars.update(app_files)
     extravars.update(hadoop_conf)
     extravars.update(global_hdfs_data)
 
     tags = ["setup_network", "setup_global_hdfs_connection", "setup_hadoop", "download_to_local"]
 
-    run_playbook(playbook_name="manage_app_on_container.yml", tags=tags, limit=(host_names + [global_hdfs_data["namenode_host"]]), extravars=extravars)
+    _, task_timings = run_playbook(playbook_name="manage_app_on_container.yml", tags=tags, limit=(host_names + [global_hdfs_data["namenode_host"]]), extravars=extravars)
 
-def upload_local_hdfs_data_to_global(rm_host, rm_container, global_hdfs_data):
+    transfer_time = 0
+    if 'Get input data' in task_timings: transfer_time += task_timings['Get input data']
+    if 'Put input data into target HDFS' in task_timings: transfer_time += task_timings['Put input data into target HDFS']
+    if 'Remove file in temporary location' in task_timings: transfer_time += task_timings['Remove file in temporary location']
+    if 'Transfer data' in task_timings: transfer_time += task_timings['Transfer data']
+    return transfer_time
+
+def upload_local_hdfs_data_to_global(rm_host, rm_container, global_hdfs_data, containers_info):
 
     extravars = {
         "rm_host": rm_host,
-        "rm_container": rm_container
+        "rm_container": rm_container,
+        "containers_info_str": containers_info
     }
     extravars.update(global_hdfs_data)
 
-    run_playbook(playbook_name="manage_app_on_container.yml", tags=["upload_to_global"], limit=[global_hdfs_data['namenode_host']], extravars=extravars)
-    run_playbook(playbook_name="manage_app_on_container.yml", tags=["remove_global_hdfs_connection"], limit=[global_hdfs_data['namenode_host']], extravars=extravars)
+    _, task_timings = run_playbook(playbook_name="manage_app_on_container.yml", tags=["upload_to_global"], limit=[global_hdfs_data['namenode_host']], extravars=extravars)
+    run_playbook(playbook_name="manage_app_on_container.yml", tags=["remove_global_hdfs_connection"], extravars=extravars)
+
+    transfer_time = 0
+    if 'Get input data' in task_timings: transfer_time += task_timings['Get input data']
+    if 'Put input data into target HDFS' in task_timings: transfer_time += task_timings['Put input data into target HDFS']
+    if 'Remove file in temporary location' in task_timings: transfer_time += task_timings['Remove file in temporary location']
+    if 'Transfer data' in task_timings: transfer_time += task_timings['Transfer data']
+    return transfer_time
 
 def clean_hdfs(host_name, container):
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["clean_hdfs"], limit=[host_name], extravars={"container": container})
@@ -350,7 +375,7 @@ def get_hdfs_filesystem(namenode_host, namenode_container_name):
         "namenode_container_name": namenode_container_name,
     }
 
-    output = run_playbook(playbook_name="manage_app_on_container.yml", tags=["get_hdfs_filesystem"], limit=[namenode_host], extravars=extravars)
+    output, _ = run_playbook(playbook_name="manage_app_on_container.yml", tags=["get_hdfs_filesystem"], limit=[namenode_host], extravars=extravars)
 
     ## Access to listed files
     task_name = "Get HDFS filesystem"
