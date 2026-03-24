@@ -107,4 +107,22 @@ Vagrant.configure("2") do |config|
         end
     end
 
+    # Node for OpenTSDB
+    ## Useful to deploy a local, persistent instance of OpenTSDB that is independent of the server node (which is more oriented towards testing)
+    config.vm.define "opentsdb", autostart: false do |opentsdb|
+        opentsdb.vm.box = "bento/ubuntu-22.04"
+        opentsdb.vm.box_version = "202407.23.0"
+        opentsdb.vm.host_name = "opentsdb-node"
+
+        opentsdb.vm.network "private_network", ip: "192.168.56.220"
+        opentsdb.vm.network "forwarded_port", guest: 4242, host: 4343, host_ip: "127.0.0.1"
+
+        opentsdb.vm.provider "virtualbox" do |vb|
+                vb.name = "OpenTSDB"
+                vb.customize ["modifyvm", :id, "--groups", "/ServerlessYARN"]
+                vb.cpus = 4
+                vb.memory = 4096
+        end
+    end
+
 end

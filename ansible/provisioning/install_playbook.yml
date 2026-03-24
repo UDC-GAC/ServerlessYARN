@@ -31,6 +31,8 @@
 
     - import_tasks: tasks/install/couchdb_setup.yml
     - import_tasks: tasks/install/bdwatchdog_setup.yml
+      when: deploy_local_opentsdb
+
     - import_tasks: tasks/install/serverless_containers_setup.yml
     - import_tasks: tasks/install/serverlessyarn_services_setup.yml
 

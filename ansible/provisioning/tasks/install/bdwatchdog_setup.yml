@@ -6,13 +6,6 @@
     recursive: true
   tags: restart_services
 
-- name: Copy BDWatchdog source
-  synchronize:
-    src: BDWatchdog/
-    dest: "{{ bdwatchdog_source_path }}"
-    recursive: true
-  tags: create_app
-
 # TODO: read BDWatchdog_data path from BDWatchdog/deployment/config or viceversa
 - name: Create a BDWatchdog data directory
   file:
@@ -61,13 +54,10 @@
 
 - name: Change BDWatchdog dir owner
   file:
-    path: "{{ item }}"
+    path: "{{ bdwatchdog_path }}"
     state: directory
     owner: "{{ user_info.user_name }}"
     recurse: yes
-  with_items:
-    - "{{ bdwatchdog_path }}"
-    - "{{ bdwatchdog_source_path }}"
 
 - name: Change BDWatchdog data dir owner
   file:
@@ -81,12 +71,3 @@
     src: templates/bdw_config/services_config.yml
     dest: "{{ bdwatchdog_path }}/services_config.yml"
   tags: restart_services
-
-- name: Copy BDWatchdog atop scripts to BDWatchdog source dir
-  template:
-    src: "templates/bdw_config/{{ item }}"
-    dest: "{{ bdwatchdog_source_path }}/MetricsFeeder/scripts/{{ item }}"
-  with_items:
-    - run_atop_stream.sh
-    - run_atop_stream_with_java_translation.sh
-  tags: create_app

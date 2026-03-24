@@ -103,18 +103,21 @@ def check_services():
     global debug
     global SERVICES
 
-    ## Test connection for OPENTSDB setup
     config_file = scriptDir + "/../../config/config.yml"
     with open(config_file, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
-    opentsdb_url = "127.0.0.1"
-    opentsdb_port = config['opentsdb_port']
-    opentsdb_server = 'http://' + opentsdb_url + ":" + str(opentsdb_port)
-
     virtual_mode = config['virtual_mode']
     if not virtual_mode:
         SERVICES = [x for x in SERVICES if x not in ONLY_VIRTUAL_MODE]
+
+    deploy_local_opentsdb = config['deploy_local_opentsdb']
+    if not deploy_local_opentsdb:
+        SERVICES.remove['OPENTSDB']
+    else:
+        opentsdb_url = "127.0.0.1"
+        opentsdb_port = config['opentsdb_port']
+        opentsdb_server = 'http://' + opentsdb_url + ":" + str(opentsdb_port)
 
     ## Playbook running setup
     rc = RunnerConfig(
@@ -141,7 +144,8 @@ def check_services():
 
             try:
                 ## OpenTSBD test
-                test_opentsdb_connection(opentsdb_server)
+                if 'OPENTSDB' in SERVICES:
+                    test_opentsdb_connection(opentsdb_server)
 
                 for service in SERVICES:
                     service_session = server.find_where({ "session_name": service })

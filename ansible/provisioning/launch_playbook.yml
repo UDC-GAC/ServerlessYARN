@@ -26,6 +26,7 @@
       tags: restart_services, start_opentsdb, start_data_server
 
     - import_tasks: tasks/launch/opentsdb_launch.yml
+      when: deploy_local_opentsdb
       tags: start_opentsdb
 
     - import_tasks: tasks/launch/serverless_containers_launch.yml

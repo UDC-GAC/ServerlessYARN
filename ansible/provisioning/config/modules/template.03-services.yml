@@ -22,3 +22,8 @@ mongodb_port: 27017
 local_data_server: no # "yes" to deploy the local data server
 data_server_url: "{{ server_ip }}"
 data_server_port: 9001
+
+## OpenTSDB
+# 'yes': installs and deploys OpenTSDB on the server node
+# 'no': rely on an external OpenTSDB instance; 'opentsdb_url' should be configured appropriately
+deploy_local_opentsdb: yes

@@ -242,10 +242,6 @@ def setup_network_on_containers(host_names, containers_info):
 
 ## Manage applications
 def create_app(app_files):
-    ## Update BDWatchdog directory if needed
-    run_playbook(playbook_name="install_playbook.yml", tags=["create_app"])
-
-    ## Create app
     run_playbook(playbook_name="start_containers_playbook.yml", tags=["create_app"], extravars=app_files)
 
 def start_app_on_container(host_name, container, app_name, app_files, bind_path=None, global_hdfs_data=None):
