@@ -12,6 +12,7 @@
   delay: 5
 
 - name: Launch data server in a tmux session
+  when: "'data_server' not in tmux_sessions"
   shell: bash start_tmux.sh
   args:
     chdir: "{{ data_server_path }}"

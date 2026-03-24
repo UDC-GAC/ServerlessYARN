@@ -79,9 +79,14 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
     cd /opt
     zookeeper_download_file=apache-zookeeper-{{ zookeeper_version }}-bin.tar.gz
     zookeeper_download_dir=https://dlcdn.apache.org/zookeeper/zookeeper-{{ zookeeper_version }}
-
+    {% if local_data_server -%}
+    ### Take advantage of the local data server to speed up the download
+    wget -O $zookeeper_download_file "http://${DATA_SERVER_IP}:${DATA_SERVER_PORT}/$zookeeper_download_file"
+    {%- else -%}
+    zookeeper_download_dir=https://archive.apache.org/dist/zookeeper/zookeeper-{{ zookeeper_version }}
     # Use simple wget since the file to download is lightweight
     wget -O $zookeeper_download_file $zookeeper_download_dir/$zookeeper_download_file
+    {%- endif %}
 
     mkdir zookeeper && tar xf $zookeeper_download_file -C zookeeper --strip-components 1 && rm $zookeeper_download_file
     chown -R $(whoami):$(whoami) zookeeper

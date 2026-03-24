@@ -10,6 +10,12 @@ mkdir -p "${DATA_DIR}"
 
 # Read sources list and get files
 while read -r FILENAME URL; do
+
+  if [[ "$FILENAME" = "#"* ]]; then
+    ## skip comments
+    continue
+  fi
+
   OUTPUT_FILE="${DATA_DIR}/${FILENAME}"
   # Ensure the file doesn't already exist before proceeding with the download
   if [ ! -f "${OUTPUT_FILE}" ]; then

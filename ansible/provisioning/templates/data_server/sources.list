@@ -1,6 +1,7 @@
 spark-{{ spark_version }}-bin-hadoop3.tgz             https://archive.apache.org/dist/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-hadoop3.tgz
 spark-{{ spark_version }}-bin-without-hadoop.tgz      https://archive.apache.org/dist/spark/spark-{{ spark_version }}/spark-{{ spark_version }}-bin-without-hadoop.tgz
-hadoop-{{ hadoop_version }}.tar.gz                     https://archive.apache.org/dist/hadoop/core/hadoop-{{ hadoop_version }}/hadoop-{{ hadoop_version }}.tar.gz
+hadoop-{{ hadoop_version }}.tar.gz                    https://archive.apache.org/dist/hadoop/core/hadoop-{{ hadoop_version }}/hadoop-{{ hadoop_version }}.tar.gz
+apache-zookeeper-{{ zookeeper_version }}-bin.tar.gz   https://archive.apache.org/dist/zookeeper/zookeeper-{{ zookeeper_version }}/apache-zookeeper-{{ zookeeper_version }}-bin.tar.gz
 NPB3.4.2.tar.gz                         https://www.nas.nasa.gov/assets/nas/npb/NPB3.4.2.tar.gz
 frog1-360.mp4                           https://www.pexels.com/es-es/download/video/855631/?h=360&w=640
 frog1-540.mp4                           https://www.pexels.com/es-es/download/video/855631/?h=540&w=960
@@ -26,3 +27,4 @@ frog6-360.mp4                           https://www.pexels.com/es-es/download/vi
 frog6-540.mp4                           https://www.pexels.com/es-es/download/video/15996459/?h=540&w=960
 frog6-720.mp4                           https://www.pexels.com/es-es/download/video/15996459/?h=720&w=1280
 frog6-1080.mp4                          https://www.pexels.com/es-es/download/video/15996459/?h=1080&w=1920
+## Always leave an empty final line; otherwise, the setup.sh script will skip the last line

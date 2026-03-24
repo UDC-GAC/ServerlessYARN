@@ -66,6 +66,7 @@
       - rebooter
       - celery
       - web_interface
+      - data_server
       # ServerlessContainers
       - rebalancer
       - sanity_checker
