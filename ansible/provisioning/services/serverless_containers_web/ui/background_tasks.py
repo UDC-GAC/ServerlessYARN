@@ -13,7 +13,7 @@ from ui.update_inventory_file import add_containers_to_hosts,remove_container_fr
 from ui.utils import request_to_state_db
 import ui.run_playbooks as run_playbooks
 
-from ui.views.core.utils import getDbData
+from ui.views.core.utils import getDbData, getDataAndFilterByApp, getHostFreeDiskLoad, getHostsNames
 
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file: config = yaml.load(config_file, Loader=yaml.FullLoader)
@@ -111,6 +111,26 @@ def mergeDictionary(dict_1, dict_2):
        if key in dict_1 and key in dict_2:
                dict_3[key] = value + dict_2[key]
    return dict_3
+
+def convert_strings_to_numbers(data):
+    """
+    Recursively convert string numbers to int/float in nested dictionaries and lists.
+    """
+    if isinstance(data, dict):
+        return {key: convert_strings_to_numbers(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [convert_strings_to_numbers(item) for item in data]
+    elif isinstance(data, str):
+        # Try to convert to int first, then float
+        try:
+            return int(data)
+        except ValueError:
+            try:
+                return float(data)
+            except ValueError:
+                return data
+    else:
+        return data
 
 def get_node_reserved_memory(node_memory):
     reserved_memory = 0
@@ -474,6 +494,24 @@ def change_app_execution_state_in_db(url, app, state):
     if actual_try >= max_retries:
         raise Exception("Reached max tries when changing app {0} execution state to {1}".format(app, state))
 
+def change_app_state_in_db(url, app, state):
+    max_retries = 10
+    actual_try = 0
+    full_url = url + "{0}/{1}".format(app, "state")
+    while actual_try < max_retries:
+
+        error_message = "Error changing app {0} execution state to {1}".format(app, state)
+        error, response = request_to_state_db(full_url, "post", error_message, data={"state": state})
+
+        if response != "":
+            if not error: break
+            else: raise Exception(error)
+
+        actual_try += 1
+
+    if actual_try >= max_retries:
+        raise Exception("Reached max tries when changing app {0} execution state to {1}".format(app, state))
+
 def add_container_to_app_in_db(full_url, container, app):
     max_retries = 10
     actual_try = 0
@@ -640,13 +678,85 @@ def deploy_app_containers(url, new_containers, app, app_files, container_resourc
 
 
 ## Start Apps
+def wait_for_app_dependency(assignation_requirements, url, app, container_resources, dependencies):
+
+    def check_space_for_app(assignation_requirements, container_resources, app_name):
+        from ui.views.apps.utils import getContainerAssignationForApp
+
+        container_resources = convert_strings_to_numbers(container_resources)
+
+        app_resources = assignation_requirements['app_resources']
+        full_data = assignation_requirements['full_data']
+        assignation_policy = assignation_requirements['assignation_policy']
+        allow_oversubscription = assignation_requirements['allow_oversubscription']
+        number_of_containers = assignation_requirements['number_of_containers']
+
+        ## Get updated info about hosts
+        hosts = getHostsNames(full_data)
+
+        # Check if there is space for app
+        free_resources = {}
+        for resource in app_resources:
+            if resource == 'disk_read' or resource == "disk_write":
+                continue
+            free_resources[resource] = 0
+            for host in hosts:
+                if resource in host['resources']:
+                    free_resources[resource] += host['resources'][resource]['free']
+
+        space_left_for_app = True
+        for resource in free_resources:
+            if free_resources[resource] < app_resources[resource]['min'] - app_resources[resource]['current']:
+                #space_left_for_app = False
+                pass
+
+        ## TODO: replace/add disk load check for disk I/O bandwidth check
+        # Check if there is enough free disk load (specially important for Hadoop apps)
+        if settings.PLATFORM_CONFIG['disk_capabilities'] and settings.PLATFORM_CONFIG['disk_scaling']:
+            disk_load = number_of_containers
+            free_disk_load = 0
+            for host in hosts:
+                free_disk_load += getHostFreeDiskLoad(host)
+
+            if free_disk_load < disk_load: space_left_for_app = False
+
+        if not space_left_for_app:
+            raise Exception("There is no space left for app {0}".format(app_name))
+
+        new_containers, disk_assignation, error = getContainerAssignationForApp(assignation_policy, allow_oversubscription, hosts, number_of_containers, container_resources, app_name)
+        if error != "":
+            raise Exception(error)
+
+        return new_containers, disk_assignation
+
+    if dependencies:
+        ## Check app dependency state
+        polling_period = 1
+        _, dependency_app = getDataAndFilterByApp(url, dependencies["app"])
+        continue_condition = any(dependency_app["state"] == condition for condition in dependencies["conditions"])
+
+        if not continue_condition:
+            while not continue_condition:
+                time.sleep(polling_period)
+                _, dependency_app = getDataAndFilterByApp(url, dependencies["app"])
+                continue_condition = any(dependency_app["state"] == condition for condition in dependencies["conditions"])
+
+            time.sleep(60) ## wait a bit before running app if the dependency condition was just met
+
+    new_containers, disk_assignation = check_space_for_app(assignation_requirements, container_resources, app)
+
+    return new_containers, disk_assignation
+
 @shared_task(bind=True)
-def start_app_task(self, url, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, app_type=None):
+def start_app_task(self, assignation_requirements, url, app, app_files, container_resources, scaler_polling_freq, app_type=None, dependencies={}):
+
+    new_containers, disk_assignation = wait_for_app_dependency(assignation_requirements, url, app, container_resources, dependencies)
 
     start_time = timeit.default_timer()
 
     # Set application in running state in ServerlessContainers
-    change_app_execution_state_in_db(url, app, "run")
+    change_app_execution_state_in_db(url, app, "run") ## this state is redundant, should be removed if does not break anything
+    change_app_state_in_db(url, app, "running")
 
     # Deploy all the containers in the remote hosts and subscribe them to the app
     app_containers = deploy_app_containers(url, new_containers, app, app_files, container_resources, disk_assignation, app_type)
@@ -668,7 +778,9 @@ def start_app_task(self, url, app, app_files, new_containers, container_resource
     remove_containers_from_app(url, app_containers, app, app_files, scaler_polling_freq)
 
 @shared_task(bind=True)
-def start_hadoop_app_task(self, url, app, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type="hadoop_app", global_hdfs_data=None):
+def start_hadoop_app_task (self, assignation_requirements, url, app, app_files, container_resources, scaler_polling_freq, virtual_cluster, app_type="hadoop_app", global_hdfs_data=None, dependencies={}):
+
+    new_containers, disk_assignation = wait_for_app_dependency(assignation_requirements, url, app, container_resources, dependencies)
 
     # Calculate resources for Hadoop cluster
     hadoop_resources = {}
@@ -684,6 +796,9 @@ def start_hadoop_app_task(self, url, app, app_files, new_containers, container_r
             hadoop_resources[container_type] = set_hadoop_resources(container_resources[container_type], virtual_cluster, number_of_workers, replication_factor=replication_factor)
 
     start_time = timeit.default_timer()
+
+    # Set application in running state in ServerlessContainers
+    change_app_state_in_db(url, app, "running")
 
     app_containers = deploy_app_containers(url, new_containers, app, app_files, container_resources, disk_assignation, app_type)
     rm_host, rm_container, download_time, upload_time = setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type, global_hdfs_data)
@@ -729,6 +844,9 @@ def start_hadoop_app_task(self, url, app, app_files, new_containers, container_r
         else:
             stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, rm_container, timestamp)
         register_task(stop_task.id,"stop_container_task")
+
+    # Set application in running state in ServerlessContainers
+    change_app_state_in_db(url, app, "stopped")
 
     if len(errors) > 0: raise Exception(str(errors))
 
@@ -815,8 +933,11 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
         run_playbooks.setup_hadoop_network_on_containers(list(new_containers.keys()), app, app_files, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"])
     else:
         ## Download required input data from global HDFS to local one
+        if "global_input" in  global_hdfs_data and global_hdfs_data["global_input"] != "":
+            change_app_state_in_db(url, app, "reading")
         download_time = run_playbooks.setup_hadoop_network_with_global_hdfs(list(new_containers.keys()), app, app_files, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"], global_hdfs_data)
-
+        if "global_input" in  global_hdfs_data and global_hdfs_data["global_input"] != "":
+            change_app_state_in_db(url, app, "running")
 
     # Lastly, start app on RM container
     full_url = url + "container/{0}/{1}".format(rm_container['container_name'],app)
@@ -827,6 +948,7 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
 
     if global_hdfs_data:
         ## Upload generated output data from local HDFS to global one
+        change_app_state_in_db(url, app, "writing")
         upload_time = run_playbooks.upload_local_hdfs_data_to_global(rm_host, rm_container['container_name'], global_hdfs_data, formatted_app_containers)
 
     return rm_host, rm_container['container_name'], download_time, upload_time
@@ -1191,7 +1313,8 @@ def remove_containers_from_app(url, container_list, app, app_files, scaler_polli
     run_playbooks.disable_scaling_services()
 
     # Set application in stop state in ServerlessContainers
-    change_app_execution_state_in_db(url, app, "stop")
+    change_app_execution_state_in_db(url, app, "stop") ## this state is redundant, should be removed if does not break anything
+    change_app_state_in_db(url, app, "stopped")
 
     # Desubscribe containers from app in StateDB
     start_time = timeit.default_timer()

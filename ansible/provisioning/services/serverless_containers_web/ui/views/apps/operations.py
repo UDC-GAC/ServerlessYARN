@@ -192,21 +192,6 @@ def processStartApp(request, url, **kwargs):
                 for disk in reservations[h['name']]:
                     del h['resources']['disks'][disk]
 
-    # # Data to test
-    # for i in range(2,5):
-    #     hosts.append(hosts[0].copy())
-    #     hosts[i]['name'] = "host{}".format(i+1)
-    #     hosts[i]['resources'] = hosts[0]['resources'].copy()
-    #     for key in ['cpu', 'mem', 'disks']:
-    #         hosts[i]['resources'][key] = hosts[0]['resources'][key].copy()
-    #         if key == 'disks':
-    #             j = 0
-    #             for disk in hosts[0]['resources'][key]:
-    #                 hosts[i]['resources'][key][j] = disk.copy()
-    #                 j += 1
-    # hosts[0]['resources']['disks'][0]['load'] = 1
-    # hosts[0]['resources']['disks'][1]['load'] = 1
-
     app = getAppInfo(data_json, kwargs["structure_name"])
     app_limits = getLimits(kwargs["structure_name"])
 
@@ -232,35 +217,6 @@ def processStartApp(request, url, **kwargs):
     ## Containers to create
     number_of_containers = int(request.POST['number_of_containers'])
     benevolence = int(request.POST['benevolence'])
-
-    # Check if there is space for app
-    free_resources = {}
-    for resource in app_resources:
-        if resource == 'disk_read' or resource == "disk_write":
-            continue
-        free_resources[resource] = 0
-        for host in hosts:
-            if resource in host['resources']:
-                free_resources[resource] += host['resources'][resource]['free']
-
-    space_left_for_app = True
-    for resource in free_resources:
-        if free_resources[resource] < app_resources[resource]['min'] - app_resources[resource]['current']:
-            space_left_for_app = False
-
-    ## TODO: replace/add disk load check for disk I/O bandwidth check
-    # Check if there is enough free disk load (specially important for Hadoop apps)
-    if settings.PLATFORM_CONFIG['disk_capabilities'] and settings.PLATFORM_CONFIG['disk_scaling']:
-        disk_load = number_of_containers
-        free_disk_load = 0
-        for host in hosts:
-            free_disk_load += getHostFreeDiskLoad(host)
-
-        if free_disk_load < disk_load: space_left_for_app = False
-
-    if not space_left_for_app:
-        error = "There is no space left for app {0}".format(app_name)
-        return error
 
     ## App type
     app_type = "base"
@@ -288,6 +244,14 @@ def processStartApp(request, url, **kwargs):
     # Get resources for containers
     container_resources = getContainerResourcesForApp(number_of_containers, app_resources, app_limits, benevolence, is_hadoop_app)
 
+    container_resources["regular"] = {x: str(y) for x, y in container_resources["regular"].items()}
+    if "bigger" in container_resources:
+        container_resources["irregular"] = {x: str(y) for x, y in container_resources["bigger"].items()}
+    if "smaller" in container_resources:
+        container_resources["irregular"] = {x: str(y) for x, y in container_resources["smaller"].items()}
+    if "rm-nn" in container_resources:
+        container_resources["rm-nn"] = {x: str(y) for x, y in container_resources["rm-nn"].items()}
+
     if is_hadoop_app:
         container_resources['rm-nn'] = {}
         container_resources['rm-nn']['cpu_max'] = rm_maximum_cpu
@@ -312,9 +276,6 @@ def processStartApp(request, url, **kwargs):
     ## Container assignation to hosts
     assignation_policy = request.POST['assignation_policy']
     allow_oversubscription = request.POST.get('allow_oversubscription', False)
-    new_containers, disk_assignation, error = getContainerAssignationForApp(assignation_policy, allow_oversubscription, hosts, number_of_containers, container_resources, app_name)
-    if error != "":
-        return error
 
     container_resources["regular"] = {x: str(y) for x, y in container_resources["regular"].items()}
     if "bigger" in container_resources:
@@ -328,6 +289,15 @@ def processStartApp(request, url, **kwargs):
     scaler_polling_freq = getScalerPollFreq()
     virtual_cluster = settings.PLATFORM_CONFIG['virtual_mode']
 
+    ## Get app dependency
+    dependencies = {}
+    if "dependency_app" in request.POST and request.POST["dependency_app"] != '':
+        dependencies["app"] = request.POST["dependency_app"]
+        if "dependency_condition" in request.POST:
+            dependencies["conditions"] = request.POST.getlist("dependency_condition", None)
+        else:
+            dependencies["conditions"] = ["stopped"] # default
+
     if is_hadoop_app:
         global_hdfs_data = None
         if settings.PLATFORM_CONFIG['global_hdfs']:
@@ -338,6 +308,11 @@ def processStartApp(request, url, **kwargs):
             ## Add global Namenode
             apps, _ = getApps(data_json)
             global_hdfs_app, namenode_container, datanodes = retrieve_global_hdfs_app(apps)
+            for datanode in datanodes:
+                datanode.pop('resources_form', None)
+                datanode.pop('resources_form_helper', None)
+                datanode.pop('limits_form', None)
+
             if not global_hdfs_app:
                 return "Global HDFS requested but not found"
             if not namenode_container:
@@ -345,6 +320,7 @@ def processStartApp(request, url, **kwargs):
             global_hdfs_data['namenode_container_name'] = namenode_container['name']
             global_hdfs_data['namenode_host'] = namenode_container['host']
             global_hdfs_data['number_of_datanodes'] = len(datanodes)
+            global_hdfs_data['datanodes_info_str'] = str(datanodes).replace(' ', '')
 
             ## Get additional info (read/write data from/to hdfs)
             for condition, additional_info in [('read_from_global', ['global_input', 'local_output']),
@@ -353,14 +329,22 @@ def processStartApp(request, url, **kwargs):
                     for info in additional_info:
                         global_hdfs_data[info] = request.POST.get(info)
 
-        task = start_hadoop_app_task.delay(url, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, virtual_cluster, app_type, global_hdfs_data)
+        assignation_requirements = {
+            'app_resources': app_resources,
+            'full_data': data_json,
+            'assignation_policy': assignation_policy,
+            'allow_oversubscription': allow_oversubscription,
+            'number_of_containers': number_of_containers
+        }
+
+        task = start_hadoop_app_task.delay(assignation_requirements, url, app_name, app_files, container_resources, scaler_polling_freq, virtual_cluster, app_type, global_hdfs_data, dependencies)
     else:
-        task = start_app_task.delay(url, app_name, app_files, new_containers, container_resources, disk_assignation, scaler_polling_freq, app_type)
+        task = start_app_task.delay(assignation_requirements, url, app_name, app_files, container_resources, scaler_polling_freq, app_type, dependencies)
 
     print("Starting task with id {0}".format(task.id))
     register_task(task.id, "{0}_app_task".format(app_name))
 
-    return error
+    return ""
 
 
 def processStopApp(url, structure_name):

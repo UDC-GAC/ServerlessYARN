@@ -955,6 +955,25 @@ class StartAppForm(forms.Form):
             initial=3,
             required=True
             )
+
+    dependency_app = forms.CharField(
+        label="Depends on app (optional)",
+        required=False
+    )
+
+    dependency_condition = forms.MultipleChoiceField(
+            label="Dependency condition (only valid if chosen a dependency with an app)",
+            choices=[
+                ("running", "Running"),
+                ("stopped", "Stopped"),
+                ("reading", "Reading"),
+                ("writing", "Writing")
+            ],
+            widget=forms.CheckboxSelectMultiple,
+            required=False,
+            initial="stopped"
+            )
+
     allow_oversubscription = forms.BooleanField(label="Allow oversubscription?", required=False, initial=False)
 
     input_width = "500px"
@@ -972,6 +991,11 @@ class StartAppForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super(StartAppForm, self).__init__(*args, **kwargs)
+
+        if not config['global_hdfs'] or config['hdfs_mode'] != 'isolated':
+            self.fields['dependency_condition'].choices.remove(("reading", "Reading"))
+            self.fields['dependency_condition'].choices.remove(("writing", "Writing"))
+
         self.helper = FormHelper()
         self.helper.form_id = 'id-startappform'
         self.helper.form_class = 'form-group'
@@ -983,6 +1007,8 @@ class StartAppForm(forms.Form):
             Field('number_of_containers'),
             Field('assignation_policy'),
             Field('benevolence'),
+            Field('dependency_app'),
+            Field('dependency_condition'),
             Field('allow_oversubscription'),
         )
 

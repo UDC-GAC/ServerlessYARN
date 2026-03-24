@@ -30,6 +30,7 @@
                         </tr>
 
                         <tr><td>Guard Policy</td> <td>{{ item.guard_policy }}</td></tr>
+                        <tr><td>State</td> <td>{{ item.state }}</td></tr>
                         {% if item.install_script %} <tr><td>Install script</td> <td>{{ item.install_script }}</td></tr> {% endif %}
                         {% if item.install_files %} <tr><td>Install files directory</td> <td>{{ item.install_files }}</td></tr> {% endif %}
                         {% if item.runtime_files %} <tr><td>Runtime files directory</td> <td>{{ item.runtime_files }}</td></tr> {% endif %}
