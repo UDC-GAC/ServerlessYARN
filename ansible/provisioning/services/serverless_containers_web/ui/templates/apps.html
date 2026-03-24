@@ -16,6 +16,11 @@
         <p><a href="{{ opentsdb }}">OpenTSDB</a></p>
     {% endif %}
 
+    {% if config.manage_cache_hosts %}
+        {% include 'functions/switch.html' with switch_url="drop_caches" switch_name="drop_caches" switch_prefix="drop" state=True on_state_label="Drop caches" %}
+        <p></p>
+    {% endif %}
+
     <!-- Apps -->
     <ul id="tabs">
         {% for item in data %}

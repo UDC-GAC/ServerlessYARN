@@ -15,6 +15,7 @@ urlpatterns = [
     path('apps', views.apps.apps, name='apps'),
     path('apps/<structure_name>/switch', views.apps.apps_guard_switch, name='apps_guard_switch'),
     path('apps/<structure_name>/stop', views.apps.apps_stop_switch, name='apps_stop_switch'),
+    path('apps/drop_caches', views.apps.drop_caches, name='drop_caches'),
     # Users
     path('users', views.users.users, name='users'),
     path('users/<structure_name>/switch', views.users.users_guard_switch, name='users_guard_switch'),

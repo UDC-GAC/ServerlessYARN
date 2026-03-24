@@ -1,0 +1,34 @@
+- name: Manage host caches
+  vars:
+    container_name: "cache-manager-{{ inventory_hostname }}"
+  block:
+    - name: Drop caches
+      tags: drop_caches
+      block:
+        - name: Check containers status
+          shell: "sudo {{ singularity_command_alias }} instance list -j"
+          args:
+            executable: /bin/bash
+          register: apptainer_list_output
+
+        - name: Start cache containers
+          when: container_name not in apptainer_list_output.stdout
+          shell: "
+            sudo {{ singularity_command_alias }} instance start -C \
+            --hostname {{ container_name }} \
+            {{ image_path }} {{ container_name }}"
+          args:
+            executable: /bin/bash
+          vars:
+            image_path: "{{ images_dist_dir }}/ubuntu_container.sif"
+
+        - name: Drop caches
+          shell: "sudo {{ singularity_command_alias }} exec instance://{{ container_name }} bash -c 'echo 1 > /proc/sys/vm/drop_caches'"
+          args:
+            executable: /bin/bash
+
+    - name: Stop cache containers
+      tags: stop_cache_containers
+      shell: "sudo {{ singularity_command_alias }} instance stop {{ container_name }}"
+      args:
+        executable: /bin/bash

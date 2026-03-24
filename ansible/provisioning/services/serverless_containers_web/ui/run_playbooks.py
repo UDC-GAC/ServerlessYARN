@@ -435,3 +435,6 @@ def get_hdfs_filesystem(namenode_host, namenode_container_name):
     task_name = "Get HDFS filesystem"
     output_key = "{0}_stdout".format(task_name)
     return output[output_key]
+
+def drop_host_caches():
+    run_playbook(playbook_name="start_containers_playbook.yml", tags=["drop_caches"])

@@ -7,6 +7,8 @@ from ui.views.core.operations import processStructures
 from ui.views.core.utils import guard_switch, redirect_with_errors
 from ui.views.apps.operations import getApps, processAddApp, processStartApp, processStopApp, processRemoveApps, processRemoveContainersFromApp
 
+from ui.run_playbooks import drop_host_caches
+
 # ------------------------------------ Apps views ------------------------------------
 
 def apps(request):
@@ -67,4 +69,8 @@ def apps_stop_switch(request, structure_name):
     url = settings.BASE_URL + "/structure/"
     errors = processStopApp(url, structure_name)
     # TODO: Redirect with errors??
+    return redirect("apps")
+
+def drop_caches(request):
+    drop_host_caches()
     return redirect("apps")

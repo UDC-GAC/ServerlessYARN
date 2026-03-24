@@ -1,3 +1,6 @@
 # Disk
 disk_capabilities: no # "yes" to allow disk capabilities, such as Logical Volumes creation
 disk_scaling: no # "yes" to allow disk bandwidth scaling (only relevant when using disk capabilities)
+
+# Cache
+manage_cache_hosts: no # "yes" to deploy containers with root access that allow to drop the cache on each host
