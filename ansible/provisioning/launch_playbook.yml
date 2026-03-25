@@ -93,3 +93,7 @@
     - import_tasks: tasks/launch/power_sensor_launch.yml
       when: "power_budgeting"
       tags: start_power_sensor
+
+    - import_tasks: tasks/launch/disk_atop_launch.yml
+      when: disk_capabilities
+      tags: restart_services

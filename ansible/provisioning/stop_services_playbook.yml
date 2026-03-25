@@ -26,6 +26,16 @@
       executable: /bin/bash
     tags: stop_node_scaler, stop_services
 
+  - name: Stop other services
+    when: "item in tmux_sessions"
+    shell: "tmux kill-session -t {{ item }}"
+    args:
+      executable: /bin/bash
+    loop:
+      # ServerlessYARN
+      - disk_atop
+    tags: stop_services
+
 # Stop services from server
 - hosts: localhost
   become: no

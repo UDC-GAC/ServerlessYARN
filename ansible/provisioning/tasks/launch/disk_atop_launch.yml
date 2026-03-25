@@ -1,0 +1,23 @@
+- import_tasks: tasks/utils/get_tmux_sessions.yml
+
+- name: Copy BDWatchdog's source code to node
+  synchronize:
+    src: BDWatchdog/
+    dest: "{{ bdwatchdog_source_path }}"
+
+- name: Copy disk_atop code to node
+  synchronize:
+    src: services/disk_atop
+    dest: "{{ installation_path }}/"
+
+- name: Template start script
+  template:
+    src: services/disk_atop/start.sh
+    dest: "{{ installation_path }}/disk_atop/start.sh"
+
+- name: Start disk atop service
+  when: "'disk_atop' not in tmux_sessions"
+  shell: bash start_tmux.sh
+  args:
+    chdir: "{{ installation_path }}/disk_atop"
+    executable: /bin/bash
