@@ -9,6 +9,10 @@ global_hdfs_disk_name: "ssd_hdfs"
 ## only applies if 'server_as_host' parameter is enabled
 reserve_server_for_master: yes
 
+# Debug HDFS
+display_hdfs: yes ## display the HDFS filesystem on the 'hdfs' web view
+display_global_hdfs_app: no ## display the global hdfs app info on the 'hdfs' web view
+
 # used for HDFS frontend container to map the namenode port with a local port within the server node
 local_namenode_port: 55555
 namenode_port: 9870

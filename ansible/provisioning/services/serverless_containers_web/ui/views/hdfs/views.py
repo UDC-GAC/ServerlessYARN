@@ -189,33 +189,36 @@ def hdfs(request):
 
         namenode_url = 'http://{0}:{1}/explorer.html#'.format("localhost", 55555)
 
-        ## Selenium webdriver method
-        use_html_method = True
-        if use_html_method:
-            webdriver_state.__start_webdriver__() ## will only start webdriver if not started yet
-            driver = webdriver_state.__get_webdriver__()
-            hdfs_entries_list = get_entries_via_html(namenode_url, driver)
-            hdfs_entries = []
-            for entry in hdfs_entries_list:
-                entry_dict = {
-                    'parent_dir': entry[0],
-                    'permissions': entry[1],
-                    'owner': entry[2],
-                    'group': entry[3],
-                    'size': entry[4],
-                    'last_update': entry[5],
-                    'replication': entry[6],
-                    'blocksize': entry[7],
-                    'name': entry[8],
-                    'get_hdfs_file': entry[9],
-                    'del_hdfs_file': entry[10]
-                }
+        hdfs_entries = []
+        if settings.PLATFORM_CONFIG['display_hdfs']:
+            ## Actually load filesystem info
 
-                hdfs_entries.append(entry_dict)
+            use_html_method = True
+            if use_html_method:
+                ## Selenium webdriver method
+                webdriver_state.__start_webdriver__() ## will only start webdriver if not started yet
+                driver = webdriver_state.__get_webdriver__()
+                hdfs_entries_list = get_entries_via_html(namenode_url, driver)
+                hdfs_entries = []
+                for entry in hdfs_entries_list:
+                    entry_dict = {
+                        'parent_dir': entry[0],
+                        'permissions': entry[1],
+                        'owner': entry[2],
+                        'group': entry[3],
+                        'size': entry[4],
+                        'last_update': entry[5],
+                        'replication': entry[6],
+                        'blocksize': entry[7],
+                        'name': entry[8],
+                        'get_hdfs_file': entry[9],
+                        'del_hdfs_file': entry[10]
+                    }
 
-        else:
-            ## Currently this method is slower than the HTML one, but its scalability needs be further assessed
-            hdfs_entries = get_entries_via_ansible(namenode_host, namenode_container)
+                    hdfs_entries.append(entry_dict)
+            else:
+                ## Currently this method is slower than the HTML one, but its scalability needs be further assessed
+                hdfs_entries = get_entries_via_ansible(namenode_host, namenode_container)
 
         context['data'] = hdfs_entries
         context['namenode_url'] = namenode_url

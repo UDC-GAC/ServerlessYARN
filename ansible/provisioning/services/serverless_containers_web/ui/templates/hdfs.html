@@ -24,7 +24,7 @@
     {% endif %}
 
     <!-- Global HDFS app -->
-    {% if global_hdfs_ready %}
+    {% if global_hdfs_ready and config.display_global_hdfs_app %}
         <ul>
             <li>
                 <button class="accordion">{{ global_hdfs_app.name }}</button>
