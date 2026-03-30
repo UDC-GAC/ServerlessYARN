@@ -2,6 +2,7 @@
 - name: Install requisites in server node
   hosts: localhost
   become: "{{ virtual_mode }}"
+  any_errors_fatal: yes
   gather_facts: yes
   gather_subset: ## prevent gathering all facts
     - "mounts"
@@ -58,6 +59,7 @@
 - name: Install requisites in hosts
   hosts: nodes
   become: "{{ virtual_mode }}"
+  any_errors_fatal: yes
   gather_facts: yes
   gather_subset: ## prevent gathering all facts
     - "mounts"
@@ -107,6 +109,7 @@
 - name: Install requisites in nodes and server
   hosts: platform_management,nodes
   become: "{{ virtual_mode }}"
+  any_errors_fatal: yes
   gather_facts: yes
   gather_subset: ## prevent gathering all facts
     - "mounts"
