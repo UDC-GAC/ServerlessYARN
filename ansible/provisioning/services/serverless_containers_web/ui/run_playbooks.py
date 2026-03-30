@@ -110,7 +110,8 @@ def run_playbook(playbook_name, tags=None, limit=None, extravars=None, ignore_fa
         tags=",".join(tags) if tags else None,
         limit=",".join(limit) if limit else None,
         extravars=extravars if extravars else None,
-        inventory=inventory
+        inventory=inventory,
+        fact_cache=os.path.expanduser("~/.ansible_fact_cache"),
     )
 
     rc.prepare()

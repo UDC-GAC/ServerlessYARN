@@ -215,7 +215,8 @@ if __name__ == "__main__":
 
     config_module_list = [
         "01-general.yml", "02-hosts.yml", "03-services.yml", "04-disk.yml",
-        "05-power.yml", "06-hdfs.yml", "07-containers.yml", "08-apps.yml"
+        "05-power.yml", "06-hdfs.yml", "07-containers.yml", "08-apps.yml",
+        "09-plugins.yml"
     ]
 
     config_file_list = []

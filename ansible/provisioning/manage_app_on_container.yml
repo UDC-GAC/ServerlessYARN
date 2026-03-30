@@ -1,7 +1,11 @@
 # Start an app on a container
 - hosts: nodes
   become: no
-  gather_facts: no
+  gather_facts: yes
+  gather_subset: ## prevent gathering all facts
+    - "mounts"
+  collections:
+    - es_udc_gac.smart_sharedfs
 
   vars_files:
     - vars/main.yml
@@ -427,15 +431,17 @@
             args:
               executable: /bin/bash
 
-          - name: Remove temporary directory in server and hosts
-            file:
-              path: "{{ app_tmpdir }}"
-              state: absent
-            delegate_to: "{{ item }}"
-            run_once: yes
-            with_items:
-              - localhost
-              - "{{ ansible_play_hosts }}"
+          - block:
+            - name: Remove temporary directory in server
+              file:
+                path: "{{ app_tmpdir }}"
+                state: absent
+              delegate_to: localhost
+              run_once: yes
+            - name: Remove temporary directory in hosts
+              file:
+                path: "{{ app_tmpdir }}"
+                state: absent
             tags: setup_hdfs
 
       - name: Setup SSH connection

@@ -2,7 +2,13 @@
 - name: Install requisites in server node
   hosts: localhost
   become: "{{ virtual_mode }}"
-  gather_facts: no
+  gather_facts: yes
+  gather_subset: ## prevent gathering all facts
+    - "mounts"
+  collections:
+    ## This gives priority to custom plugins, so calls to modules without their full names (FQCN)
+    ## (e.g., 'copy' instead of 'ansible.builtin.copy') will be resolved first by custom plugins
+    - es_udc_gac.smart_sharedfs
 
   vars_files:
     - vars/main.yml
@@ -44,11 +50,19 @@
         tags: setup_power_meter
       when: "power_budgeting"
 
+    ## Force a refresh on the Ansible fact cache just in case the installation changed something relevant (e.g., mounts)
+    - name: Clear gathered facts
+      meta: clear_facts
+
 # Setup nodes
 - name: Install requisites in hosts
   hosts: nodes
   become: "{{ virtual_mode }}"
-  gather_facts: no
+  gather_facts: yes
+  gather_subset: ## prevent gathering all facts
+    - "mounts"
+  collections:
+    - es_udc_gac.smart_sharedfs
 
   vars_files:
     - vars/main.yml
@@ -93,7 +107,11 @@
 - name: Install requisites in nodes and server
   hosts: platform_management,nodes
   become: "{{ virtual_mode }}"
-  gather_facts: no
+  gather_facts: yes
+  gather_subset: ## prevent gathering all facts
+    - "mounts"
+  collections:
+    - es_udc_gac.smart_sharedfs
 
   vars_files:
     - vars/main.yml
@@ -106,3 +124,7 @@
   tasks:
     - import_tasks: tasks/install/network_setup.yml
       when: "container_engine == 'apptainer'"
+
+    ## Force a refresh on the Ansible fact cache just in case the installation changed something relevant (e.g., mounts)
+    - name: Clear gathered facts
+      meta: clear_facts

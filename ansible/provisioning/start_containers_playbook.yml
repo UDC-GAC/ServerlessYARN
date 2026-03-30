@@ -2,7 +2,11 @@
 - name: Start containers in hosts
   hosts: nodes
   become: no
-  gather_facts: no
+  gather_facts: yes
+  gather_subset: ## prevent gathering all facts
+    - "mounts"
+  collections:
+    - es_udc_gac.smart_sharedfs
 
   vars_files:
     - vars/main.yml
@@ -119,7 +123,11 @@
 # Setup server (now that nodes have been initialized)
 - hosts: localhost
   become: no
-  gather_facts: no
+  gather_facts: yes
+  gather_subset: ## prevent gathering all facts
+    - "mounts"
+  collections:
+    - es_udc_gac.smart_sharedfs
 
   vars_files:
     - vars/main.yml

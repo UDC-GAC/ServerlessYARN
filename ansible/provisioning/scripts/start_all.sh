@@ -42,6 +42,7 @@ check_files_to_template ()
         ${config_modules_path}/06-hdfs.yml \
         ${config_modules_path}/07-containers.yml \
         ${config_modules_path}/08-apps.yml \
+        ${config_modules_path}/09-plugins.yml \
     "
 
     FILES_TO_TEMPLATE="$INVENTORY $config_modules"
@@ -121,9 +122,6 @@ run_ansible_playbooks ()
 }
 
 ## Script execution
-# Copy ansible.cfg to $HOME
-cp ${scriptDir}/../../ansible.cfg ~/.ansible.cfg
-
 check_files_to_template
 
 setup_config

@@ -11,7 +11,6 @@ apt-get -y update
 apt-get install -y ansible
 
 mkdir -p /etc/ansible
-cp /vagrant/ansible/ansible.cfg /etc/ansible
 
 # Create ssh keys
 USER_DIR=/home/vagrant/.ssh

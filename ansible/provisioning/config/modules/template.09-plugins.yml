@@ -1,0 +1,4 @@
+## Ansible plugins
+### Smart shared FS
+smart_sharedfs_enabled: true
+smart_sharedfs_debug: true
