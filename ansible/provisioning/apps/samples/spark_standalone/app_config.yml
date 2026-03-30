@@ -11,10 +11,19 @@ cpu_boundary_type: "percentage_of_max"
 mem_boundary: 1
 mem_boundary_type: "percentage_of_max"
 
+## Only used if disk_scaling is enabled
+disk_read_max: 400
+disk_write_max: 400
+disk_read_min: 10
+disk_write_min: 10
+disk_read_boundary: 10
+disk_write_boundary: 10
+disk_read_boundary_type: "percentage_of_max"
+disk_write_boundary_type: "percentage_of_max"
+
 ## The indicated files should be in the same directory as this configuration file
 start_script: start.sh
 stop_script: stop.sh
 runtime_files: other_files
 install_script: install_spark.sh
-
 output_dir: output_dir
