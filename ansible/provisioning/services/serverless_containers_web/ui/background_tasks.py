@@ -680,19 +680,19 @@ def deploy_app_containers(url, new_containers, app, app_files, container_resourc
 ## Start Apps
 def wait_for_app_dependency(assignation_requirements, url, app, container_resources, dependencies):
 
-    def check_space_for_app(assignation_requirements, container_resources, app_name):
+    def check_space_for_app(assignation_requirements, url, container_resources, app_name):
         from ui.views.apps.utils import getContainerAssignationForApp
 
         container_resources = convert_strings_to_numbers(container_resources)
 
         app_resources = assignation_requirements['app_resources']
-        full_data = assignation_requirements['full_data']
         assignation_policy = assignation_requirements['assignation_policy']
         allow_oversubscription = assignation_requirements['allow_oversubscription']
         number_of_containers = assignation_requirements['number_of_containers']
 
         ## Get updated info about hosts
-        hosts = getHostsNames(full_data)
+        data_json = getDbData(url)
+        hosts = getHostsNames(data_json)
 
         # Check if there is space for app
         free_resources = {}
@@ -743,7 +743,7 @@ def wait_for_app_dependency(assignation_requirements, url, app, container_resour
 
             time.sleep(60) ## wait a bit before running app if the dependency condition was just met
 
-    new_containers, disk_assignation = check_space_for_app(assignation_requirements, container_resources, app)
+    new_containers, disk_assignation = check_space_for_app(assignation_requirements, url, container_resources, app)
 
     return new_containers, disk_assignation
 

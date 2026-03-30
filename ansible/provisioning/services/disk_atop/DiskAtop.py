@@ -29,7 +29,7 @@ import os
 import shutil
 import subprocess
 import time
-from itertools import islice
+from typing import Dict, List, Tuple ## for backwards compatibility with older versions of Python
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -39,14 +39,13 @@ CGROUP_PATTERN  = "apptainer-*.scope"
 
 # Maps major:minor device numbers to human-readable names, e.g. "8:0" -> "sda".
 # Populated lazily from /sys/block on first use.
-_DEVICE_NAME_CACHE: dict[str, str] = {}
+_DEVICE_NAME_CACHE: Dict[str, str] = {}
 
 
 # ---------------------------------------------------------------------------
 # Apptainer binary resolution
 # ---------------------------------------------------------------------------
 
-#def _find_apptainer_bin(override: str | None) -> str:
 def _find_apptainer_bin(override: None) -> str:
     """
     Return the path to the apptainer (or singularity) binary.
@@ -78,7 +77,7 @@ def _find_apptainer_bin(override: None) -> str:
 # Apptainer instance list → {pid: instance_name}
 # ---------------------------------------------------------------------------
 
-def get_pid_to_instance(apptainer_bin: str) -> dict[int, str]:
+def get_pid_to_instance(apptainer_bin: str) -> Dict[int, str]:
     """
     Run `apptainer instance list --json` and return a mapping of
     {pid: instance_name}.
@@ -123,7 +122,7 @@ def get_pid_to_instance(apptainer_bin: str) -> dict[int, str]:
         print(f"[warn] Failed to parse 'instance list --json' output: {exc}", flush=True)
         return {}
 
-    pid_to_name: dict[int, str] = {}
+    pid_to_name: Dict[int, str] = {}
 
     for entry in data.get("instances") or []:
         try:
@@ -165,7 +164,6 @@ def resolve_device_name(major_minor: str) -> str:
 # cgroup discovery and io.stat parsing
 # ---------------------------------------------------------------------------
 
-#def _pid_from_scope(scope_path: str) -> int | None:
 def _pid_from_scope(scope_path: str):
     """
     Extract the PID from a cgroup scope directory name.
@@ -174,7 +172,8 @@ def _pid_from_scope(scope_path: str):
     Returns None if the name does not match the expected pattern.
     """
     basename = os.path.basename(scope_path)     # 'apptainer-12345.scope'
-    name     = basename.removesuffix(".scope")  # 'apptainer-12345'
+    #name     = basename.removesuffix(".scope")  # 'apptainer-12345'
+    name     = basename[:-6] ## for backwards compatibility; removesuffix has been introduced in Python 3.9
     prefix   = "apptainer-"
     if not name.startswith(prefix):
         return None
@@ -184,7 +183,7 @@ def _pid_from_scope(scope_path: str):
         return None
 
 
-def discover_containers(pid_to_instance: dict[int, str], CGROUPS_BASE: str) -> dict[str, str]:
+def discover_containers(pid_to_instance: Dict[int, str], CGROUPS_BASE: str) -> Dict[str, str]:
     """
     Discover active Apptainer cgroup scopes and map them to instance names.
 
@@ -192,7 +191,7 @@ def discover_containers(pid_to_instance: dict[int, str], CGROUPS_BASE: str) -> d
     Scopes whose PID is not present in pid_to_instance are silently skipped.
     """
     pattern = os.path.join(CGROUPS_BASE, CGROUP_PATTERN)
-    result: dict[str, str] = {}
+    result: Dict[str, str] = {}
 
     for scope_path in sorted(glob.glob(pattern)):
         pid = _pid_from_scope(scope_path)
@@ -208,7 +207,7 @@ def discover_containers(pid_to_instance: dict[int, str], CGROUPS_BASE: str) -> d
     return result
 
 
-def read_v1_io_stats(scope_path: str) -> dict[str, dict[str, int]]:
+def read_v1_io_stats(scope_path: str) -> Dict[str, Dict[str, int]]:
     """
     Parse the blkio.throttle.io_service_bytes_recursive and blkio.throttle.io_serviced_recursive files for a given cgroup scope directory.
 
@@ -226,7 +225,7 @@ def read_v1_io_stats(scope_path: str) -> dict[str, dict[str, int]]:
     """
     bytes_stat_path = os.path.join(scope_path, "blkio.throttle.io_service_bytes_recursive")
     iops_stat_path = os.path.join(scope_path, "blkio.throttle.io_serviced_recursive")
-    result: dict[str, dict[str, int]] = {}
+    result: Dict[str, Dict[str, int]] = {}
 
     try:
         # Bytes
@@ -234,26 +233,22 @@ def read_v1_io_stats(scope_path: str) -> dict[str, dict[str, int]]:
             grouped_stats = zip(*[fh] * 6)
 
             for device_stats in grouped_stats:
-                print(device_stats)
-
                 major_minor = device_stats[0].strip().split()[0]
                 result[major_minor] = {}
 
-                result[major_minor]['rbytes'] = device_stats[0].strip().split()[2] # Read
-                result[major_minor]['wbytes'] = device_stats[1].strip().split()[2] # Write
+                result[major_minor]['rbytes'] = int(device_stats[0].strip().split()[2]) # Read
+                result[major_minor]['wbytes'] = int(device_stats[1].strip().split()[2]) # Write
 
         # IOPS
         with open(iops_stat_path) as fh:
             grouped_stats = zip(*[fh] * 6)
 
             for device_stats in grouped_stats:
-                print(device_stats)
-
                 major_minor = device_stats[0].strip().split()[0]
                 #result[major_minor] = {} ## dict should had been already created in previous loop
 
-                result[major_minor]['rios'] = device_stats[0].strip().split()[2] # Read
-                result[major_minor]['wios'] = device_stats[1].strip().split()[2] # Write
+                result[major_minor]['rios'] = int(device_stats[0].strip().split()[2]) # Read
+                result[major_minor]['wios'] = int(device_stats[1].strip().split()[2]) # Write
 
     except OSError:
         # Scope vanished between discovery and read – silently skip.
@@ -262,7 +257,7 @@ def read_v1_io_stats(scope_path: str) -> dict[str, dict[str, int]]:
     return result
 
 
-def read_v2_io_stats(scope_path: str) -> dict[str, dict[str, int]]:
+def read_v2_io_stats(scope_path: str) -> Dict[str, Dict[str, int]]:
     """
     Parse the io.stat file for a given cgroup scope directory.
 
@@ -274,7 +269,7 @@ def read_v2_io_stats(scope_path: str) -> dict[str, dict[str, int]]:
     Returns an empty dict if io.stat is missing or unreadable (container gone).
     """
     io_stat_path = os.path.join(scope_path, "io.stat")
-    result: dict[str, dict[str, int]] = {}
+    result: Dict[str, Dict[str, int]] = {}
 
     try:
         with open(io_stat_path) as fh:
@@ -284,7 +279,7 @@ def read_v2_io_stats(scope_path: str) -> dict[str, dict[str, int]]:
                     continue
                 parts       = line.split()
                 major_minor = parts[0]      # 'MAJ:MIN'
-                stats: dict[str, int] = {}
+                stats: Dict[str, int] = {}
                 for token in parts[1:]:
                     if "=" in token:
                         key, _, raw_val = token.partition("=")
@@ -305,10 +300,10 @@ def read_v2_io_stats(scope_path: str) -> dict[str, dict[str, int]]:
 # ---------------------------------------------------------------------------
 
 # { scope_path -> { major_minor -> { stat_key -> cumulative_value } } }
-Snapshot = dict[str, dict[str, dict[str, int]]]
+Snapshot = Dict[str, Dict[str, Dict[str, int]]]
 
 
-def take_snapshot(pid_to_instance: dict[int, str], cgroups_version: int, CGROUPS_BASE: str) -> tuple[Snapshot, dict[str, str]]:
+def take_snapshot(pid_to_instance: Dict[int, str], cgroups_version: int, CGROUPS_BASE: str) -> Tuple[Snapshot, Dict[str, str]]:
     """
     Capture io stats for every currently-active, named Apptainer cgroup.
 
@@ -331,16 +326,16 @@ def take_snapshot(pid_to_instance: dict[int, str], cgroups_version: int, CGROUPS
 def compute_deltas(
     prev: Snapshot,
     curr: Snapshot,
-    scope_to_name: dict[str, str],
+    scope_to_name: Dict[str, str],
     elapsed: float,
-) -> list[dict]:
+) -> List[dict]:
     """
     Compute per-device, per-container I/O rates from two consecutive snapshots.
 
     Returns a list of metric dicts ready for JSON serialisation.
     """
     timestamp = int(time.time())
-    records: list[dict] = []
+    records: List[dict] = []
 
     for scope_path, curr_devices in curr.items():
         # Skip containers that weren't in the previous snapshot (just started).
@@ -390,7 +385,7 @@ def compute_deltas(
 # Output helpers
 # ---------------------------------------------------------------------------
 
-def emit(records: list[dict], output_format: str) -> None:
+def emit(records: List[dict], output_format: str) -> None:
     """Print records to stdout in the requested format."""
     if not records:
         return

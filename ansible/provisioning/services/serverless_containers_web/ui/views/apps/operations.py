@@ -7,7 +7,7 @@ from django.conf import settings
 
 from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, DEFAULT_HDFS_VALUES, SUPPORTED_RESOURCES, SUPPORTED_FRAMEWORKS
 from ui.background_tasks import register_task, remove_task_by_name, add_app_task, start_app_task, start_hadoop_app_task, remove_app_task, remove_containers_from_app
-from ui.views.core.utils import getHostsNames, getLimits, getHostFreeDiskLoad, getScalerPollFreq, setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels, compareStructureNames, retrieve_global_hdfs_app, getDataAndFilterByApp, getContainersFromApp, getAppFiles
+from ui.views.core.utils import getDbData, getHostsNames, getLimits, getHostFreeDiskLoad, getScalerPollFreq, setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels, compareStructureNames, retrieve_global_hdfs_app, getDataAndFilterByApp, getContainersFromApp, getAppFiles
 from ui.views.apps.utils import getAppInfo, getContainerResourcesForApp, getContainerAssignationForApp, setStartAppForm, setRemoveContainersFromAppForm, setAddAppForm, checkAppUser
 
 
@@ -170,12 +170,7 @@ def processAddApp(request, url, **kwargs):
 def processStartApp(request, url, **kwargs):
     app_name = kwargs["structure_name"]
     # Get existing hosts
-    try:
-        response = urllib.request.urlopen(url)
-        data_json = json.loads(response.read())
-    except urllib.error.HTTPError:
-        data_json = {}
-
+    data_json = getDbData(url)
     hosts = getHostsNames(data_json)
 
     ## Remove host disks reserved for other uses
@@ -298,6 +293,13 @@ def processStartApp(request, url, **kwargs):
         else:
             dependencies["conditions"] = ["stopped"] # default
 
+    assignation_requirements = {
+        'app_resources': app_resources,
+        'assignation_policy': assignation_policy,
+        'allow_oversubscription': allow_oversubscription,
+        'number_of_containers': number_of_containers
+    }
+
     if is_hadoop_app:
         global_hdfs_data = None
         if settings.PLATFORM_CONFIG['global_hdfs']:
@@ -328,14 +330,6 @@ def processStartApp(request, url, **kwargs):
                 if request.POST.get(condition, False):
                     for info in additional_info:
                         global_hdfs_data[info] = request.POST.get(info)
-
-        assignation_requirements = {
-            'app_resources': app_resources,
-            'full_data': data_json,
-            'assignation_policy': assignation_policy,
-            'allow_oversubscription': allow_oversubscription,
-            'number_of_containers': number_of_containers
-        }
 
         task = start_hadoop_app_task.delay(assignation_requirements, url, app_name, app_files, container_resources, scaler_polling_freq, virtual_cluster, app_type, global_hdfs_data, dependencies)
     else:

@@ -42,11 +42,13 @@
 
         - name: Copy BDWatchdog atop scripts to BDWatchdog source dir
           template:
-            src: "templates/bdw_config/{{ item }}"
-            dest: "{{ bdwatchdog_source_path }}/MetricsFeeder/scripts/{{ item }}"
+            src: "templates/bdw_config/{{ file }}"
+            dest: "{{ bdwatchdog_source_path }}/MetricsFeeder/scripts/{{ file }}"
           with_items:
             - run_atop_stream.sh
             - run_atop_stream_with_java_translation.sh
+          loop_control:
+            loop_var: file
 
         ## Copy other files
         # Install script

@@ -633,18 +633,18 @@
     vars:
       - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
     block:
-      - name: Check that simple-dist JAR is available
+      - name: Check that simple-distcp JAR is available
         when: distcp_executable == 'simple_distcp'
         block:
-          - name: Check if simple-dist.jar exists
+          - name: Check if simple-distcp.jar exists
             stat:
-              path: "apps/{{ app_dir }}/simple-distcp.jar"
+              path: "{{ playbook_dir }}/apps/{{ app_dir }}/runtime_files/simple-distcp.jar"
             register: file_status
 
-          - name: Fail if simple-dist.jar does not exist
+          - name: Fail if simple-distcp.jar does not exist
             when: not file_status.stat.exists
             fail:
-              msg: "apps/{{ app_dir }}/simple-distcp.jar does not exist"
+              msg: "{{ playbook_dir }}/apps/{{ app_dir }}/runtime_files/simple-distcp.jar does not exist"
 
       - name: Copy runtime files to NameNode
         when:

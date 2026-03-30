@@ -113,7 +113,7 @@ def check_services():
 
     deploy_local_opentsdb = config['deploy_local_opentsdb']
     if not deploy_local_opentsdb:
-        SERVICES.remove['OPENTSDB']
+        SERVICES.remove('OPENTSDB')
     else:
         opentsdb_url = "127.0.0.1"
         opentsdb_port = config['opentsdb_port']

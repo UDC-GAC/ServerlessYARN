@@ -8,7 +8,8 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
     {% if hdfs_replication_mode == 'hdfs_patch' -%}
     {{ installed_app_directory }}/hadoop-hdfs-{{ hadoop_version }}.jar /opt/hadoop-hdfs-{{ hadoop_version }}.jar
     {{ installed_app_directory }}/hadoop-hdfs-client-{{ hadoop_version }}.jar /opt/hadoop-hdfs-client-{{ hadoop_version }}.jar
-    {%- endif %}
+    {% endif %}
+
 %post
     ############################ Install basic software ######################################
     export DEBIAN_FRONTEND=noninteractive
@@ -53,13 +54,14 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
     bash $parallel_script_path $hadoop_download_dir/$hadoop_download_file $hadoop_download_file "${number_of_chunks}"
     {%- endif %}
 
+    mkdir hadoop && tar xf $hadoop_download_file -C hadoop --strip-components 1 && rm $hadoop_download_file
+
     ## PATCH hadoop
     {% if hdfs_replication_mode == 'hdfs_patch' -%}
     mv hadoop-hdfs-{{ hadoop_version }}.jar hadoop/share/hadoop/hdfs/
     mv hadoop-hdfs-client-{{ hadoop_version }}.jar hadoop/share/hadoop/hdfs/
     {%- endif %}
 
-    mkdir hadoop && tar xf $hadoop_download_file -C hadoop --strip-components 1 && rm $hadoop_download_file
     chown -R $(whoami):$(whoami) hadoop
 
     ## Setup format script and default configuration files

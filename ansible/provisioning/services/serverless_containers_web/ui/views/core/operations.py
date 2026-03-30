@@ -5,6 +5,7 @@ from django.conf import settings
 
 # General utilities
 from ui.utils import request_to_state_db
+from ui.views.core.utils import getDbData
 
 # Background tasks
 from ui.background_tasks import get_pending_tasks_messages, register_task, remove_containers_from_app
@@ -40,21 +41,12 @@ def processStructures(request, structure_type, html_render, operations):
     requests_successes.extend(successful_tasks)
     requests_info.extend(still_pending_tasks)
 
-    try:
-        response = urllib.request.urlopen(url)
-        data_json = json.loads(response.read())
-    except urllib.error.HTTPError:
-        data_json = {}
+    data_json = getDbData(url)
 
     structures, addStructureForm = [], None
     if structure_type == "users":
         # Also get structures info to know which applications are subscribed to each user
-        try:
-            response = urllib.request.urlopen(structures_url)
-            structures_json = json.loads(response.read())
-        except urllib.error.HTTPError:
-            structures_json = {}
-
+        structures_json = getDbData(structures_url)
         structures, addStructureForm = operations["get"](data_json, structures_json)
     else:
         structures, addStructureForm = operations["get"](data_json)

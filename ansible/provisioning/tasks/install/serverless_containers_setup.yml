@@ -118,23 +118,17 @@
 ## WattWizard configuration
 - block:
   - name: Copy WattWizard configuration to ServerlessContainers dir
-    delegate_to: localhost
-    run_once: true
     template:
       src: templates/power_budgeting/wattwizard/config.yml
       dest: "{{ serverless_containers_path }}/src/WattWizard/config.yml"
 
   - name: Verify that the InfluxDB server is reachable
-    delegate_to: localhost
-    run_once: true
     wait_for:
       host: "{{ influxdb_host }}"
       port: 8086
       timeout: 30
 
   - name: Clean WattWizard timestamps directory
-    delegate_to: localhost
-    run_once: true
     file:
       state: "{{ item }}"
       path: "{{ serverless_containers_path }}/conf/WattWizard/timestamps/train/default"
@@ -144,8 +138,6 @@
       - directory
 
   - name: Copy WattWizard timestamp files to create models
-    delegate_to: localhost
-    run_once: true
     copy:
       src: "templates/power_budgeting/wattwizard/timestamps/{{ modelled_cpu }}/{{ item }}/"
       dest: "{{ serverless_containers_path }}/conf/WattWizard/timestamps/train/default/"
@@ -154,3 +146,5 @@
       - "default"
   when: "power_budgeting and power_modelling"
   tags: restart_services
+  delegate_to: localhost
+  run_once: true

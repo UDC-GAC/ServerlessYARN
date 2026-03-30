@@ -144,12 +144,12 @@ def run_playbook(playbook_name, tags=None, limit=None, extravars=None, ignore_fa
         if event.get('event') == 'runner_on_ok':
             # Get the event data which contains registered variables
             event_data = event.get('event_data', {})
+            task_name = event_data.get('task')
             if 'res' in event_data and 'ansible_facts' in event_data['res']:
                 # Store ansible facts
                 ouptut.update(event_data['res']['ansible_facts'])
             if 'res' in event_data and 'stdout' in event_data['res']:
                 # Store command outputs
-                task_name = event_data.get('task')
                 ouptut[f"{task_name}_stdout"] = event_data['res']['stdout']
 
             # Extract task duration
