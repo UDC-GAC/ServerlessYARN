@@ -1,0 +1,18 @@
+cpu:
+  max: 100
+  min: 100
+  weight: default
+  boundary: 25
+  boundary_type: percentage_of_max
+mem:
+  max: 1024
+  min: 1024
+  weight: default
+  boundary: 25
+  boundary_type: percentage_of_max
+energy:
+  max: 50
+  min: 50
+  weight: default
+  boundary: 10 # This value is provisional (it has to be tested)
+  boundary_type: percentage_of_max

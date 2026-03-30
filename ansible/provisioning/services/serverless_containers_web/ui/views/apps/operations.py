@@ -1,6 +1,5 @@
 import os
-import json
-import urllib
+import yaml
 import functools
 
 from django.conf import settings
@@ -224,17 +223,24 @@ def processStartApp(request, url, **kwargs):
     is_hadoop_app = app_type in ["hadoop_app", "spark_app"]
 
     ## ResourceManager/NameNode resources
-    rm_maximum_cpu, rm_minimum_cpu, rm_cpu_boundary = 100, 100, 25
-    rm_maximum_mem, rm_minimum_mem, rm_mem_boundary = 1024, 1024, 25
-    rm_maximum_energy, rm_minimum_energy, rm_energy_boundary = 50, 50, 10 # This value is provisional (it has to be tested)
     if is_hadoop_app:
-        app_resources['cpu']['max'] -= rm_maximum_cpu
-        app_resources['cpu']['min'] -= rm_minimum_cpu
-        app_resources['mem']['max'] -= rm_maximum_mem
-        app_resources['mem']['min'] -= rm_minimum_mem
+        master_resources_config_file = str(settings.BASE_DIR) + "/../../apps/base/hadoop_app/master_config.yml"
+        with open(master_resources_config_file, "r") as f: master_container_resources = yaml.load(f, Loader=yaml.FullLoader)
+
+        app_resources['cpu']['max'] -= master_container_resources['cpu']['max']
+        app_resources['cpu']['min'] -= master_container_resources['cpu']['min']
+        app_resources['mem']['max'] -= master_container_resources['mem']['max']
+        app_resources['mem']['min'] -= master_container_resources['mem']['min']
         if settings.PLATFORM_CONFIG['power_budgeting']:
-            app_resources['energy']['max'] -= rm_maximum_energy
-            app_resources['energy']['min'] -= rm_minimum_energy
+            app_resources['energy']['max'] -= master_container_resources['energy']['max']
+            app_resources['energy']['min'] -= master_container_resources['energy']['min']
+
+        ## Load default values
+        for resource in master_container_resources:
+            res = master_container_resources[resource]
+            if res["weight"]        == "default": res["weight"]        = DEFAULT_RESOURCE_VALUES['weight']
+            if res["boundary"]      == "default": res["boundary"]      = DEFAULT_LIMIT_VALUES['boundary']
+            if res["boundary_type"] == "default": res["boundary_type"] = DEFAULT_LIMIT_VALUES["boundary_type"]
 
     # Get resources for containers
     container_resources = getContainerResourcesForApp(number_of_containers, app_resources, app_limits, benevolence, is_hadoop_app)
@@ -249,22 +255,12 @@ def processStartApp(request, url, **kwargs):
 
     if is_hadoop_app:
         container_resources['rm-nn'] = {}
-        container_resources['rm-nn']['cpu_max'] = rm_maximum_cpu
-        container_resources['rm-nn']['cpu_min'] = rm_minimum_cpu
-        container_resources['rm-nn']['cpu_weight'] = DEFAULT_RESOURCE_VALUES['weight']
-        container_resources['rm-nn']['cpu_boundary'] = rm_cpu_boundary
-        container_resources['rm-nn']['cpu_boundary_type'] = "percentage_of_max"
-        container_resources['rm-nn']['mem_max'] = rm_maximum_mem
-        container_resources['rm-nn']['mem_min'] = rm_minimum_mem
-        container_resources['rm-nn']['mem_weight'] = DEFAULT_RESOURCE_VALUES['weight']
-        container_resources['rm-nn']['mem_boundary'] = rm_mem_boundary
-        container_resources['rm-nn']['mem_boundary_type'] = "percentage_of_max"
+        for resource in ["cpu", "mem"]:
+            for key in master_container_resources[resource]:
+                container_resources['rm-nn'][f"{resource}_{key}"] = master_container_resources[resource][key]
         if settings.PLATFORM_CONFIG['power_budgeting']:
-            container_resources['rm-nn']['energy_max'] = rm_maximum_energy
-            container_resources['rm-nn']['energy_min'] = rm_minimum_energy
-            container_resources['rm-nn']['energy_weight'] = DEFAULT_RESOURCE_VALUES['weight']
-            container_resources['rm-nn']['energy_boundary'] = rm_energy_boundary
-            container_resources['rm-nn']['energy_boundary_type'] = "percentage_of_max"
+            for key in master_container_resources["energy"]:
+                container_resources['rm-nn'][f"energy_{key}"] = master_container_resources["energy"][key]
 
         number_of_containers += 1
 
