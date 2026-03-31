@@ -12,7 +12,7 @@ source $scriptDir/access_playbooks_dir.sh
 # We disable services that may generate scaling requests and cap bandwidth of running containers to speed up the extension process
 if [ $THROTTLE_CONTAINERS_BW == 1 ];
 then
-    unbuffer ansible-playbook launch_playbook.yml -i $INVENTORY -t disable_scaling_services,limit_containers_bw \
+    unbuffer ansible-playbook manage_scaling_services.yml -i $INVENTORY -t disable_scaling_services,limit_containers_bw \
         --extra-vars \
             "host_list=$HOST_NAMES"
 fi
@@ -30,5 +30,5 @@ unbuffer ansible-playbook launch_playbook.yml -i $INVENTORY -t extend_lv \
 # Re-enable disabled services
 if [ $THROTTLE_CONTAINERS_BW == 1 ];
 then
-    unbuffer ansible-playbook launch_playbook.yml -i $INVENTORY -t enable_scaling_services
+    unbuffer ansible-playbook manage_scaling_services.yml -i $INVENTORY -t enable_scaling_services
 fi

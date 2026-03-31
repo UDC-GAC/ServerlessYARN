@@ -7,14 +7,15 @@ import os
 import json
 from datetime import datetime
 import logging
+import sys
 
 logger = logging.getLogger(__name__)
 
 scriptDir = os.path.realpath(os.path.dirname(__file__))
-playbook_dir = scriptDir + "/../../.."
+playbook_dir = f"{scriptDir}/../../.."
 inventory = "../ansible.inventory" ## relative to playbook_dir
-vars_path = scriptDir + "/../../../vars/main.yml"
-config_path = scriptDir + "/../../../config/config.yml"
+vars_path = f"{playbook_dir}/vars/main.yml"
+config_path =  f"{playbook_dir}/config/config.yml"
 
 # Ansible runner doc: https://ansible.readthedocs.io/projects/runner/en/stable/ansible_runner/
 
@@ -174,11 +175,15 @@ def add_disks(host_names, new_disks):
     run_playbook(playbook_name="launch_playbook.yml", tags=["add_disks"], extravars={"new_disks_dict_str": new_disks})
 
 @shared_task
-def extend_lv(host_names, new_disks, extra_disk, measure_host_list, throttle_containers_bw):
+def extend_lv(host_names, new_disks, extra_disk, measure_host_list, throttle_containers_bw=False):
+    ## External Python script
+    sys.path.append(f"{playbook_dir}/scripts")
+    import stateDatabase.limit_containers_bw as limit_containers_bw
 
     # We disable services that may generate scaling requests and cap bandwidth of running containers to speed up the extension process
     if throttle_containers_bw:
-        run_playbook(playbook_name="launch_playbook.yml", tags=["disable_scaling_services", "limit_containers_bw"], extravars={"host_list": ",".join(host_names)})
+        manage_scaling_services(enable=False)
+        limit_containers_bw.main(str(host_names), config_path)
 
     run_playbook(playbook_name="install_playbook.yml", tags=["extend_lv"], limit=host_names, extravars={
         "new_disks_list": new_disks,
@@ -190,8 +195,8 @@ def extend_lv(host_names, new_disks, extra_disk, measure_host_list, throttle_con
 
     # Re-enable disabled services
     if throttle_containers_bw:
-        run_playbook(playbook_name="launch_playbook.yml", tags=["enable_scaling_services"])
-
+        manage_scaling_services(enable=True)
+        limit_containers_bw.main(str(host_names), config_path)
 
 ## Manage containers
 def start_containers(host_names, containers_info):
@@ -283,16 +288,10 @@ def stop_app_on_container(host_name, container, app_name, app_files, rm_containe
 
 ## Manage services
 def disable_scaler():
-    run_playbook(playbook_name="launch_playbook.yml", tags=["disable_scaler"])
+    run_playbook(playbook_name="manage_scaling_services.yml", tags=["disable_scaler"])
 
 def enable_scaler():
-    run_playbook(playbook_name="launch_playbook.yml", tags=["enable_scaler"])
-
-def disable_scaling_services():
-    run_playbook(playbook_name="launch_playbook.yml", tags=["disable_scaling_services"])
-
-def enable_scaling_services():
-    run_playbook(playbook_name="launch_playbook.yml", tags=["enable_scaling_services"])
+    run_playbook(playbook_name="manage_scaling_services.yml", tags=["enable_scaler"])
 
 def manage_scaling_services(enable):
     if enable:

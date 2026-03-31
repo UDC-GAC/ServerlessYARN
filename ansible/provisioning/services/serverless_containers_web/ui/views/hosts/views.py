@@ -13,7 +13,7 @@ def hosts(request):
         "get": getHosts
     }
     if request.POST.get('structure_type', "") == "disks_to_hosts":
-        add_operation, rm_operation, get_operation = processAddDisksToHosts, processRemoveHosts, getHosts
+        operations["add"] = processAddDisksToHosts
 
     request, html_render, context, errors = processStructures(request, "hosts", "hosts.html", operations)
     if request and html_render and context:

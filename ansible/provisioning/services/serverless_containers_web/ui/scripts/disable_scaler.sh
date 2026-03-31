@@ -4,4 +4,4 @@ set -e
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 source $scriptDir/access_playbooks_dir.sh
 
-unbuffer ansible-playbook launch_playbook.yml -i $INVENTORY -t disable_scaler
+unbuffer ansible-playbook manage_scaling_services.yml -i $INVENTORY -t disable_scaler

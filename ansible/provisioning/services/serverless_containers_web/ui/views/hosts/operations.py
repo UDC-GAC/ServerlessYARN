@@ -126,11 +126,11 @@ def processAddDisksToHosts(request, url, **kwargs):
 
         ## extra params
         if "threshold" in request.POST and request.POST["threshold"] != "": threshold = float(request.POST['threshold'])
-        else: threshold = DEFAULT_SERVICE_PARAMETERS["lv_extend"]["threshold"]
+        else: threshold = DEFAULT_SERVICE_PARAMETERS["lv_extension"]["threshold"]
         if "polling_frequency" in request.POST and request.POST["polling_frequency"] != "": polling_frequency = int(request.POST['polling_frequency'])
-        else: polling_frequency = DEFAULT_SERVICE_PARAMETERS["lv_extend"]["polling_frequency"]
+        else: polling_frequency = DEFAULT_SERVICE_PARAMETERS["lv_extension"]["polling_frequency"]
         if "timeout_events" in request.POST and request.POST["timeout_events"] != "": timeout_events = int(request.POST['timeout_events'])
-        else: timeout_events = DEFAULT_SERVICE_PARAMETERS["lv_extend"]["timeout_events"]
+        else: timeout_events = DEFAULT_SERVICE_PARAMETERS["lv_extension"]["timeout_events"]
 
         if add_to_lv and extra_disk == "":
             error = "Can't add disks to Logical Volume without an extra disk"

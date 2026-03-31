@@ -392,11 +392,10 @@ def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk, measure
         ## 1st, extend LVs with no containers, so inmediate benchmark can be run on them
         for host in measure_host_list:
             if measure_host_list[host]:
-                throttle_containers_bw = 0
                 # argument_list = [host, ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), str(throttle_containers_bw)]
                 # error_message = "Error extending LV of host {0} with disks {1} and extra disk {2}".format(host, str(new_disks), extra_disk)
                 # task = process_script.delay("extend_lv", argument_list, error_message)
-                task = run_playbooks.extend_lv.delay([host], ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), throttle_containers_bw)
+                task = run_playbooks.extend_lv.delay([host], ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''))
                 register_task(task.id, "extend_lv_task")
                 host_list.remove(host)
 
@@ -420,11 +419,10 @@ def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk, measure
                     and host_max_write_bw - host_free_write_bw <= host_max_write_bw * threshold
                     ):
                     ## enough free bandwidth to execute benchmark anyways
-                    throttle_containers_bw = 0
                     # argument_list = [host, ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), str(throttle_containers_bw)]
                     # error_message = "Error extending LV of host {0} with disks {1} and extra disk {2}".format(host, str(new_disks), extra_disk)
                     # task = process_script.delay("extend_lv", argument_list, error_message)
-                    task = run_playbooks.extend_lv.delay([host], ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), throttle_containers_bw)
+                    task = run_playbooks.extend_lv.delay([host], ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''))
                     register_task(task.id, "extend_lv_task")
                     finished_hosts.append(host)
                 else:
@@ -441,11 +439,10 @@ def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk, measure
 
         ## 3rd, hosts that were not able to reduce bandwidth under the threshold; will extend lv regardless, but capping the available bandiwdth of their containers
         if len(host_list) > 0:
-            throttle_containers_bw = 1
             # argument_list = [','.join(host_list), ",".join(new_disks), extra_disk, str(measure_host_list).replace(' ',''), str(throttle_containers_bw)]
             # error_message = "Error extending LV of hosts {0} with disks {1} and extra disk {2}".format(host_list, str(new_disks), extra_disk)
             # process_script("extend_lv", argument_list, error_message)
-            run_playbooks.extend_lv(host_list, new_disks, extra_disk, str(measure_host_list).replace(' ',''), throttle_containers_bw)
+            run_playbooks.extend_lv(host_list, new_disks, extra_disk, str(measure_host_list).replace(' ',''), throttle_containers_bw=True)
 
     else:
         ## Add disks just as new individual disks

@@ -2,6 +2,7 @@
 - name: Manage scaling services
   hosts: localhost
   become: no
+  any_errors_fatal: yes
   gather_facts: no
 
   vars_files:
@@ -14,33 +15,44 @@
     PYTHONPATH: "{{ bdwatchdog_path }}:{{ serverless_containers_path }}"
 
   tasks:
-    - name: Activating Scaler service
-      shell: "bash scripts/orchestrator/Scaler/activate.sh"
+    ## Disable scaling services
+    ### This unified approach makes it easier to expand the task to disable specific services, rather than creating separate tasks
+    ### The inner loop of the shell command, rather than an Ansible loop, should run slightly faster
+    - name: Disabling services that generate scaling requests
+      shell: |
+        {% for item in services_to_disable | select | list %}
+          bash scripts/orchestrator/{{ item }}/deactivate.sh &&
+        {% endfor %}true
       args:
         chdir: "{{ serverless_containers_path }}"
         executable: /bin/bash
-      tags: never, enable_scaler
+      vars:
+        tags_active: "{{ ansible_run_tags | list }}"
+        disable_scaler: "{{ tags_active | intersect(['disable_scaler', 'disable_scaling_services']) | length > 0 }}"
+        disable_scaling: "{{ tags_active | intersect(['disable_scaling_services']) | length > 0 }}"
+        services_to_disable:
+          - "{{ 'Scaler' if disable_scaler else '' }}"
+          - "{{ 'Rebalancer' if disable_scaling else '' }}"
+          - "{{ 'Guardian' if not power_budgeting and disable_scaling else '' }}"
+          - "{{ 'EnergyController' if power_budgeting and disable_scaling else '' }}"
+      tags: never, disable_scaler, disable_scaling_services
 
-    - name: Disabling Scaler service
-      shell: "bash scripts/orchestrator/Scaler/deactivate.sh"
+    ## Re-enable services
+    - name: Re-enabling services that generate scaling requests
+      shell: |
+        {% for item in services_to_enable | select | list %}
+          bash scripts/orchestrator/{{ item }}/activate.sh &&
+        {% endfor %}true
       args:
         chdir: "{{ serverless_containers_path }}"
         executable: /bin/bash
-      tags: never, disable_scaler
-
-    - name: Disabling all scaling services
-      shell: "bash scripts/orchestrator/{{ item }}/deactivate.sh"
-      args:
-        chdir: "{{ serverless_containers_path }}"
-        executable: /bin/bash
-      loop: "{{ ['Scaler', 'Rebalancer', 'EnergyController'] if power_budgeting else ['Scaler', 'Guardian', 'Rebalancer'] }}"
-      tags: never, disable_scaling_services
-
-    - name: Enabling all scaling services
-      shell: "bash scripts/orchestrator/{{ item }}/activate.sh"
-      args:
-        chdir: "{{ serverless_containers_path }}"
-        executable: /bin/bash
-      #loop: "{{ ['Scaler', 'Guardian', 'Rebalancer'] + (['EnergyController'] if power_budgeting else []) }}"
-      loop: "{{ ['Scaler', 'Rebalancer', 'EnergyController'] if power_budgeting else ['Scaler', 'Guardian', 'Rebalancer'] }}"
-      tags: never, enable_scaling_services
+      vars:
+        tags_active: "{{ ansible_run_tags | list }}"
+        enable_scaler: "{{ tags_active | intersect(['enable_scaler', 'enable_scaling_services']) | length > 0 }}"
+        enable_scaling: "{{ tags_active | intersect(['enable_scaling_services']) | length > 0 }}"
+        services_to_enable:
+          - "{{ 'Scaler' if enable_scaler else '' }}"
+          - "{{ 'Rebalancer' if enable_scaling else '' }}"
+          - "{{ 'Guardian' if not power_budgeting and enable_scaling else '' }}"
+          - "{{ 'EnergyController' if power_budgeting and enable_scaling else '' }}"
+      tags: never, enable_scaler, enable_scaling_services
