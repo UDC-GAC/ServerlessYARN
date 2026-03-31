@@ -22,7 +22,7 @@
             - logrotate-couchdb
             - logrotate-loop.sh
 
-        - name: Build image
+        - name: Build image (couchdb)
           shell: "{{ singularity_command_alias }} build {{ image_file }} {{ definition_file }}"
           args:
             chdir: "{{ couchdb_path }}"
