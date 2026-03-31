@@ -7,9 +7,13 @@
     - "mounts"
   collections:
     - es_udc_gac.smart_sharedfs
+  module_defaults:
+    synchronize: "{{ global_module_defaults.synchronize }}"
+    es_udc_gac.smart_sharedfs.synchronize: "{{ global_module_defaults.synchronize }}"
 
   vars_files:
     - vars/main.yml
+    - vars/defaults.yml
     - config/config.yml
 
   vars:
@@ -494,6 +498,8 @@
 
           - name: Copy RM/NN container ssh public key to hosts
             delegate_to: "{{ rm_host }}" # this will push from rm_host to each host, i.e., a remote host to remote host copy
+            vars:
+              ansible_ssh_extra_args: "" ## required to avoid failure; synchronize and delegating to hosts other than 'localhost' introduce unexpected interactions
             synchronize:
               src: "{{ rm_container_bind_path }}/{{ rm_container }}.pub"
               dest: "{{ app_ssh_keys_dir }}/{{ app_name }}/{{ rm_container }}.pub"
@@ -674,13 +680,9 @@
           dest: "{{ app_tmpdir }}/{{ container }}/"
 
       - name: Copy templated config files to remote container
-        vars:
-          ansible_ssh_extra_args: "-o ControlPath=~/.ansible/cp/socket-{{ inventory_hostname }}"
         synchronize:
           src: "{{ app_tmpdir }}/{{ container }}/"
           dest: "{{ container_bind_dir }}/"
-          ssh_connection_multiplexing: yes
-          use_ssh_args: yes
 
       - name: Execute start script on container
         #shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null"
@@ -750,13 +752,9 @@
             mode: preserve
 
         - name: Copy templated config files to remote container
-          vars:
-            ansible_ssh_extra_args: "-o ControlPath=~/.ansible/cp/socket-{{ inventory_hostname }}"
           synchronize:
             src: "{{ app_tmpdir }}/{{ container }}/"
             dest: "{{ container_bind_dir }}/"
-            ssh_connection_multiplexing: yes
-            use_ssh_args: yes
 
         - name: Execute stop script on container
           #shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script | basename }} </dev/null"
@@ -834,14 +832,10 @@
               state: directory
 
           - name: Fetch output data from container to server
-            vars:
-              ansible_ssh_extra_args: "-o ControlPath=~/.ansible/cp/socket-{{ inventory_hostname }}"
             synchronize:
               src: "{{ container_bind_dir }}/{{ output_dir }}/"
               dest: "{{ stored_output_dir }}"
               mode: pull
-              ssh_connection_multiplexing: yes
-              use_ssh_args: yes
 
           - name: Add info about download and upload time
             when: download_time > 0 or upload_time > 0

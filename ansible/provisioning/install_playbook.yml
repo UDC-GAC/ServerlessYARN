@@ -10,9 +10,13 @@
     ## This gives priority to custom plugins, so calls to modules without their full names (FQCN)
     ## (e.g., 'copy' instead of 'ansible.builtin.copy') will be resolved first by custom plugins
     - es_udc_gac.smart_sharedfs
+  module_defaults:
+    synchronize: "{{ global_module_defaults.synchronize }}" ## this gets resolved to ansible.posix.synchronize, not custom plugins
+    es_udc_gac.smart_sharedfs.synchronize: "{{ global_module_defaults.synchronize }}"
 
   vars_files:
     - vars/main.yml
+    - vars/defaults.yml
     - config/config.yml
 
   environment:
@@ -65,9 +69,13 @@
     - "mounts"
   collections:
     - es_udc_gac.smart_sharedfs
+  module_defaults:
+    synchronize: "{{ global_module_defaults.synchronize }}"
+    es_udc_gac.smart_sharedfs.synchronize: "{{ global_module_defaults.synchronize }}"
 
   vars_files:
     - vars/main.yml
+    - vars/defaults.yml
     - config/config.yml
 
   environment:
@@ -115,9 +123,13 @@
     - "mounts"
   collections:
     - es_udc_gac.smart_sharedfs
+  module_defaults:
+    synchronize: "{{ global_module_defaults.synchronize }}"
+    es_udc_gac.smart_sharedfs.synchronize: "{{ global_module_defaults.synchronize }}"
 
   vars_files:
     - vars/main.yml
+    - vars/defaults.yml
     - config/config.yml
 
   environment:

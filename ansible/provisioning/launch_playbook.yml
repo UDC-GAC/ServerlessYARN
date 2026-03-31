@@ -8,9 +8,13 @@
     - "mounts"
   collections:
     - es_udc_gac.smart_sharedfs
+  module_defaults:
+    synchronize: "{{ global_module_defaults.synchronize }}"
+    es_udc_gac.smart_sharedfs.synchronize: "{{ global_module_defaults.synchronize }}"
 
   vars_files:
     - vars/main.yml
+    - vars/defaults.yml
     - config/config.yml
 
   vars:
@@ -95,9 +99,13 @@
     - "mounts"
   collections:
     - es_udc_gac.smart_sharedfs
+  module_defaults:
+    synchronize: "{{ global_module_defaults.synchronize }}"
+    es_udc_gac.smart_sharedfs.synchronize: "{{ global_module_defaults.synchronize }}"
 
   vars_files:
     - vars/main.yml
+    - vars/defaults.yml
     - config/config.yml
 
   tasks:

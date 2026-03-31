@@ -1,0 +1,11 @@
+## Required for synchronize to use a per-host socket
+### Note: When running sync and delegating the task to a host other than 'localhost', an error may occur because the socket path cannot be found
+### e.g., a sync directed at 'host0' and delegated to 'server' causes 'server' to perform the transfer to 'host0'; however, it appears to be executed from 'host0' and cannot find the socket
+### In such cases, this can be avoided by resetting this variable at the task level, for example: ansible_ssh_extra_args: ""
+ansible_ssh_extra_args: "-o ControlPath=~/.ansible/cp/socket-{{ hostvars[inventory_hostname].ansible_host if 'ansible_host' in hostvars[inventory_hostname] else inventory_hostname }}"
+
+global_module_defaults:
+  synchronize:
+    ## By default, synchronize does not use the SSH configuration defined in ansible.cfg; these parameters allow it
+    ssh_connection_multiplexing: yes
+    use_ssh_args: yes
