@@ -131,13 +131,14 @@
     executable: /bin/bash
   vars:
     tags_active: "{{ ansible_run_tags | list }}"
-    disable_scaler: "{{ tags_active | intersect(['disable_scaler', 'start_containers']) | length > 0 }}"
-    disable_scaling: "{{ tags_active | intersect(['disable_scaling_services', 'start_containers']) | length > 0 }}"
+    disable_scaler: "{{ tags_active | intersect(['disable_scaler', 'disable_scaling_services']) | length > 0 }}"
+    disable_scaling: "{{ tags_active | intersect(['disable_scaling_services']) | length > 0 }}"
     services_to_disable:
       - "{{ 'Scaler' if disable_scaler else '' }}"
       - "{{ 'Guardian' if disable_scaling else '' }}"
       - "{{ 'Rebalancer' if disable_scaling else '' }}"
-  tags: never, start_containers, disable_scaler, disable_scaling_services
+      - "{{ 'EnergyController' if power_budgeting and disable_scaling else '' }}"
+  tags: never, disable_scaler, disable_scaling_services # start_containers
 
 ## Containers
 - name: Initializing State Database - containers
@@ -165,13 +166,14 @@
     executable: /bin/bash
   vars:
     tags_active: "{{ ansible_run_tags | list }}"
-    enable_scaler: "{{ tags_active | intersect(['enable_scaler', 'start_containers']) | length > 0 }}"
-    enable_scaling: "{{ tags_active | intersect(['enable_scaling_services', 'start_containers']) | length > 0 }}"
+    enable_scaler: "{{ tags_active | intersect(['enable_scaler', 'enable_scaling_services']) | length > 0 }}"
+    enable_scaling: "{{ tags_active | intersect(['enable_scaling_services']) | length > 0 }}"
     services_to_enable:
       - "{{ 'Scaler' if enable_scaler else '' }}"
       - "{{ 'Guardian' if enable_scaling else '' }}"
       - "{{ 'Rebalancer' if enable_scaling else '' }}"
-  tags: never, start_containers, enable_scaler, enable_scaling_services
+      - "{{ 'EnergyController' if power_budgeting and enable_scaling else '' }}"
+  tags: never, enable_scaler, enable_scaling_services # start_containers
 
 - name: Guardian - Set power model
   when: "power_budgeting and power_modelling"

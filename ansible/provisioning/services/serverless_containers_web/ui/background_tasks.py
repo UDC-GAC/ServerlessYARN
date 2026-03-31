@@ -54,7 +54,8 @@ def get_pending_tasks():
     failed_tasks = []
 
     for key in redis_server.scan_iter("{0}:*".format(redis_prefix)):
-        task_name = redis_server.hget(key, "task_name").decode("utf-8")
+        task_name = redis_server.hget(key, "task_name")
+        task_name = "None" if task_name is None else task_name.decode("utf-8")
         task_id = key.decode("utf-8")[len(redis_prefix) + 1:]
         task_result = AsyncResult(task_id)
         status = task_result.status
@@ -62,8 +63,10 @@ def get_pending_tasks():
         if status != "SUCCESS" and status != "FAILURE":
             still_pending_tasks.append((task_id,task_name))
         elif status == "SUCCESS":
-            if redis_server.hexists(key, "runtime"): runtime = redis_server.hget(key, "runtime").decode("utf-8")
-            else: runtime = None
+            if redis_server.hexists(key, "runtime"):
+                runtime = redis_server.hget(key, "runtime").decode("utf-8")
+            else:
+                runtime = None
             successful_tasks.append((task_id,task_name,runtime))
         else:
             failed_tasks.append((task_id,task_name,task_result.result))
@@ -325,6 +328,31 @@ def process_script(script_name, argument_list, error_message):
         raise Exception(error)
 
 
+def manage_scaling_services(enable, skip_ansible=True):
+    if skip_ansible:
+        sc_path = "{0}/ServerlessContainers".format(settings.INSTALLATION_PATH)
+        services = ["Scaler", "Guardian", "Rebalancer"] + (["EnergyController"] if settings.PLATFORM_CONFIG["power_budgeting"] else [])
+        script = "activate.sh" if enable else "deactivate.sh"
+
+        # Deactivate services in parallel
+        processes = []
+        for service in services:
+            p = subprocess.Popen(["bash", f"{sc_path}/scripts/orchestrator/{service}/{script}"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            processes.append((service, p))
+
+        # Wait for output to check there is no errors
+        for service, p in processes:
+            out, err = p.communicate()
+            print("{0} {1} using local scripts: {2}".format("Activating" if enable else "Deactivating", service, out.decode("utf-8")))
+            if p.returncode != 0:
+                extracted_error = err.decode("utf-8")
+                if extracted_error.strip() == "":
+                    extracted_error = "Please consult Celery log under services/celery for further details"
+                raise Exception("Error managing scaling service {0} (enable={1}): {2}".format(service, enable, extracted_error))
+    else:
+        run_playbooks.manage_scaling_services(enable=enable)
+
+
 ## Adds
 @shared_task
 def add_host_task(host,cpu,mem,disk_info,energy,new_containers):
@@ -452,29 +480,25 @@ def add_user_task(full_url, put_field_data, user):
 
 @shared_task
 def subscribe_apps_to_user(url, user_name, user_apps):
-    run_playbooks.disable_scaler()
-    run_playbooks.disable_scaling_services()
+    manage_scaling_services(enable=False)
 
     # Subscribe containers to app in ServerlessContainers database
     for app_name in user_apps:
         full_url = url + "clusters/{0}/{1}".format(user_name, app_name)
         manage_app_with_user_in_db(full_url, user_name, app_name, "put")
 
-    run_playbooks.enable_scaler()
-    run_playbooks.enable_scaling_services()
+    manage_scaling_services(enable=True)
 
 @shared_task
 def desubscribe_apps_from_user(url, user_name, user_apps):
-    run_playbooks.disable_scaler()
-    run_playbooks.disable_scaling_services()
+    manage_scaling_services(enable=False)
 
     # Subscribe containers to app in ServerlessContainers database
     for app_name in user_apps:
         full_url = url + "clusters/{0}/{1}".format(user_name, app_name)
         manage_app_with_user_in_db(full_url, user_name, app_name, "delete")
 
-    run_playbooks.enable_scaler()
-    run_playbooks.enable_scaling_services()
+    manage_scaling_services(enable=True)
 
 def change_app_execution_state_in_db(url, app, state):
     max_retries = 10
@@ -811,8 +835,7 @@ def start_hadoop_app_task (self, assignation_requirements, url, app, app_files, 
     run_playbooks.stop_hadoop_cluster(rm_host, rm_container)
 
     ## Disable scaler and other scaling services, remove all containers from StateDB and re-enable them
-    run_playbooks.disable_scaler()
-    run_playbooks.disable_scaling_services()
+    manage_scaling_services(enable=False)
 
     start_time = timeit.default_timer()
     errors = []
@@ -825,8 +848,7 @@ def start_hadoop_app_task (self, assignation_requirements, url, app, app_files, 
     ## Wait at least for the scaler polling frequency time before re-enabling it
     time.sleep(scaler_polling_freq - (end_time - start_time))
 
-    run_playbooks.enable_scaler()
-    run_playbooks.enable_scaling_services()
+    manage_scaling_services(enable=True)
 
     ## Get timestamp to store output data
     timestamp = None
@@ -862,16 +884,14 @@ def setup_containers_network_task(url, app, app_containers, new_containers):
 
 @shared_task
 def subscribe_containers_to_app(url, app, app_containers):
-    run_playbooks.disable_scaler()
-    run_playbooks.disable_scaling_services()
+    manage_scaling_services(enable=False)
 
     # Subscribe containers to app in ServerlessContainers database
     for container in app_containers:
         full_url = url + "container/{0}/{1}".format(container['container_name'], app)
         add_container_to_app_in_db(full_url, container['container_name'], app)
 
-    run_playbooks.enable_scaler()
-    run_playbooks.enable_scaling_services()
+    manage_scaling_services(enable=True)
 
 @shared_task
 def wait_for_app_on_containers(app, app_containers):
@@ -1153,8 +1173,7 @@ def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_fre
     run_playbooks.stop_hadoop_cluster(rm_host, rm_container)
 
     ## Disable scaler and other scaling services, remove all containers from StateDB and re-enable them
-    run_playbooks.disable_scaler()
-    run_playbooks.disable_scaling_services()
+    manage_scaling_services(enable=False)
 
     start_time = timeit.default_timer()
     errors = []
@@ -1167,8 +1186,7 @@ def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_fre
     ## Wait at least for the scaler polling frequency time before re-enabling it
     time.sleep(scaler_polling_freq - (end_time - start_time))
 
-    run_playbooks.enable_scaler()
-    run_playbooks.enable_scaling_services()
+    manage_scaling_services(enable=True)
 
     # Remove app from db
     full_url = url + "apps" + "/" + app
@@ -1237,8 +1255,7 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
 
     # first, remove all containers from app
     if len(container_list) > 0:
-        run_playbooks.disable_scaler()
-        run_playbooks.disable_scaling_services()
+        manage_scaling_services(enable=False)
 
         errors = []
         for container in container_list:
@@ -1246,8 +1263,7 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
             error = remove_container_from_app_db(full_url, container['name'], app_name)
             if error != "": errors.append(error)
 
-        run_playbooks.enable_scaler()
-        run_playbooks.enable_scaling_services()
+        manage_scaling_services(enable=True)
 
         ## Get timestamp to store output data
         timestamp = None
@@ -1279,8 +1295,11 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
 def remove_containers_task(url, container_list):
 
     ## Disable scaler and other scaling services, remove all containers from StateDB and re-enable them
-    run_playbooks.disable_scaler()
-    run_playbooks.disable_scaling_services()
+    manage_scaling_services(enable=False)
+
+    # Ensure Scaler finish current iteration and persist host info before removing containers
+    # Sleep is not needed because orchestrator will do safe updated
+    #time.sleep(scaler_polling_freq)
 
     errors = []
     for container in container_list:
@@ -1288,8 +1307,7 @@ def remove_containers_task(url, container_list):
         error = remove_container_from_db(full_url, container['name'])
         if error != "": errors.append(error)
 
-    run_playbooks.enable_scaler()
-    run_playbooks.enable_scaling_services()
+    manage_scaling_services(enable=True)
 
     ## Stop Containers
     # Stop and remove containers
@@ -1306,32 +1324,34 @@ def remove_containers_task(url, container_list):
     if len(errors) > 0: raise Exception(str(errors))
 
 @shared_task
-def remove_containers_from_app(url, container_list, app, app_files, scaler_polling_freq):
+def remove_containers_from_app(url, container_list, app, app_files):
 
     # Disable scaler and other scaling services before removing containers
-    run_playbooks.disable_scaler()
-    run_playbooks.disable_scaling_services()
+    manage_scaling_services(enable=False)
 
     # Set application in stop state in ServerlessContainers
+    #start_time = timeit.default_timer()
     change_app_execution_state_in_db(url, app, "stop") ## this state is redundant, should be removed if does not break anything
     change_app_state_in_db(url, app, "stopped")
+    #end_time = timeit.default_timer()
+
+    # Ensure Scaler finish current iteration and persist host info before removing containers
+    #time.sleep(scaler_polling_freq - (end_time - start_time))
 
     # Desubscribe containers from app in StateDB
-    start_time = timeit.default_timer()
     errors = []
     for container in container_list:
         full_url = url + "container/{0}/{1}".format(container['container_name'],app)
         error = remove_container_from_app_db(full_url, container['container_name'], app)
         if error != "":
             errors.append(error)
-    end_time = timeit.default_timer()
+
 
     ## Wait at least for the scaler polling frequency time before re-enabling it
-    time.sleep(scaler_polling_freq - (end_time - start_time))
+    #time.sleep(scaler_polling_freq - (end_time - start_time))
 
     # Re-enable Scaler
-    run_playbooks.enable_scaler()
-    run_playbooks.enable_scaling_services()
+    manage_scaling_services(enable=True)
 
     ## Get timestamp to store output data
     timestamp = None
@@ -1360,8 +1380,7 @@ def remove_containers_from_app(url, container_list, app, app_files, scaler_polli
 
 @shared_task
 def remove_users_task(url, users):
-    run_playbooks.disable_scaler()
-    run_playbooks.disable_scaling_services()
+    manage_scaling_services(enable=False)
 
     errors = []
     for user_name in users:
@@ -1371,9 +1390,7 @@ def remove_users_task(url, users):
         if error != "":
             errors.append(error)
 
-
-    run_playbooks.enable_scaler()
-    run_playbooks.enable_scaling_services()
+    manage_scaling_services(enable=True)
 
     if len(errors) > 0:
         raise Exception(str(errors))

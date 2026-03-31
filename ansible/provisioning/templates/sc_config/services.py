@@ -105,6 +105,7 @@ energy_controller = dict(
     heartbeat="",
     config=dict(
         EVENT_TIMEOUT=20,
+        CONTROL_POLICY={% if power_modelling %}"model-boosted"{% else %}"ppe-proportional"{% endif %},
         WINDOW_TIMELAPSE=10,
         WINDOW_DELAY=0,
         POLLING_FREQUENCY=5,

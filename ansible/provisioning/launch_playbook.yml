@@ -88,6 +88,7 @@
 # Setup nodes
 - name: Launch services from hosts
   hosts: nodes
+  become: no
   any_errors_fatal: yes
   gather_facts: yes
   gather_subset: ## prevent gathering all facts

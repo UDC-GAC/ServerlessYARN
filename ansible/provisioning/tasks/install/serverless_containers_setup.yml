@@ -123,6 +123,7 @@
       dest: "{{ serverless_containers_path }}/src/WattWizard/config.yml"
 
   - name: Verify that the InfluxDB server is reachable
+    ignore_errors: yes
     wait_for:
       host: "{{ influxdb_host }}"
       port: 8086

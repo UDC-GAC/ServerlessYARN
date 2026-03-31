@@ -1,22 +1,26 @@
 Bootstrap: docker
-From: ubuntu:20.04
+From: ubuntu:24.04
 
 %files
     debian_couchdb_conf.dat /opt/debian_couchdb_conf.dat
     local.ini /opt/local.ini
+    logrotate-couchdb /opt/logrotate-couchdb
+    logrotate-loop.sh /opt/logrotate-loop.sh
 
 %post -c /bin/bash
 
+    export TZ=UTC
+    export DEBIAN_FRONTEND=noninteractive
     export COUCHDB_DATA_DIR="/couchdb_data"
     export COUCHDB_LOG_DIR="/var/log/couchdb"
     export COUCHDB_CONF_FILE="/opt/couchdb/etc/local.ini"
 
     # Install CouchDB
     apt-get -y update
-    apt-get -y install curl apt-transport-https gnupg
+    apt-get -y install curl apt-transport-https gnupg logrotate
     curl https://couchdb.apache.org/repo/keys.asc | gpg --dearmor | tee /usr/share/keyrings/couchdb-archive-keyring.gpg >/dev/null 2>&1 
     source /etc/os-release 
-    echo "deb [signed-by=/usr/share/keyrings/couchdb-archive-keyring.gpg] https://apache.jfrog.io/artifactory/couchdb-deb/ focal main" | tee /etc/apt/sources.list.d/couchdb.list >/dev/null
+    echo "deb [signed-by=/usr/share/keyrings/couchdb-archive-keyring.gpg] https://apache.jfrog.io/artifactory/couchdb-deb/ ${VERSION_CODENAME} main" | tee /etc/apt/sources.list.d/couchdb.list >/dev/null
     apt-get -y update
     debconf-copydb importmedb configdb --config=Name:importmedb --config=Driver:File --config=Filename:/opt/debian_couchdb_conf.dat
     apt-get install -y couchdb
@@ -29,6 +33,15 @@ From: ubuntu:20.04
     # Set CouchDB config
     cp /opt/local.ini "${COUCHDB_CONF_FILE}"
 
+    # Configure logrotate to rotate CouchDB logs
+    cp /opt/logrotate-couchdb /etc/logrotate.d/couchdb
+
+    # Give permissions to rotate script
+    chmod 755 /opt/logrotate-loop.sh
 
 %startscript
+    # Start daemon to rotate logs with low priority
+    nohup nice -n 19 /opt/logrotate-loop.sh &> /var/log/couchdb/logrotate-loop.log &
+
+    # Start CouchDB
     /opt/couchdb/bin/couchdb

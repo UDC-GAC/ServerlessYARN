@@ -48,7 +48,7 @@ def start_app(session, app_name, number_of_containers, assignation_policy):
     # Set data
     data = {
         "csrfmiddlewaretoken": csrf_token,
-        "operation": "add",
+        "operation": "start",
         "structure_type": "containers_to_app",
         "name": app_name,
         "number_of_containers": number_of_containers,

@@ -49,6 +49,8 @@ with open(installation_path + '/.django_secret_key.txt', "r") as f:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+INSTALLATION_PATH = installation_path
+
 ALLOWED_HOSTS = [PLATFORM_CONFIG['server_ip'], "127.0.0.1", "localhost"]
 
 BASE_URL = "http://{0}:{1}".format(PLATFORM_CONFIG['server_ip'],PLATFORM_CONFIG['orchestrator_port'])

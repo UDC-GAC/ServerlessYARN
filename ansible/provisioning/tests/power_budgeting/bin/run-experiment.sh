@@ -23,7 +23,7 @@ export RESULTS_DIR="${OUTPUT_DIR}/${EXPERIMENT_NAME}"
 export RULES_FILE="${CONF_RULES_DIR}/$(echo ${EXPERIMENT_CONFIG} | jq -r '.rules_file')"
 export SETUP_FILE="${CONF_SETUP_DIR}/$(echo ${EXPERIMENT_CONFIG} | jq -r '.setup_file')"
 export ENTRYPOINT_FILE="${CONF_ENTRYPOINT_DIR}/$(echo ${EXPERIMENT_CONFIG} | jq -r '.entrypoint_file')"
-export PLOTS_CONFIG_FILE="${CONF_RULES_DIR}/$(echo ${EXPERIMENT_CONFIG} | jq -r '.plots_config_file')"
+export PLOTS_CONFIG_FILE="${CONF_PLOTS_DIR}/$(echo ${EXPERIMENT_CONFIG} | jq -r '.plots_config_file')"
 
 # Application configuration
 export APP_CONFIG_FILE="${CONF_APPS_DIR}/$(echo ${EXPERIMENT_CONFIG} | jq -r '.app_config')"

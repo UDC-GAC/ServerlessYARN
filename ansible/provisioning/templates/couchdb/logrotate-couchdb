@@ -1,0 +1,12 @@
+/var/log/couchdb/couchdb.log {
+    daily
+    rotate 5
+    maxsize 200M
+    copytruncate
+    compress
+    delaycompress
+    missingok
+    notifempty
+    dateext
+    su {{ user_info.user_name }} {{ user_info.group_name }}
+}
