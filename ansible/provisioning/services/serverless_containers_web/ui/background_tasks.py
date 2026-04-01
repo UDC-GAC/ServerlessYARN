@@ -693,7 +693,9 @@ def deploy_app_containers(url, new_containers, app, app_files, container_resourc
     # argument_list = [hosts, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar'], app_type]
     # error_message = "Error starting containers {0}".format(formatted_containers_info)
     # process_script("start_containers_with_app", argument_list, error_message)
+    manage_scaling_services(enable=False)
     run_playbooks.start_containers_with_app(list(added_containers.keys()), formatted_containers_info, app, app_type, app_files)
+    manage_scaling_services(enable=True)
 
     return containers_info
 
@@ -1136,7 +1138,9 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
     # argument_list = [formatted_host_list, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar'], app_files['app_type']]
     # error_message = "Error starting containers {0}".format(formatted_containers_info)
     # process_script("start_containers_with_app", argument_list, error_message)
+    manage_scaling_services(enable=False)
     run_playbooks.start_containers_with_app(host_list, formatted_containers_info, app, app_files['app_type'], app_files)
+    manage_scaling_services(enable=True)
 
     ## Setup network and start HDFS
     # argument_list = [formatted_host_list, app, app_files['app_type'], formatted_containers_info, nn_host, nn_container, hdfs_resources["datanode_d_heapsize"]]
