@@ -258,8 +258,8 @@ public class HDFSBlockParallelCopy {
   }
 
   public static void main(String[] args) throws Exception {
-    if (args.length != 2) {
-      System.err.println("Usage: HDFSBlockParallelCopy <src_path> <dst_path>");
+    if (args.length != 2 || args.length != 3) {
+      System.err.println("Usage: HDFSBlockParallelCopy <src_path> <dst_path> [<replication>]");
       System.exit(-1);
     }
     Configuration conf = new Configuration();
@@ -267,6 +267,11 @@ public class HDFSBlockParallelCopy {
     Path dst = new Path(args[1]);
     conf.set("copy.src.root", src.toString());
     conf.set("copy.dst.root", dst.toString());
+    if (args.length == 3) {
+      int replication = Integer.parseInt(args[2]);
+      conf.set("copy.replication", String.valueOf(replication));
+      conf.set("dfs.replication", String.valueOf(replication));
+    }
 
     Job job = Job.getInstance(conf, "HDFS Block-Parallel Copy (binary-safe)");
     job.setJarByClass(HDFSBlockParallelCopy.class);

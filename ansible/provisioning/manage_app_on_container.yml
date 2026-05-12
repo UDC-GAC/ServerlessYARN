@@ -1058,7 +1058,7 @@
                 block:
                   - name: "Transfer data"
                     shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
-                        \"\\$HADOOP_HOME/bin/hadoop jar {{ bind_dir_on_container }}/runtime_files/simple-distcp.jar {{ origin }} {{ dest }}\""
+                        \"\\$HADOOP_HOME/bin/hadoop jar {{ bind_dir_on_container }}/runtime_files/simple-distcp.jar {{ origin }} {{ dest }} {{ replication_factor }}\""
                     args:
                       executable: /bin/bash
 
