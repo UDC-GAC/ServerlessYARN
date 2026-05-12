@@ -81,6 +81,7 @@ def run_adhoc(hosts, module, module_args=None, extravars=None, ignore_failure=Fa
     ## Ad-hoc command setup
     rc = RunnerConfig(
         private_data_dir=playbook_dir, ## required parameter even though it is not executing a playbook
+        artifact_dir="/tmp/ansible_artifacts",
         host_pattern=",".join(hosts),
         module=module,
         module_args=module_args,
@@ -107,6 +108,7 @@ def run_playbook(playbook_name, tags=None, limit=None, extravars=None, ignore_fa
     ## Playbook running setup
     rc = RunnerConfig(
         private_data_dir=playbook_dir,
+        artifact_dir="/tmp/ansible_artifacts",
         playbook=playbook_name,
         tags=",".join(tags) if tags else None,
         limit=",".join(limit) if limit else None,
