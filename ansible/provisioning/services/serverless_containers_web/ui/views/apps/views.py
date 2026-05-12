@@ -4,10 +4,11 @@ from django.shortcuts import render, redirect
 from django.conf import settings
 
 from ui.views.core.operations import processStructures
-from ui.views.core.utils import guard_switch, redirect_with_errors
+from ui.views.core.utils import getDbData, guard_switch, redirect_with_errors
 from ui.views.apps.operations import getApps, processAddApp, processStartApp, processStopApp, processRemoveApps, processRemoveContainersFromApp
 
 from ui.run_playbooks import drop_host_caches
+from ui.background_tasks import monitor_global_hdfs_replication, register_task
 
 # ------------------------------------ Apps views ------------------------------------
 
@@ -74,3 +75,28 @@ def apps_stop_switch(request, structure_name):
 def drop_caches(request):
     drop_host_caches()
     return redirect("apps")
+
+def enable_monitor(request):
+    if settings.PLATFORM_CONFIG["hdfs_replication_mode"] == "monitor":
+        global_app_name = settings.VARS_CONFIG['global_hdfs_app_name']
+        global_app_url = "/".join([settings.BASE_URL, "structure", global_app_name ])
+        global_app = getDbData(global_app_url)
+
+        nn_container = None
+        nn_host = None
+        if global_app:
+            for container in global_app['containers']:
+                if "namenode" in container['container_name']:
+                    nn_container = container['container_name']
+                    nn_host = container['host']
+                    break
+
+        if not global_app or not nn_container or not nn_host:
+            redirect_with_errors("apps", "Global HDFS seems down")
+
+        monitor_task = monitor_global_hdfs_replication.delay(global_app_name, nn_host, nn_container)
+
+        register_task(monitor_task.id,"monitor_hdfs_task")
+        return redirect("apps")
+    else:
+        redirect_with_errors("apps", "Monitor replication mode is not enabled")

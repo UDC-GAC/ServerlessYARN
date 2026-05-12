@@ -21,6 +21,11 @@
         <p></p>
     {% endif %}
 
+    {% if config.hdfs_replication_mode == 'monitor' %}
+        {% include 'functions/switch.html' with switch_url="enable_monitor" switch_name="enable_monitor" switch_prefix="enable" state=False off_state_label="Enable monitor" %}
+        <p></p>
+    {% endif %}
+
     <!-- Apps -->
     <ul id="tabs">
         {% for item in data %}

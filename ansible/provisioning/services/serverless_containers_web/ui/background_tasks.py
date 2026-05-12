@@ -1025,11 +1025,7 @@ def monitor_global_hdfs_replication(self, global_app_name, global_namenode_host,
 
         ## Hosts
         if global_app and "disk" in global_app["resources"]:
-            try:
-                response = urllib.request.urlopen("/".join([settings.BASE_URL, "structure"]))
-                data_json = json.loads(response.read())
-            except urllib.error.HTTPError:
-                data_json = {}
+            data_json = getDbData("/".join([settings.BASE_URL, "structure", ""])) ## the url needs to end with "/"
             hosts = getHostsNames(data_json)
 
         return global_app, global_namenode, hosts
@@ -1058,7 +1054,7 @@ def monitor_global_hdfs_replication(self, global_app_name, global_namenode_host,
         for container_name in global_app['containers']:
             if container_name != global_namenode_name:
                 container = getDbData("/".join([settings.BASE_URL, "structure", container_name ]))
-                if "disk" in container:
+                if "disk" in container['resources']:
                     datanode_list[container['host']].append(container)
 
     ## Loop until global HDFS is stopped
@@ -1069,14 +1065,14 @@ def monitor_global_hdfs_replication(self, global_app_name, global_namenode_host,
             for datanode in datanode_list[host['name']]:
                 match_disk = None
                 for host_disk in host['resources']['disks']:
-                    if host_disk['name'] == datanode['resources']['disk']['name']:
-                        match_disk = host_disk
+                    if host_disk == datanode['resources']['disk']['name']:
+                        match_disk = host['resources']['disks'][host_disk]
                         break
                 if not match_disk: raise Exception("Disk {0} not found in host {1}. Host data: {2}".format(datanode['resources']['disk']['name'], host['name'], host))
                 if any(
-                    (match_disk['max_{0}'.format(res)] - datanode['resources'][res]['min']) * thresh < match_disk['max_{0}'.format(res)] - datanode['resources'][res]['min'] - match_disk['free_{0}'.format(res)] 
-                    or global_app["resources"][res]["max"] * thresh < global_app["resources"][res]["usage"] 
-                    for res, thresh in [("disk_read", read_threshold), ("disk_write", write_threshold)]
+                    (match_disk[f'max_{res}'] - datanode['resources'][f"disk_{res}"]['min']) * thresh < match_disk[f'max_{res}'] - datanode['resources'][f"disk_{res}"]['min'] - match_disk[f'free_{res}'] 
+                    or global_app["resources"][f"disk_{res}"]["max"] * thresh < global_app["resources"][f"disk_{res}"]["usage"] 
+                    for res, thresh in [("read", read_threshold), ("write", write_threshold)]
                 ):
                     run_replication = False
                     break

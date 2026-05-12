@@ -2,3 +2,4 @@ from .views import apps
 from .views import apps_guard_switch
 from .views import apps_stop_switch
 from .views import drop_caches
+from .views import enable_monitor

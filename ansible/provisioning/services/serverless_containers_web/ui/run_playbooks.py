@@ -426,7 +426,11 @@ def set_global_hdfs_replication(nn_host, nn_container, replication_factor):
         "replication_factor": replication_factor
     }
 
-    run_playbook(playbook_name="manage_app_on_container.yml", tags=["set_hdfs_replication"], limit=[nn_host], extravars=extravars)
+    _, task_timings = run_playbook(playbook_name="manage_app_on_container.yml", tags=["set_hdfs_replication"], limit=[nn_host], extravars=extravars)
+
+    replication_time = 0
+    if 'Set global HDFS replication' in task_timings: replication_time += task_timings['Set global HDFS replication']
+    logger.info(f"\n{'#'*80}\nGlobal HDFS replication took {replication_time} seconds\n{'#'*80}")
 
 def get_hdfs_filesystem(namenode_host, namenode_container_name):
 
