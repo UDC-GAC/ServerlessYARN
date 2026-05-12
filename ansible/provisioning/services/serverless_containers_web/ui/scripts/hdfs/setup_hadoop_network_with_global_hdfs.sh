@@ -22,11 +22,13 @@ MAPREDUCE_AM_MEMORY=${16}
 MAPREDUCE_AM_MEMORY_JAVA_OPTS=${17}
 DATANODE_D_HEAPSIZE=${18}
 NODEMANAGER_D_HEAPSIZE=${19}
+HDFS_REPLICATION=${20}
 ## Global HDFS info
-GLOBAL_NAMENODE_CONTAINER=${20}
-GLOBAL_NAMENODE_HOST=${21}
-GLOBAL_INPUT=${22}
-LOCAL_OUTPUT=${23}
+GLOBAL_NAMENODE_CONTAINER=${21}
+GLOBAL_NAMENODE_HOST=${22}
+GLOBAL_INPUT=${23}
+LOCAL_OUTPUT=${24}
+DATANODES_INFO_STR=${25}
 
 
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
@@ -52,7 +54,9 @@ unbuffer ansible-playbook manage_app_on_container.yml -i $INVENTORY -t setup_net
         mapreduce_am_memory_java_opts=$MAPREDUCE_AM_MEMORY_JAVA_OPTS \
         datanode_heapsize=$DATANODE_D_HEAPSIZE \
         nodemanager_heapsize=$NODEMANAGER_D_HEAPSIZE \
-        global_namenode_container=$GLOBAL_NAMENODE_CONTAINER \
-        global_namenode_host=$GLOBAL_NAMENODE_HOST \
+        namenode_container_name=$GLOBAL_NAMENODE_CONTAINER \
+        namenode_host=$GLOBAL_NAMENODE_HOST \
         global_input=$GLOBAL_INPUT \
-        local_output=$LOCAL_OUTPUT"
+        local_output=$LOCAL_OUTPUT \
+        datanodes_info_str=$DATANODES_INFO_STR \
+        hdfs_replication=$HDFS_REPLICATION"

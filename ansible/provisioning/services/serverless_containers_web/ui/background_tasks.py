@@ -303,7 +303,7 @@ def extract_hadoop_resources(hadoop_resources):
 
     resources_to_extract = ["vcores", "min_vcores", "scheduler_maximum_memory", "scheduler_minimum_memory", "nodemanager_memory", 
                             "map_memory", "map_memory_java_opts", "reduce_memory", "reduce_memory_java_opts", "mapreduce_am_memory", 
-                            "mapreduce_am_memory_java_opts", "datanode_heapsize", "nodemanager_heapsize"]
+                            "mapreduce_am_memory_java_opts", "datanode_heapsize", "nodemanager_heapsize", "hdfs_replication"]
     extracted_resources = []
 
     for resource in resources_to_extract:
@@ -690,7 +690,7 @@ def deploy_app_containers(url, new_containers, app, app_files, container_resourc
     formatted_containers_info = str(containers_info).replace(' ', '')
 
     # Deploy containers through Ansible
-    # argument_list = [hosts, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar'], app_type]
+    # argument_list = [hosts, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar'], app_type, app]
     # error_message = "Error starting containers {0}".format(formatted_containers_info)
     # process_script("start_containers_with_app", argument_list, error_message)
     manage_scaling_services(enable=False)
@@ -798,10 +798,10 @@ def start_app_task(self, assignation_requirements, url, app, app_files, containe
     update_task_runtime(self.request.id, runtime)
 
     # Destroy all the containers and remove them from ServerlessContainers
-    remove_containers_from_app(url, app_containers, app, app_files, scaler_polling_freq)
+    remove_containers_from_app(url, app_containers, app, app_files)
 
 @shared_task(bind=True)
-def start_hadoop_app_task (self, assignation_requirements, url, app, app_files, container_resources, scaler_polling_freq, virtual_cluster, app_type="hadoop_app", global_hdfs_data=None, dependencies={}):
+def start_hadoop_app_task(self, assignation_requirements, url, app, app_files, container_resources, scaler_polling_freq, virtual_cluster, app_type="hadoop_app", global_hdfs_data=None, dependencies={}):
 
     new_containers, disk_assignation = wait_for_app_dependency(assignation_requirements, url, app, container_resources, dependencies)
 

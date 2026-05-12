@@ -404,7 +404,7 @@ def processRemoveContainersFromApp(request, url, **kwargs):
 
     scaler_polling_freq = getScalerPollFreq()
 
-    task = remove_containers_from_app.delay(url, container_list, app, app_files, scaler_polling_freq)
+    task = remove_containers_from_app.delay(url, container_list, app, app_files)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"remove_containers_from_app")
 

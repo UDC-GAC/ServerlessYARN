@@ -6,6 +6,7 @@ APP_DIR=$3
 INSTALL_SCRIPT=$4
 APP_JAR=$5
 APP_TYPE=$6
+APP_NAME=$7
 
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 source $scriptDir/access_playbooks_dir.sh
@@ -22,4 +23,5 @@ unbuffer ansible-playbook start_containers_playbook.yml -i $INVENTORY -t start_c
 unbuffer ansible-playbook launch_playbook.yml -i $INVENTORY -t start_containers \
     --extra-vars \
         "host_list=$HOST_NAMES \
-        containers_info_str=$CONTAINERS_INFO"
+        containers_info_str=$CONTAINERS_INFO \
+        app_name=$APP_NAME"
