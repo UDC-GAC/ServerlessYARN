@@ -1,2 +1,3 @@
+cryptography<42 ## newer versions trigger warnings on Ansible when running an old Python installation
 ansible
 ruamel.yaml
