@@ -1064,6 +1064,11 @@
 
               - name: Run Hadoop distcp
                 when: distcp_executable == 'hadoop_distcp'
+                vars:
+                  global_datanodes_info: "{{ datanodes_info_str | replace('\n','') | replace(' ','') }}"
+                  datanodes_max_write_bw: "{{ global_datanodes_info[0].resources.disk_write.max | int }}" ## write bw is usually more restrictive than read, specially considering that replication speeds up reads
+                  mappers_per_node: "{{ ( (datanodes_max_write_bw)|int / 100 ) | round(1, 'ceil') }}"
+                  max_mappers: "{{ ( (number_of_datanodes)|int * (mappers_per_node)|int ) | int }}"
                 block:
                   - name: Get blocks_per_chunk when mappers_assignation == 'distcp-default' or 'mapred-default' --> avoid additional calculations
                     when: mappers_assignation == 'distcp-default' or mappers_assignation == 'mapred-default'
@@ -1085,7 +1090,7 @@
                       get_mappers:
                         number_of_blocks: "{{ data_transfer_info.stdout_lines[0] }}"
                         number_of_files: "{{ data_transfer_info.stdout_lines[1] }}"
-                        number_of_datanodes: "{{ number_of_datanodes }}"
+                        max_mappers: "{{ max_mappers }}"
                         mode: "{{ mappers_assignation }}"
                       register: mappers_result
 
@@ -1095,7 +1100,7 @@
 
                   - name: "Transfer data"
                     shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
-                      \"\\$HADOOP_HOME/bin/hadoop distcp -D dfs.replication={{ replication_factor }} -strategy dynamic -blocksperchunk {{ blocks_per_chunk }} {{ origin }} {{ dest }}\""
+                      \"\\$HADOOP_HOME/bin/hadoop distcp -D dfs.replication={{ replication_factor }} -m {{ max_mappers }} -strategy dynamic -blocksperchunk {{ blocks_per_chunk }} {{ origin }} {{ dest }}\""
                     args:
                       executable: /bin/bash
 

@@ -50,7 +50,7 @@ distcp_executable: simple_distcp
 ## 'best-effort': it will try to assign the best distribution
 ## 'distcp-default': 0 (do not slice files, create 1 mapper per file)
 ## 'mapred-default': 1 (slice per every block, create 1 mapper per block)
-## 'datanode-mapping': try to assign a mapper per datanode;
+## 'nearest-multiple': try to assign a multiple for the maximum number of mappers;
   ### this is a best-effort estimation, since it depends on the number of blocks of the selected path
   ### an unbalanced block distribution in the files may lower the precision of the resulting distribution
 mappers_assignation: 'best-effort'
