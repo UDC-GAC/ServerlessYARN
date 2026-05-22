@@ -258,7 +258,7 @@ public class HDFSBlockParallelCopy {
   }
 
   public static void main(String[] args) throws Exception {
-    if (args.length != 2 || args.length != 3) {
+    if (args.length < 2 || args.length > 3) {
       System.err.println("Usage: HDFSBlockParallelCopy <src_path> <dst_path> [<replication>]");
       System.exit(-1);
     }
