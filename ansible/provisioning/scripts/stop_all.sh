@@ -70,6 +70,14 @@ clean_logs ()
     echo "Log clean Done!"
 }
 
+stop_container_services ()
+{
+    echo ""
+    echo "Stopping other services deployed within containers..."
+    ansible-playbook ${scriptDir}/../start_containers_playbook.yml -i $INVENTORY -t stop_tcp_tracker,stop_cache_containers
+    echo "Container services stopped!"
+}
+
 ## Script execution
 setup_config
 
@@ -81,6 +89,7 @@ fi
 if [ "$stop_services_flag" = true ]
 then
     stop_services
+    stop_container_services
 fi
 
 if [ "$stop_opentsdb_flag" = true ]
