@@ -31,4 +31,6 @@
     args:
       chdir: "{{ serverless_containers_path }}"
       executable: /bin/bash
+    environment:
+      TCP_TRACKER_LOG_PATH: "/dev/shm/tcp-tracker-{{ inventory_hostname }}"
   tags: restart_services

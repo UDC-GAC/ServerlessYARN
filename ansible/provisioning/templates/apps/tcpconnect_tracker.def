@@ -1,0 +1,35 @@
+Bootstrap: localimage
+From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_file }}
+
+%post
+    export TZ=UTC
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get -y update
+    apt-get -y install wget
+
+    cd /opt
+    apt purge bpfcc-tools libbpfcc python3-bpfcc
+    wget https://github.com/iovisor/bcc/releases/download/v0.25.0/bcc-src-with-submodule.tar.gz
+    tar xf bcc-src-with-submodule.tar.gz --no-same-owner
+    cd bcc/
+    apt install -y python-is-python3
+    apt install -y bison build-essential cmake flex git libedit-dev   libllvm11 llvm-11-dev libclang-11-dev zlib1g-dev libelf-dev libfl-dev python3-distutils
+    apt install -y checkinstall
+    mkdir build
+    cd build/
+    cmake -DCMAKE_INSTALL_PREFIX=/opt -DPYTHON_CMD=python3 -DPYTHON_PREFIX=/usr ..
+    make
+    checkinstall
+
+%startscript
+    export PYTHONPATH="/opt/lib/python3/dist-packages"
+    export LD_LIBRARY_PATH="/opt/lib"
+
+    BIN_LOCATION=/opt/share/bcc/tools
+    DATE=`date +%d-%m-%y--%H-%M-%S`
+    OUTPUT_FILE="{{ bind_dir_on_container }}/tcp_connect_$DATE.log"
+    su -c - "{{ user_info.user_name }}" "touch $OUTPUT_FILE"
+    echo "Starting TCPConnect at `date +'%d-%m-%y %H:%M:%S'`" | su -c - "{{ user_info.user_name }}" "tee -a $OUTPUT_FILE"
+
+    tmux new -s "TCPCONNECT" -d "env PYTHONUNBUFFERED=1 $BIN_LOCATION/tcpconnect -t -4 -P {{ track_port }} | su -c - {{ user_info.user_name }} 'tee -a $OUTPUT_FILE'"

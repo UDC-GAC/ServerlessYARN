@@ -1,0 +1,104 @@
+- name: Install linux kernel images
+  when: virtual_mode
+  become: yes
+  block:
+    - name: Gather facts
+      gather_facts:
+
+    - name: Install headers via APT
+      apt:
+        name: "linux-headers-{{ ansible_kernel }}"
+        state: latest
+        update_cache: yes
+
+- name: Install TCP tracker image
+  vars:
+    - installed_app_directory: "{{ images_build_dir }}/tcp_tracker"
+    - definition_file: "tcpconnect_tracker.def"
+    - image_file: "tcpconnect_tracker.sif"
+  tags: build_tcp_tracker
+  block:
+    - block:
+      - name: Create app directory in server
+        file:
+          path: "{{ installed_app_directory }}"
+          state: directory
+
+      - name: Template definition file
+        template:
+          src: "templates/apps/{{ definition_file }}"
+          dest: "{{ installed_app_directory }}/{{ definition_file }}"
+        vars:
+          - app_base_type: "base"
+          - app_base_image_file: "ubuntu_container.sif"
+          - track_port: 9866
+
+      - name: Build app image
+        shell: "{{ singularity_command_alias }} build {{ installed_app_directory }}/{{ image_file }} {{ installed_app_directory }}/{{ definition_file }}"
+        args:
+          chdir: "{{ installed_app_directory }}/../.."
+          executable: /bin/bash
+          creates: "{{ installed_app_directory }}/{{ image_file }}"
+      delegate_to: localhost
+      run_once: yes
+
+    - name: Copy app image to host
+      synchronize:
+        src: "{{ installed_app_directory }}/{{ image_file }}"
+        dest: "{{ images_dist_dir }}/"
+        perms: true
+
+- name: Run TCP tracker
+  vars:
+    - container_name: "tcp-tracker-{{ inventory_hostname }}"
+    - container_bind_dir: "{{ ['/dev/shm', container_name] | join('/') }}" ## we use a tmpfs directory for performance
+  tags: restart_services, start_tcp_tracker
+  block:
+
+    - name: Create directories to bind to containers
+      shell: "mkdir -p {{ container_bind_dir }}"
+      args:
+        executable: /bin/bash
+
+    - name: Check containers status
+      shell: "sudo {{ singularity_command_alias }} instance list -j"
+      args:
+        executable: /bin/bash
+      register: apptainer_list_output
+
+    - block:
+      - name: Start TCP tracker containers
+        shell: "
+          sudo {{ singularity_command_alias }} instance start -C \
+          --net --network {{ network }} \
+          --hostname {{ container_name }} \
+          --bind {{ container_bind_dir }}:{{ bind_dir_on_container }} \
+          --bind /usr/src:/usr/src:ro --bind /lib/modules:/lib/modules:ro \
+          {{ image_path }} {{ container_name }}"
+        args:
+          executable: /bin/bash
+        vars:
+          image_path: "{{ images_dist_dir }}/tcpconnect_tracker.sif"
+          network: "{{ mode }}_{{ inventory_hostname }}{{ ',ptp' if mode == 'ipvlan' else '' }}"
+
+      - name: Wait for tracker to start
+        pause:
+          seconds: 5
+
+      - name: Force initial timestamp in tracker
+        shell: "curl localhost:{{ track_port }}"
+        args:
+          executable: /bin/bash
+        ignore_errors: true
+        vars:
+          - track_port: 9866
+      when: container_name not in apptainer_list_output.stdout
+
+- name: Stop TCP tracker
+  tags: never, stop_tcp_tracker
+  vars:
+    - container_name: "tcp-tracker-{{ inventory_hostname }}"
+  shell: "sudo {{ singularity_command_alias }} instance stop {{ container_name }}"
+  args:
+    executable: /bin/bash
+  ignore_errors: true

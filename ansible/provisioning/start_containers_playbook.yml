@@ -24,7 +24,7 @@
 
   tasks:
     - import_tasks: tasks/utils/get_user_ids.yml
-      tags: create_app, start_containers, setup_hdfs
+      tags: create_app, start_containers, setup_hdfs, build_tcp_tracker
 
     - import_tasks: tasks/containers_setup/lxd_containers_setup.yml
       when: "container_engine == 'lxc'"
@@ -119,6 +119,7 @@
           vars:
             frontend_port: 44444
 
+    - import_tasks: tasks/containers_setup/tcp_tracker_launch.yml
     - import_tasks: tasks/containers_setup/node_rescaler_launch.yml
 
     - import_tasks: tasks/containers_setup/manage_cache_containers.yml

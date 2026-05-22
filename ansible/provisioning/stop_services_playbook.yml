@@ -143,6 +143,8 @@
         with_items:
           # Temporary dirs
           - "{{ app_ssh_keys_dir }}"
+          # TCP tracker logs
+          - "/dev/shm/tcp-tracker-{{ inventory_hostname }}"
 
       - name: Clean logs from server and nodes
         file:
