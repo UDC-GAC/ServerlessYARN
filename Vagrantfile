@@ -22,6 +22,11 @@ MEMORY_PER_NODE = host_config['memory_per_host']
 
 CGROUPS_VERSION = general_config['cgroups_version']
 
+if host_config['server_as_host']
+then
+    N -= 1
+end
+
 Vagrant.configure("2") do |config|
 
     config.vm.box = "bento/ubuntu-22.04"
