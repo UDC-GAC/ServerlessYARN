@@ -146,7 +146,7 @@ def processAddApp(request, url, **kwargs):
                     resource_weight = request.POST[resource + "_weight"]
                 else:
                     resource_weight = DEFAULT_RESOURCE_VALUES["weight"]
-                put_field_data['app']['resources'][resource]['weight'] = int(resource_weight)
+                put_field_data['app']['resources'][resource]['weight'] = float(resource_weight)
 
         if resource + "_boundary" in request.POST:
             if request.POST[resource + "_boundary"] != "":

@@ -89,13 +89,13 @@ if __name__ == "__main__":
             put_field_data['container']['resources']["cpu"]["current"] = int(cont['cpu_min'])
             put_field_data['container']['resources']["cpu"]["min"] = int(cont['cpu_min'])
             put_field_data['container']['resources']["cpu"]["guard"] = (cont.get('cpu_guard', 'true') == 'true')
-            if 'cpu_weight' in cont: put_field_data['container']['resources']["cpu"]["weight"] = int(cont['cpu_weight'])
+            if 'cpu_weight' in cont: put_field_data['container']['resources']["cpu"]["weight"] = float(cont['cpu_weight'])
 
             put_field_data['container']['resources']["mem"]["max"] = int(cont['mem_max'])
             put_field_data['container']['resources']["mem"]["current"] = int(cont['mem_min'])
             put_field_data['container']['resources']["mem"]["min"] = int(cont['mem_min'])
             put_field_data['container']['resources']["mem"]["guard"] = (cont.get('mem_guard' == 'true') == 'true')
-            if 'mem_weight' in cont: put_field_data['container']['resources']["mem"]["weight"] = int(cont['mem_weight'])
+            if 'mem_weight' in cont: put_field_data['container']['resources']["mem"]["weight"] = float(cont['mem_weight'])
 
             # Energy
             if 'power_budgeting' in config and config['power_budgeting']:
@@ -105,7 +105,7 @@ if __name__ == "__main__":
                 put_field_data['container']['resources']["energy"]["current"] = int(cont['energy_max'])
                 put_field_data['container']['resources']["energy"]["min"] = int(cont['energy_min'])
                 put_field_data['container']['resources']["energy"]["guard"] = (cont.get('energy_guard', 'true') == 'true')
-                if 'energy_weight' in cont: put_field_data['container']['resources']["energy"]["weight"] = int(cont['energy_weight'])
+                if 'energy_weight' in cont: put_field_data['container']['resources']["energy"]["weight"] = float(cont['energy_weight'])
 
             # Disk
             if 'disk' in cont and config['disk_capabilities'] and config['disk_scaling']:
@@ -119,7 +119,7 @@ if __name__ == "__main__":
                     put_field_data['container']['resources'][metric]["current"] = int(cont['{0}_min'.format(metric)])
                     put_field_data['container']['resources'][metric]["min"] = int(cont['{0}_min'.format(metric)])
                     put_field_data['container']['resources'][metric]["guard"] = (cont.get('{0}_guard'.format(metric), 'true') == 'true')
-                    if '{0}_weight'.format(metric) in cont: put_field_data['container']['resources'][metric]["weight"] = int(cont['{0}_weight'.format(metric)])
+                    if '{0}_weight'.format(metric) in cont: put_field_data['container']['resources'][metric]["weight"] = float(cont['{0}_weight'.format(metric)])
 
             ## Limits
             for res in cont_resources:

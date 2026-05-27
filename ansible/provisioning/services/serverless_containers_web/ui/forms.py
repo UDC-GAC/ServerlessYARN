@@ -20,19 +20,19 @@ DEFAULT_COMMON_FIELDS = {
         ## Resource limits
         'cpu_max': forms.IntegerField(label="CPU Max", required=True, min_value=1),
         'cpu_min': forms.IntegerField(label="CPU Min", required=True, min_value=1),
-        'cpu_weight': forms.IntegerField(label="CPU Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
+        'cpu_weight': forms.FloatField(label="CPU Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=0.1, max_value=100),
         'mem_max': forms.IntegerField(label="Mem Max", required=True, min_value=1),
         'mem_min': forms.IntegerField(label="Mem Min", required=True, min_value=1),
-        'mem_weight': forms.IntegerField(label="Mem Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
+        'mem_weight': forms.FloatField(label="Mem Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=0.1, max_value=100),
         'disk_read_max': forms.IntegerField(label="Disk Read I/O Bandwidth Max", required=True, min_value=1),
         'disk_read_min': forms.IntegerField(label="Disk Read I/O Bandwidth Min", required=True, min_value=1),
-        'disk_read_weight': forms.IntegerField(label="Disk Read I/O Bandwidth Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
+        'disk_read_weight': forms.FloatField(label="Disk Read I/O Bandwidth Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=0.1, max_value=100),
         'disk_write_max': forms.IntegerField(label="Disk Write I/O Bandwidth Max", required=True, min_value=1),
         'disk_write_min': forms.IntegerField(label="Disk Write I/O Bandwidth Min", required=True, min_value=1),
-        'disk_write_weight': forms.IntegerField(label="Disk Write I/O Bandwidth Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
+        'disk_write_weight': forms.FloatField(label="Disk Write I/O Bandwidth Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=0.1, max_value=100),
         'energy_max': forms.IntegerField(label="Energy Max", required=False, min_value=1),
         'energy_min': forms.IntegerField(label="Energy Min", required=False, min_value=1),
-        'energy_weight': forms.IntegerField(label="Energy Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=1, max_value=100),
+        'energy_weight': forms.FloatField(label="Energy Weight ({0} if unset)".format(DEFAULT_RESOURCE_VALUES["weight"]), required=False, min_value=0.1, max_value=100),
 
         ## Resource boundaries
         'cpu_boundary': forms.IntegerField(label="CPU boundary ({0}% if unset)".format(DEFAULT_LIMIT_VALUES["boundary"]), required=False, min_value=1, max_value=100),
@@ -198,7 +198,7 @@ class StructureResourcesForm(forms.Form):
     min = forms.IntegerField(label="Minimum",
             required=True
             )
-    weight = forms.IntegerField(label="Weight",
+    weight = forms.FloatField(label="Weight",
             required=False
             )
 
