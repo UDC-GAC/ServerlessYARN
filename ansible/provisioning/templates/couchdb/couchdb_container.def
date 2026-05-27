@@ -41,7 +41,25 @@ From: ubuntu:24.04
 
 %startscript
     # Start daemon to rotate logs with low priority
-    nohup nice -n 19 /opt/logrotate-loop.sh &> /var/log/couchdb/logrotate-loop.log &
+    nice -n 19 /opt/logrotate-loop.sh &> /var/log/couchdb/logrotate-loop.log &
+
+    cleanup() {
+        echo "[`date`] Stopping CouchDB container..."
+
+        # 1. Kill logrotate script
+        pkill -f logrotate-loop.sh
+        pkill sleep
+
+        # 2. Stop CouchDB
+        pkill -15 -f beam.smp
+
+        # 3. Kill epmd after stopping CouchDB
+        sleep 1
+        /opt/couchdb/bin/../erts-*/bin/epmd -kill 2>/dev/null || pkill -9 epmd
+
+        exit 0
+    }
+    trap cleanup INT TERM EXIT
 
     # Start CouchDB
     /opt/couchdb/bin/couchdb

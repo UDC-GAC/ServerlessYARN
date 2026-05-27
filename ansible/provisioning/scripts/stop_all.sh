@@ -75,6 +75,7 @@ stop_container_services ()
     echo ""
     echo "Stopping other services deployed within containers..."
     ansible-playbook ${scriptDir}/../start_containers_playbook.yml -i $INVENTORY -t stop_tcp_tracker,stop_cache_containers
+    ansible-playbook ${scriptDir}/../stop_services_playbook.yml -i $INVENTORY -t stop_couchdb
     echo "Container services stopped!"
 }
 

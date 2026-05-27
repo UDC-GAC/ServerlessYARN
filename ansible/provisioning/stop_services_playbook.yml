@@ -101,6 +101,23 @@
       - orchestrator
     tags: stop_services
 
+  - name: Stop CouchDB container
+    when: not virtual_mode
+    shell: "{{ singularity_command_alias }} instance stop couchdb_cont"
+    args:
+      executable: /bin/bash
+    tags: stop_couchdb
+    ignore_errors: true
+
+  - name: Clean CouchDB
+    shell: "curl -u admin:{{ couchdb_admin_pass }} -X DELETE http://127.0.0.1:{{ couchdb_port }}/{{ item }}"
+    args:
+      executable: /bin/bash
+    loop: ["events","limits","requests","rules","services","structures","users"]
+    vars:
+      couchdb_admin_pass: admin
+    tags: clean_couchdb
+
 # Stop services from server and nodes
 - hosts: platform_management,nodes
   become: no
