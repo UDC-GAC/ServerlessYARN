@@ -30,4 +30,6 @@ urlpatterns = [
     # Common
     path('structure_detail=<structure_name>_<structure_type>', views.common.structure_detail, name='structure_detail'),
     path('alerts/remove/<alert_id>', views.common.remove_pending_task, name='remove_alert'),
+    path('api/apps/start', views.common.api_start_app, name='api_start_app'),
+    path('api/apps/stop/<structure_name>', views.common.api_stop_app, name='api_stop_app'),
 ]
