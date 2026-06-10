@@ -308,7 +308,7 @@ def getFreestDisk(host):
     return freest_disk
 
 
-def GetFreestHost(hosts, container_resources, check_disks):
+def GetFreestHost(hosts, container_resources, check_disks, check_energy):
 
     freest_host = None
     current_min_disk_usage = -1
@@ -318,6 +318,9 @@ def GetFreestHost(hosts, container_resources, check_disks):
         # Cyclic and Best-effort will now use allocate containers based on min resources instead of max to allow executing multiple containers that try to request all the availables resources from a host
         # Check cpu and mem space
         if host['resources']['cpu']['free'] < container_resources['cpu_min'] or host['resources']['mem']['free'] < container_resources['mem_min']:
+            continue
+
+        if check_energy and host['resources']['energy']['free'] < container_resources['energy_min']:
             continue
 
         if not check_disks:
