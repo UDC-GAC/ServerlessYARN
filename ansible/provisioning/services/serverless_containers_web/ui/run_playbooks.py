@@ -15,12 +15,12 @@ config_path = scriptDir + "/../../../config/config.yml"
 
 # Auxiliary
 def check_bind_path(bind_path):
-    with open(vars_path, "r") as vars_file: vars_config = yaml.load(vars_file, Loader=yaml.FullLoader)
-
-    if not bind_path:
-        return vars_config['default_bind_path']
-    else: 
+    if bind_path:
         return bind_path
+
+    with open(vars_path, "r") as vars_file:
+        vars_config = yaml.load(vars_file, Loader=yaml.FullLoader)
+        return vars_config['default_bind_path']
 
 # Configure and run playbooks
 def run_adhoc(hosts, module, module_args=None, extravars=None, ignore_failure=False):
