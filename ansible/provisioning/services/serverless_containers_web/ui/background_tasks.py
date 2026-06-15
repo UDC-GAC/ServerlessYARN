@@ -518,11 +518,11 @@ def change_app_execution_state_in_db(url, app, state):
 def change_app_state_in_db(url, app, state):
     max_retries = 10
     actual_try = 0
-    full_url = url + "{0}/{1}".format(app, "state")
+    full_url = f"{url}{app}/state/{state}"
     while actual_try < max_retries:
 
         error_message = "Error changing app {0} execution state to {1}".format(app, state)
-        error, response = request_to_state_db(full_url, "post", error_message, data={"state": state})
+        error, response = request_to_state_db(full_url, "put", error_message)
 
         if response != "":
             if not error: break
@@ -953,7 +953,7 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
     else:
         ## Download required input data from global HDFS to local one
         if "global_input" in  global_hdfs_data and global_hdfs_data["global_input"] != "":
-            change_app_state_in_db(url, app, "reading")
+            change_app_state_in_db(url, app, "hdfs_downloading")
         download_time = run_playbooks.setup_hadoop_network_with_global_hdfs(list(new_containers.keys()), app, app_files, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"], global_hdfs_data)
         if "global_input" in  global_hdfs_data and global_hdfs_data["global_input"] != "":
             change_app_state_in_db(url, app, "running")
@@ -967,7 +967,7 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
 
     if global_hdfs_data:
         ## Upload generated output data from local HDFS to global one
-        change_app_state_in_db(url, app, "writing")
+        change_app_state_in_db(url, app, "hdfs_uploading")
         upload_time = run_playbooks.upload_local_hdfs_data_to_global(rm_host, rm_container['container_name'], global_hdfs_data, formatted_app_containers)
 
     return rm_host, rm_container['container_name'], download_time, upload_time
