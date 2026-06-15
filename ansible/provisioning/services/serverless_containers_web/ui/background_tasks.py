@@ -9,7 +9,7 @@ import yaml
 import urllib
 from django.conf import settings
 
-from ui.update_inventory_file import add_containers_to_hosts,remove_container_from_host, add_host, remove_host, add_disks_to_hosts, add_containers_to_inventory
+from ui.update_inventory_file import add_containers_to_hosts, remove_container_from_host, add_host, remove_host, add_disks_to_hosts, add_containers_to_inventory
 from ui.utils import request_to_state_db
 import ui.run_playbooks as run_playbooks
 
@@ -596,7 +596,6 @@ def start_containers_task_v2(new_containers, container_resources, disks):
         added_containers = add_containers_to_hosts(new_containers)
 
     containers_info = []
-
     for host in added_containers:
         for container in added_containers[host]:
             container_info = {}
@@ -686,15 +685,27 @@ def deploy_app_containers(url, new_containers, app, app_files, container_resourc
         # Nothing to do
         return
 
-    hosts = ','.join(list(added_containers.keys()))
     formatted_containers_info = str(containers_info).replace(' ', '')
 
     # Deploy containers through Ansible
-    # argument_list = [hosts, formatted_containers_info, app_files['app_dir'], app_files['install_script'], app_files['app_jar'], app_type, app]
-    # error_message = "Error starting containers {0}".format(formatted_containers_info)
-    # process_script("start_containers_with_app", argument_list, error_message)
+    ## Stop scaling services
     manage_scaling_services(enable=False)
-    run_playbooks.start_containers_with_app(list(added_containers.keys()), formatted_containers_info, app, app_type, app_files)
+    try:
+        run_playbooks.start_containers_with_app(list(added_containers.keys()), formatted_containers_info, app, app_type, app_files)
+    except Exception as e:
+        ## Ensure containers are removed from inventory and instances are stopped in case of failure
+        for container in containers_info:
+            stop_container(container["host"], container["container_name"])
+
+        ## Ensure app is stopped
+        change_app_execution_state_in_db(url, app, "stop")
+        change_app_state_in_db(url, app, "stopped")
+
+        ## Re-enable scaling services
+        manage_scaling_services(enable=True)
+
+        ## Then, throw the original exception as the start app process must stop here
+        raise e
     manage_scaling_services(enable=True)
 
     return containers_info
@@ -791,14 +802,14 @@ def start_app_task(self, assignation_requirements, url, app, app_files, containe
     start_app_on_containers(url, app, app_containers, app_files)
 
     # Wait for app to finish in all the containers
-    wait_for_app_on_containers(app, app_containers)
+    #wait_for_app_on_containers(app, app_containers)
 
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)
     update_task_runtime(self.request.id, runtime)
 
     # Destroy all the containers and remove them from ServerlessContainers
-    remove_containers_from_app(url, app_containers, app, app_files)
+    #remove_containers_from_app(url, app_containers, app, app_files)
 
 @shared_task(bind=True)
 def start_hadoop_app_task(self, assignation_requirements, url, app, app_files, container_resources, scaler_polling_freq, virtual_cluster, app_type="hadoop_app", global_hdfs_data=None, dependencies={}):
@@ -1107,7 +1118,8 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
 
     ## Create and start containers
     # update inventory file
-    with redis_server.lock(lock_key): add_containers_to_inventory(containers)
+    with redis_server.lock(lock_key):
+        add_containers_to_inventory(containers)
 
     nn_container = None
     nn_host = None

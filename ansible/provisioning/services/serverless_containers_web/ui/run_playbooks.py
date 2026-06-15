@@ -21,12 +21,12 @@ config_path =  f"{playbook_dir}/config/config.yml"
 
 # Auxiliary
 def check_container_bind_path(container, bind_path):
-    with open(vars_path, "r") as vars_file: vars_config = yaml.load(vars_file, Loader=yaml.FullLoader)
-
-    if not bind_path:
-        return "/".join([vars_config['bind_dir'], container])
-    else: 
+    if bind_path:
         return bind_path
+
+    with open(vars_path, "r") as vars_file:
+        vars_config = yaml.load(vars_file, Loader=yaml.FullLoader)
+        return "/".join([vars_config['bind_dir'], container])
 
 def format_ansible_output(runner):
     """Format ansible runner output for better readability"""

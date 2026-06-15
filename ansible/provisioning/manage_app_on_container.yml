@@ -672,6 +672,13 @@
           dest: "{{ app_tmpdir }}/{{ container }}/"
           mode: preserve
 
+      - name: Copy start script wrapper
+        delegate_to: localhost
+        template:
+          src: "templates/start_wrapper.sh"
+          dest: "{{ app_tmpdir }}/{{ container }}/"
+          mode: preserve
+
       - name: Copy app jar
         delegate_to: localhost
         when: "app_jar != ''"
@@ -686,7 +693,7 @@
 
       - name: Execute start script on container
         #shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null"
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'source {{ singularity_env_file }} && nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null'"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'source {{ singularity_env_file }} && nohup bash {{ bind_dir_on_container }}/start_wrapper.sh </dev/null'"
         args:
           executable: /bin/bash
         async: 20800

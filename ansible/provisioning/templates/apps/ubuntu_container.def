@@ -5,6 +5,7 @@ From: ubuntu:20.04
     "{{ bdwatchdog_source_path }}" /opt/BDWatchdog
 
 %environment
+    export PLATFORM_SERVER_IP={{ server_ip }}
     export DATA_SERVER_IP={{ data_server_url }}
     export DATA_SERVER_PORT={{ data_server_port }}
 
@@ -16,7 +17,7 @@ From: ubuntu:20.04
     apt-get -y update
 
     # Essential
-    apt-get -y install tmux git
+    apt-get -y install tmux git curl
     apt-get install -y --no-install-recommends python3-pip
     apt-get -y install build-essential make libncurses5-dev libncursesw5-dev zlib1g-dev libcap-dev
 
