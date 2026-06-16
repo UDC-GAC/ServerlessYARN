@@ -7,6 +7,5 @@ apps: samples/sample_app
 ## Async callback
 # 'yes': runs a wrapper script on top of the app script itself that notifies when the application has finished
 # 'no': an Ansible task will wait for the app to finish
-# NOTE: the callback method currently causes an error in multi-container apps without internal coordination,
-# since when one container finishes executing, it causes the other containers to close.
+# NOTE: the callback method is not currently supported by hadoop apps; an Exception will be raised instead
 enable_app_callback: yes

@@ -7,7 +7,7 @@ from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 
 from ui.views.apps.operations import processStartApp, processStopApp
-from ui.background_tasks import remove_task, create_artificial_task, update_task_runtime
+from ui.background_tasks import remove_task, create_artificial_task, update_task_runtime, get_app_counter, create_app_counter, remove_app_counter
 
 # ------------------------------------ Common views across all endpoints ------------------------------------
 
@@ -70,8 +70,15 @@ def api_stop_app(request, structure_name):
     )
     logging.info(f"{'#'*80}\nAPP [{structure_name} ({container})] has finished with {runtime} seconds and exit code {exit_code}\n{'#'*80}\n")
 
-    error = processStopApp(settings.BASE_URL + "/structure/", structure_name=structure_name)
-    if error:
-        return JsonResponse({"success": False, "error": error}, status=400)
+    ## Check counter for active containers; only stop app if this is the last container
+    active_containers = get_app_counter(structure_name)
+    if active_containers and int(active_containers) > 1:
+        active_containers = int(active_containers) - 1
+        create_app_counter(structure_name, active_containers)
+    else:
+        remove_app_counter(structure_name)
+        error = processStopApp(settings.BASE_URL + "/structure/", structure_name=structure_name)
+        if error:
+            return JsonResponse({"success": False, "error": error}, status=400)
 
     return JsonResponse({"success": True})

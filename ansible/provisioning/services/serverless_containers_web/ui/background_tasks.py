@@ -120,6 +120,17 @@ def get_pending_tasks_messages():
 
     return still_pending_tasks_string, successful_tasks_string, failed_tasks_string
 
+def create_app_counter(app_name, initial_value):
+    task_id = f"app:{app_name}"
+    redis_server.hset(task_id, "active_containers", initial_value)
+
+def get_app_counter(app_name):
+    task_id = f"app:{app_name}"
+    return redis_server.hget(task_id, "active_containers").decode("utf-8")
+
+def remove_app_counter(app_name):
+    task_id = f"app:{app_name}"
+    redis_server.delete(task_id)
 
 ## Auxiliary
 def container_list_to_formatted_str(container_list):
@@ -803,6 +814,10 @@ def start_app_task(self, assignation_requirements, url, app, app_files, containe
 
     new_containers, disk_assignation = wait_for_app_dependency(assignation_requirements, url, app, container_resources, dependencies)
 
+    if settings.PLATFORM_CONFIG['enable_app_callback']:
+        ## Create redis counter to track the containers' status
+        create_app_counter(app, assignation_requirements['number_of_containers'])
+
     start_time = timeit.default_timer()
 
     # Set application in running state in ServerlessContainers
@@ -833,6 +848,12 @@ def start_app_task(self, assignation_requirements, url, app, app_files, containe
 def start_hadoop_app_task(self, assignation_requirements, url, app, app_files, container_resources, scaler_polling_freq, virtual_cluster, app_type="hadoop_app", global_hdfs_data=None, dependencies={}):
 
     new_containers, disk_assignation = wait_for_app_dependency(assignation_requirements, url, app, container_resources, dependencies)
+
+    if settings.PLATFORM_CONFIG['enable_app_callback']:
+        raise Exception("Callback app execution not currently supported by hadoop apps")
+
+        ## Create redis counter to track the containers' status
+        create_app_counter(app, 1)
 
     # Calculate resources for Hadoop cluster
     hadoop_resources = {}
