@@ -7,7 +7,9 @@ import json
 import timeit
 import yaml
 import urllib
+import uuid
 from django.conf import settings
+from serverless_containers_web.celery import app as celery_app
 
 from ui.update_inventory_file import add_containers_to_hosts, remove_container_from_host, add_host, remove_host, add_disks_to_hosts, add_containers_to_inventory
 from ui.utils import request_to_state_db
@@ -29,6 +31,19 @@ lock_key = "ansible_inventory_access_lock"
 def register_task(task_id, task_name):
     key = "{0}:{1}".format(redis_prefix,task_id)
     redis_server.hset(key, "task_name", task_name)
+
+def create_artificial_task(task_name, status, result=None):
+    ## 1: create fake task that represents the work task
+    task_id = str(uuid.uuid4())
+    celery_app.backend.store_result(
+        task_id=task_id,
+        result=result,
+        state=status.upper()
+    )
+    ## 2: register wrapper pending task
+    register_task(task_id, task_name)
+
+    return task_id
 
 def update_task_runtime(task_id, runtime):
     key = "{0}:{1}".format(redis_prefix,task_id)
@@ -58,7 +73,7 @@ def get_pending_tasks():
         task_name = "None" if task_name is None else task_name.decode("utf-8")
         task_id = key.decode("utf-8")[len(redis_prefix) + 1:]
         task_result = AsyncResult(task_id)
-        status = task_result.status
+        status = task_result.status ## the 'status' attribute is an alias for 'state', i.e., both have the same value
 
         if status != "SUCCESS" and status != "FAILURE":
             still_pending_tasks.append((task_id,task_name))
@@ -73,10 +88,12 @@ def get_pending_tasks():
 
     # remove completed or failed tasks
     for task_id, task_name, runtime in successful_tasks:
-        redis_server.delete("{0}:{1}".format(redis_prefix, task_id))
+        redis_server.delete(f"{redis_prefix}:{task_id}")
+        redis_server.delete(f"celery-task-meta-{task_id}")
 
     for task_id, task_name, task_error in failed_tasks:
-        redis_server.delete("{0}:{1}".format(redis_prefix, task_id))
+        redis_server.delete(f"{redis_prefix}:{task_id}")
+        redis_server.delete(f"celery-task-meta-{task_id}")
 
     return still_pending_tasks, successful_tasks, failed_tasks
 
@@ -801,15 +818,16 @@ def start_app_task(self, assignation_requirements, url, app, app_files, containe
     # Start app inside all the containers
     start_app_on_containers(url, app, app_containers, app_files)
 
-    # Wait for app to finish in all the containers
-    #wait_for_app_on_containers(app, app_containers)
+    if not settings.PLATFORM_CONFIG['enable_app_callback']:
+        # Wait for app to finish in all the containers
+        wait_for_app_on_containers(app, app_containers)
 
-    end_time = timeit.default_timer()
-    runtime = "{:.2f}".format(end_time-start_time)
-    update_task_runtime(self.request.id, runtime)
+        end_time = timeit.default_timer()
+        runtime = "{:.2f}".format(end_time-start_time)
+        update_task_runtime(self.request.id, runtime)
 
-    # Destroy all the containers and remove them from ServerlessContainers
-    #remove_containers_from_app(url, app_containers, app, app_files)
+        # Destroy all the containers and remove them from ServerlessContainers
+        remove_containers_from_app(url, app_containers, app, app_files)
 
 @shared_task(bind=True)
 def start_hadoop_app_task(self, assignation_requirements, url, app, app_files, container_resources, scaler_polling_freq, virtual_cluster, app_type="hadoop_app", global_hdfs_data=None, dependencies={}):

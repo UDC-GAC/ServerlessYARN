@@ -3,3 +3,10 @@
 # in the ansible/provisioning/apps directory. Indicate the app name in the app_config.yml of the app folder(s) specified here
 # or even multiple names to deploy various applications with the same configuration
 apps: samples/sample_app
+
+## Async callback
+# 'yes': runs a wrapper script on top of the app script itself that notifies when the application has finished
+# 'no': an Ansible task will wait for the app to finish
+# NOTE: the callback method currently causes an error in multi-container apps without internal coordination,
+# since when one container finishes executing, it causes the other containers to close.
+enable_app_callback: yes

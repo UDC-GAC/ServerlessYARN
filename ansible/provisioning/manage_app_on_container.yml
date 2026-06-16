@@ -673,6 +673,7 @@
           mode: preserve
 
       - name: Copy start script wrapper
+        when: enable_app_callback
         delegate_to: localhost
         template:
           src: "templates/start_wrapper.sh"
@@ -692,15 +693,17 @@
           dest: "{{ container_bind_dir }}/"
 
       - name: Execute start script on container
-        #shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ start_script | basename }} </dev/null"
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'source {{ singularity_env_file }} && nohup bash {{ bind_dir_on_container }}/start_wrapper.sh </dev/null'"
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'source {{ singularity_env_file }} && nohup bash {{ bind_dir_on_container }}/{{ script_to_run }} </dev/null'"
         args:
           executable: /bin/bash
+        vars:
+          script_to_run: "{{ 'start_wrapper.sh' if enable_app_callback else start_script|basename }}"
         async: 20800
         poll: 0
         register: start_job
 
       - name: Save job id to check status later
+        when: not enable_app_callback
         delegate_to: localhost
         copy:
           content: "{{ start_job.ansible_job_id }}"
@@ -764,7 +767,6 @@
             dest: "{{ container_bind_dir }}/"
 
         - name: Execute stop script on container
-          #shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} nohup bash {{ bind_dir_on_container }}/{{ stop_script | basename }} </dev/null"
           shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'source {{ singularity_env_file }} && nohup bash {{ bind_dir_on_container }}/{{ stop_script | basename }} </dev/null'"
           args:
             executable: /bin/bash
