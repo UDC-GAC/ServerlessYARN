@@ -34,8 +34,11 @@ def apps(request):
         #   &autoreload=5
 
         app_list = [app['name'] for app in context['data']]
-        resource_list = ["cpu", "disk_read", "disk_write"]
         metrics = ["current", "usage"]
+        resource_list = ["cpu"]
+        if settings.PLATFORM_CONFIG['disk_capabilities'] and settings.PLATFORM_CONFIG['disk_scaling']:
+            resource_list.extend(["disk_read", "disk_write"])
+
         full_metric_string = ""
         if len(app_list) > 0:
             for resource in resource_list:
@@ -46,9 +49,13 @@ def apps(request):
                     s += "structure={0}%7D&o=".format(app_list[-1])
                     full_metric_string += s
 
+        ## OpenTSDB url and port --> modify these variables if required for your deployment
+        opentsdb_url = "127.0.0.1" if not settings.PLATFORM_CONFIG['virtual_mode'] else settings.PLATFORM_CONFIG['opentsdb_url'] ## this assumes that a forward tunnel is set for non-virtual deployment
+        opentsdb_port = settings.PLATFORM_CONFIG['opentsdb_port'] ## if an external OpenTSDB is used (i.e., deploy_local_opentsdb = no), adjust port if required
+
         context['opentsdb'] = "http://{0}:{1}/#start={2}{3}&yrange={4}&wxh={5}&style=linespoint&autoreload={6}".format(
-            "127.0.0.1",
-            4242,
+            opentsdb_url,
+            opentsdb_port,
             datetime.today().strftime('%Y/%m/%d-%H:%M:%S'),
             full_metric_string,
             "%5B0:%5D",
