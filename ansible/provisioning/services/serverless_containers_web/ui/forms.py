@@ -962,12 +962,10 @@ class StartAppForm(forms.Form):
     )
 
     dependency_condition = forms.MultipleChoiceField(
-            label="Dependency condition (only valid if chosen a dependency with an app)",
+            label="Dependency condition (only used if chosen a dependency with an app)",
             choices=[
                 ("running", "Running"),
-                ("stopped", "Stopped"),
-                ("reading", "Reading"),
-                ("writing", "Writing")
+                ("stopped", "Stopped")
             ],
             widget=forms.CheckboxSelectMultiple,
             required=False,
@@ -992,9 +990,9 @@ class StartAppForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super(StartAppForm, self).__init__(*args, **kwargs)
 
-        if not config['global_hdfs'] or config['hdfs_mode'] != 'isolated':
-            self.fields['dependency_condition'].choices.remove(("reading", "Reading"))
-            self.fields['dependency_condition'].choices.remove(("writing", "Writing"))
+        if config['global_hdfs'] and config['hdfs_mode'] == 'isolated':
+            self.fields['dependency_condition'].choices.append(("hdfs_downloading", "[HDFS] Downloading"))
+            self.fields['dependency_condition'].choices.append(("hdfs_uploading", "[HDFS] Uploading"))
 
         self.helper = FormHelper()
         self.helper.form_id = 'id-startappform'
