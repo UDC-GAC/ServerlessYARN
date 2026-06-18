@@ -525,24 +525,6 @@ def desubscribe_apps_from_user(url, user_name, user_apps):
 
     manage_scaling_services(enable=True)
 
-def change_app_execution_state_in_db(url, app, state):
-    max_retries = 10
-    actual_try = 0
-    full_url = url + "{0}/{1}".format(app, state)
-    while actual_try < max_retries:
-
-        error_message = "Error changing app {0} execution state to {1}".format(app, state)
-        error, response = request_to_state_db(full_url, "put", error_message)
-
-        if response != "":
-            if not error: break
-            else: raise Exception(error)
-
-        actual_try += 1
-
-    if actual_try >= max_retries:
-        raise Exception("Reached max tries when changing app {0} execution state to {1}".format(app, state))
-
 def change_app_state_in_db(url, app, state):
     max_retries = 10
     actual_try = 0
@@ -726,7 +708,6 @@ def deploy_app_containers(url, new_containers, app, app_files, container_resourc
             stop_container(container["host"], container["container_name"])
 
         ## Ensure app is stopped
-        change_app_execution_state_in_db(url, app, "stop")
         change_app_state_in_db(url, app, "stopped")
 
         ## Re-enable scaling services
@@ -821,7 +802,6 @@ def start_app_task(self, assignation_requirements, url, app, app_files, containe
     start_time = timeit.default_timer()
 
     # Set application in running state in ServerlessContainers
-    change_app_execution_state_in_db(url, app, "run") ## this state is redundant, should be removed if does not break anything
     change_app_state_in_db(url, app, "running")
 
     # Deploy all the containers in the remote hosts and subscribe them to the app
@@ -1379,7 +1359,6 @@ def remove_containers_from_app(url, container_list, app, app_files):
 
     # Set application in stop state in ServerlessContainers
     #start_time = timeit.default_timer()
-    change_app_execution_state_in_db(url, app, "stop") ## this state is redundant, should be removed if does not break anything
     change_app_state_in_db(url, app, "stopped")
     #end_time = timeit.default_timer()
 
