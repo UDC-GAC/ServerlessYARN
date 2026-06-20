@@ -111,8 +111,6 @@ def processRemoveContainers(request, url, **kwargs):
                 container_list.append(db_cont)
                 break
 
-    scaler_polling_freq = getScalerPollFreq()
-
-    task = remove_containers_task.delay(url, container_list, scaler_polling_freq)
+    task = remove_containers_task.delay(url, container_list)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"remove_containers_task")
