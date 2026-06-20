@@ -125,6 +125,8 @@
             frontend_port: 44444
 
     - import_tasks: tasks/containers_setup/tcp_tracker_launch.yml
+      when: disk_capabilities and disk_scaling and global_hdfs
+
     - import_tasks: tasks/containers_setup/node_rescaler_launch.yml
 
     - import_tasks: tasks/containers_setup/manage_cache_containers.yml
