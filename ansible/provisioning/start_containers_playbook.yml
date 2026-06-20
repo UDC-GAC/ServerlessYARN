@@ -26,6 +26,11 @@
     - import_tasks: tasks/utils/get_user_ids.yml
       tags: create_app, start_containers, setup_hdfs, build_tcp_tracker
 
+    ## Setup DNS for intra-container name resolution
+    - import_tasks: tasks/containers_setup/dns_launch.yml
+      delegate_to: localhost
+      run_once: yes
+
     - import_tasks: tasks/containers_setup/lxd_containers_setup.yml
       when: "container_engine == 'lxc'"
       tags: start_containers

@@ -929,7 +929,7 @@ def setup_containers_network_task(url, app, app_containers, new_containers):
     hosts = ','.join(list(new_containers.keys()))
     formatted_app_containers = str(app_containers).replace(' ', '')
 
-    run_playbooks.setup_network_on_containers(list(new_containers.keys()), formatted_app_containers)
+    run_playbooks.setup_network_on_containers(list(new_containers.keys()), formatted_app_containers, app)
 
 @shared_task
 def subscribe_containers_to_app(url, app, app_containers):

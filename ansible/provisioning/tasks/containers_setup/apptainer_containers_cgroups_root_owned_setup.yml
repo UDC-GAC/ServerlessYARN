@@ -28,6 +28,23 @@
 - name: Containers startup
   tags: start_containers
   block:
+
+    - name: DNS Management
+      block:
+        - name: Get DNS IP
+          delegate_to: localhost
+          run_once: yes
+          any_errors_fatal: yes  ## ensure that the playbook stops if DNS is not available
+          shell: "sudo {{ singularity_command_alias }} exec instance://{{ dns_container_name }} bash -c \ 
+              \"printf '%s ' \\$(hostname -I | awk '{print \\$1}')\""
+          args:
+            executable: /bin/bash
+          register: dns_resolved_ip
+
+        - name: Store DNS IP as fact for cross-host access
+          set_fact:
+            dns_ip: "{{ dns_resolved_ip.stdout }}"
+
     - name: Create directories to bind to containers
       shell: "
         {% for item in containers_info %}
@@ -79,7 +96,7 @@
             {% set container_bind_dir = item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') %}
             cp /etc/hosts {{ container_bind_dir }}/hosts \
             && sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
-              'echo {{ server_ip }} opentsdb data_server >> /etc/hosts \
+              'echo nameserver {{ dns_ip }} >> /etc/resolv.conf \
               && cat {{ bind_dir_on_container }}/hosts >> /etc/hosts \
               && chown {{ user_info.user_name }} {{ user_home_on_container }} \
               && chmod 0755 {{ user_home_on_container }}' \

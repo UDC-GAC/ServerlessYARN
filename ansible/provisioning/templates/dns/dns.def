@@ -1,0 +1,21 @@
+Bootstrap: docker
+From: ubuntu:24.04
+
+%files
+    dnsmasq.conf /opt/dnsmasq.conf
+
+%post -c /bin/bash
+
+    export TZ=UTC
+    export DEBIAN_FRONTEND=noninteractive
+
+    apt-get -y update
+    apt-get -y install dnsmasq tmux net-tools
+
+%startscript
+
+    # This directory will be used to store and monitor files with name resolutions
+    # Every new file and update on existing files will inmediately add or remove the corresponding resolutions
+    HOSTS_DIR={{ bind_dir_on_container }}
+
+    tmux new -s "DNS" -d "/usr/sbin/dnsmasq -d -C /opt/dnsmasq.conf -q --hostsdir=${HOSTS_DIR}"

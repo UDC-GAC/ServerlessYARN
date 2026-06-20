@@ -45,6 +45,8 @@ openjdk_version: 8
 
 ## Other
 couchdb_path: "{{ installation_path }}/couchdb"
+dns_path: "{{ installation_path }}/dns"
+dns_container_name: "dns-cont"
 opentsdb_log_path: "{{ bdwatchdog_path }}/opentsdb/log"
 web_interface_path: services/serverless_containers_web
 singularity_cgroups_group: singularity

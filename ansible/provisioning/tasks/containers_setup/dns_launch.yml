@@ -1,0 +1,74 @@
+- name: Install DNS image
+  vars:
+    - installed_app_directory: "{{ images_build_dir }}/dns"
+    - definition_file: "dns.def"
+    - image_file: "dns.sif"
+  tags: build_dns
+  block:
+    - name: Create required directories in server
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - "{{ installed_app_directory }}"
+        - "{{ dns_path }}"
+
+    - name: Copy DNS definition file and configuration files
+      template:
+        src: "templates/dns/{{ item }}"
+        dest: "{{ installed_app_directory }}/{{ item }}"
+      with_items:
+        - "{{ definition_file }}"
+        - dnsmasq.conf
+
+    - name: Build image (DNS)
+      shell: "{{ singularity_command_alias }} build {{ image_file }} {{ definition_file }}"
+      args:
+        chdir: "{{ installed_app_directory }}"
+        executable: /bin/bash
+        creates: "{{ image_file }}"
+
+- name: Run DNS
+  tags: restart_services, start_dns
+  block:
+    - name: Check containers status
+      shell: "sudo {{ singularity_command_alias }} instance list -j"
+      register: apptainer_list_output
+      args:
+        executable: /bin/bash
+
+    - name: Start DNS apptainer container
+      shell: "sudo {{ singularity_command_alias }} instance start -C \
+        --net --network {{ network }} \
+        --hostname {{ dns_container_name }} \
+        --bind {{ dns_path }}:{{ bind_dir_on_container }} \
+         {{ image_path }} {{ dns_container_name }}"
+      when: "dns_container_name not in apptainer_list_output.stdout"
+      args:
+        executable: /bin/bash 
+      vars:
+        image_path: "{{ images_build_dir }}/dns/dns.sif"
+        network: "{{ mode }}_{{ hostvars['platform_server'].ansible_host }}{{ ',ptp' if mode == 'ipvlan' else '' }}"
+
+    - name: Set base resolutions for DNS
+      lineinfile:
+        path: "{{ dns_path }}/base_resolutions"
+        state: present
+        create: true
+        line: "{{ item }}"
+      loop:
+        - "{{ server_ip }} opentsdb data_server"
+
+- name: Stop DNS
+  tags: never, stop_dns
+  block:
+    - name: Stop DNS container
+      shell: "sudo {{ singularity_command_alias }} instance stop {{ dns_container_name }}"
+      args:
+        executable: /bin/bash
+      ignore_errors: true
+
+    - name: Clean DNS directory
+      file:
+        path: "{{ dns_path }}"
+        state: absent

@@ -244,8 +244,11 @@ def stop_container(host_name, container, bind_path=None, clean_bind_dir=True):
 
         run_adhoc(hosts=[host_name], module="file", module_args="path={0} state=absent".format(bind_path), extravars=vars_config)
 
-def setup_network_on_containers(host_names, containers_info):
-    run_playbook(playbook_name="manage_app_on_container.yml", tags=["setup_network"], limit=host_names, extravars={"containers_info_str": containers_info})
+def setup_network_on_containers(host_names, containers_info, app_name):
+    run_playbook(playbook_name="manage_app_on_container.yml",
+                 tags=["setup_network"],
+                 limit=host_names,
+                 extravars={"containers_info_str": containers_info, "app_name": app_name})
 
 
 ## Manage applications
