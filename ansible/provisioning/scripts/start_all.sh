@@ -3,23 +3,23 @@ set -e
 
 ## Main variables
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
-INVENTORY=${scriptDir}/../../ansible.inventory
+INVENTORY=${scriptDir}/../../ansible.inventory.yml
 
 print_usage ()
 {
     echo "Usage: $arg0 [-h --> print usage for help] \\"
     echo "       $blnk [-s --> skip inventory load]  \\"
-    echo "       $blnk [-d --> update disk paths]" #useful in clusters where the disk paths may be dynamically assigned based on Job ID
+    echo "       $blnk [-d --> reset disks]" # reset disks in order to re-benchmark their performance (requires not skipping inventory load)
 }
 
 ## Script flags
 load_inventory_flag='true'
-update_disk_paths_flag='false'
+reset_disks_flag='false'
 
 while getopts 'shd' flag; do
   case "${flag}" in
     s) load_inventory_flag='false' ;;
-    d) update_disk_paths_flag='true' ;;
+    d) reset_disks_flag='true' ;;
     h) print_usage
        exit 0 ;;
     *) print_usage
@@ -76,12 +76,7 @@ setup_config ()
         echo "Downloading required packages for scripts"
         pip3 install -r ${scriptDir}/requirements.txt
         echo "Loading config from SLURM"
-        if [ "$update_disk_paths_flag" = false ]
-        then
-            python3 ${scriptDir}/load_config_from_slurm.py
-        else
-            python3 ${scriptDir}/load_config_from_slurm.py update_disks
-        fi
+        python3 ${scriptDir}/load_config_from_slurm.py
     fi
 
     echo "Load platform configuration from modules..."
@@ -94,7 +89,12 @@ load_inventory_file ()
 {
     echo ""
     echo "Loading ansible inventory file"
-    python3 ${scriptDir}/load_inventory_from_conf.py
+    if [ "$reset_disks_flag" = false ]
+    then
+        python3 ${scriptDir}/load_inventory_from_conf.py
+    else
+        python3 ${scriptDir}/load_inventory_from_conf.py "reset_disks"
+    fi
 }
 
 run_ansible_playbooks ()
@@ -121,7 +121,7 @@ run_ansible_playbooks ()
     echo "Apps loaded!"
 }
 
-## Script execution
+######################## Script execution ########################
 check_files_to_template
 
 setup_config

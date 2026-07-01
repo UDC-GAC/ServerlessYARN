@@ -9,7 +9,7 @@ artifacts/
 ansible/provisioning/java_libraries/*/target
 
 # Dynamic configuration files
-ansible/ansible.inventory
+ansible/ansible.inventory.yml
 ansible/provisioning/config/config.yml
 ansible/provisioning/config/modules/*.yml
 !ansible/provisioning/config/modules/template.*.yml

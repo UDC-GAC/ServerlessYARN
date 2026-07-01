@@ -25,6 +25,7 @@ ONLY_VIRTUAL_MODE = ["EVE_TIMES"]
 
 scriptDir = os.path.realpath(os.path.dirname(__file__))
 playbook_dir = scriptDir + "/../.."
+inventory = "../ansible.inventory.yml" ## relative to playbook_dir
 debug = True
 
 ## Update config file
@@ -36,7 +37,7 @@ class EventHandler(FileSystemEventHandler):
             rc = RunnerConfig(
                 private_data_dir=playbook_dir,
                 playbook="load_config_playbook.yml",
-                inventory='../ansible.inventory'
+                inventory=inventory
             )
             rc.prepare()
             r = Runner(config=rc)
@@ -68,7 +69,7 @@ def stop_opentsdb():
         private_data_dir=playbook_dir,
         playbook="stop_services_playbook.yml",
         tags='stop_opentsdb',
-        inventory='../ansible.inventory'
+        inventory=inventory
     )
     rc.prepare()
     r = Runner(config=rc)
@@ -124,7 +125,7 @@ def check_services():
         private_data_dir=playbook_dir,
         playbook="launch_playbook.yml",
         tags='restart_services',
-        inventory='../ansible.inventory'
+        inventory=inventory
     )
     rc.prepare()
     r = Runner(config=rc)

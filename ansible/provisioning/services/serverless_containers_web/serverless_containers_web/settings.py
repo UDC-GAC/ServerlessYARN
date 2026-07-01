@@ -55,7 +55,7 @@ ALLOWED_HOSTS = [PLATFORM_CONFIG['server_ip'], "127.0.0.1", "localhost"]
 
 BASE_URL = "http://{0}:{1}".format(PLATFORM_CONFIG['server_ip'],PLATFORM_CONFIG['orchestrator_port'])
 
-INVENTORY_FILE = scriptDir + "/../../../../ansible.inventory"
+INVENTORY_FILE = scriptDir + "/../../../../ansible.inventory.yml"
 
 # Application definition
 

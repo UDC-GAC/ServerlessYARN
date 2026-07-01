@@ -2,7 +2,7 @@
 set -e
 
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
-INVENTORY=${scriptDir}/../../ansible.inventory
+INVENTORY=${scriptDir}/../../ansible.inventory.yml
 
 print_usage ()
 {

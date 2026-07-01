@@ -1,9 +1,7 @@
 import os
+import sys
 import json
 import urllib
-
-from ansible.parsing.dataloader import DataLoader
-from ansible.inventory.manager import InventoryManager
 
 from django.conf import settings
 
@@ -11,6 +9,9 @@ from ui.utils import DEFAULT_LIMIT_VALUES
 from ui.forms import StartAppForm, RemoveContainersFromAppForm, AddAppForm, AddHadoopAppForm
 from ui.views.core.utils import getFreestDisk, GetFreestHost, getHostFreeDiskBw
 
+scriptDir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(scriptDir + "/../../../../scripts/utils")
+from manage_inventory import AnsibleYamlInventory
 
 def getAppInfo(data, app_name):
     app = {}
@@ -382,9 +383,8 @@ def getContainerAssignationForApp(assignation_policy, allow_oversubscription, ho
 
     # Reserve server for master containers
     if "rm-nn" in container_resources and settings.PLATFORM_CONFIG['server_as_host'] and settings.PLATFORM_CONFIG['reserve_server_for_master']:
-        loader = DataLoader()
-        ansible_inventory = InventoryManager(loader=loader, sources=settings.INVENTORY_FILE)
-        server_name = ansible_inventory.groups['platform_management'].get_hosts()[0].vars['ansible_host']
+        inventory = AnsibleYamlInventory()
+        server_name = inventory.get_server_hostname()
 
         ## Remove server from host list to avoid adding containers to it
         for h in hosts:

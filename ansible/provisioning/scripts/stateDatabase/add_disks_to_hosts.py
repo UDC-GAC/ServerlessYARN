@@ -7,15 +7,14 @@ import os
 
 # usage example: add_disks_to_hosts.py {"host0":{"new_0":{"path":"$HOME/new_0"}}} config/config.yml
 
-from ansible.parsing.dataloader import DataLoader
-from ansible.vars.manager import VariableManager
-from ansible.inventory.manager import InventoryManager
-
 scriptDir = os.path.realpath(os.path.dirname(__file__))
-inventory_file = scriptDir + "/../../../ansible.inventory"
+inventory_file = scriptDir + "/../../../ansible.inventory.yml"
 
 sys.path.append(scriptDir + "/../../services/serverless_containers_web/ui")
 from utils import request_to_state_db
+
+sys.path.append(scriptDir + "/../utils")
+from manage_inventory import AnsibleYamlInventory
 
 if __name__ == "__main__":
 
@@ -29,17 +28,14 @@ if __name__ == "__main__":
         session = requests.Session()
 
         ## Load ansible inventory to get disks BW
-        loader = DataLoader()
-        ansible_inventory = InventoryManager(loader=loader, sources=inventory_file)
-        hostList = ansible_inventory.groups['nodes'].get_hosts()
+        inventory = AnsibleYamlInventory()
+        hostnames = inventory.get_node_hostnames()
 
         ## Update hosts
-        for h in hostList:
+        for host in hostnames:
 
-            if h.name not in new_disks: continue
-
-            host = h.name
-            disks = h.vars['disks']
+            if host not in new_disks: continue
+            disks = inventory.get_disks(host)
 
             full_url = "{0}/structure/host/{1}/disks".format(orchestrator_url, host)
 
@@ -54,8 +50,10 @@ if __name__ == "__main__":
                 new_disk = {}
                 new_disk['name'] = disk
                 new_disk['path'] = disks[disk]['path']
-                new_disk['max']  = disks[disk]['bw']
-                new_disk['free'] = disks[disk]['bw']
+                new_disk['max_read']  = disks[disk]['read_bw']
+                new_disk['free_read'] = disks[disk]['read_bw']
+                new_disk['max_write']  = disks[disk]['write_bw']
+                new_disk['free_write'] = disks[disk]['write_bw']
                 new_disk['load'] = 0
 
                 ## TODO: eventually remove the 'type' attribute, since we can differentiate disks by their bandwidth
@@ -67,7 +65,7 @@ if __name__ == "__main__":
 
                 put_field_data['resources']["disks"].append(new_disk)
 
-            error_message = "Error adding disks {0} to host '{1}'".format(new_disk[host], host)
+            error_message = "Error adding disks {0} to host '{1}'".format(new_disks[host], host)
             error, _ = request_to_state_db(full_url, "put", error_message, put_field_data, session=session)
 
             if error: raise Exception(error)

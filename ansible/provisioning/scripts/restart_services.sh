@@ -3,7 +3,7 @@ set -e
 
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 
-INVENTORY=${scriptDir}/../../ansible.inventory
+INVENTORY=${scriptDir}/../../ansible.inventory.yml
 
 # This is useful in case we need to use a newer version of ansible installed in $HOME/.local/bin
 export PATH=$HOME/.local/bin:$PATH

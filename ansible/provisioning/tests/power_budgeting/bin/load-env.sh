@@ -25,6 +25,6 @@ export CONFIG_FILE="${CONF_DIR}/experiments.json"
 export TEST_DIR=$(dirname "${BASE_DIR}")
 export PROVISIONING_DIR=$(dirname "${TEST_DIR}")
 export ANSIBLE_DIR=$(dirname "${PROVISIONING_DIR}")
-export ANSIBLE_INVENTORY="${ANSIBLE_DIR}/ansible.inventory"
+export ANSIBLE_INVENTORY="${ANSIBLE_DIR}/ansible.inventory.yml"
 export SC_YARN_PATH="${HOME}/ServerlessYARN_install"
 export SC_INSTALLATION_PATH="${SC_YARN_PATH}/ServerlessContainers"

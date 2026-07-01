@@ -1,11 +1,14 @@
 import yaml
+import sys
+import os
 from django.conf import settings
 
-from ansible.parsing.dataloader import DataLoader
-from ansible.inventory.manager import InventoryManager
+scriptDir = os.path.realpath(os.path.dirname(__file__))
+sys.path.append(scriptDir + "/../../../../scripts/utils")
+from manage_inventory import AnsibleYamlInventory
 
 from ui.utils import DEFAULT_RESOURCE_VALUES, DEFAULT_LIMIT_VALUES
-from ui.update_inventory_file import host_container_separator
+from ui.update_inventory_file import HOST_CONTAINER_SEPARATOR
 from ui.background_tasks import register_task, get_pending_tasks_messages, stop_hdfs_task, remove_app_task, start_global_hdfs_task
 from ui.views.core.utils import getDbData, getHostsNames, getScalerPollFreq, getDataAndFilterByApp, getContainersFromApp, getAppFiles
 
@@ -35,9 +38,8 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
         ## Create NameNode
         if settings.PLATFORM_CONFIG['server_as_host']:
             # the namenode must be deployed on the server
-            loader = DataLoader()
-            ansible_inventory = InventoryManager(loader=loader, sources=settings.INVENTORY_FILE)
-            server_name = ansible_inventory.groups['platform_management'].get_hosts()[0].vars['ansible_host']
+            inventory = AnsibleYamlInventory()
+            server_name = inventory.get_server_hostname()
 
             for h in hosts:
                 if server_name == h['name']:
@@ -48,7 +50,7 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
             host = hosts[0]
 
         container = {}
-        container["container_name"] = nn_container_prefix + host_container_separator + host['name']
+        container["container_name"] = nn_container_prefix + HOST_CONTAINER_SEPARATOR + host['name']
         container["host"] = host['name']
         for resource in ["cpu", "mem"]:
             for key in ["max", "min", "weight", "boundary", "boundary_type"]:
@@ -77,7 +79,7 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
             if host['name'] == server_name: continue
 
         container = {}
-        container["container_name"] = dn_container_prefix + host_container_separator + host['name']
+        container["container_name"] = dn_container_prefix + HOST_CONTAINER_SEPARATOR + host['name']
         container["host"] = host['name']
         for resource in ["cpu", "mem"]:
             for key in ["max", "min", "weight", "boundary", "boundary_type"]:

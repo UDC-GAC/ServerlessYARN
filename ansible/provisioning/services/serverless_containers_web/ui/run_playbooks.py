@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 scriptDir = os.path.realpath(os.path.dirname(__file__))
 playbook_dir = f"{scriptDir}/../../.."
-inventory = "../ansible.inventory" ## relative to playbook_dir
+inventory = "../ansible.inventory.yml" ## relative to playbook_dir
 vars_path = f"{playbook_dir}/vars/main.yml"
 config_path =  f"{playbook_dir}/config/config.yml"
 
