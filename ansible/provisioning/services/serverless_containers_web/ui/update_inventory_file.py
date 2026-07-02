@@ -1,12 +1,7 @@
 #!/usr/bin/python
-import os
 import re
-import sys
 
-scriptDir = os.path.realpath(os.path.dirname(__file__))
-
-sys.path.append(scriptDir + "/../../../scripts/utils")
-from manage_inventory import AnsibleYamlInventory, get_disks_dict, create_container_list, HOST_CONTAINER_SEPARATOR
+from serverlessyarn_utils.manage_inventory import AnsibleYamlInventory, get_disks_dict, create_container_list, HOST_CONTAINER_SEPARATOR
 
 ## Adds
 def add_host(hostname,cpu,mem,disk_info,energy,new_containers):

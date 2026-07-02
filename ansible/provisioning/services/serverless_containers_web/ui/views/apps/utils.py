@@ -1,17 +1,12 @@
-import os
-import sys
 import json
 import urllib
 
 from django.conf import settings
-
 from ui.utils import DEFAULT_LIMIT_VALUES
 from ui.forms import StartAppForm, RemoveContainersFromAppForm, AddAppForm, AddHadoopAppForm
 from ui.views.core.utils import getFreestDisk, GetFreestHost, getHostFreeDiskBw
 
-scriptDir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(scriptDir + "/../../../../scripts/utils")
-from manage_inventory import AnsibleYamlInventory
+from serverlessyarn_utils.manage_inventory import AnsibleYamlInventory
 
 def getAppInfo(data, app_name):
     app = {}

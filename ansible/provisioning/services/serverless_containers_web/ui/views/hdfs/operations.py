@@ -1,16 +1,10 @@
 import yaml
-import sys
-import os
 from django.conf import settings
-
-scriptDir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(scriptDir + "/../../../../scripts/utils")
-from manage_inventory import AnsibleYamlInventory
-
 from ui.utils import DEFAULT_RESOURCE_VALUES, DEFAULT_LIMIT_VALUES
-from ui.update_inventory_file import HOST_CONTAINER_SEPARATOR
 from ui.background_tasks import register_task, get_pending_tasks_messages, stop_hdfs_task, remove_app_task, start_global_hdfs_task
 from ui.views.core.utils import getDbData, getHostsNames, getScalerPollFreq, getDataAndFilterByApp, getContainersFromApp, getAppFiles
+
+from serverlessyarn_utils.manage_inventory import AnsibleYamlInventory, HOST_CONTAINER_SEPARATOR
 
 def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn_container_prefix, webdriver_state):
     # Get host data

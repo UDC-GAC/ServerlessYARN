@@ -28,6 +28,30 @@ while getopts 'shd' flag; do
 done
 
 ## Script functions
+install_prerequisites ()
+{
+    echo "Installing prerequisites..."
+
+    # This is useful in case we need to use a newer version of ansible installed in $HOME/.local/bin
+    export PATH=$HOME/.local/bin:$PATH
+
+    ## Install required ansible collections
+    echo ""
+    ansible-galaxy collection install ansible.posix:==1.5.0
+
+    # Check if we are in a SLURM environment
+    if [ ! -z ${SLURM_JOB_ID} ]
+    then
+        echo ""
+        echo "Downloading required packages for scripts"
+        pip3 install -r ${scriptDir}/requirements.txt
+    fi
+
+    # Install custom python utilities
+    pip3 install --editable ${scriptDir}/../python_utils/ ## 'editable' mode allows changes to be automatically reflected without re-installing
+
+}
+
 check_files_to_template ()
 {
     echo "Checking required files..."
@@ -62,19 +86,10 @@ check_files_to_template ()
 
 setup_config ()
 {
-    # This is useful in case we need to use a newer version of ansible installed in $HOME/.local/bin
-    export PATH=$HOME/.local/bin:$PATH
-
-    ## Install required ansible collections
-    echo ""
-    ansible-galaxy collection install ansible.posix:==1.5.0
 
     # Check if we are in a SLURM environment
     if [ ! -z ${SLURM_JOB_ID} ]
     then
-        echo ""
-        echo "Downloading required packages for scripts"
-        pip3 install -r ${scriptDir}/requirements.txt
         echo "Loading config from SLURM"
         python3 ${scriptDir}/load_config_from_slurm.py
     fi
@@ -122,6 +137,8 @@ run_ansible_playbooks ()
 }
 
 ######################## Script execution ########################
+install_prerequisites
+
 check_files_to_template
 
 setup_config

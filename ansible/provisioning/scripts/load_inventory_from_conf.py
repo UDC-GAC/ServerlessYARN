@@ -7,7 +7,7 @@ import socket
 scriptDir = os.path.realpath(os.path.dirname(__file__))
 CONFIG_FILE = scriptDir + "/../config/config.yml"
 
-from utils.manage_inventory import AnsibleYamlInventory, get_disks_dict, resolve_disk_path, create_container_list
+from serverlessyarn_utils.manage_inventory import AnsibleYamlInventory, get_disks_dict, resolve_disk_path, create_container_list
 
 ## Auxiliary methods
 def create_resource_dict(config):
