@@ -6,6 +6,7 @@ id_rsa*.pub
 artifacts/
 *.log
 *.jar
+*.bak
 ansible/provisioning/java_libraries/*/target
 
 # Dynamic configuration files

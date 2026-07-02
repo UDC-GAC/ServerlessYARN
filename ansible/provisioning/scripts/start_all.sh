@@ -5,6 +5,24 @@ set -e
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 INVENTORY=${scriptDir}/../../ansible.inventory.yml
 
+CONFIG_MODULE_PATH="${scriptDir}/../config/modules"
+CONFIG_MODULE_LIST=(
+    01-general.yml \
+    02-hosts.yml \
+    03-services.yml \
+    04-disk.yml \
+    05-power.yml \
+    06-hdfs.yml \
+    07-containers.yml \
+    08-apps.yml \
+    09-plugins.yml \
+)
+
+## Colors used to print
+LIGHT_CYAN="\e[38;5;81m"
+RESET="\e[0m"
+BANNER_COLOR=${LIGHT_CYAN}
+
 print_usage ()
 {
     echo "Usage: $arg0 [-h --> print usage for help] \\"
@@ -28,15 +46,21 @@ while getopts 'shd' flag; do
 done
 
 ## Script functions
+print_banner() {
+    local msg="* [ServerlessYARN INFO] $1 *"
+    local edge=$(echo "$msg" | sed 's/./*/g')
+
+    printf "${BANNER_COLOR}\n%s\n%s\n%s${RESET}\n" "$edge" "$msg" "$edge"
+}
+
 install_prerequisites ()
 {
-    echo "Installing prerequisites..."
+    print_banner "Installing prerequisites"
 
     # This is useful in case we need to use a newer version of ansible installed in $HOME/.local/bin
     export PATH=$HOME/.local/bin:$PATH
 
     ## Install required ansible collections
-    echo ""
     ansible-galaxy collection install ansible.posix:==1.5.0
 
     # Check if we are in a SLURM environment
@@ -54,22 +78,11 @@ install_prerequisites ()
 
 check_files_to_template ()
 {
-    echo "Checking required files..."
+    print_banner "Checking required files"
 
-    config_modules_path="${scriptDir}/../config/modules"
-    config_modules="
-        ${config_modules_path}/01-general.yml \
-        ${config_modules_path}/02-hosts.yml \
-        ${config_modules_path}/03-services.yml \
-        ${config_modules_path}/04-disk.yml \
-        ${config_modules_path}/05-power.yml \
-        ${config_modules_path}/06-hdfs.yml \
-        ${config_modules_path}/07-containers.yml \
-        ${config_modules_path}/08-apps.yml \
-        ${config_modules_path}/09-plugins.yml \
-    "
+    config_modules=("${CONFIG_MODULE_LIST[@]/#/$CONFIG_MODULE_PATH/}") ## this adds the prefix '$CONFIG_MODULE_PATH/' to every item in list
 
-    FILES_TO_TEMPLATE="$INVENTORY $config_modules"
+    FILES_TO_TEMPLATE="$INVENTORY ${config_modules[@]}"
 
     for file in $FILES_TO_TEMPLATE
     do
@@ -86,6 +99,13 @@ check_files_to_template ()
 
 setup_config ()
 {
+    print_banner "Setting configuration"
+
+    # Check if new parameters have been added to config templates (e.g., new update via git pull)
+    for filename in "${CONFIG_MODULE_LIST[@]}"
+    do
+        python3 ${scriptDir}/sync_yaml_config.py --template ${CONFIG_MODULE_PATH}/template.$filename --config ${CONFIG_MODULE_PATH}/$filename
+    done
 
     # Check if we are in a SLURM environment
     if [ ! -z ${SLURM_JOB_ID} ]
@@ -94,7 +114,7 @@ setup_config ()
         python3 ${scriptDir}/load_config_from_slurm.py
     fi
 
-    echo "Load platform configuration from modules..."
+    echo "Load platform configuration from modules"
     ansible-playbook ${scriptDir}/../load_config_playbook.yml -i $INVENTORY
     echo "Configuration loaded!"
 
@@ -102,8 +122,8 @@ setup_config ()
 
 load_inventory_file ()
 {
-    echo ""
-    echo "Loading ansible inventory file"
+    print_banner "Loading ansible inventory file"
+
     if [ "$reset_disks_flag" = false ]
     then
         python3 ${scriptDir}/load_inventory_from_conf.py
@@ -114,8 +134,7 @@ load_inventory_file ()
 
 run_ansible_playbooks ()
 {
-    echo ""
-    echo "Installing necessary services and programs..."
+    print_banner "Installing necessary services and programs"
     ansible-playbook ${scriptDir}/../install_playbook.yml -i $INVENTORY
     echo "Install Done!"
 
@@ -123,15 +142,15 @@ run_ansible_playbooks ()
     # Repeat the export command in case the /etc/environment file overwrites the PATH variable
     export PATH=$HOME/.local/bin:$PATH
 
-    echo "Starting containers..."
+    print_banner "Starting containers"
     ansible-playbook ${scriptDir}/../start_containers_playbook.yml -i $INVENTORY
     echo "Containers started! "
 
-    echo "Launching services..."
+    print_banner "Launching services"
     ansible-playbook ${scriptDir}/../launch_playbook.yml -i $INVENTORY
     echo "Launch Done!"
 
-    echo "Load applications..."
+    print_banner "Loading applications"
     python3 ${scriptDir}/load_apps_from_config.py
     echo "Apps loaded!"
 }
