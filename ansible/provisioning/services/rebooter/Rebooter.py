@@ -5,7 +5,6 @@ import time
 import traceback
 import libtmux
 from termcolor import colored
-from ansible_runner import Runner, RunnerConfig
 import yaml
 import requests
 import json
@@ -13,6 +12,8 @@ import os
 
 from watchdog.observers.polling import PollingObserver
 from watchdog.events import FileSystemEventHandler
+
+from serverlessyarn_utils.manage_ansible import run_playbook
 
 SERVICE_NAME = "rebooter"
 BDW_SERVICES = ["EVE_TIMES", "OPENTSDB"]
@@ -34,14 +35,7 @@ class EventHandler(FileSystemEventHandler):
         if event.src_path.endswith(".yml"):  # Only process files ending in .yml, excluding .template files
             log_info(event, debug)
             ## Run the playbook to update the config file
-            rc = RunnerConfig(
-                private_data_dir=playbook_dir,
-                playbook="load_config_playbook.yml",
-                inventory=inventory
-            )
-            rc.prepare()
-            r = Runner(config=rc)
-            r.run()
+            run_playbook(playbook_name="load_config_playbook.yml")
             log_info("Updated config file to due modification on modules", debug)
 
 ## Logging
@@ -65,15 +59,7 @@ def get_time_now_string():
 
 def stop_opentsdb():
     ## Stop OpenTSDB
-    rc = RunnerConfig(
-        private_data_dir=playbook_dir,
-        playbook="stop_services_playbook.yml",
-        tags='stop_opentsdb',
-        inventory=inventory
-    )
-    rc.prepare()
-    r = Runner(config=rc)
-    r.run()
+    run_playbook(playbook_name="stop_services_playbook.yml", tags="stop_opentsdb")
     log_info("OpenTSDB service stopped",debug)
 
 def test_opentsdb_connection(opentsdb_server):
@@ -120,16 +106,6 @@ def check_services():
         opentsdb_port = config['opentsdb_port']
         opentsdb_server = 'http://' + opentsdb_url + ":" + str(opentsdb_port)
 
-    ## Playbook running setup
-    rc = RunnerConfig(
-        private_data_dir=playbook_dir,
-        playbook="launch_playbook.yml",
-        tags='restart_services',
-        inventory=inventory
-    )
-    rc.prepare()
-    r = Runner(config=rc)
-
     ## Setup watchdog to monitor config file changes
     event_handler = EventHandler()
     observer = PollingObserver()
@@ -152,7 +128,7 @@ def check_services():
                     service_session = server.find_where({ "session_name": service })
                     if not service_session:
                         sessions_missing += 1
-                        log_warning("{0} session missing".format(service),debug)
+                        log_warning("{0} session missing".format(service), debug)
 
             except libtmux.exc.LibTmuxException:
                 sessions_missing += 1
@@ -160,8 +136,7 @@ def check_services():
 
             if sessions_missing:
                 ## restart services
-                r.run()
-                log_info("{},{}: {}".format(r.status, r.rc, r.stderr),debug)
+                run_playbook(playbook_name="launch_playbook.yml", tags="restart_services")
 
             else:
                 log_info("All services started", debug)
