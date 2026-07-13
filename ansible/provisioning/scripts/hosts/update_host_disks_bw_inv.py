@@ -1,13 +1,7 @@
 #!/usr/bin/python
 import sys
 import yaml
-import requests
-import json
-import os
-
-scriptDir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(scriptDir + "/../../services/serverless_containers_web/ui")
-from update_inventory_file import update_inventory_disk
+from serverlessyarn_utils.manage_inventory import AnsibleYamlInventory
 
 rescaler_port = "8000"
 
@@ -34,4 +28,6 @@ if __name__ == "__main__":
         read_bandwidth_MB = round(read_bandwidth * bandwidth_conversion[unit])
         write_bandwidth_MB = round(write_bandwidth * bandwidth_conversion[unit])
 
-        update_inventory_disk(host, disk, read_bandwidth_MB, write_bandwidth_MB)
+        inventory = AnsibleYamlInventory()
+        inventory.update_disk(hostname=host, disk=disk, new_disk_info={"read_bw": read_bandwidth_MB, "write_bw": write_bandwidth_MB})
+        inventory.save()

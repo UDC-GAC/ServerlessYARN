@@ -6,7 +6,7 @@ from django.shortcuts import render, redirect
 from django.conf import settings
 
 from ui.background_tasks import get_pending_tasks_messages
-from ui.utils import request_to_state_db
+from serverlessyarn_utils.web_utils import web_request
 
 
 from ui.views.core.utils import redirect_with_errors, checkInvalidConfig
@@ -107,7 +107,7 @@ def service_switch(request,service_name):
     put_field_data = {'value': activate}
 
     error_message = ""
-    error, response = request_to_state_db(url, "put", error_message, put_field_data)
+    error, response = web_request(url, "put", error_message, put_field_data)
     if error: print(response.content) ## should not happen
 
     return redirect('services')

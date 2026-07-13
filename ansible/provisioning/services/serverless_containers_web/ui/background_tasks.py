@@ -12,7 +12,7 @@ from django.conf import settings
 from serverless_containers_web.celery import app as celery_app
 
 from ui.update_inventory_file import add_containers_to_hosts, remove_container_from_host, add_host, remove_host, add_disks_to_hosts, add_containers_to_inventory
-from ui.utils import request_to_state_db
+from serverlessyarn_utils.web_utils import web_request
 import ui.run_playbooks as run_playbooks
 
 from ui.views.core.utils import getDbData, getDataAndFilterByApp, getHostFreeDiskLoad, getHostsNames
@@ -452,7 +452,7 @@ def add_disks_to_hosts_task(host_list, add_to_lv, new_disks, extra_disk, measure
 @shared_task
 def add_app_task(full_url, put_field_data, app, app_files, user=None):
     error_message = "Error adding app {0}".format(app)
-    error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
+    error, _ = web_request(full_url, "put", error_message, put_field_data)
 
     if not error:
         run_playbooks.create_app(app_files)
@@ -468,7 +468,7 @@ def add_app_task(full_url, put_field_data, app, app_files, user=None):
 @shared_task
 def add_user_task(full_url, put_field_data, user):
     error_message = "Error adding user {0}".format(user)
-    error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
+    error, _ = web_request(full_url, "put", error_message, put_field_data)
     if error:
         raise Exception(error)
 
@@ -501,7 +501,7 @@ def change_app_state_in_db(url, app, state):
     while actual_try < max_retries:
 
         error_message = "Error changing app {0} execution state to {1}".format(app, state)
-        error, response = request_to_state_db(full_url, "put", error_message)
+        error, response = web_request(full_url, "put", error_message)
 
         if response != "":
             if not error: break
@@ -519,7 +519,7 @@ def add_container_to_app_in_db(full_url, container, app):
     while actual_try < max_retries:
 
         error_message = "Error adding container {0} to app {1}".format(container, app)
-        error, response = request_to_state_db(full_url, "put", error_message)
+        error, response = web_request(full_url, "put", error_message)
 
         if response != "":
             if not error: break
@@ -538,7 +538,7 @@ def manage_app_with_user_in_db(full_url, app, user, operation):
     while actual_try < max_retries:
 
         error_message = "Error adding app {0} to user {1}".format(app, user)
-        error, response = request_to_state_db(full_url, operation, error_message)
+        error, response = web_request(full_url, operation, error_message)
 
         if response != "":
             if not error:
@@ -1147,7 +1147,7 @@ def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_fre
     # Remove app from db
     full_url = url + "apps" + "/" + app
     error_message = "Error removing app {0}".format(app)
-    error, _ = request_to_state_db(full_url, "delete", error_message)
+    error, _ = web_request(full_url, "delete", error_message)
 
     ## Clean datanodes data_dir and avoid errors when creating new global_hdfs cluster
     ## This is a workaround, should be executed when stopping cluster
@@ -1175,7 +1175,7 @@ def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_fre
 def remove_host_task(full_url, host_name):
 
     error_message = "Error removing host {0}".format(host_name)
-    error, _ = request_to_state_db(full_url, "delete", error_message)
+    error, _ = web_request(full_url, "delete", error_message)
 
     ## Remove host
     if (not error):
@@ -1219,7 +1219,7 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
     if user and user != "":
         full_url = settings.BASE_URL + "/user/clusters/" + user + "/" + app_name + "/"
         error_message = "Error removing app {0} from user {1}".format(app_name, user)
-        error, _ = request_to_state_db(full_url, "delete", error_message)
+        error, _ = web_request(full_url, "delete", error_message)
 
         if error:
             raise Exception(error)
@@ -1228,7 +1228,7 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
     full_url = url + structure_type_url + "/" + app_name
 
     error_message = "Error removing app {0}".format(app_name)
-    error, _ = request_to_state_db(full_url, "delete", error_message)
+    error, _ = web_request(full_url, "delete", error_message)
 
 @shared_task
 def remove_containers_task(url, container_list):
@@ -1316,7 +1316,7 @@ def remove_users_task(url, users):
     for user_name in users:
         full_url = "{0}/{1}".format(url, user_name)
         error_message = "Error removing user {0}".format(user_name)
-        error, _ = request_to_state_db(full_url, "delete", error_message)
+        error, _ = web_request(full_url, "delete", error_message)
         if error != "":
             errors.append(error)
 
@@ -1329,7 +1329,7 @@ def remove_container_from_db(full_url, container_name):
 
     # Remove container from DB
     error_message = "Error removing container {0}".format(container_name)
-    error, _ = request_to_state_db(full_url, "delete", error_message)
+    error, _ = web_request(full_url, "delete", error_message)
 
     return error
 
@@ -1344,7 +1344,7 @@ def remove_container_from_app_db(full_url, container_name, app):
 
         # Remove container from app
         error_message = "Error removing container {0} from app {1}".format(container_name, app)
-        error, response = request_to_state_db(full_url, "delete", error_message)
+        error, response = web_request(full_url, "delete", error_message)
 
         if response != "":
             if not error: break

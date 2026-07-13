@@ -5,11 +5,7 @@ import sys
 import itertools
 import time
 import src.StateDatabase.couchdb as couchDB
-import os
-
-scriptDir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(scriptDir + "/../../services/serverless_containers_web/ui")
-from utils import request_to_state_db
+from serverlessyarn_utils.web_utils import web_request
 
 # usage example: init_host_node_rescaler.py host1,host2 [{'container_name': 'host1-cont0', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'disk': 'ssd_0', 'disk_path': '$HOME/ssd', 'disk_max': 200, 'disk_min': 50, 'energy_max': 100, 'energy_min': 30}, {'container_name': 'host1-cont1'...}] ['cpu','mem','disk','energy']
 
@@ -224,7 +220,7 @@ if __name__ == "__main__":
                 if not_initialized_resources > 0:
 
                     error_message = "Error initializing {0} value for {1} in host {2}".format(', '.join(resources), c['container_name'], host)
-                    error, response = request_to_state_db(full_url, "put", error_message, put_field_data, session=session)
+                    error, response = web_request(full_url, "put", error_message, put_field_data, session=session)
 
                     if not error:
                         print("Container {0} updated with {1}".format(c['container_name'], put_field_data))

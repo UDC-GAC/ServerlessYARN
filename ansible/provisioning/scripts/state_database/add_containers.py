@@ -3,8 +3,8 @@ import sys
 import yaml
 import requests
 import json
-import os
 from copy import deepcopy
+from serverlessyarn_utils.web_utils import web_request
 
 rescaler_port = "8000"
 
@@ -26,10 +26,6 @@ base_container_to_API = dict(
     )
 )
 
-scriptDir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(scriptDir + "/../../services/serverless_containers_web/ui")
-from utils import request_to_state_db
-
 # usage example: add_containers.py [{'container_name': 'host1-cont1', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'energy_max': 100, 'energy_min': 30, 'cpu_boundary': 25, 'mem_boundary': 256, 'energy_boundary': 10, 'disk': 'hdd_0', 'disk_path: '$HOME/hdd', 'disk_max': 200, 'disk_min': 50}, {'container_name': 'host1-cont1'...}] config/config.yml
 
 def subscribe_containers_to_app(url, app_name, app_containers):
@@ -41,7 +37,7 @@ def subscribe_containers_to_app(url, app_name, app_containers):
         while actual_try < max_retries:
 
             error_message = "Error adding container {0} to app {1}".format(container_name, app_name)
-            error, response = request_to_state_db(full_url, "put", error_message)
+            error, response = web_request(full_url, "put", error_message)
 
             if response != "":
                 if not error: break
@@ -132,7 +128,7 @@ if __name__ == "__main__":
                     put_field_data['limits']["resources"][res]["boundary_type"] = str(cont[f'{res}_boundary_type'])
 
             error_message = "Error adding container {0} | Data: {1}".format(cont['container_name'], put_field_data)
-            error, response = request_to_state_db(full_url, "put", error_message, put_field_data, session=session)
+            error, response = web_request(full_url, "put", error_message, put_field_data, session=session)
 
             if response != "" and error:
                 if response.status_code == 400 and "already exists" in error: print("Container {0} already exists".format(cont['container_name']))

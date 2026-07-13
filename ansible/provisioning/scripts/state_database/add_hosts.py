@@ -3,7 +3,7 @@ import sys
 import yaml
 import requests
 import json
-import os
+from serverlessyarn_utils.web_utils import web_request
 
 rescaler_port = "8000"
 
@@ -15,10 +15,6 @@ base_host_to_API = dict(
     host_rescaler_port = rescaler_port,
     resources = dict()
 )
-
-scriptDir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(scriptDir + "/../../services/serverless_containers_web/ui")
-from utils import request_to_state_db
 
 # usage example: add_hosts.py host0 {'cpu': 4, 'mem': 4096, 'energy': 200} {'ssd_0':{'path':'$HOME/ssd','read_bw':500,'write_bw':400},'hdd_0':{'path':'$HOME/hdd','read_bw':150,'write_bw':100}} config/config.yml
 
@@ -77,7 +73,7 @@ if __name__ == "__main__":
                     put_field_data['resources']["disks"].append(new_disk)
 
         error_message = "Error adding host {0}".format(new_host)
-        error, response = request_to_state_db(full_url, "put", error_message, put_field_data, session=session)
+        error, response = web_request(full_url, "put", error_message, put_field_data, session=session)
 
         if response != "" and error:
             if response.status_code == 400 and "already exists" in error: print("Host {0} already exists".format(new_host))

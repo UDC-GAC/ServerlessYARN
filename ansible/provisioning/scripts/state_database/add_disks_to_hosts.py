@@ -3,18 +3,10 @@ import sys
 import yaml
 import requests
 import json
-import os
+from serverlessyarn_utils.web_utils import web_request
+from serverlessyarn_utils.manage_inventory import AnsibleYamlInventory
 
 # usage example: add_disks_to_hosts.py {"host0":{"new_0":{"path":"$HOME/new_0"}}} config/config.yml
-
-scriptDir = os.path.realpath(os.path.dirname(__file__))
-inventory_file = scriptDir + "/../../../ansible.inventory.yml"
-
-sys.path.append(scriptDir + "/../../services/serverless_containers_web/ui")
-from utils import request_to_state_db
-
-sys.path.append(scriptDir + "/../utils")
-from manage_inventory import AnsibleYamlInventory
 
 if __name__ == "__main__":
 
@@ -66,6 +58,6 @@ if __name__ == "__main__":
                 put_field_data['resources']["disks"].append(new_disk)
 
             error_message = "Error adding disks {0} to host '{1}'".format(new_disks[host], host)
-            error, _ = request_to_state_db(full_url, "put", error_message, put_field_data, session=session)
+            error, _ = web_request(full_url, "put", error_message, put_field_data, session=session)
 
             if error: raise Exception(error)

@@ -1,17 +1,14 @@
-import os
-import json
-import urllib
 from django.conf import settings
 
 # General utilities
-from ui.utils import request_to_state_db
+from serverlessyarn_utils.web_utils import web_request
 from ui.views.core.utils import getDbData
 
 # Background tasks
-from ui.background_tasks import get_pending_tasks_messages, register_task, remove_containers_from_app
+from ui.background_tasks import get_pending_tasks_messages
 
 # Views
-from ui.views.core.utils import setRemoveStructureForm, getScalerPollFreq
+from ui.views.core.utils import setRemoveStructureForm
 
 
 def processStructures(request, structure_type, html_render, operations):
@@ -119,7 +116,7 @@ def processResourcesFields(request, url, structure_name, resource, field, field_
         put_field_data = {'value': new_value.lower()}
 
     error_message = "Error submitting {0} for structure {1}".format(field, structure_name)
-    error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
+    error, _ = web_request(full_url, "put", error_message, put_field_data)
 
     return error
 
@@ -146,7 +143,7 @@ def processLimitsBoundary(request, url, structure_name, resource):
         if new_value != '':
             put_field_data = {'value': new_value.lower()}
             error_message = "Error updating {0} for structure {1}".format(param, structure_name)
-            error, _ = request_to_state_db(full_url, "put", error_message, put_field_data)
+            error, _ = web_request(full_url, "put", error_message, put_field_data)
 
     return error
 

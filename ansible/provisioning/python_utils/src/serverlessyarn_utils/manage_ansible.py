@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python
 from ansible_runner import Runner, RunnerConfig
 import os
 import json

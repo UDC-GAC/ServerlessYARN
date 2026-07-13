@@ -2,12 +2,7 @@
 import sys
 import yaml
 import requests
-import json
-import os
-
-scriptDir = os.path.realpath(os.path.dirname(__file__))
-sys.path.append(scriptDir + "/../../services/serverless_containers_web/ui")
-from utils import request_to_state_db
+from serverlessyarn_utils.web_utils import web_request
 
 bandwidth_conversion = {}
 bandwidth_conversion["B/s"] =  0.00000095367432
@@ -45,6 +40,6 @@ if __name__ == "__main__":
         put_field_data['resources']['disks'].append({'name':disk, 'max_read': read_bandwidth_MB, 'max_write': write_bandwidth_MB})
 
         error_message = "Error updating host '{0}' disk information".format(host)
-        error, _ = request_to_state_db(full_url, "post", error_message, put_field_data, session=session)
+        error, _ = web_request(full_url, "post", error_message, put_field_data, session=session)
 
         if error: raise Exception(error)

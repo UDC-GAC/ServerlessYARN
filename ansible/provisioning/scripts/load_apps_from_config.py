@@ -2,14 +2,12 @@
 
 import yaml
 import os
-import requests
-import json
-import subprocess
 import sys
+from serverlessyarn_utils.web_utils import web_request
 
 scriptDir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(scriptDir + "/../services/serverless_containers_web/ui")
-from utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, request_to_state_db
+from utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES
 from run_playbooks import create_app
 
 APPS_DIR = "apps"
@@ -58,9 +56,6 @@ if __name__ == "__main__":
             print("App configuration file doesn't exist: {0}. Check that '{1}' exists in apps directory "
                   "and has an app_config.yml inside".format(app_config_file_path, app_dir))
             break
-
-        #app_dir = os.path.relpath(os.path.split(app_config_file_path)[0], "{0}/../apps".format(scriptDir))
-        #app_dir = os.path.split(app_config_file_path)[0]
 
         app_config = {}
         app_config["app"] = {}
@@ -128,7 +123,7 @@ if __name__ == "__main__":
             full_url = "{0}/{1}".format(url, app_config["app"]["name"])
 
             error_message = "Error adding app {0}".format(app_config['app']['name'])
-            error, _ = request_to_state_db(full_url, "put", error_message, app_config)
+            error, _ = web_request(full_url, "put", error_message, app_config)
 
             if error:
                 if "already exists" in error:
@@ -136,24 +131,6 @@ if __name__ == "__main__":
                     continue
 
             if error == "":
-
-                # files_dir = os.path.basename(app_config['app']['files_dir'])
-                # install_script = os.path.basename(app_config['app']['install_script'])
-                # app_jar = os.path.basename(app_config['app']['app_jar'])
-
-                # argument_list = [app_dir, files_dir, install_script, app_type, app_jar]
-                # error_message = "Error creating app {0} with directory {1}".format(app_config['app']['name'], app_dir)
-
-                # ## Process script
-                # rc = subprocess.Popen(["{0}/../services/serverless_containers_web/ui/scripts/create_app.sh".format(scriptDir), *argument_list], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                # out, err = rc.communicate()
-
-                # # Log ansible output
-                # print(out.decode("utf-8"))
-
-                # if rc.returncode != 0:
-                #     error = "{0}: {1}".format(error_message, err.decode("utf-8"))
-                #     raise Exception(error)
                 app_files = {
                     "app_dir": app_dir,
                     "app_type": app_type,
@@ -172,7 +149,7 @@ if __name__ == "__main__":
                 # Subscribe app to user
                 user_url = "http://{0}:{1}/user/clusters/{2}/{3}".format(general_config['server_ip'],general_config['orchestrator_port'], config["user"], app_name)
                 error_message = "Error adding app {0} to user {1}".format(app_name, config["user"])
-                error, _ = request_to_state_db(user_url, "put", error_message)
+                error, _ = web_request(user_url, "put", error_message)
                 if error:
                     if "already subscribed" in error:
                         print("App {0} is already subscribed to user {1} (or other user)".format(app_name, config["user"]))
