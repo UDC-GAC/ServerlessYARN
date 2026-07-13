@@ -84,6 +84,7 @@
     loop:
       # ServerlessYARN
       - rebooter
+      - config_updater
       - celery
       - web_interface
       - data_server
@@ -148,6 +149,7 @@
         with_items: # it is important to use 'with_items' here to flatten lists
           # ServerlessYARN
           - "{{ lookup('fileglob', 'services/rebooter/rebooter_*.log', wantlist=True) }}"
+          - "{{ lookup('fileglob', 'services/config_updater/config_updater_*.log', wantlist=True) }}"
           - "{{ lookup('fileglob', 'services/celery/celery_*.log', wantlist=True) }}"
           # ServerlessContainers
           - "{{ lookup('fileglob', serverless_containers_path ~ '/*.log*', wantlist=True) }}"

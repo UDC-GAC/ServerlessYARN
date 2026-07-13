@@ -10,33 +10,18 @@ import requests
 import json
 import os
 
-from watchdog.observers.polling import PollingObserver
-from watchdog.events import FileSystemEventHandler
-
 from serverlessyarn_utils.manage_ansible import run_playbook
 
 SERVICE_NAME = "rebooter"
 BDW_SERVICES = ["EVE_TIMES", "OPENTSDB"]
-SC_SERVICES = ["orchestrator", "database_snapshoter", "structure_snapshoter", "guardian", "scaler", "refeeder", "sanity_checker", "rebalancer"]
+SC_SERVICES = ["orchestrator", "database_snapshoter", "structure_snapshoter", "guardian", "scaler", "refeeder", "sanity_checker", "rebalancer", "config_updater"]
 SY_SERVICES = ["web_interface", "celery", "redis_server"]
+ONLY_VIRTUAL_MODE = ["EVE_TIMES"]
 
 SERVICES = BDW_SERVICES + SC_SERVICES + SY_SERVICES
 
-ONLY_VIRTUAL_MODE = ["EVE_TIMES"]
-
 scriptDir = os.path.realpath(os.path.dirname(__file__))
-playbook_dir = scriptDir + "/../.."
-inventory = "../ansible.inventory.yml" ## relative to playbook_dir
 debug = True
-
-## Update config file
-class EventHandler(FileSystemEventHandler):
-    def on_any_event(self, event):
-        if event.src_path.endswith(".yml"):  # Only process files ending in .yml, excluding .template files
-            log_info(event, debug)
-            ## Run the playbook to update the config file
-            run_playbook(playbook_name="load_config_playbook.yml")
-            log_info("Updated config file to due modification on modules", debug)
 
 ## Logging
 def log_info(message, debug):
@@ -57,10 +42,11 @@ def log_error(message, debug):
 def get_time_now_string():
     return str(time.strftime("%H:%M:%S", time.localtime()))
 
+## Reboot methods
 def stop_opentsdb():
     ## Stop OpenTSDB
     run_playbook(playbook_name="stop_services_playbook.yml", tags="stop_opentsdb")
-    log_info("OpenTSDB service stopped",debug)
+    log_info("OpenTSDB service stopped", debug)
 
 def test_opentsdb_connection(opentsdb_server):
     session = requests.Session()
@@ -73,15 +59,15 @@ def test_opentsdb_connection(opentsdb_server):
             headers={'content-type': 'application/json', 'Accept': 'application/json'},timeout=10)
 
         if r.status_code == 200 or r.status_code == 400:
-            log_info("OpenTSDB service working properly",debug)
+            log_info("OpenTSDB service working properly", debug)
         else:
-            log_warning("OpenTSDB service reports some problems, going to stop",debug)
+            log_warning("OpenTSDB service reports some problems, going to stop", debug)
             stop_opentsdb()
 
     except requests.ConnectionError:
-        log_warning("OpenTSDB service down",debug)
+        log_warning("OpenTSDB service down", debug)
     except requests.exceptions.ReadTimeout:
-        log_warning("OpenTSDB service reports some problems, going to stop",debug)
+        log_warning("OpenTSDB service reports some problems, going to stop", debug)
         stop_opentsdb()
 
 def check_services():
@@ -106,12 +92,8 @@ def check_services():
         opentsdb_port = config['opentsdb_port']
         opentsdb_server = 'http://' + opentsdb_url + ":" + str(opentsdb_port)
 
-    ## Setup watchdog to monitor config file changes
-    event_handler = EventHandler()
-    observer = PollingObserver()
-    observer.schedule(event_handler, scriptDir + "/../../config/modules/", recursive=True)
-    observer.start()
-    log_info("Monitoring config changes on {0}".format(scriptDir + "/../../config/modules/"), debug)
+    # Wait a few seconds to avoid conflicts when retrieving tmux sessions
+    time.sleep(10)
 
     try:
         while True:
@@ -132,7 +114,7 @@ def check_services():
 
             except libtmux.exc.LibTmuxException:
                 sessions_missing += 1
-                log_warning("No service started",debug)
+                log_warning("No service started", debug)
 
             if sessions_missing:
                 ## restart services
@@ -153,9 +135,7 @@ def check_services():
                 time_waited += heartbeat_delay
 
     except KeyboardInterrupt:
-        observer.stop()
         log_warning(SERVICE_NAME.capitalize() + " stopped by user", debug)
-    observer.join()
 
 def main():
     try:

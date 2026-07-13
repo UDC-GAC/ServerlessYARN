@@ -20,4 +20,12 @@
     executable: /bin/bash
   with_items:
     - celery
-    - rebooter
+    - config_updater
+
+ ## Always launch 'rebooter' last to avoid conflicts with service startup
+- name: Starting Services - Rebooter
+  shell: "bash start_tmux.sh"
+  when: "'rebooter' not in tmux_sessions and enable_rebooter"
+  args:
+    chdir: "services/rebooter"
+    executable: /bin/bash
