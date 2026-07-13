@@ -3,9 +3,11 @@ set -e
 
 ## Main variables
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
-INVENTORY=${scriptDir}/../../ansible.inventory.yml
+PROVISION_DIR=$( realpath ${scriptDir}/.. )
+SCRIPTS_DIR=${PROVISION_DIR}/scripts
+INVENTORY=${PROVISION_DIR}/../ansible.inventory.yml
 
-CONFIG_MODULE_PATH="${scriptDir}/../config/modules"
+CONFIG_MODULE_PATH="${PROVISION_DIR}/config/modules"
 CONFIG_MODULE_LIST=(
     01-general.yml \
     02-hosts.yml \
@@ -46,7 +48,7 @@ while getopts 'shd' flag; do
 done
 
 ## Script functions
-print_banner() {
+print_banner () {
     local msg="* [ServerlessYARN INFO] $1 *"
     local edge=$(echo "$msg" | sed 's/./*/g')
 
@@ -68,11 +70,11 @@ install_prerequisites ()
     then
         echo ""
         echo "Downloading required packages for scripts"
-        pip3 install -r ${scriptDir}/requirements.txt
+        pip3 install -r ${SCRIPTS_DIR}/requirements.txt
     fi
 
     # Install custom python utilities
-    pip3 install --editable ${scriptDir}/../python_utils/ ## 'editable' mode allows changes to be automatically reflected without re-installing
+    pip3 install --editable ${PROVISION_DIR}/python_utils/ ## 'editable' mode allows changes to be automatically reflected without re-installing
 
 }
 
@@ -104,18 +106,18 @@ setup_config ()
     # Check if new parameters have been added to config templates (e.g., new update via git pull)
     for filename in "${CONFIG_MODULE_LIST[@]}"
     do
-        python3 ${scriptDir}/sync_yaml_config.py --template ${CONFIG_MODULE_PATH}/template.$filename --config ${CONFIG_MODULE_PATH}/$filename
+        python3 ${SCRIPTS_DIR}/sync_yaml_config.py --template ${CONFIG_MODULE_PATH}/template.$filename --config ${CONFIG_MODULE_PATH}/$filename
     done
 
     # Check if we are in a SLURM environment
     if [ ! -z ${SLURM_JOB_ID} ]
     then
         echo "Loading config from SLURM"
-        python3 ${scriptDir}/load_config_from_slurm.py
+        python3 ${SCRIPTS_DIR}/load_config_from_slurm.py
     fi
 
     echo "Load platform configuration from modules"
-    ansible-playbook ${scriptDir}/../load_config_playbook.yml -i $INVENTORY
+    ansible-playbook ${PROVISION_DIR}/load_config_playbook.yml -i $INVENTORY
     echo "Configuration loaded!"
 
 }
@@ -126,16 +128,16 @@ load_inventory_file ()
 
     if [ "$reset_disks_flag" = false ]
     then
-        python3 ${scriptDir}/load_inventory_from_conf.py
+        python3 ${SCRIPTS_DIR}/load_inventory_from_conf.py
     else
-        python3 ${scriptDir}/load_inventory_from_conf.py "reset_disks"
+        python3 ${SCRIPTS_DIR}/load_inventory_from_conf.py "reset_disks"
     fi
 }
 
 run_ansible_playbooks ()
 {
     print_banner "Installing necessary services and programs"
-    ansible-playbook ${scriptDir}/../install_playbook.yml -i $INVENTORY
+    ansible-playbook ${PROVISION_DIR}/install_playbook.yml -i $INVENTORY
     echo "Install Done!"
 
     source /etc/environment
@@ -143,15 +145,15 @@ run_ansible_playbooks ()
     export PATH=$HOME/.local/bin:$PATH
 
     print_banner "Starting containers"
-    ansible-playbook ${scriptDir}/../start_containers_playbook.yml -i $INVENTORY
+    ansible-playbook ${PROVISION_DIR}/start_containers_playbook.yml -i $INVENTORY
     echo "Containers started! "
 
     print_banner "Launching services"
-    ansible-playbook ${scriptDir}/../launch_playbook.yml -i $INVENTORY
+    ansible-playbook ${PROVISION_DIR}/launch_playbook.yml -i $INVENTORY
     echo "Launch Done!"
 
     print_banner "Loading applications"
-    python3 ${scriptDir}/load_apps_from_config.py
+    python3 ${SCRIPTS_DIR}/load_apps_from_config.py
     echo "Apps loaded!"
 }
 
