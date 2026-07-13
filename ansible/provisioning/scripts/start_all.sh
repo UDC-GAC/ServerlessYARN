@@ -65,13 +65,8 @@ install_prerequisites ()
     ## Install required ansible collections
     ansible-galaxy collection install ansible.posix:==1.5.0
 
-    # Check if we are in a SLURM environment
-    if [ ! -z ${SLURM_JOB_ID} ]
-    then
-        echo ""
-        echo "Downloading required packages for scripts"
-        pip3 install -r ${SCRIPTS_DIR}/requirements.txt
-    fi
+    echo -e "\nDownloading required packages for scripts"
+    pip3 install -r ${SCRIPTS_DIR}/requirements.txt
 
     # Install custom python utilities
     pip3 install --editable ${PROVISION_DIR}/python_utils/ ## 'editable' mode allows changes to be automatically reflected without re-installing
@@ -146,7 +141,7 @@ run_ansible_playbooks ()
 
     print_banner "Starting containers"
     ansible-playbook ${PROVISION_DIR}/start_containers_playbook.yml -i $INVENTORY
-    echo "Containers started! "
+    echo "Containers started!"
 
     print_banner "Launching services"
     ansible-playbook ${PROVISION_DIR}/launch_playbook.yml -i $INVENTORY
