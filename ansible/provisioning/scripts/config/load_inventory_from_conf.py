@@ -5,7 +5,7 @@ import yaml
 import socket
 
 scriptDir = os.path.realpath(os.path.dirname(__file__))
-CONFIG_FILE = scriptDir + "/../config/config.yml"
+CONFIG_FILE = scriptDir + "/../../config/config.yml"
 
 from serverlessyarn_utils.manage_inventory import AnsibleYamlInventory, get_disks_dict, resolve_disk_path, create_container_list
 

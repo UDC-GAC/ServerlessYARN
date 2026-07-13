@@ -11,7 +11,7 @@ scriptDir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(scriptDir + "/../../services/serverless_containers_web/ui")
 from utils import request_to_state_db
 
-# usage example: init_host_node_rescaler_v3.py host1,host2 [{'container_name': 'host1-cont0', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'disk': 'ssd_0', 'disk_path': '$HOME/ssd', 'disk_max': 200, 'disk_min': 50, 'energy_max': 100, 'energy_min': 30}, {'container_name': 'host1-cont1'...}] ['cpu','mem','disk','energy']
+# usage example: init_host_node_rescaler.py host1,host2 [{'container_name': 'host1-cont0', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'disk': 'ssd_0', 'disk_path': '$HOME/ssd', 'disk_max': 200, 'disk_min': 50, 'energy_max': 100, 'energy_min': 30}, {'container_name': 'host1-cont1'...}] ['cpu','mem','disk','energy']
 
 NODE_RESCALER_PORT = 8000
 COUCHDB_INIT_TRIES = 10

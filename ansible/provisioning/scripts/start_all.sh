@@ -101,14 +101,14 @@ setup_config ()
     # Check if new parameters have been added to config templates (e.g., new update via git pull)
     for filename in "${CONFIG_MODULE_LIST[@]}"
     do
-        python3 ${SCRIPTS_DIR}/sync_yaml_config.py --template ${CONFIG_MODULE_PATH}/template.$filename --config ${CONFIG_MODULE_PATH}/$filename
+        python3 ${SCRIPTS_DIR}/config/sync_yaml_config.py --template ${CONFIG_MODULE_PATH}/template.$filename --config ${CONFIG_MODULE_PATH}/$filename
     done
 
     # Check if we are in a SLURM environment
     if [ ! -z ${SLURM_JOB_ID} ]
     then
         echo "Loading config from SLURM"
-        python3 ${SCRIPTS_DIR}/load_config_from_slurm.py
+        python3 ${SCRIPTS_DIR}/config/load_config_from_slurm.py
     fi
 
     echo "Load platform configuration from modules"
@@ -123,9 +123,9 @@ load_inventory_file ()
 
     if [ "$reset_disks_flag" = false ]
     then
-        python3 ${SCRIPTS_DIR}/load_inventory_from_conf.py
+        python3 ${SCRIPTS_DIR}/config/load_inventory_from_conf.py
     else
-        python3 ${SCRIPTS_DIR}/load_inventory_from_conf.py "reset_disks"
+        python3 ${SCRIPTS_DIR}/config/load_inventory_from_conf.py "reset_disks"
     fi
 }
 

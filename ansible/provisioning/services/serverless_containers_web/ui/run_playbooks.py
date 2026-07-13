@@ -37,7 +37,7 @@ def add_disks(host_names, new_disks):
 def extend_lv(host_names, new_disks, extra_disk, measure_host_list, throttle_containers_bw=False):
     ## External Python script
     sys.path.append(f"{PROVISION_DIR}/scripts")
-    import stateDatabase.limit_containers_bw as limit_containers_bw
+    import state_database.limit_containers_bw as limit_containers_bw
 
     # We disable services that may generate scaling requests and cap bandwidth of running containers to speed up the extension process
     if throttle_containers_bw:

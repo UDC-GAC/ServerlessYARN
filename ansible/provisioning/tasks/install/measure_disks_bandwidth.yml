@@ -106,7 +106,7 @@
     - name: Update host information in inventory (with fio)
       when: "'skipped' not in item[0] and 'skipped' not in item[1]"
       delegate_to: localhost
-      shell: "python3 scripts/update_host_disks_bw.py {{ inventory_hostname }} {{ item[0].item.key }} {{ read_bw_results }} {{ write_bw_results }} B/s config/config.yml"
+      shell: "python3 scripts/hosts/update_host_disks_bw_inv.py {{ inventory_hostname }} {{ item[0].item.key }} {{ read_bw_results }} {{ write_bw_results }} B/s config/config.yml"
       vars:
         read_bw_results: "{{ (item[0].stdout | from_json).jobs[0].read.bw_bytes}}"
         write_bw_results: "{{ (item[1].stdout | from_json).jobs[0].write.bw_bytes}}"
@@ -117,7 +117,7 @@
 - name: Estimate disk performance based on optimistic approximation
   when: create_lvm and measure_host_list_str is defined and not measure_host_list[inventory_hostname]
   delegate_to: localhost
-  shell: "python3 scripts/update_host_disks_bw.py {{ inventory_hostname }} lvm {{ estimated_new_read_bw }} {{ estimated_new_write_bw }} MB/s config/config.yml"
+  shell: "python3 scripts/hosts/update_host_disks_bw_inv.py {{ inventory_hostname }} lvm {{ estimated_new_read_bw }} {{ estimated_new_write_bw }} MB/s config/config.yml"
   vars:
     measure_host_list: "{{ measure_host_list_str | replace('\n','') | replace(' ','') }}"
     number_of_new_disks: "{{ (new_disks_list | split(',')) | length }}"

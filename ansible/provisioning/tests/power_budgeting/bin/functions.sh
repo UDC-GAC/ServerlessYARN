@@ -30,8 +30,8 @@ function change_npb_class() {
 }
 
 function change_initial_allocation() {
-  # Change the CPU current value assigned by default in add_containers_API_v3.py
-  sed -i "s/put_field_data\[.container.\]\[.resources.\]\[.cpu.\]\[.current.\] =.*/put_field_data[\"container\"][\"resources\"][\"cpu\"][\"current\"] = ${1}/" "${PROVISIONING_DIR}/scripts/stateDatabase/add_containers_API_v3.py"
+  # Change the CPU current value assigned by default in add_containers.py
+  sed -i "s/put_field_data\[.container.\]\[.resources.\]\[.cpu.\]\[.current.\] =.*/put_field_data[\"container\"][\"resources\"][\"cpu\"][\"current\"] = ${1}/" "${PROVISIONING_DIR}/scripts/state_database/add_containers.py"
 }
 
 function register_logs_position() {

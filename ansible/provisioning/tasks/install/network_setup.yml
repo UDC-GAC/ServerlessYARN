@@ -5,7 +5,7 @@
 
 - name: Copy script
   copy:
-    src: scripts/get_subnets.py
+    src: scripts/network/get_subnets.py
     dest: "{{ installation_path }}/get_subnets.py"
 
 - name: Get subnets

@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
-
 ARGS=($@)
 ARGS_NO=$#
 

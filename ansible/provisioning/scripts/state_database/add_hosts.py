@@ -20,7 +20,7 @@ scriptDir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(scriptDir + "/../../services/serverless_containers_web/ui")
 from utils import request_to_state_db
 
-# usage example: add_hosts_API.py host0 {'cpu': 4, 'mem': 4096, 'energy': 200} {'ssd_0':{'path':'$HOME/ssd','read_bw':500,'write_bw':400},'hdd_0':{'path':'$HOME/hdd','read_bw':150,'write_bw':100}} config/config.yml
+# usage example: add_hosts.py host0 {'cpu': 4, 'mem': 4096, 'energy': 200} {'ssd_0':{'path':'$HOME/ssd','read_bw':500,'write_bw':400},'hdd_0':{'path':'$HOME/hdd','read_bw':150,'write_bw':100}} config/config.yml
 
 if __name__ == "__main__":
 

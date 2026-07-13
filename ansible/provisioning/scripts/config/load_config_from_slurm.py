@@ -154,7 +154,7 @@ if __name__ == "__main__":
     ]
     config_file_list = []
     for module in config_module_list:
-        config_file_list.append("{0}/../config/modules/{1}".format(scriptDir, module))
+        config_file_list.append("{0}/../../config/modules/{1}".format(scriptDir, module))
 
     # Read 'server_as_host' parameter (found in 02-hosts.yml)
     with open(config_file_list[1], "r") as f:
@@ -167,5 +167,3 @@ if __name__ == "__main__":
 
     # Update config
     update_config_file(config_file_list, server_ip, hosts, cpus_per_node, memory_per_node)
-
-    # TODO: Update vars YAML file to update installation path to cluster user home (not vagrant)
