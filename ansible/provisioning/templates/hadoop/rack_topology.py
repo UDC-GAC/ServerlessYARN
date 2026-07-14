@@ -7,7 +7,7 @@ from math import log
 sys.argv.pop(0) # discard name of topology script from argv list as we just want IP addresses
 
 subnet = ipaddress.ip_network("{{ subnet }}")
-number_of_hosts = {{ groups['nodes'] | length }}
+number_of_hosts = int("{{ groups['nodes'] | length }}")
 
 number_of_subnets = 1<<(number_of_hosts-1).bit_length()
 subnets = list(subnet.subnets(prefixlen_diff=int(log(number_of_subnets,2))))

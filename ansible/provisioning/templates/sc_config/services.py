@@ -13,7 +13,18 @@ guardian = dict(
         EVENT_TIMEOUT=60,
         WINDOW_DELAY=20,
         WINDOW_TIMELAPSE=10,
-        GUARDABLE_RESOURCES=["cpu"{% if disk_capabilities and disk_scaling %}, "disk_read", "disk_write"{% endif %}{% if power_budgeting %}, "energy"{% endif %}]
+        GUARDABLE_RESOURCES=[
+            "cpu",
+            # {%- if disk_capabilities and disk_scaling -%}
+            #
+            "disk_read", "disk_write",
+            # {%- endif -%}
+            # {%- if power_budgeting -%}
+            #
+            "energy"
+            # {%- endif -%}
+            #
+        ]
     )
 )
 
@@ -48,7 +59,19 @@ structures_snapshoter = dict(
         ACTIVE=False,
         DEBUG=True,
         STRUCTURES_PERSISTED=["application"],
-        RESOURCES_PERSISTED=["cpu", "mem"{% if disk_capabilities and disk_scaling %}, "disk_read", "disk_write"{% endif %}{% if power_budgeting %}, "energy"{% endif %}]
+        RESOURCES_PERSISTED=[
+            "cpu",
+            "mem",
+            # {%- if disk_capabilities and disk_scaling -%}
+            #
+            "disk_read", "disk_write",
+            # {%- endif -%}
+            # {%- if power_budgeting -%}
+            #
+            "energy"
+            # {%- endif -%}
+            #
+        ]
     )
 )
 
@@ -62,7 +85,19 @@ refeeder = dict(
         WINDOW_DELAY=20,
         WINDOW_TIMELAPSE=10,
         STRUCTURES_REFEEDED=["application"],
-        GENERATED_METRICS=["cpu", "mem"{% if disk_capabilities and disk_scaling %}, "disk_read", "disk_write"{% endif %}{% if power_budgeting %}, "energy"{% endif %}]
+        GENERATED_METRICS=[
+            "cpu",
+            "mem",
+            # {%- if disk_capabilities and disk_scaling -%}
+            #
+            "disk_read", "disk_write",
+            # {%- endif -%}
+            # {%- if power_budgeting -%}
+            #
+            "energy"
+            # {%- endif -%}
+            #
+        ]
     )
 )
 
@@ -77,7 +112,7 @@ sanity_checker = dict(
     )
 )
 
-rebalancer  = dict(
+rebalancer = dict(
     name="rebalancer",
     type="service",
     heartbeat="",
@@ -86,7 +121,14 @@ rebalancer  = dict(
         DEBUG=True,
         DIFF_PERCENTAGE=0.40,
         STOLEN_PERCENTAGE=0.40,
-        RESOURCES_BALANCED=["cpu"{% if disk_capabilities and disk_scaling %}, "disk_read", "disk_write"{% endif %}],
+        RESOURCES_BALANCED=[
+            "cpu",
+            # {%- if disk_capabilities and disk_scaling -%}
+            #
+            "disk_read", "disk_write",
+            # {%- endif -%}
+            #
+        ],
         STRUCTURES_BALANCED=["container"],
         BALANCING_METHOD="pair_swapping",
         CONTAINERS_SCOPE="application",
@@ -97,7 +139,7 @@ rebalancer  = dict(
     )
 )
 
-{% if power_budgeting -%}
+# {% if power_budgeting -%}
 # Aditional services for power_budgeting
 energy_controller = dict(
     name="energy_controller",
@@ -105,7 +147,7 @@ energy_controller = dict(
     heartbeat="",
     config=dict(
         EVENT_TIMEOUT=20,
-        CONTROL_POLICY={% if power_modelling %}"model-boosted"{% else %}"ppe-proportional"{% endif %},
+        CONTROL_POLICY="{{ 'model-boosted' if power_modelling else 'ppe-proportional' }}",
         WINDOW_TIMELAPSE=10,
         WINDOW_DELAY=0,
         POLLING_FREQUENCY=5,
@@ -114,7 +156,7 @@ energy_controller = dict(
     )
 )
 
-{% if power_modelling and online_learning -%}
+# {% if power_modelling and online_learning -%}
 watt_trainer = dict(
     name="watt_trainer",
     type="service",
@@ -122,12 +164,12 @@ watt_trainer = dict(
     config=dict(
         ACTIVE=False,
         DEBUG=True,
-        WINDOW_TIMELAPSE={{ sampling_frequency }}
+        WINDOW_TIMELAPSE=int("{{ sampling_frequency }}")
     )
 )
 
-{%- endif %}
-{%- endif %}
+# {%- endif %}
+# {%- endif %}
 
 if __name__ == "__main__":
     initializer_utils = couchdb_utils.CouchDBUtils()
@@ -146,10 +188,10 @@ if __name__ == "__main__":
         handler.add_service(sanity_checker)
         handler.add_service(rebalancer)
 
-        {% if power_budgeting -%}
+        # {% if power_budgeting -%}
         # Aditional services for power_budgeting
         handler.add_service(energy_controller)
-        {% if online_learning -%}
+        # {% if online_learning -%}
         handler.add_service(watt_trainer)
-        {%- endif %}
-        {%- endif %}
+        # {%- endif %}
+        # {%- endif %}
