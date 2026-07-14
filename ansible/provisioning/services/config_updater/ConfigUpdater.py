@@ -21,7 +21,7 @@ debug = True
 ## Update config file
 class EventHandler(FileSystemEventHandler):
     def on_any_event(self, event):
-        if event.src_path.endswith(".yml"):  # Only process files ending in .yml, excluding .template files
+        if not event.src_path.startswith("template."):  # Exclude template files
             log_info(event, debug)
             ## Run the playbook to update the config file
             run_playbook(playbook_name="load_config_playbook.yml")
