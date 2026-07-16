@@ -48,70 +48,114 @@
         set_fact:
           random_code: "{{ lookup('community.general.random_string', special=false) }}"
 
-      ## READ BW
-      - name: Read benchmark with FIO
-        when: "(not create_lvm or item.key == 'lvm') and 'read_bw' not in item.value" # this last check would avoid re-benchmarking extended LVs
-        shell: "$HOME/.local/bin/fio --name TEST --eta-newline=5s \
-          --filename={{ item.value.path }}/read_{{ tmp_file }}.{{ random_code }}.{{ item.key }} \
-          --rw={{ rw }} --size={{ size }} --io_size=10g --blocksize={{ block_size }} --ioengine=libaio \
-          --fsync=10000 --iodepth=32 --direct={{ direct }} --numjobs=1 --runtime={{ runtime }} --group_reporting \
-          --output-format=json"
+      - name: Fio benchmarks
+        become: no
         vars:
-          size: 10m
-          block_size: 1024k
+          tmp_file: "test_{{ inventory_hostname }}.img"
+          new_disks_dict: "{{ new_disks_dict_str | replace(' ','') if new_disks_dict_str is defined else ''}}"
+          host_disks: "{{ (new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks) | dict2items }}"
+          direct: 1
           runtime: 60s
-          direct: "{{ 1 if cgroups_version == 'v1' else 0 }}"
-          rw: read
-        register: read_bw_output
-        with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
-        throttle: "{{ '1' if virtual_mode else (groups['nodes'] | length) }}"
+          benchmarks:
+            - { inventory_label: read_bw,         size: 10m,  block_size: 1M, mode: read }      # seq  read
+            - { inventory_label: write_bw,        size: 500m, block_size: 1M, mode: write }     # seq  write
+            # TODO: add support for random BW in ServerlessContainers
+            # - { inventory_label: random_read_bw,  size: 10m,  block_size: 4k, mode: randread }  # rand read
+            # - { inventory_label: random_write_bw, size: 500m, block_size: 4k, mode: randwrite } # rand write
 
-      - name: Remove tmp file
-        when: "(not create_lvm or item.key == 'lvm') and 'read_bw' not in item.value"
-        file:
-          path: "{{ item.value.path }}/read_{{ tmp_file }}.{{ random_code }}.{{ item.key }}"
-          state: absent
-        with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
+        block:
 
-      ## WRITE BW
-      - name: Write benchmark with FIO
-        when: "(not create_lvm or item.key == 'lvm') and 'write_bw' not in item.value" # this last check would avoid re-benchmarking extended LVs
-        shell: "$HOME/.local/bin/fio --name TEST --eta-newline=5s \
-          --filename={{ item.value.path }}/write_{{ tmp_file }}.{{ random_code }}.{{ item.key }} \
-          --rw={{ rw }} --size={{ size }} --io_size=10g --blocksize={{ block_size }} --ioengine=libaio \
-          --fsync=10000 --iodepth=32 --direct={{ direct }} --numjobs=1 --runtime={{ runtime }} --group_reporting \
-          --output-format=json"
-        vars:
-          size: 500m
-          block_size: 1024k
-          runtime: 60s
-          direct: "{{ 1 if cgroups_version == 'v1' else 0 }}"
-          rw: write
-        register: write_bw_output
-        with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
-        throttle: "{{ '1' if virtual_mode else (groups['nodes'] | length) }}"
+        - name: Evaluate if any benchmark is actually required
+          when: prompt_disk_benchmark
+          block:
+          - name: Evaluate if any benchmark is actually required on each host
+            set_fact:
+              any_missing_bench: >-
+                {%- set ns = namespace(missing_bench=false) -%}
+                {%- for item0 in host_disks -%}
+                  {%- for item1 in benchmarks -%}
+                    {%- if (not create_lvm or item0.key == 'lvm') and item1.inventory_label not in item0.value -%}
+                      {%- set ns.missing_bench = true -%}
+                    {%- endif -%}
+                  {%- endfor -%}
+                {%- endfor -%}
+                {{- ns.missing_bench -}}
 
-      - name: Remove tmp file
-        when: "(not create_lvm or item.key == 'lvm') and 'write_bw' not in item.value"
-        file:
-          path: "{{ item.value.path }}/write_{{ tmp_file }}.{{ random_code }}.{{ item.key }}"
-          state: absent
-        with_dict: "{{ new_disks_dict[inventory_hostname] if new_disks_dict != '' else hostvars[inventory_hostname].disks }}"
+          - name: Consolidate checks across all hosts into a single boolean
+            delegate_to: localhost
+            run_once: true
+            set_fact:
+              trigger_prompt: >-
+                {{
+                  (ansible_play_hosts | map('extract', hostvars, 'any_missing_bench') | map('bool')) is any
+                }}
 
-      become: no
-      vars:
-        tmp_file: "test_{{ inventory_hostname }}.img"
-        new_disks_dict: "{{ new_disks_dict_str | replace(' ','') if new_disks_dict_str is defined else ''}}"
+        - name: Benchmark user confirmation if required
+          when: prompt_disk_benchmark and trigger_prompt
+          delegate_to: localhost
+          run_once: yes
+          block:
+          - name: Prompt user for confirmation
+            pause:
+              prompt: |
+                *****************************************************************
+                *                                                               *
+                *               ATTENTION: CRITICAL ACTION                      *
+                *                                                               *
+                *   Disk benchmark(s) need to be run to estimate performance.   *
+                *                                                               *
+                *****************************************************************
+                Do you want to proceed? [Y/n]
+            register: user_input
 
-    - name: Update host information in inventory (with fio)
-      when: "'skipped' not in item[0] and 'skipped' not in item[1]"
-      delegate_to: localhost
-      shell: "python3 {{ scripts_dir }}/hosts/update_host_disks_bw_inv.py {{ inventory_hostname }} {{ item[0].item.key }} {{ read_bw_results }} {{ write_bw_results }} B/s {{ main_config }}"
-      vars:
-        read_bw_results: "{{ (item[0].stdout | from_json).jobs[0].read.bw_bytes}}"
-        write_bw_results: "{{ (item[1].stdout | from_json).jobs[0].write.bw_bytes}}"
-      loop: "{{ read_bw_output.results | zip(write_bw_output.results) | list }}" ## TODO: currently only works if write_bw_output and read_bw_output have the same length
-      throttle: 1
+          - name: Set confirmation boolean
+            set_fact:
+              disk_benchmark_confirmation: >-
+                {{
+                  (user_input.user_input | default('', true) | trim | lower) in ['y', 'yes', 'true', '']
+                }}
+
+          - name: Trigger failure if user does not allow the disk benchmark to run
+            when: not disk_benchmark_confirmation | bool
+            fail:
+              msg: "At least one disk needs to be benchmarked. Please set bandwidth manually in inventory or allow the benchmark in the next run"
+
+        - name: Run benchmarks
+          when: "(not create_lvm or item.0.key == 'lvm') and item.1.inventory_label not in item.0.value" # this last check would avoid re-benchmarking extended LVs
+          shell: "$HOME/.local/bin/fio --name TEST --eta-newline=5s \
+            --filename={{ item.0.value.path }}/{{ item.1.mode }}_{{ tmp_file }}.{{ random_code }}.{{ item.0.key }} \
+            --rw={{ item.1.mode }} --size={{ item.1.size }} --io_size=10g --blocksize={{ item.1.block_size }} --ioengine=libaio \
+            --fsync=10000 --iodepth=32 --direct={{ direct }} --numjobs=1 --time_based --runtime={{ runtime }} --group_reporting \
+            --output-format=json"
+          register: fio_output
+          with_nested:
+            - "{{ host_disks }}"
+            - "{{ benchmarks }}"
+          throttle: "{{ '1' if virtual_mode else (groups['nodes'] | length) }}"
+
+        - name: Remove tmp files
+          when: "(not create_lvm or item.0.key == 'lvm') and item.1.inventory_label not in item.0.value"
+          file:
+            path: "{{ item.0.value.path }}/{{ item.1.mode }}_{{ tmp_file }}.{{ random_code }}.{{ item.0.key }}"
+            state: absent
+          with_nested:
+            - "{{ host_disks }}"
+            - "{{ benchmarks }}"
+
+        - name: Update host information in inventory (with fio)
+          when: seq_read and seq_write
+          #when: seq_read and seq_write and rand_read and rand_write
+          delegate_to: localhost
+          shell: "python3 {{ scripts_dir }}/hosts/update_host_disks_bw_inv.py {{ inventory_hostname }} {{ item.key }} {{ seq_read }} {{ seq_write }} B/s {{ main_config }}"
+          #shell: "python3 {{ scripts_dir }}/hosts/update_host_disks_bw_inv.py {{ inventory_hostname }} {{ item.key }} {{ seq_read }} {{ rand_read }} {{ seq_write }} {{ rand_write }} B/s {{ main_config }}"
+          vars:
+            seq_read:   "{{ (filtered_fio_output[0].stdout | from_json).jobs[0].read.bw_bytes  if 'skipped' not in filtered_fio_output[0] else none }}"
+            seq_write:  "{{ (filtered_fio_output[1].stdout | from_json).jobs[0].write.bw_bytes if 'skipped' not in filtered_fio_output[1] else none }}"
+            # rand_read:  "{{ (filtered_fio_output[2].stdout | from_json).jobs[0].read.bw_bytes  if 'skipped' not in filtered_fio_output[2] else none }}"
+            # rand_write: "{{ (filtered_fio_output[3].stdout | from_json).jobs[0].write.bw_bytes if 'skipped' not in filtered_fio_output[3] else none }}"
+            filtered_fio_output: "{{ fio_output.results | selectattr('item', 'defined') | selectattr('item.0.key', 'equalto', item.key) | list }}"
+          with_items: "{{ host_disks }}"
+          throttle: 1
 
 
 - name: Estimate disk performance based on optimistic approximation
