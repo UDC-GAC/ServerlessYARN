@@ -41,7 +41,7 @@
         merged_config: >-
           {{
             merged_config | default({}) |
-            combine((lookup('template', item) | from_yaml), recursive=True)
+            combine((lookup('template', item) | from_yaml | parse_types), recursive=True)
           }}
       loop: "{{ modules | sort }}" ## sort to keep the file order
 
