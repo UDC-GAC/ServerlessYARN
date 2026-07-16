@@ -20,10 +20,10 @@
 
   - name: Copy Node Scaler start script
     template:
-      src: "templates/node_scaler_start.sh"
+      src: "{{ templates_dir }}/node_scaler_start.sh"
       dest: "{{ serverless_containers_path }}/scripts/services/node_scaler/start.sh"
 
-  - import_tasks: tasks/utils/get_tmux_sessions.yml
+  - import_tasks: "{{ util_tasks }}/get_tmux_sessions.yml"
 
   - name: Starting Services - Node Scaler
     shell: bash scripts/services/node_scaler/start_tmux.sh

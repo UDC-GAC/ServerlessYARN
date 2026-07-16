@@ -13,9 +13,10 @@
     es_udc_gac.smart_sharedfs.synchronize: "{{ global_module_defaults.synchronize }}"
 
   vars_files:
-    - vars/main.yml
-    - vars/defaults.yml
-    - config/config.yml
+    - paths.yml
+    - "{{ main_vars }}"
+    - "{{ defaults }}"
+    - "{{ main_config }}"
 
   vars:
     # change admin password both here and in config/debian_couchdb_conf.dat to effectively change it
@@ -31,14 +32,14 @@
     CELERY_BACKEND: "redis://127.0.0.1:6379/0"
 
   tasks:
-    - import_tasks: tasks/utils/get_tmux_sessions.yml
+    - import_tasks: "{{ util_tasks }}/get_tmux_sessions.yml"
       tags: restart_services, start_opentsdb, start_data_server
 
-    - import_tasks: tasks/launch/opentsdb_launch.yml
+    - import_tasks: "{{ launch_tasks }}/opentsdb_launch.yml"
       when: deploy_local_opentsdb
       tags: start_opentsdb
 
-    - import_tasks: tasks/launch/serverless_containers_launch.yml
+    - import_tasks: "{{ launch_tasks }}/serverless_containers_launch.yml"
       vars:
         - nodes: "{{ host_list | split(',') if host_list is defined else groups['nodes'] }}"
         - containers_info_str: >
@@ -74,18 +75,18 @@
               {{ containers_info }} 
         - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
 
-    - import_tasks: tasks/launch/serverlessyarn_services_launch.yml
+    - import_tasks: "{{ launch_tasks }}/serverlessyarn_services_launch.yml"
       tags: restart_services
 
     - block:
-      - import_tasks: tasks/launch/mongodb_launch.yml
+      - import_tasks: "{{ launch_tasks }}/mongodb_launch.yml"
         tags: start_mongodb,start_power_meter
 
-      - import_tasks: tasks/launch/power_meter_launch.yml
+      - import_tasks: "{{ launch_tasks }}/power_meter_launch.yml"
         tags: start_power_meter
       when: "power_budgeting"
 
-    - import_tasks: tasks/launch/data_server_launch.yml
+    - import_tasks: "{{ launch_tasks }}/data_server_launch.yml"
       tags: start_data_server, restart_services
       when: local_data_server
 
@@ -104,15 +105,16 @@
     es_udc_gac.smart_sharedfs.synchronize: "{{ global_module_defaults.synchronize }}"
 
   vars_files:
-    - vars/main.yml
-    - vars/defaults.yml
-    - config/config.yml
+    - paths.yml
+    - "{{ main_vars }}"
+    - "{{ defaults }}"
+    - "{{ main_config }}"
 
   tasks:
-    - import_tasks: tasks/launch/power_sensor_launch.yml
+    - import_tasks: "{{ launch_tasks }}/power_sensor_launch.yml"
       when: "power_budgeting"
       tags: start_power_sensor
 
-    - import_tasks: tasks/launch/disk_atop_launch.yml
+    - import_tasks: "{{ launch_tasks }}/disk_atop_launch.yml"
       when: disk_capabilities
       tags: restart_services

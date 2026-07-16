@@ -12,13 +12,13 @@
     - name: Copy MongoDB container definition file
       when: not stat_output.stat.exists
       template:
-        src: "templates/power_budgeting/monitoring/db/{{ definition_file }}"
+        src: "{{ templates_dir }}/power_budgeting/monitoring/db/{{ definition_file }}"
         dest: "{{ mongodb_path }}/image/{{ definition_file }}"
 
     - name: Copy MongoDB configuration files
       when: not stat_output.stat.exists
       template:
-        src: "templates/power_budgeting/monitoring/db/config/{{ item }}"
+        src: "{{ templates_dir }}/power_budgeting/monitoring/db/config/{{ item }}"
         dest: "{{ mongodb_path }}/config/{{ item }}"
       with_items:
         - mongodb.conf

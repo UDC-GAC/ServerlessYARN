@@ -8,6 +8,7 @@ This folder contains auxiliary scripts for deployment, configuration, and mainte
 - `stop_all.sh`: stops the entire environment.
 - `restart_services.sh`: ensures that all services are up and running.
 - `stop_containers.sh`: stops all running containers.
+- `set_env.sh`: sets the environment for the scripts above.
 - `load_apps_from_config.py`: loads the configured apps into the StateDatabase.
 
 ## Subfolders

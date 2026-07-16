@@ -1,5 +1,5 @@
 
 - name: Initializing State Database - container limits on Node Scaler
-  shell: "python3 scripts/hosts/init_host_node_rescaler.py {{ nodes | join(',') }} {{ containers_info | replace(' ','') | quote }} {{ resources | quote }}"
+  shell: "python3 {{ scripts_dir }}/hosts/init_host_node_rescaler.py {{ nodes | join(',') }} {{ containers_info | replace(' ','') | quote }} {{ resources | quote }}"
   args:
     executable: /bin/bash

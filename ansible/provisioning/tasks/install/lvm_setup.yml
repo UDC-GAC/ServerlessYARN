@@ -225,7 +225,7 @@
 
             - name: Copy script
               copy:
-                src: scripts/system/add_disks_to_lv.sh
+                src: "{{ scripts_dir }}/system/add_disks_to_lv.sh"
                 dest: "{{ installation_path }}/"
 
             - name: Execute script to do all required steps

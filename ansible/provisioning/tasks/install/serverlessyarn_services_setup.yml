@@ -23,12 +23,12 @@
 
 - name: Install pip dependencies
   pip:
-    requirements: "{{ playbook_dir }}/services/requirements.txt"
+    requirements: "{{ services_dir }}/requirements.txt"
     executable: pip3
 
 - name: Copy Django secret key file
   copy:
-    src: config/django_secret_key.txt
+    src: "{{ config_dir }}/django_secret_key.txt"
     dest: "{{ installation_path }}/.django_secret_key.txt"
     owner: "{{ user_info.user_name }}"
     mode: "0600"

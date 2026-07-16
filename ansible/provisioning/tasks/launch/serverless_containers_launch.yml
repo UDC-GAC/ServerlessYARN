@@ -99,7 +99,7 @@
 
 ## Hosts
 - name: Initializing State Database - hosts
-  shell: "python3 scripts/state_database/add_hosts.py {{ item }} '{{ resources | to_json | safe }}' {{ disks }} config/config.yml"
+  shell: "python3 {{ scripts_dir }}/state_database/add_hosts.py {{ item }} '{{ resources | to_json | safe }}' {{ disks }} {{ main_config }}"
   args:
     executable: /bin/bash
   vars:
@@ -110,7 +110,7 @@
 
 - name: Initializing State Database - add individual disks to hosts
   when: disk_capabilities and disk_scaling
-  shell: "python3 scripts/state_database/add_disks_to_hosts.py {{ new_disks_dict }} config/config.yml"
+  shell: "python3 {{ scripts_dir }}/state_database/add_disks_to_hosts.py {{ new_disks_dict }} {{ main_config }}"
   args:
     executable: /bin/bash
   vars:
@@ -119,7 +119,7 @@
 
 - name: Initializing State Database - add disks to existing LV
   when: disk_capabilities and disk_scaling
-  shell: "python3 scripts/state_database/update_host_disks_bw_db.py {{ item }} lvm {{ hostvars[item].disks.lvm.read_bw }} {{ hostvars[item].disks.lvm.write_bw }} MB/s config/config.yml"
+  shell: "python3 {{ scripts_dir }}/state_database/update_host_disks_bw_db.py {{ item }} lvm {{ hostvars[item].disks.lvm.read_bw }} {{ hostvars[item].disks.lvm.write_bw }} MB/s {{ main_config }}"
   args:
     executable: /bin/bash
   with_items: "{{ nodes }}"
@@ -127,7 +127,7 @@
 
 ## Containers
 - name: Initializing State Database - containers
-  shell: "python3 scripts/state_database/add_containers.py {{ containers_info | replace(' ','') | quote }} config/config.yml {{ app_name if app_name is defined else '' }}"
+  shell: "python3 {{ scripts_dir }}/state_database/add_containers.py {{ containers_info | replace(' ','') | quote }} {{ main_config }} {{ app_name if app_name is defined else '' }}"
   args:
     executable: /bin/bash
   tags: start_containers

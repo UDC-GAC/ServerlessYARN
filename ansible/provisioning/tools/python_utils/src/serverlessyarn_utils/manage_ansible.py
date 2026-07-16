@@ -8,7 +8,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 scriptDir = os.path.realpath(os.path.dirname(__file__))
-PROVISION_DIR = f"{scriptDir}/../../.."
+PROVISION_DIR = f"{scriptDir}/../../../.."
+PLAYBOOK_DIR = f"{PROVISION_DIR}/playbooks"
 INVENTORY_FILE = "../ansible.inventory.yml" ## relative to PROVISION_DIR
 
 # Ansible runner doc: https://ansible.readthedocs.io/projects/runner/en/stable/ansible_runner/
@@ -55,7 +56,7 @@ def run_playbook(playbook_name, tags=None, limit=None, extravars=None, ignore_fa
     rc = RunnerConfig(
         private_data_dir=PROVISION_DIR,
         artifact_dir="/tmp/ansible_artifacts",
-        playbook=playbook_name,
+        playbook=f"{PLAYBOOK_DIR}/{playbook_name}",
         tags=",".join(tags) if tags else None,
         limit=",".join(limit) if limit else None,
         extravars=extravars if extravars else None,
@@ -75,7 +76,7 @@ def run_playbook(playbook_name, tags=None, limit=None, extravars=None, ignore_fa
 
         # Log the formatted output
         logger.error(f"\n{'#'*80}\nPlaybook Execution Failed\n{'#'*80}")
-        logger.error(f"Playbook: {playbook_name}")
+        logger.error(f"Playbook: {PLAYBOOK_DIR}/{playbook_name}")
         logger.error(f"Hosts: {limit}")
         logger.error(f"Tags: {tags}")
         logger.error(f"Extra vars:\n{printable_extravars}")

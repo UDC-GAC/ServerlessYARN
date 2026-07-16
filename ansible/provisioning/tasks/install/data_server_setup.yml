@@ -6,7 +6,7 @@
 
 - name: Copy data server install/start scripts
   template:
-    src: "templates/data_server/{{ item }}"
+    src: "{{ templates_dir }}/data_server/{{ item }}"
     dest: "{{ data_server_path }}/{{ item }}"
   with_items:
     - sources.list
@@ -16,7 +16,7 @@
 
 - name: Copy parallel curl utility to speed up data server setup
   synchronize:
-    src: "BDWatchdog/deployment//metrics/parallel_curl.sh"
+    src: "{{ externals_dir }}/BDWatchdog/deployment//metrics/parallel_curl.sh"
     dest: "{{ data_server_path }}/parallel_curl.sh"
 
 - name: Setup data server (download external sources)

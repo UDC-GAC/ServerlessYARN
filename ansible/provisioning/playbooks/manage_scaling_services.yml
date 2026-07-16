@@ -6,8 +6,9 @@
   gather_facts: no
 
   vars_files:
-    - vars/main.yml
-    - config/config.yml
+    - paths.yml
+    - "{{ main_vars }}"
+    - "{{ main_config }}"
 
   environment:
     INSTALLATION_PATH: "{{ installation_path }}"

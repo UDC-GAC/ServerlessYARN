@@ -15,9 +15,10 @@
     es_udc_gac.smart_sharedfs.synchronize: "{{ global_module_defaults.synchronize }}"
 
   vars_files:
-    - vars/main.yml
-    - vars/defaults.yml
-    - config/config.yml
+    - paths.yml
+    - "{{ main_vars }}"
+    - "{{ defaults }}"
+    - "{{ main_config }}"
 
   environment:
     HOME: "{{ lookup('env', 'HOME') }}"
@@ -25,33 +26,33 @@
     OPENTSDB_LOG_PATH: "{{ opentsdb_log_path | quote }}"
 
   tasks:
-    - import_tasks: tasks/utils/get_user_ids.yml
+    - import_tasks: "{{ util_tasks }}/get_user_ids.yml"
       tags: always
 
-    - import_tasks: tasks/install/create_installation_dir.yml
-    - import_tasks: tasks/install/time_sync.yml
+    - import_tasks: "{{ install_tasks }}/create_installation_dir.yml"
+    - import_tasks: "{{ install_tasks }}/time_sync.yml"
       when: virtual_mode
 
-    - import_tasks: tasks/install/data_server_setup.yml
+    - import_tasks: "{{ install_tasks }}/data_server_setup.yml"
       tags: setup_data_server, restart_services
       when: local_data_server
 
-    - import_tasks: tasks/install/apptainer_setup.yml
+    - import_tasks: "{{ install_tasks }}/apptainer_setup.yml"
       when: "virtual_mode and container_engine == 'apptainer'"
       tags: install_apptainer
 
-    - import_tasks: tasks/install/couchdb_setup.yml
-    - import_tasks: tasks/install/bdwatchdog_setup.yml
+    - import_tasks: "{{ install_tasks }}/couchdb_setup.yml"
+    - import_tasks: "{{ install_tasks }}/bdwatchdog_setup.yml"
       when: deploy_local_opentsdb
 
-    - import_tasks: tasks/install/serverless_containers_setup.yml
-    - import_tasks: tasks/install/serverlessyarn_services_setup.yml
+    - import_tasks: "{{ install_tasks }}/serverless_containers_setup.yml"
+    - import_tasks: "{{ install_tasks }}/serverlessyarn_services_setup.yml"
 
     - block:
-      - import_tasks: tasks/install/mongodb_setup.yml
-        tags: setup_mongodb,setup_smartwatts,setup_selfwatts
+      - import_tasks: "{{ install_tasks }}/mongodb_setup.yml"
+        tags: setup_mongodb, setup_smartwatts, setup_selfwatts
 
-      - import_tasks: tasks/install/power_meter_setup.yml
+      - import_tasks: "{{ install_tasks }}/power_meter_setup.yml"
         tags: setup_power_meter
       when: "power_budgeting"
 
@@ -74,42 +75,43 @@
     es_udc_gac.smart_sharedfs.synchronize: "{{ global_module_defaults.synchronize }}"
 
   vars_files:
-    - vars/main.yml
-    - vars/defaults.yml
-    - config/config.yml
+    - paths.yml
+    - "{{ main_vars }}"
+    - "{{ defaults }}"
+    - "{{ main_config }}"
 
   environment:
     HOME: "{{ lookup('env', 'HOME') }}"
     INSTALLATION_PATH: "{{ installation_path }}"
 
   tasks:
-    - import_tasks: tasks/utils/get_user_ids.yml
+    - import_tasks: "{{ util_tasks }}/get_user_ids.yml"
       tags: always
 
-    - import_tasks: tasks/install/create_installation_dir.yml
-    - import_tasks: tasks/install/time_sync.yml
+    - import_tasks: "{{ install_tasks }}/create_installation_dir.yml"
+    - import_tasks: "{{ install_tasks }}/time_sync.yml"
       when: virtual_mode
 
-    - import_tasks: tasks/install/apptainer_setup.yml
+    - import_tasks: "{{ install_tasks }}/apptainer_setup.yml"
       when: "virtual_mode and container_engine == 'apptainer'"
       tags: install_apptainer
 
-    - import_tasks: tasks/install/serverless_containers_setup.yml
-    - import_tasks: tasks/install/metrics_feeder_setup.yml # can be removed if an LXC container image is created
+    - import_tasks: "{{ install_tasks }}/serverless_containers_setup.yml"
+    - import_tasks: "{{ install_tasks }}/metrics_feeder_setup.yml" # can be removed if an LXC container image is created
       when: "container_engine == 'lxc'"
 
-    - import_tasks: tasks/install/lxd_setup.yml
+    - import_tasks: "{{ install_tasks }}/lxd_setup.yml"
       when: "virtual_mode and container_engine == 'lxc'"
 
     - block:
-      - import_tasks: tasks/install/lvm_setup.yml
+      - import_tasks: "{{ install_tasks }}/lvm_setup.yml"
         when: create_lvm
-      - import_tasks: tasks/install/measure_disks_bandwidth.yml
+      - import_tasks: "{{ install_tasks }}/measure_disks_bandwidth.yml"
         when: disk_capabilities and disk_scaling
         tags: extend_lv, add_disks
       when: disk_capabilities
 
-    - import_tasks: tasks/install/power_sensor_setup.yml
+    - import_tasks: "{{ install_tasks }}/power_sensor_setup.yml"
       when: "power_budgeting"
       tags: setup_power_sensor
 
@@ -128,16 +130,17 @@
     es_udc_gac.smart_sharedfs.synchronize: "{{ global_module_defaults.synchronize }}"
 
   vars_files:
-    - vars/main.yml
-    - vars/defaults.yml
-    - config/config.yml
+    - paths.yml
+    - "{{ main_vars }}"
+    - "{{ defaults }}"
+    - "{{ main_config }}"
 
   environment:
     HOME: "{{ lookup('env', 'HOME') }}"
     INSTALLATION_PATH: "{{ installation_path }}"
 
   tasks:
-    - import_tasks: tasks/install/network_setup.yml
+    - import_tasks: "{{ install_tasks }}/network_setup.yml"
       when: "container_engine == 'apptainer'"
 
     ## Force a refresh on the Ansible fact cache just in case the installation changed something relevant (e.g., mounts)

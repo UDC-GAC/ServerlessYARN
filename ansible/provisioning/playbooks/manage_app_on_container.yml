@@ -12,9 +12,10 @@
     es_udc_gac.smart_sharedfs.synchronize: "{{ global_module_defaults.synchronize }}"
 
   vars_files:
-    - vars/main.yml
-    - vars/defaults.yml
-    - config/config.yml
+    - paths.yml
+    - "{{ main_vars }}"
+    - "{{ defaults }}"
+    - "{{ main_config }}"
 
   vars:
     - jid_file: "{{ ansible_async_dir }}/{{ container }}.jid"
@@ -34,7 +35,7 @@
   ## Singularity + cgroups v1
 
   tasks:
-  - import_tasks: tasks/utils/get_user_ids.yml
+  - import_tasks: "{{ util_tasks }}/get_user_ids.yml"
     tags: always
 
   ## Setup network
@@ -187,7 +188,7 @@
               - name: Copy config files to master
                 when: item.0.condition | default(true)
                 template:
-                  src: "templates/{{ item.0.template_dir }}/{{ item.1 }}"
+                  src: "{{ templates_dir }}/{{ item.0.template_dir }}/{{ item.1 }}"
                   dest: "{{ app_tmpdir }}/{{ item.1 }}"
                   mode: preserve
                 loop: "{{ transfer_file_dict | subelements('file_list') }}"
@@ -397,7 +398,7 @@
       - block:
           - name: Copy runtime files subdirectory in temporary directory
             copy: ## synchronize module would be faster, but it ignores the 'delegate_to' directive
-              src: "apps/{{ app_dir }}/{{ runtime_files }}"
+              src: "{{ apps_dir }}/{{ app_dir }}/{{ runtime_files }}"
               dest: "{{ app_tmpdir }}/{{ container }}/"
 
           - name: Template runtime files and store in temporary directory
@@ -405,7 +406,7 @@
             template:
               src: "{{ file.src }}"
               dest: "{{ app_tmpdir }}/{{ container }}/{{ runtime_files | basename }}/{{ file.path }}"
-            with_filetree: "apps/{{ app_dir }}/{{ runtime_files }}/"
+            with_filetree: "{{ apps_dir }}/{{ app_dir }}/{{ runtime_files }}/"
             loop_control:
               loop_var: file
 
@@ -431,20 +432,20 @@
         block:
           - name: Check if simple-distcp.jar exists
             stat:
-              path: "{{ playbook_dir }}/apps/{{ app_dir }}/runtime_files/simple-distcp.jar"
+              path: "{{ apps_dir }}/{{ app_dir }}/runtime_files/simple-distcp.jar"
             register: file_status
 
           - name: Fail if simple-distcp.jar does not exist
             when: not file_status.stat.exists
             fail:
-              msg: "{{ playbook_dir }}/apps/{{ app_dir }}/runtime_files/simple-distcp.jar does not exist"
+              msg: "{{ apps_dir }}/{{ app_dir }}/runtime_files/simple-distcp.jar does not exist"
 
       - name: Copy runtime files to NameNode
         when:
           - item.container_name == rm_container
           - item.host == inventory_hostname
         synchronize:
-          src: "apps/{{ app_dir }}/{{ runtime_files }}"
+          src: "{{ apps_dir }}/{{ app_dir }}/{{ runtime_files }}"
           dest: "{{ item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') }}/"
         loop: "{{ containers_info | selectattr('container_name', 'equalto', rm_container) | list }}"
 
@@ -454,7 +455,7 @@
       - name: Template app start script
         delegate_to: localhost
         template:
-          src: "apps/{{ app_dir }}/{{ start_script }}"
+          src: "{{ apps_dir }}/{{ app_dir }}/{{ start_script }}"
           dest: "{{ app_tmpdir }}/{{ container }}/"
           mode: preserve
 
@@ -462,7 +463,7 @@
         when: enable_app_callback
         delegate_to: localhost
         template:
-          src: "templates/start_wrapper.sh"
+          src: "{{ templates_dir }}/start_wrapper.sh"
           dest: "{{ app_tmpdir }}/{{ container }}/"
           mode: preserve
 
@@ -470,7 +471,7 @@
         delegate_to: localhost
         when: "app_jar != ''"
         copy:
-          src: "apps/{{ app_dir }}/{{ app_jar }}"
+          src: "{{ apps_dir }}/{{ app_dir }}/{{ app_jar }}"
           dest: "{{ app_tmpdir }}/{{ container }}/"
 
       - name: Copy templated config files to remote container
@@ -543,7 +544,7 @@
         - name: Template app stop script
           delegate_to: localhost
           template:
-            src: "apps/{{ app_dir }}/{{ stop_script }}"
+            src: "{{ apps_dir }}/{{ app_dir }}/{{ stop_script }}"
             dest: "{{ app_tmpdir }}/{{ container }}/"
             mode: preserve
 

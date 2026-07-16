@@ -2,21 +2,21 @@
   shell: "bash start_tmux.sh {{ web_interface_port }}"
   when: "'web_interface' not in tmux_sessions"
   args:
-    chdir: "{{ web_interface_path }}"
+    chdir: "{{ services_dir }}/serverless_containers_web"
     executable: /bin/bash
 
 - name: Starting Services - Redis server
   shell: "bash start_tmux.sh {{ installation_path }}"
   when: "'redis_server' not in tmux_sessions"
   args:
-    chdir: "services/redis_server"
+    chdir: "{{ services_dir }}/redis_server"
     executable: /bin/bash
 
 - name: Starting other Services
   shell: "bash start_tmux.sh"
   when: "item not in tmux_sessions"
   args:
-    chdir: "services/{{ item }}"
+    chdir: "{{ services_dir }}/{{ item }}"
     executable: /bin/bash
   with_items:
     - celery
@@ -27,5 +27,5 @@
   shell: "bash start_tmux.sh"
   when: "'rebooter' not in tmux_sessions and enable_rebooter"
   args:
-    chdir: "services/rebooter"
+    chdir: "{{ services_dir }}/rebooter"
     executable: /bin/bash

@@ -9,7 +9,7 @@
 
     - name: Copy apptainer containers cgroup config
       template:
-        src: "templates/{{ cgroups_file }}"
+        src: "{{ templates_dir }}/{{ cgroups_file }}"
         dest: "{{ installation_path }}/{{ cgroups_file }}"
 
     - name: Copy app image to host

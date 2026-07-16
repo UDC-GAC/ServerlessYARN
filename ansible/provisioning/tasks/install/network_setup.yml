@@ -5,7 +5,7 @@
 
 - name: Copy script
   copy:
-    src: scripts/network/get_subnets.py
+    src: "{{ scripts_dir }}/network/get_subnets.py"
     dest: "{{ installation_path }}/get_subnets.py"
 
 - name: Get subnets
@@ -42,7 +42,7 @@
 - name: Setup plugin config
   when: item.key == inventory_hostname
   template:
-    src: "templates/cni_{{ mode }}_network.conflist"
+    src: "{{ templates_dir }}/cni_{{ mode }}_network.conflist"
     dest: "{{ apptainer_config_path }}/network/{{ mode }}_{{ inventory_hostname }}.conflist"
   with_dict: "{{ subnet_dict.stdout }}"
   vars:

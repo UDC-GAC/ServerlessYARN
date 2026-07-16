@@ -7,7 +7,7 @@ artifacts/
 *.log
 *.jar
 *.bak
-ansible/provisioning/java_libraries/*/target
+ansible/provisioning/tools/java_libraries/*/target
 
 # Dynamic configuration files
 ansible/ansible.inventory.yml

@@ -13,7 +13,7 @@
 
         - name: Copy CouchDB definition file and configuration files
           template:
-            src: "templates/couchdb/{{ item }}"
+            src: "{{ templates_dir }}/couchdb/{{ item }}"
             dest: "{{ couchdb_path }}/{{ item }}"
           with_items:
             - "{{ definition_file }}"

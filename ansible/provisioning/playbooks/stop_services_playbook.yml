@@ -11,8 +11,9 @@
   tags: never
 
   vars_files:
-    - vars/main.yml
-    - config/config.yml
+    - paths.yml
+    - "{{ main_vars }}"
+    - "{{ main_config }}"
 
   environment:
     BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
@@ -20,7 +21,7 @@
     PYTHONPATH: ":{{ serverless_containers_path }}"
 
   tasks:
-  - import_tasks: tasks/utils/get_tmux_sessions.yml
+  - import_tasks: "{{ util_tasks }}/get_tmux_sessions.yml"
     tags: stop_node_scaler, stop_services
 
   - name: Stop node scaler
@@ -53,11 +54,12 @@
   tags: never
 
   vars_files:
-    - vars/main.yml
-    - config/config.yml
+    - paths.yml
+    - "{{ main_vars }}"
+    - "{{ main_config }}"
 
   tasks:
-  - import_tasks: tasks/utils/get_tmux_sessions.yml
+  - import_tasks: "{{ util_tasks }}/get_tmux_sessions.yml"
     tags: stop_opentsdb, stop_services
 
   - name: Stop OPENTSDB
@@ -132,8 +134,9 @@
   tags: never
 
   vars_files:
-    - vars/main.yml
-    - config/config.yml
+    - paths.yml
+    - "{{ main_vars }}"
+    - "{{ main_config }}"
 
   tasks:
   - name: Clean logs

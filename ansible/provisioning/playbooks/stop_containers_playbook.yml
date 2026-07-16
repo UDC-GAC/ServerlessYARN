@@ -4,8 +4,10 @@
   gather_facts: no
 
   vars_files:
-    - vars/main.yml
-    - config/config.yml
+    - paths.yml
+    - "{{ main_vars }}"
+    - "{{ defaults }}"
+    - "{{ main_config }}"
 
   tasks:
   - name: Stop apptainer containers from nodes
@@ -21,8 +23,9 @@
   gather_facts: no
 
   vars_files:
-    - vars/main.yml
-    - config/config.yml
+    - paths.yml
+    - "{{ main_vars }}"
+    - "{{ main_config }}"
 
   tasks:
   - name: Stop apptainer containers from server

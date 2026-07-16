@@ -13,9 +13,10 @@
     es_udc_gac.smart_sharedfs.synchronize: "{{ global_module_defaults.synchronize }}"
 
   vars_files:
-    - vars/main.yml
-    - vars/defaults.yml
-    - config/config.yml
+    - paths.yml
+    - "{{ main_vars }}"
+    - "{{ defaults }}"
+    - "{{ main_config }}"
 
   environment:
     BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
@@ -23,15 +24,15 @@
     PYTHONPATH: "{{ bdwatchdog_path }}:{{ serverless_containers_path }}"
 
   tasks:
-    - import_tasks: tasks/utils/get_user_ids.yml
+    - import_tasks: "{{ util_tasks }}/get_user_ids.yml"
       tags: create_app, start_containers, setup_hdfs, build_tcp_tracker
 
     ## Setup DNS for intra-container name resolution
-    - import_tasks: tasks/containers_setup/dns_launch.yml
+    - import_tasks: "{{ container_tasks }}/dns_launch.yml"
       delegate_to: localhost
       run_once: yes
 
-    - import_tasks: tasks/containers_setup/lxd_containers_setup.yml
+    - import_tasks: "{{ container_tasks }}/lxd_containers_setup.yml"
       when: "container_engine == 'lxc'"
       tags: start_containers
       vars:
@@ -65,7 +66,7 @@
               image_dependency: hadoop_app
       block:
         ## Image creation
-        - include_tasks: "tasks/containers_setup/apptainer_container_image_setup.yml" # beware of the differences of 'include_tasks' vs 'import_tasks', such as tagging
+        - include_tasks: "{{ container_tasks }}/apptainer_container_image_setup.yml" # beware of the differences of 'include_tasks' vs 'import_tasks', such as tagging
           loop: "{{ reverse_image_dependencies }}"
           tags: create_app, setup_hdfs
           vars:
@@ -81,7 +82,7 @@
                   {{ build_list | reverse }}
 
         ## Container startup
-        - import_tasks: "tasks/containers_setup/apptainer_containers_cgroups_{{ container_owner }}_owned_setup.yml"
+        - import_tasks: "{{ container_tasks }}/apptainer_containers_cgroups_{{ container_owner }}_owned_setup.yml"
           vars:
             - container_owner: root # 'root' or 'user'
               # note: root is required at the moment to start containers with cgroups support on cgroups v1 and with specific network on both cgroups versions
@@ -118,18 +119,18 @@
             - master_container: "{{ (containers_info | first).container_name }}" # This container will act as RM/NM on distributed deployments with Hadoop/Spark
 
         ## Launch global HDFS frontend container
-        - import_tasks: tasks/launch/global_hdfs_frontend_launch.yml
+        - import_tasks: "{{ launch_tasks }}/global_hdfs_frontend_launch.yml"
           when: global_hdfs
           tags: never, setup_hdfs
           vars:
             frontend_port: 44444
 
-    - import_tasks: tasks/containers_setup/tcp_tracker_launch.yml
+    - import_tasks: "{{ container_tasks }}/tcp_tracker_launch.yml"
       when: disk_capabilities and disk_scaling and global_hdfs
 
-    - import_tasks: tasks/containers_setup/node_rescaler_launch.yml
+    - import_tasks: "{{ container_tasks }}/node_rescaler_launch.yml"
 
-    - import_tasks: tasks/containers_setup/manage_cache_containers.yml
+    - import_tasks: "{{ container_tasks }}/manage_cache_containers.yml"
       when: manage_cache_hosts
       tags: never
 
@@ -147,9 +148,10 @@
     es_udc_gac.smart_sharedfs.synchronize: "{{ global_module_defaults.synchronize }}"
 
   vars_files:
-    - vars/main.yml
-    - vars/defaults.yml
-    - config/config.yml
+    - paths.yml
+    - "{{ main_vars }}"
+    - "{{ defaults }}"
+    - "{{ main_config }}"
 
   environment:
     BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
@@ -157,13 +159,13 @@
     PYTHONPATH: "{{ bdwatchdog_path }}:{{ serverless_containers_path }}"
 
   tasks:
-    - import_tasks: tasks/utils/get_user_ids.yml
+    - import_tasks: "{{ util_tasks }}/get_user_ids.yml"
       tags: start_couchdb, restart_services
 
-    - import_tasks: tasks/launch/couchdb_launch.yml
+    - import_tasks: "{{ launch_tasks }}/couchdb_launch.yml"
       tags: start_couchdb, restart_services
 
-    - import_tasks: tasks/containers_setup/node_rescaler_containers_init.yml
+    - import_tasks: "{{ container_tasks }}/node_rescaler_containers_init.yml"
       tags: 
         - start_containers
         - init_node_rescaler

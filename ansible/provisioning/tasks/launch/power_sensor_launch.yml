@@ -12,13 +12,13 @@
     - name: Copy power sensor container definition file
       when: not stat_output.stat.exists
       template:
-        src: "templates/power_budgeting/monitoring/sensor/{{ power_sensor }}/{{ definition_file }}"
+        src: "{{ templates_dir }}/power_budgeting/monitoring/sensor/{{ power_sensor }}/{{ definition_file }}"
         dest: "{{ power_sensor_path }}/image/{{ definition_file }}"
 
     - name: Find power sensor configuration files to template
       when: not stat_output.stat.exists
       set_fact:
-        found_config_files: "{{ lookup('fileglob', 'templates/power_budgeting/monitoring/sensor/' ~ power_sensor ~ '/config/*', wantlist=True) }}"
+        found_config_files: "{{ lookup('fileglob', templates_dir + '/power_budgeting/monitoring/sensor/' ~ power_sensor ~ '/config/*', wantlist=True) }}"
 
     - name: Template power sensor configuration files
       when: not stat_output.stat.exists

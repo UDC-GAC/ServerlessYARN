@@ -9,13 +9,13 @@
 
     - name: Copy apptainer containers cgroup config
       template:
-        src: "templates/{{ cgroups_file }}"
+        src: "{{ templates_dir }}/{{ cgroups_file }}"
         dest: "{{ installation_path }}/{{ cgroups_file }}"
 
     ## Workaround to get the right permissions on root-owned cgroups files
     - name: Copy cgroups permission changer script
       synchronize:
-        src: scripts/hosts/change_cgroups_permissions.py
+        src: "{{ scripts_dir }}/hosts/change_cgroups_permissions.py"
         dest: "{{ installation_path }}/change_cgroups_permissions.py"
         perms: true
 

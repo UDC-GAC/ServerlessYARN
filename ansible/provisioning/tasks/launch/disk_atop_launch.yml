@@ -1,18 +1,18 @@
-- import_tasks: tasks/utils/get_tmux_sessions.yml
+- import_tasks: "{{ util_tasks }}/get_tmux_sessions.yml"
 
 - name: Copy BDWatchdog's source code to node
   synchronize:
-    src: BDWatchdog/
+    src: "{{ externals_dir }}/BDWatchdog/"
     dest: "{{ bdwatchdog_source_path }}"
 
 - name: Copy disk_atop code to node
   synchronize:
-    src: services/disk_atop
+    src: "{{ services_dir }}/disk_atop"
     dest: "{{ installation_path }}/"
 
 - name: Template start script
   template:
-    src: services/disk_atop/start.sh
+    src: "{{ services_dir }}/disk_atop/start.sh"
     dest: "{{ installation_path }}/disk_atop/start.sh"
 
 - name: Start disk atop service

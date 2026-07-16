@@ -31,5 +31,5 @@ cd $HADOOP_HOME
 mvn install -pl hadoop-hdfs-project/hadoop-hdfs,hadoop-hdfs-project/hadoop-hdfs-client -am -DskipTests -Dmaven.javadoc.skip=true -Dcheckstyle.skip=true -Dspotbugs.skip=true
 
 echo "Recovering new JAR file..."
-cp $HADOOP_HOME/hadoop-hdfs-project/hadoop-hdfs/target/hadoop-hdfs-${HADOOP_VERSION}.jar ${scriptDir}/../../apps/base/hadoop_app/
-cp $HADOOP_HOME/hadoop-hdfs-project/hadoop-hdfs-client/target/hadoop-hdfs-client-${HADOOP_VERSION}.jar ${scriptDir}/../../apps/base/hadoop_app/
+cp $HADOOP_HOME/hadoop-hdfs-project/hadoop-hdfs/target/hadoop-hdfs-${HADOOP_VERSION}.jar ${scriptDir}/../../../apps/base/hadoop_app/
+cp $HADOOP_HOME/hadoop-hdfs-project/hadoop-hdfs-client/target/hadoop-hdfs-client-${HADOOP_VERSION}.jar ${scriptDir}/../../../apps/base/hadoop_app/

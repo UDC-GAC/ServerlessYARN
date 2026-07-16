@@ -9,7 +9,7 @@
     - image_file: "{{ app_mapping[item]['image'] }}"
     - app_base_type: "{{ app_mapping[item]['image_dependency'] if 'image_dependency' in app_mapping[item] }}"
     - app_base_image_file: "{{ app_mapping[app_base_type]['image'] if app_base_type is not none }}" # will be used in the definition image templates
-    - extra_files_directory: "apps/{{ app_mapping[item]['install_extra_files'] if 'install_extra_files' in app_mapping[item] }}" # directory on server with the app configuration, relative to 'ansible/provisioning'
+    - extra_files_directory: "{{ apps_dir }}/{{ app_mapping[item]['install_extra_files'] if 'install_extra_files' in app_mapping[item] }}" # directory on server with the app configuration, relative to 'ansible/provisioning'
     - installed_app_directory: "{{ images_build_dir }}/{{ app_dir|basename if item == 'generic_app' else item }}" # installation path of app on server
   block:
     - name: Check if app image already exists ({{ item }})
@@ -30,19 +30,19 @@
 
         - name: Copy app definition file ({{ item }})
           template:
-            src: "templates/apps/{{ definition_file }}"
+            src: "{{ templates_dir }}/apps/{{ definition_file }}"
             dest: "{{ installed_app_directory }}/{{ definition_file }}"
 
         ## Copy BDWatchdog source
         - name: Copy BDWatchdog source
           synchronize:
-            src: BDWatchdog/
+            src: "{{ externals_dir }}/BDWatchdog/"
             dest: "{{ bdwatchdog_source_path }}"
             recursive: true
 
         - name: Copy BDWatchdog atop scripts to BDWatchdog source dir
           template:
-            src: "templates/bdw_config/{{ file }}"
+            src: "{{ templates_dir }}/bdw_config/{{ file }}"
             dest: "{{ bdwatchdog_source_path }}/MetricsFeeder/scripts/{{ file }}"
           with_items:
             - run_atop_stream.sh

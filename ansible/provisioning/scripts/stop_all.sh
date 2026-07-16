@@ -2,7 +2,7 @@
 set -e
 
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
-INVENTORY=${scriptDir}/../../ansible.inventory.yml
+source ${scriptDir}/set_env.sh
 
 print_usage ()
 {
@@ -42,7 +42,7 @@ remove_lv ()
 {
     echo ""
     echo "Removing logical volumes..."
-    ansible-playbook ${scriptDir}/../install_playbook.yml -i $INVENTORY -t remove_lv
+    ansible-playbook ${PLAYBOOK_DIR}/install_playbook.yml -i $ANSIBLE_INVENTORY -t remove_lv
     echo "Logical Volumes deleted!"
 }
 
@@ -50,7 +50,7 @@ stop_services ()
 {
     echo ""
     echo "Stopping all services..."
-    ansible-playbook ${scriptDir}/../stop_services_playbook.yml -i $INVENTORY -t stop_services
+    ansible-playbook ${PLAYBOOK_DIR}/stop_services_playbook.yml -i $ANSIBLE_INVENTORY -t stop_services
     echo "Stop Done!"
 }
 
@@ -58,7 +58,7 @@ stop_opentsdb ()
 {
     echo ""
     echo "Stopping OpenTSDB..."
-    ansible-playbook ${scriptDir}/../stop_services_playbook.yml -i $INVENTORY -t stop_opentsdb
+    ansible-playbook ${PLAYBOOK_DIR}/stop_services_playbook.yml -i $ANSIBLE_INVENTORY -t stop_opentsdb
     echo "Stop Done!"
 }
 
@@ -66,7 +66,7 @@ clean_logs ()
 {
     echo ""
     echo "Cleaning all logs..."
-    ansible-playbook ${scriptDir}/../stop_services_playbook.yml -i $INVENTORY -t clean_logs
+    ansible-playbook ${PLAYBOOK_DIR}/stop_services_playbook.yml -i $ANSIBLE_INVENTORY -t clean_logs
     echo "Log clean Done!"
 }
 
@@ -74,8 +74,8 @@ stop_container_services ()
 {
     echo ""
     echo "Stopping other services deployed within containers..."
-    ansible-playbook ${scriptDir}/../start_containers_playbook.yml -i $INVENTORY -t stop_tcp_tracker,stop_cache_containers,stop_dns
-    ansible-playbook ${scriptDir}/../stop_services_playbook.yml -i $INVENTORY -t stop_couchdb
+    ansible-playbook ${PLAYBOOK_DIR}/start_containers_playbook.yml -i $ANSIBLE_INVENTORY -t stop_tcp_tracker,stop_cache_containers,stop_dns
+    ansible-playbook ${PLAYBOOK_DIR}/stop_services_playbook.yml -i $ANSIBLE_INVENTORY -t stop_couchdb
     echo "Container services stopped!"
 }
 

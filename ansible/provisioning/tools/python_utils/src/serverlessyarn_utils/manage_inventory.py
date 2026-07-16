@@ -4,7 +4,7 @@ import copy
 from ruamel.yaml import YAML
 
 scriptDir = os.path.realpath(os.path.dirname(__file__))
-INVENTORY_FILE = scriptDir + "/../../../../ansible.inventory.yml"
+INVENTORY_FILE = scriptDir + "/../../../../../ansible.inventory.yml"
 
 SERVER_GROUP_NAME = "platform_management"
 SERVER_INVENTORY_NAME = "platform_server"

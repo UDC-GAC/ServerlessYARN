@@ -1,0 +1,26 @@
+# Paths to Ansible playbooks dependencies (e.g., vars, config, tasks, etc)
+## These paths are relative to the location of the playbooks and this file
+## i.e., it is recommended to keep this file in the same directory as the playbooks for easy import
+
+## Main provision directory
+provision_dir: "{{ (playbook_dir + '/..') | normpath }}" ## get absolute path to get a clean base path
+
+## Common directories
+vars_dir: "{{ provision_dir }}/vars"
+config_dir: "{{ provision_dir }}/config"
+tasks_dir: "{{ provision_dir }}/tasks"
+templates_dir: "{{ provision_dir }}/templates"
+services_dir: "{{ provision_dir }}/services"
+scripts_dir: "{{ provision_dir }}/scripts"
+apps_dir: "{{ provision_dir }}/apps"
+externals_dir: "{{ provision_dir }}/external"
+
+## Specific paths
+main_vars: "{{ vars_dir }}/main.yml"
+defaults: "{{ vars_dir }}/defaults.yml"
+main_config: "{{ config_dir }}/config.yml"
+config_modules: "{{ config_dir }}/modules"
+install_tasks: "{{ tasks_dir }}/install"
+container_tasks: "{{ tasks_dir }}/containers_setup"
+launch_tasks: "{{ tasks_dir }}/launch"
+util_tasks: "{{ tasks_dir }}/utils"

@@ -15,7 +15,7 @@
 
     - name: Copy DNS definition file and configuration files
       template:
-        src: "templates/dns/{{ item }}"
+        src: "{{ templates_dir }}/dns/{{ item }}"
         dest: "{{ installed_app_directory }}/{{ item }}"
       with_items:
         - "{{ definition_file }}"

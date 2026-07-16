@@ -63,11 +63,11 @@
 
     - name: Prepare non-interactive installation and install CouchDB
       when: "'couchdb' not in services"
-      shell: debconf-copydb importmedb configdb  \
+      shell: "debconf-copydb importmedb configdb  \
         --config=Name:importmedb               \
         --config=Driver:File                   \
-        --config=Filename:templates/couchdb/debian_couchdb_conf.dat && \
-        apt-get install -y couchdb
+        --config=Filename:{{ templates_dir }}/couchdb/debian_couchdb_conf.dat && \
+        apt-get install -y couchdb"
 
     - name: Start couchdb
       become: true

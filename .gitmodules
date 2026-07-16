@@ -1,6 +1,6 @@
-[submodule "ansible/provisioning/ServerlessContainers"]
-	path = ansible/provisioning/ServerlessContainers
+[submodule "ansible/provisioning/external/ServerlessContainers"]
+	path = ansible/provisioning/external/ServerlessContainers
 	url = https://github.com/UDC-GAC/ServerlessContainers.git
-[submodule "ansible/provisioning/BDWatchdog"]
-	path = ansible/provisioning/BDWatchdog
+[submodule "ansible/provisioning/external/BDWatchdog"]
+	path = ansible/provisioning/external/BDWatchdog
 	url = https://github.com/UDC-GAC/BDWatchdog.git

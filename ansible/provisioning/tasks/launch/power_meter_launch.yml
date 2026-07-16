@@ -12,13 +12,13 @@
     - name: Copy power meter container definition file
       when: not stat_output.stat.exists
       template:
-        src: "templates/power_budgeting/monitoring/power_meter/{{ v_power_meter }}/{{ definition_file }}"
+        src: "{{ templates_dir }}/power_budgeting/monitoring/power_meter/{{ v_power_meter }}/{{ definition_file }}"
         dest: "{{ power_meter_path }}/image/{{ definition_file }}"
 
     - name: Find power meter configuration files to template
       when: not stat_output.stat.exists
       find:
-        paths: "templates/power_budgeting/monitoring/power_meter/{{ v_power_meter }}/config"
+        paths: "{{ templates_dir }}/power_budgeting/monitoring/power_meter/{{ v_power_meter }}/config"
         recurse: yes
       register: found_config_files
 

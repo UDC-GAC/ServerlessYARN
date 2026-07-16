@@ -3,9 +3,7 @@ set -e
 
 ## Main variables
 scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
-PROVISION_DIR=$( realpath ${scriptDir}/.. )
-SCRIPTS_DIR=${PROVISION_DIR}/scripts
-INVENTORY=${PROVISION_DIR}/../ansible.inventory.yml
+source ${scriptDir}/set_env.sh
 
 CONFIG_MODULE_PATH="${PROVISION_DIR}/config/modules"
 CONFIG_MODULE_LIST=(
@@ -69,7 +67,7 @@ install_prerequisites ()
     pip3 install -r ${SCRIPTS_DIR}/requirements.txt
 
     # Install custom python utilities
-    pip3 install --editable ${PROVISION_DIR}/python_utils/ ## 'editable' mode allows changes to be automatically reflected without re-installing
+    pip3 install --editable ${PROVISION_DIR}/tools/python_utils/ ## 'editable' mode allows changes to be automatically reflected without re-installing
 
 }
 
@@ -79,7 +77,7 @@ check_files_to_template ()
 
     config_modules=("${CONFIG_MODULE_LIST[@]/#/$CONFIG_MODULE_PATH/}") ## this adds the prefix '$CONFIG_MODULE_PATH/' to every item in list
 
-    FILES_TO_TEMPLATE="$INVENTORY ${config_modules[@]}"
+    FILES_TO_TEMPLATE="$ANSIBLE_INVENTORY ${config_modules[@]}"
 
     for file in $FILES_TO_TEMPLATE
     do
@@ -112,7 +110,7 @@ setup_config ()
     fi
 
     echo "Load platform configuration from modules"
-    ansible-playbook ${PROVISION_DIR}/load_config_playbook.yml -i $INVENTORY
+    ansible-playbook ${PLAYBOOK_DIR}/load_config_playbook.yml -i $ANSIBLE_INVENTORY
     echo "Configuration loaded!"
 
 }
@@ -132,7 +130,7 @@ load_inventory_file ()
 run_ansible_playbooks ()
 {
     print_banner "Installing necessary services and programs"
-    ansible-playbook ${PROVISION_DIR}/install_playbook.yml -i $INVENTORY
+    ansible-playbook ${PLAYBOOK_DIR}/install_playbook.yml -i $ANSIBLE_INVENTORY
     echo "Install Done!"
 
     source /etc/environment
@@ -140,11 +138,11 @@ run_ansible_playbooks ()
     export PATH=$HOME/.local/bin:$PATH
 
     print_banner "Starting containers"
-    ansible-playbook ${PROVISION_DIR}/start_containers_playbook.yml -i $INVENTORY
+    ansible-playbook ${PLAYBOOK_DIR}/start_containers_playbook.yml -i $ANSIBLE_INVENTORY
     echo "Containers started!"
 
     print_banner "Launching services"
-    ansible-playbook ${PROVISION_DIR}/launch_playbook.yml -i $INVENTORY
+    ansible-playbook ${PLAYBOOK_DIR}/launch_playbook.yml -i $ANSIBLE_INVENTORY
     echo "Launch Done!"
 
     print_banner "Loading applications"

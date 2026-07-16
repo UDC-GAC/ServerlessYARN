@@ -1,12 +1,12 @@
 
 - name: Copy BDWatchdog
   synchronize:
-    src: BDWatchdog/
+    src: "{{ externals_dir }}/BDWatchdog/"
     dest: "{{ bdwatchdog_source_path }}"
     recursive: true
   tags: restart_services
 
 # - name: Copy service aliases and port configuration to BDWatchdog dir
 #   template:
-#     src: templates/bdw_config/services_config.yml
+#     src: "{{ templates_dir }}/bdw_config/services_config.yml"
 #     dest: "{{ bdwatchdog_source_path }}/services_config.yml"

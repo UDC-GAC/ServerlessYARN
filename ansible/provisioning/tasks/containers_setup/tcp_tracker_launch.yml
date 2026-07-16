@@ -26,7 +26,7 @@
 
       - name: Template definition file
         template:
-          src: "templates/apps/{{ definition_file }}"
+          src: "{{ templates_dir }}/apps/{{ definition_file }}"
           dest: "{{ installed_app_directory }}/{{ definition_file }}"
         vars:
           - app_base_type: "base"

@@ -46,7 +46,7 @@
 
 - name: Set permanent modules for cluster nodes
   when: "not virtual_mode and 'nodes' in group_names"
-  include_tasks: tasks/install/modules_setup.yml
+  include_tasks: "{{ install_tasks }}/modules_setup.yml"
   loop:
     - gnu8/8.3.0
     - python/3.8.13
@@ -54,7 +54,7 @@
 
 - name: Install specified python requirements
   pip:
-    requirements: "{{ playbook_dir }}/ServerlessContainers/requirements.txt"
+    requirements: "{{ externals_dir }}/ServerlessContainers/requirements.txt"
     executable: pip3
 
 - name: Check if OpenSSL is installed
@@ -88,29 +88,29 @@
 - block:
   - name: Copy ServerlessContainers
     synchronize:
-      src: ServerlessContainers/
+      src: "{{ externals_dir }}/ServerlessContainers/"
       dest: "{{ serverless_containers_path }}"
       recursive: true
 
   - name: Copy service aliases and port configuration to ServerlessContainers dir
     template:
-      src: templates/sc_config/services_config.yml
+      src: "{{ templates_dir }}/sc_config/services_config.yml"
       dest: "{{ serverless_containers_path }}/services_config.yml"
 
   - name: Copy custom env file in ServerlessContainers to avoid using yq
     template:
-      src: templates/sc_config/set_env.sh
+      src: "{{ templates_dir }}/sc_config/set_env.sh"
       dest: "{{ serverless_containers_path }}/scripts/orchestrator/set_env.sh"
     when: "not virtual_mode"
 
   - name: Copy ServerlessContainers services configuration
     template:
-      src: "templates/sc_config/services.py"
+      src: "{{ templates_dir }}/sc_config/services.py"
       dest: "{{ serverless_containers_path }}/conf/StateDatabase/services.py"
 
   - name: Copy ServerlessContainers rules configuration
     template:
-      src: "templates/sc_config/rules.py"
+      src: "{{ templates_dir }}/sc_config/rules.py"
       dest: "{{ serverless_containers_path }}/conf/StateDatabase/rules.py"
   tags: restart_services
 
@@ -119,7 +119,7 @@
 - block:
   - name: Copy WattWizard configuration to ServerlessContainers dir
     template:
-      src: templates/power_budgeting/wattwizard/config.yml
+      src: "{{ templates_dir }}/power_budgeting/wattwizard/config.yml"
       dest: "{{ serverless_containers_path }}/src/WattWizard/config.yml"
 
   - name: Verify that the InfluxDB server is reachable
@@ -140,7 +140,7 @@
 
   - name: Copy WattWizard timestamp files to create models
     copy:
-      src: "templates/power_budgeting/wattwizard/timestamps/{{ modelled_cpu }}/{{ item }}/"
+      src: "{{ templates_dir }}/power_budgeting/wattwizard/timestamps/{{ modelled_cpu }}/{{ item }}/"
       dest: "{{ serverless_containers_path }}/conf/WattWizard/timestamps/train/default/"
       owner: "{{ user_info.user_name }}"
     with_items:
