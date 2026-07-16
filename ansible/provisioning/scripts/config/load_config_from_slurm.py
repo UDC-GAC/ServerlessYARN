@@ -23,11 +23,7 @@ def getHostList(server_as_host=False):
 
     return server, server_ip, hostlist
 
-def getNodesCpus():
-
-    #export CPUS_PER_NODE=`grep "^physical id" /proc/cpuinfo | sort -u | wc -l`     # CPUs per node
-    #export CORES_PER_CPU=`grep "^core id" /proc/cpuinfo | sort -u | wc -l` # Cores per CPU
-    #export CORES_PER_NODE=$(( $CPUS_PER_NODE * $CORES_PER_CPU ))   # Cores per node
+def getNodesCpus(disable_smt):
 
     cpus_per_node_string = os.getenv('SLURM_JOB_CPUS_PER_NODE')
     if cpus_per_node_string != "":
@@ -35,21 +31,26 @@ def getNodesCpus():
             cpus_per_node = int(cpus_per_node_string)
         except ValueError:
             # We assume that it has format: 16(x2)
-            #formatted_cpus = cpus_per_node_string.replace('x','*').replace("(","").replace(")","")
-            #cpus_per_node = eval(formatted_cpus)
             formatted_cpus = re.sub("[\(\[].*?[\)\]]", "", cpus_per_node_string)
             cpus_per_node = int(formatted_cpus)
 
-            # TODO: check if the system actually has HT
-            # adjust to hyperthreading system
-            cpus_per_node = cpus_per_node * 2
+        if not disable_smt:
+            # Read /sys/devices/system/cpu/smt/active to check if smt is running on the system
+            try:
+                with open("/sys/devices/system/cpu/smt/active", "r") as f:
+                    smt_active = int(f.read().strip()) > 0
+            except:
+                smt_active = False
+
+            # Double the cores if SMT is enabled
+            if smt_active:
+                cpus_per_node = cpus_per_node * 2
     else:
         raise Exception("Can't get node CPUs")
 
     return cpus_per_node
 
-# Not used ATM
-def getNodesMemory_scontrol(server):
+def getNodesMemory(server, memory_factor):
     rc = subprocess.Popen(["scontrol", "-o", "show", "nodes", server], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, err = rc.communicate()
     itemlist = output.decode().split(" ")
@@ -62,37 +63,7 @@ def getNodesMemory_scontrol(server):
     if allocMem == "":
         raise Exception("Can't get node Memory")
 
-    return allocMem
-
-def getNodesMemory():
-
-    #export MEMORY_PER_NODE=$((`grep MemTotal /proc/meminfo | awk '{print $2}'`/1024))	# Total Memory per node
-
-    job = os.getenv('SLURM_JOB_ID')
-    #paramater_list = "JobID,AllocCPUs,MaxRSSNode,NCPUs,ReqMem,MinCPUNode"
-    paramater_list = "ReqMem"
-
-    #rc = subprocess.Popen(["sacct", "-j", job, "--format={0}".format(paramater_list), "-n", "-P", "--units", "M"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    rc = subprocess.Popen(["grep", "MemTotal", "/proc/meminfo"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    #rc = subprocess.Popen(["awk", "'{print $2}'"], stdin=get_mem.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    output, err = rc.communicate()
-    #memlist = output.decode().splitlines()
-    memlist = re.findall(r'\b\d+\b', output.decode())
-
-    memory_factor = 0.9
-
-    try:
-        allocMem_string = memlist[0]
-
-        # We assume it has format: 3800Mc
-        #allocMem = int(re.sub(r'[^0-9]', '', allocMem_string))
-
-        allocMem = int(int(int(re.sub(r'[^0-9]', '', allocMem_string)) / 1024) * memory_factor)
-
-    except IndexError:
-        raise Exception("Can't get node Memory")
-
-    return allocMem
+    return int(allocMem * memory_factor)
 
 def update_config_file(config_file_list, server_ip, hosts, cpus_per_node, memory_per_node):
 
@@ -156,14 +127,17 @@ if __name__ == "__main__":
     for module in config_module_list:
         config_file_list.append("{0}/../../config/modules/{1}".format(scriptDir, module))
 
-    # Read 'server_as_host' parameter (found in 02-hosts.yml)
+    # Read host-related parameters
     with open(config_file_list[1], "r") as f:
-        server_as_host = yaml.load(f, Loader=yaml.FullLoader)['server_as_host']
+        hosts_config = yaml.load(f, Loader=yaml.FullLoader)
+        server_as_host = hosts_config['server_as_host']
+        disable_smt = hosts_config['disable_ht']
+        memory_factor = hosts_config['memory_factor']
 
     # Get deployment info from SLURM environment
     server, server_ip, hosts = getHostList(server_as_host)
-    cpus_per_node = getNodesCpus()
-    memory_per_node = getNodesMemory()
+    cpus_per_node = getNodesCpus(disable_smt)
+    memory_per_node = getNodesMemory(server, memory_factor)
 
     # Update config
     update_config_file(config_file_list, server_ip, hosts, cpus_per_node, memory_per_node)
