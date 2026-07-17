@@ -1,0 +1,35 @@
+
+<button class="accordion">{{ app.name }}</button>
+<div class="panel">
+    <p></p>
+    <table class="data_table">
+        <tr>
+            {% include 'functions/switch.html' with switch_url="apps_guard_switch" item_name=app.name switch_name="guard_switch" switch_prefix="guard" cell_name="Guard" state=app.guard on_state_label="Unguard" off_state_label="Guard" %}
+        </tr>
+
+        <tr><td>Guard Policy</td> <td>{{ app.guard_policy }}</td></tr>
+        <tr><td>State</td> <td>{{ app.state }}</td></tr>
+        {% if app.install_script %} <tr><td>Install script</td> <td>{{ app.install_script }}</td></tr> {% endif %}
+        {% if app.install_files %} <tr><td>Install files directory</td> <td>{{ app.install_files }}</td></tr> {% endif %}
+        {% if app.runtime_files %} <tr><td>Runtime files directory</td> <td>{{ app.runtime_files }}</td></tr> {% endif %}
+        {% if app.output_dir %} <tr><td>Output directory</td> <td>{{ app.output_dir }}</td></tr> {% endif %}
+        {% if app.start_script %} <tr><td>Start script</td> <td>{{ app.start_script }}</td></tr> {% endif %}
+        {% if app.stop_script %} <tr><td>Stop script</td> <td>{{ app.stop_script }}</td></tr> {% endif %}
+        {% if app.framework %} <tr><td>Framework</td> <td>{{ app.framework }}</td></tr> {% endif %}
+
+    </table>
+    <p></p>
+
+    {% include 'functions/resources.html' with item=app structure_type="app" %}
+    {% include 'functions/limits.html' with item=app %}
+
+    <a class="button" href="{% url 'structure_detail' app.name 'structure' %}">Full details</a>
+</div>
+<HR>
+<HR>
+
+<!-- App containers -->
+Containers:
+{% for cont in app.containers_full %}
+    {% include 'functions/container_data.html' with guard_switch="apps" cont=cont %}
+{% endfor %}

@@ -27,39 +27,7 @@
     {% if global_hdfs_ready and config.display_global_hdfs_app %}
         <ul>
             <li>
-                <button class="accordion">{{ global_hdfs_app.name }}</button>
-                <div class="panel">
-                    <p></p>
-                    <table class="data_table">
-                        <tr>
-                            {% include 'functions/switch.html' with switch_url="apps_guard_switch" item_name=global_hdfs_app.name switch_name="guard_switch" switch_prefix="guard" cell_name="Guard" state=global_hdfs_app.guard on_state_label="Unguard" off_state_label="Guard" %}
-                        </tr>
-
-                        <tr><td>Guard Policy</td> <td>{{ global_hdfs_app.guard_policy }}</td></tr>
-                        {% if global_hdfs_app.install_script %} <tr><td>Install script</td> <td>{{ global_hdfs_app.install_script }}</td></tr> {% endif %}
-                        {% if global_hdfs_app.install_files %} <tr><td>Install files directory</td> <td>{{ global_hdfs_app.install_files }}</td></tr> {% endif %}
-                        {% if global_hdfs_app.runtime_files %} <tr><td>Runtime files directory</td> <td>{{ global_hdfs_app.runtime_files }}</td></tr> {% endif %}
-                        {% if global_hdfs_app.output_dir %} <tr><td>Output directory</td> <td>{{ global_hdfs_app.output_dir }}</td></tr> {% endif %}
-                        {% if global_hdfs_app.start_script %} <tr><td>Start script</td> <td>{{ global_hdfs_app.start_script }}</td></tr> {% endif %}
-                        {% if global_hdfs_app.stop_script %} <tr><td>Stop script</td> <td>{{ global_hdfs_app.stop_script }}</td></tr> {% endif %}
-                        {% if global_hdfs_app.framework %} <tr><td>Framework</td> <td>{{ global_hdfs_app.framework }}</td></tr> {% endif %}
-
-                    </table>
-                    <p></p>
-
-                    {% include 'functions/resources.html' with item=global_hdfs_app structure_type="app" %}
-                    {% include 'functions/limits.html' with item=global_hdfs_app %}
-
-                    <a class="button" href="{% url 'structure_detail' global_hdfs_app.name 'structure' %}">Full details</a>
-                </div>
-                <HR>
-                <HR>
-
-                <!-- App containers -->
-                Containers:
-                {% for cont in global_hdfs_app.containers_full %}
-                    {% include 'functions/container_data.html' with guard_switch="apps" cont=cont %}
-                {% endfor %}
+                {% include 'functions/app_data_full.html' with app=global_hdfs_app %}
             </li>
         </ul>
     {% endif %}

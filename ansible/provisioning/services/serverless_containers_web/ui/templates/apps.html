@@ -31,40 +31,8 @@
         {% for item in data %}
         {% if item.name != "global_hdfs" %}
             <li>
-                <button class="accordion">{{ item.name }}</button>
-                <div class="panel">
-                    <p></p>
-                    <table class="data_table">
-                        <tr>
-                            {% include 'functions/switch.html' with switch_url="apps_guard_switch" item_name=item.name switch_name="guard_switch" switch_prefix="guard" cell_name="Guard" state=item.guard on_state_label="Unguard" off_state_label="Guard" %}
-                        </tr>
-
-                        <tr><td>Guard Policy</td> <td>{{ item.guard_policy }}</td></tr>
-                        <tr><td>State</td> <td>{{ item.state }}</td></tr>
-                        {% if item.install_script %} <tr><td>Install script</td> <td>{{ item.install_script }}</td></tr> {% endif %}
-                        {% if item.install_files %} <tr><td>Install files directory</td> <td>{{ item.install_files }}</td></tr> {% endif %}
-                        {% if item.runtime_files %} <tr><td>Runtime files directory</td> <td>{{ item.runtime_files }}</td></tr> {% endif %}
-                        {% if item.output_dir %} <tr><td>Output directory</td> <td>{{ item.output_dir }}</td></tr> {% endif %}
-                        {% if item.start_script %} <tr><td>Start script</td> <td>{{ item.start_script }}</td></tr> {% endif %}
-                        {% if item.stop_script %} <tr><td>Stop script</td> <td>{{ item.stop_script }}</td></tr> {% endif %}
-                        {% if item.framework %} <tr><td>Framework</td> <td>{{ item.framework }}</td></tr> {% endif %}
-
-                    </table>
-                    <p></p>
-
-                    {% include 'functions/resources.html' with item=item structure_type="app" %}
-                    {% include 'functions/limits.html' with item=item %}
-
-                    <a class="button" href="{% url 'structure_detail' item.name 'structure' %}">Full details</a>
-                </div>
-                <HR>
-                <HR>
-
-                <!-- App containers -->
-                Containers:
-                {% for cont in item.containers_full %}
-                    {% include 'functions/container_data.html' with guard_switch="apps" cont=cont %}
-                {% endfor %}
+                <!-- App data -->
+                {% include 'functions/app_data_full.html' with app=item %}
 
                 <!-- Forms -->
                 {% if item.started_app %}
