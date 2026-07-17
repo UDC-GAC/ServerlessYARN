@@ -28,8 +28,8 @@ def processStructures(request, structure_type, html_render, operations):
 
         return None, None, None, errors
 
-    requests_errors = request.GET.getlist("errors", None)
-    requests_successes = request.GET.getlist("success", None)
+    requests_errors = [{"message": error} for error in request.GET.getlist("errors", None)]
+    requests_successes = [{"message": success} for success in request.GET.getlist("success", None)]
     requests_info = []
 
     ## Pending tasks
