@@ -154,6 +154,7 @@ ul#tabs li {
 
 .modalDialog{
 	position: fixed;
+	text-align: left;
 	font-family: Arial, Helvetica, sans-serif;
 	top: 0;
 	right: 0;
