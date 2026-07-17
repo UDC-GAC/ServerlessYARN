@@ -110,7 +110,7 @@
     args:
       executable: /bin/bash
     tags: stop_couchdb
-    ignore_errors: true
+    failed_when: false
 
   - name: Clean CouchDB
     shell: "curl -u admin:{{ couchdb_admin_pass }} -X DELETE http://127.0.0.1:{{ couchdb_port }}/{{ item }}"

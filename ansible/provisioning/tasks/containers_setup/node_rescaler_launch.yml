@@ -4,12 +4,12 @@
   - name: Verify gunicorn3 installation
     command: "which gunicorn3"
     register: gunicorn3_check
-    ignore_errors: true
+    failed_when: false
 
   - name: Verify gunicorn installation
     command: "which gunicorn"
     register: gunicorn_check
-    ignore_errors: true
+    failed_when: false
 
   - name: Set gunicorn command alias
     set_fact:

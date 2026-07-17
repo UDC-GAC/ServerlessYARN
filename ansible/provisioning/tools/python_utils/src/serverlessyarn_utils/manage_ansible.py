@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 scriptDir = os.path.realpath(os.path.dirname(__file__))
-PROVISION_DIR = f"{scriptDir}/../../../.."
+PROVISION_DIR = os.path.normpath(f"{scriptDir}/../../../..")
 PLAYBOOK_DIR = f"{PROVISION_DIR}/playbooks"
 INVENTORY_FILE = "../ansible.inventory.yml" ## relative to PROVISION_DIR
 

@@ -1,7 +1,7 @@
 - name: Tmux session check
   shell: tmux ls
   register: tmux_output
-  ignore_errors: yes
+  failed_when: false
 
 - name: Set list with only session names
   set_fact:

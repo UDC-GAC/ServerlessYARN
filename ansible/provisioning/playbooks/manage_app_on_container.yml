@@ -347,7 +347,7 @@
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c 'cp -pr /opt/{{ app_dir | basename }}/* {{ bind_dir_on_container }}'"
         args:
           executable: /bin/bash
-        ignore_errors: yes
+        failed_when: false
 
       - name: Create temporary directory to store templated config files
         delegate_to: localhost
@@ -363,14 +363,22 @@
               src: "{{ apps_dir }}/{{ app_dir }}/{{ runtime_files }}"
               dest: "{{ app_tmpdir }}/{{ container }}/"
 
+          - name: Get valid runtime files for templating
+            find:
+              paths: "{{ apps_dir }}/{{ app_dir }}/{{ runtime_files }}/"
+              recurse: yes
+              file_type: file
+              excludes: "*.jar,*.zip,*.tar,*.rar,*.gz,*.bz2,*.xz,*.7z,*.tgz"
+            register: files_to_template
+
           - name: Template runtime files and store in temporary directory
-            when: file.state == 'file' and not file.path | regex_search('\.(jar|zip|tar|rar|gz|bz2|xz|7z|tgz)$') ## excluded extensions to template
             template:
-              src: "{{ file.src }}"
-              dest: "{{ app_tmpdir }}/{{ container }}/{{ runtime_files | basename }}/{{ file.path }}"
-            with_filetree: "{{ apps_dir }}/{{ app_dir }}/{{ runtime_files }}/"
+              src: "{{ file.path }}"
+              dest: "{{ app_tmpdir }}/{{ container }}/{{ runtime_files | basename }}/{{ file.path | relpath(apps_dir + '/' + app_dir + '/' + runtime_files + '/') }}"
+            loop: "{{ files_to_template.files }}"
             loop_control:
               loop_var: file
+              label: "{{ file.path }}"
 
         when: "runtime_files != ''"
         delegate_to: localhost
@@ -539,7 +547,7 @@
           'tmux kill-session -t JAVA_SNITCH'"
         args:
           executable: /bin/bash
-        ignore_errors: yes
+        failed_when: false
 
       # Manage output data
       - block:
@@ -553,7 +561,7 @@
           shell: "mv {{ container_bind_dir }}/hadoop_logs {{ container_bind_dir }}/{{ output_dir }}/hadoop_logs"
           args:
             executable: /bin/bash
-          ignore_errors: true
+          failed_when: false
 
         - block:
           - name: Create output directory on server
@@ -609,7 +617,7 @@
           '"
         args:
           executable: /bin/bash
-        ignore_errors: true
+        failed_when: false
     tags: never, stop_hadoop_cluster
 
   ## Clean Global HDFS files

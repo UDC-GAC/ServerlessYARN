@@ -67,14 +67,22 @@
                 src: "{{ extra_files_directory }}/{{ install_files }}"
                 dest: "{{ installed_app_directory }}/"
 
-            - name: Process template for each config file ({{ item }})
-              when: file.state == 'file' and not file.path | regex_search('\.(jar|zip|tar|rar|gz|bz2|xz|7z|tgz)$') ## excluded extensions to template
+            - name: Get valid install files for templating ({{ item }})
+              find:
+                paths: "{{ extra_files_directory }}/{{ install_files }}/"
+                recurse: yes
+                file_type: file
+                excludes: "*.jar,*.zip,*.tar,*.rar,*.gz,*.bz2,*.xz,*.7z,*.tgz"
+              register: files_to_template
+
+            - name: Process template for each valid file ({{ item }})
               template:
-                src: "{{ file.src }}"
-                dest: "{{ installed_app_directory }}/{{ install_files | basename }}/{{ file.path }}"
-              with_filetree: "{{ extra_files_directory }}/{{ install_files }}/"
+                src: "{{ file.path }}"
+                dest: "{{ installed_app_directory }}/{{ install_files | basename }}/{{ file.path | relpath(extra_files_directory + '/' + install_files + '/') }}"
+              loop: "{{ files_to_template.files }}"
               loop_control:
                 loop_var: file ## we need to change this inner loop variable to avoid collisions re-using the 'item' variable from the outer loop
+                label: "{{ file.path }}" # label to display on output
 
         # Hadoop files
         - name: Copy necessary files for hadoop apps ({{ item }})

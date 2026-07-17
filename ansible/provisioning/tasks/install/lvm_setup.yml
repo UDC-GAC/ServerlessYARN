@@ -47,7 +47,7 @@
                   shell: "sudo vgs {{ vg_name }}"
                   args:
                     executable: /bin/bash
-                  ignore_errors: yes
+                  failed_when: false
                   register: vgs_output
 
                 ## Allow extending VG and LV
@@ -61,7 +61,7 @@
                   shell: "sudo lvs {{ vg_name }}/{{ lv_name }}"
                   args:
                     executable: /bin/bash
-                  ignore_errors: yes
+                  failed_when: false
                   register: lvs_output
 
                 - name: Create a logical volume
@@ -120,7 +120,7 @@
               shell: "/usr/sbin/blkid {{ lv_device_path }}"
               args:
                 executable: /bin/bash
-              ignore_errors: yes
+              failed_when: false
               register: blkid_output
 
             - name: Check if formatted volume has wrong fs type or bad superblocks
@@ -128,7 +128,7 @@
               shell: "sudo e2fsck -n {{ lv_device_path }}"
               args:
                 executable: /bin/bash
-              ignore_errors: yes
+              failed_when: false
               register: e2fsck_output
 
             - name: Format the ext4 filesystem
@@ -175,7 +175,7 @@
               shell: "sudo lvs {{ vg_name }}/{{ lv_name }}"
               args:
                 executable: /bin/bash
-              ignore_errors: yes
+              failed_when: false
               register: lvs_output
 
             - name: Remove logical volume
@@ -188,7 +188,7 @@
               shell: "sudo vgs {{ vg_name }}"
               args:
                 executable: /bin/bash
-              ignore_errors: yes
+              failed_when: false
               register: vgs_output
 
             - name: Remove volume group

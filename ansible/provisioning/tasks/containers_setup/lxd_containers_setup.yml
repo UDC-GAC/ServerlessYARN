@@ -48,7 +48,7 @@
   shell: lxc list -f csv | grep {{ item }}
   register: lxc_list_output
   loop: "{{ hostvars[inventory_hostname].containers }}"
-  ignore_errors: yes
+  failed_when: false
   args:
     executable: /bin/bash
 
@@ -62,7 +62,7 @@
 - name: Atop executable check in lxc containers
   shell: lxc exec {{ item }} -- sudo bash -c "ls /usr/bin/atop"
   register: ls_output
-  ignore_errors: yes
+  failed_when: false
   loop: "{{ hostvars[inventory_hostname].containers }}"
 
 - name: Copy atop executable to containers
@@ -97,7 +97,7 @@
   shell: lxc exec {{ item }} -- sudo bash -c "tmux ls"
   register: tmux_output
   loop: "{{ hostvars[inventory_hostname].containers }}"
-  ignore_errors: yes
+  failed_when: false
 
 - name: Start sending metrics to opentsdb
   shell: lxc exec {{ item.item }} -- sudo bash -c "cd {{ bdwatchdog_path }}/MetricsFeeder && bash scripts/run_atop_stream_tmux.sh"

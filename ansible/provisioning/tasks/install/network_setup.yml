@@ -21,7 +21,7 @@
 ## Setup CNI plugin config
 - name: Check apptainer config directory for installation from Deb or RPM packages
   shell: find /etc -name apptainer.conf -type f 2> /dev/null
-  ignore_errors: yes
+  failed_when: false
   register: apptainer_config_file
 
 - name: Get apptainer config path
@@ -31,7 +31,7 @@
 - name: Check apptainer config directory for default installation from source
   when: apptainer_config_path == ""
   shell: find /usr/local/etc -name apptainer.conf -type f 2> /dev/null
-  ignore_errors: yes
+  failed_when: false
   register: apptainer_config_file
 
 - name: Get apptainer config path
@@ -39,7 +39,7 @@
   set_fact:
     apptainer_config_path: "{{ apptainer_config_file.stdout | dirname }}"
 
-- name: Setup plugin config
+- name: Setup network plugin config
   when: item.key == inventory_hostname
   template:
     src: "{{ templates_dir }}/cni_{{ mode }}_network.conflist"
@@ -49,6 +49,8 @@
     rangeStart: "{{ item.value.rangeStart }}"
     rangeEnd: "{{ item.value.rangeEnd }}"
     hostname: "{{ inventory_hostname }}"
+  loop_control:
+    label: "Range: {{ rangeStart }} -- {{ rangeEnd }}"
 
 ## Setup routes
 - name: Setup routes
@@ -57,5 +59,7 @@
   args:
      executable: /bin/bash
   with_dict: "{{ subnet_dict.stdout }}"
+  loop_control:
+    label: "Route {{ item.value.subnet }} via {{ item.value.iface_ip }} dev {{ iface }}"
 
 ## TODO: check how to setup macvlan correctly, since it needs promiscuous mode on vagrant cluster but not on some clusters

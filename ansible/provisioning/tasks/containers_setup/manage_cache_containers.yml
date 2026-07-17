@@ -32,4 +32,4 @@
       shell: "sudo {{ singularity_command_alias }} instance stop {{ container_name }}"
       args:
         executable: /bin/bash
-      ignore_errors: true
+      failed_when: false

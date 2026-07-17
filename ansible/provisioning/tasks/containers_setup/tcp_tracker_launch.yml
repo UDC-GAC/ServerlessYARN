@@ -83,13 +83,13 @@
 
       - name: Wait for tracker to start
         pause:
-          seconds: 5
+          seconds: 10
 
       - name: Force initial timestamp in tracker
         shell: "curl localhost:{{ track_port }}"
         args:
           executable: /bin/bash
-        ignore_errors: true
+        failed_when: false
         vars:
           - track_port: 9866
       when: container_name not in apptainer_list_output.stdout
@@ -101,4 +101,4 @@
   shell: "sudo {{ singularity_command_alias }} instance stop {{ container_name }}"
   args:
     executable: /bin/bash
-  ignore_errors: true
+  failed_when: false

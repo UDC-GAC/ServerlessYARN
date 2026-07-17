@@ -7,7 +7,7 @@
     - name: Check for previous fio installation
       shell: "which $HOME/.local/bin/fio"
       register: result
-      ignore_errors: true
+      failed_when: false
 
     - name: Install Fio
       when: result is failed
@@ -132,6 +132,8 @@
             - "{{ host_disks }}"
             - "{{ benchmarks }}"
           throttle: "{{ '1' if virtual_mode else (groups['nodes'] | length) }}"
+          loop_control:
+            label: "{{ item.0.key }} ({{ item.0.value.path }}): {{ item.1.mode }}"
 
         - name: Remove tmp files
           when: "(not create_lvm or item.0.key == 'lvm') and item.1.inventory_label not in item.0.value"
@@ -141,6 +143,8 @@
           with_nested:
             - "{{ host_disks }}"
             - "{{ benchmarks }}"
+          loop_control:
+            label: "{{ item.0.value.path }}/{{ item.1.mode }}_{{ tmp_file }}.{{ random_code }}.{{ item.0.key }}"
 
         - name: Update host information in inventory (with fio)
           when: seq_read and seq_write

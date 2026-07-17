@@ -2,7 +2,7 @@
 - name: Check for previous apptainer installation
   shell: "which {{ singularity_command_alias }}"
   register: result
-  ignore_errors: true
+  failed_when: false
 
 - name: Install apptainer + prerequisites
   when: result is failed

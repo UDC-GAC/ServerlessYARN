@@ -155,4 +155,4 @@ if __name__ == "__main__":
                     if "not found" in error:
                         print("App was not subscribed {0} to user {1} because user does not exist".format(app_name, config["user"]))
 
-            print("Added succesfully: {0}".format(app_config))
+            print("\nAdded succesfully: {0}".format(app_config))
