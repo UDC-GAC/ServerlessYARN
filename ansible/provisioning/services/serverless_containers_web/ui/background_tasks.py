@@ -923,14 +923,7 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
             break
 
     # app_containers example = [{'container_name':'host1-cont0','host':'host1','cpu_max':200,'disk':'ssd_0',...},{'container_name':'host2-cont0','host':'host2',...}]
-    hosts = ','.join(list(new_containers.keys()))
     formatted_app_containers = str(app_containers).replace(' ','')
-
-    # NOTE: 'irregular' container won't be created due to a previous workaround
-    extracted_hadoop_resources = extract_hadoop_resources(hadoop_resources["regular"])
-
-    argument_list = [hosts, app, app_type, formatted_app_containers, rm_host, rm_container['container_name']]
-    argument_list.extend(extracted_hadoop_resources)
 
     download_time, upload_time = 0,0
     if not global_hdfs_data:

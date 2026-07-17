@@ -184,9 +184,6 @@ def setup_hadoop_network_on_containers(host_names, app_name, app_files, containe
 def stop_hadoop_cluster(rm_host, rm_container):
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["stop_hadoop_cluster"], limit=[rm_host], extravars={"rm_host": rm_host, "rm_container": rm_container})
 
-# def set_hadoop_logs_timestamp(app_jar, rm_host, rm_container):
-#     run_playbook(playbook_name="manage_app_on_container.yml", tags=["set_hadoop_logs_timestamp"], limit=[rm_host], extravars={"app_jar": app_jar, "rm_container": rm_container})
-
 
 ## HDFS
 def setup_hdfs_network(host_names, app_name, app_type, containers_info, rm_host, rm_container, hdfs_resources):

@@ -105,7 +105,7 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
     app_files['app_dir'] = "base/" + app_name
     app_files['app_type'] = "hadoop_app"
     app_files['runtime_files'] = "runtime_files"
-    for key in ['start_script', 'stop_script', 'install_script', 'install_files', 'output_dir', 'app_jar']: app_files[key] = ""
+    for key in ['start_script', 'stop_script', 'install_script', 'install_files', 'output_dir']: app_files[key] = ""
 
     put_field_data = {
         'app': {
@@ -113,14 +113,12 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
             'resources': {},
             'guard': False,
             'subtype': "application",
-            #'files_dir': "",
             'install_script': "",
             'start_script': "",
             'stop_script': "",
             'install_files': "",
             'runtime_files': app_files['runtime_files'],
             'output_dir': "", ## actually I might use this to store logs
-            'app_jar': "",
             'framework': "hadoop"
         },
         'limits': {'resources': {}}

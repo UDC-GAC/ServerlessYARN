@@ -16,7 +16,7 @@ APP_CONFIG_FILENAME = "app_config.yml"
 # Apps
 MANDATORY_APP_KEYS = []
 OPTIONAL_APP_KEYS_WITH_DEFAULT = ["start_script", "stop_script"]
-OPTIONAL_APP_KEYS = ["install_script", "install_files", "runtime_files", "output_dir", "app_jar"]
+OPTIONAL_APP_KEYS = ["install_script", "install_files", "runtime_files", "output_dir"]
 OTHER_APP_KEYS = ["name", "names", "app_type", "framework"] # Other keys that are handled differently. This list is for documentation purposes only, it is not meant to be used in the script
 SUPPORTED_APP_TYPES = ["base", "generic_app", "hadoop_app", "spark_app"]
 SUPPORTED_EXTRA_FRAMEWORKS = ["spark"]
@@ -136,7 +136,6 @@ if __name__ == "__main__":
                     "app_type": app_type,
                     "install_script": os.path.basename(app_config['app']['install_script']),
                     "install_files": os.path.basename(app_config['app']['install_files']),
-                    "app_jar": os.path.basename(app_config['app']['app_jar'])
                 }
                 ## Create app image
                 create_app(app_files)

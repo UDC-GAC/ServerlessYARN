@@ -38,7 +38,6 @@ def setAddAppForm():
 def setRemoveContainersFromAppForm(app, containers, form_action):
     removeContainersFromAppForm = RemoveContainersFromAppForm()
     removeContainersFromAppForm.fields['app'].initial = app['name']
-    #removeContainersFromAppForm.fields['files_dir'].initial = app['files_dir']
     removeContainersFromAppForm.fields['runtime_files'].initial = app['runtime_files']
     removeContainersFromAppForm.fields['output_dir'].initial = app['output_dir']
     removeContainersFromAppForm.fields['install_script'].initial = app['install_script']

@@ -39,8 +39,7 @@
     tags: always
 
   ## Setup network
-  ## TODO: maybe setup a DNS server is better
-  ## TODO: setup iptables
+  ## TODO: fix iptables
   - name: Setup network on containers
     block:
       - name: Get containers IP addresses
@@ -66,7 +65,7 @@
           iface_ip_list: "{{ ansible_play_hosts | map('extract', hostvars, 'ip_addresses') | list }}"
           resolution_list: "{% for result in iface_ip_list | flatten(levels=1) %}{{ result.stdout }}\n{% endfor %}"
 
-      # Iptables setup ready, but i'll leave it commented in case it interferes with hadoop/yarn tests
+      # Iptables setup ready, but i'll leave it commented because it interferes with hadoop/yarn
       # - name: Setup Iptables (1)
       #   when: item.host == inventory_hostname
       #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
@@ -105,21 +104,6 @@
       - name: Workers file setup
         tags: setup_hadoop, setup_hdfs
         block:
-          # - name: Copy app files already on containers & Update workers file on containers
-          #   shell: "{% for item in containers_info %}
-          #     {% if item.host == inventory_hostname %}
-          #     sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \ 
-          #     'cp -pr /opt/hadoop_files {{ bind_dir_on_container }}/ && chown -R {{ user_info.user_id }} {{ bind_dir_on_container }}/* \
-          #     && {% for item in worker_list %}echo {{ item }} >> $HADOOP_CONF_DIR/workers && {% endfor %}true' && 
-          #     {% endif  %}
-          #     {% endfor %}true"
-          #   args:
-          #     executable: /bin/bash
-          #   vars:
-          #     worker_list: "{{ containers_info | 
-          #             map(attribute='container_name') |
-          #             reject('search', rm_container) | list}}"
-
           - name: Copy app files already on containers & Update workers file on containers
             shell: "
               {% for item in containers_info %}
@@ -249,7 +233,6 @@
             args:
               executable: /bin/bash
 
-          ## TODO: fusion with fetch below
           - name: Prepare RM/NN container bind path variable
             when: "item.container_name == rm_container"
             set_fact:
@@ -257,31 +240,10 @@
             with_items:
             - "{{ containers_info }}"
 
-          # - name: Create app directory on server for ssh public key
-          #   delegate_to: localhost
-          #   run_once: yes
-          #   file:
-          #     path: "{{ installation_path }}/apps/{{ app_name }}/"
-          #     state: directory
-
-          # - name: Fetch RM/NN container ssh public key
-          #   when: rm_host == inventory_hostname
-          #   synchronize:
-          #     src: "{{ bind_dir }}/{{ rm_container }}/{{ rm_container }}.pub"
-          #     dest: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container }}.pub"
-          #     mode: pull
-          #   vars:
-          #     bind_path: "{{ rm_container_bind_path }}"
-
           - name: Create temporary app directory on hosts for ssh public key
             file:
               path: "{{ app_ssh_keys_dir }}/{{ app_name }}/"
               state: directory
-
-          # - name: Copy RM/NN container ssh public key to hosts
-          #   synchronize:
-          #     src: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container }}.pub"
-          #     dest: "{{ installation_path }}/apps/{{ app_name }}/{{ rm_container }}.pub"
 
           - name: Copy RM/NN container ssh public key to hosts
             delegate_to: "{{ rm_host }}" # this will push from rm_host to each host, i.e., a remote host to remote host copy
@@ -467,13 +429,6 @@
           dest: "{{ app_tmpdir }}/{{ container }}/"
           mode: preserve
 
-      - name: Copy app jar
-        delegate_to: localhost
-        when: "app_jar != ''"
-        copy:
-          src: "{{ apps_dir }}/{{ app_dir }}/{{ app_jar }}"
-          dest: "{{ app_tmpdir }}/{{ container }}/"
-
       - name: Copy templated config files to remote container
         synchronize:
           src: "{{ app_tmpdir }}/{{ container }}/"
@@ -586,27 +541,7 @@
           executable: /bin/bash
         ignore_errors: yes
 
-      # - name: Change remaining files permissions (hadoop)
-      #   # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
-      #   when: "app_jar != '' and ' ' not in user_info.user_id"
-      #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
-      #     'cd {{ bind_dir_on_container }} \
-      #     && chown -R {{ user_info.user_id }} hadoop_logs'"
-      #   args:
-      #     executable: /bin/bash
-
-      # # TODO: actually transfer files from nodes to server, instead of relying on shared folders (NFS and such)
-      # - name: Copy hadoop logs to output_dir
-      #   when: "app_jar != '' and input_log_dir != output_log_dir"
-      #   copy:
-      #     src: "{{ input_log_dir }}"
-      #     dest: "{{ output_log_dir }}"
-      #     remote_src: yes
-      #   vars:
-      #     input_log_dir: "{{ container_bind_dir }}/hadoop_logs/"
-      #     output_log_dir: "{{ default_bind_path }}/{{ bind_dir_name }}/{{ rm_container }}/hadoop_logs/"
-
-      ## Manage output data
+      # Manage output data
       - block:
         - name: Set output data timestamp
           when: timestamp is not defined # --> only set current timestamp if another timestamp has not been set
@@ -614,7 +549,7 @@
             timestamp: "{{ now(fmt='%Y-%m-%d--%H-%M-%S') }}"
 
         - name: Move hadoop logs to output_dir
-          when: "app_jar is defined and app_jar != ''"
+          when: "app_type is defined and app_type in ['hadoop_app', 'spark_app']"
           shell: "mv {{ container_bind_dir }}/hadoop_logs {{ container_bind_dir }}/{{ output_dir }}/hadoop_logs"
           args:
             executable: /bin/bash
@@ -645,33 +580,6 @@
             stored_output_dir: "{{ app_output_data }}/{{ app_name }}/{{ timestamp }}/{{ output_dir }}-{{ container }}"
 
         when: "output_dir is defined and output_dir != ''"
-
-      # ## Clean hadoop apps
-      # - block:
-      #   - name: Remove hadoop config files
-      #     file:
-      #       path: "{{ container_bind_dir }}/{{ item }}"
-      #       state: absent
-      #     loop: "{{ hdfs_file_list + hadoop_file_list + spark_file_list }}"
-
-      #   - name: Remove hadoop local logs
-      #     when: "input_log_dir != output_log_dir"
-      #     file:
-      #       path: "{{ input_log_dir }}"
-      #       state: absent
-      #     vars:
-      #       input_log_dir: "{{ container_bind_dir }}/hadoop_logs"
-      #       output_log_dir: "{{ default_bind_path }}/{{ bind_dir_name }}/{{ rm_container }}/hadoop_logs"
-
-      #   - name: Remove hadoop files directory in container
-      #     # Check empty string to avoid unwanted problems if the variable is somehow wrongly defined
-      #     when: "' ' not in bind_dir_on_container"
-      #     shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
-      #       'rm -r {{ bind_dir_on_container}}/hadoop_files'"
-      #     args:
-      #       executable: /bin/bash
-  
-      # when: "app_jar is defined and app_jar != ''"
 
       ## Removing the whole file is enough, since per-app files are used
       ## This task will be executed by every container in the app due to the pipeline design
@@ -704,43 +612,24 @@
         ignore_errors: true
     tags: never, stop_hadoop_cluster
 
-  # ## Clean HDFS files
-  # - name: Workaround to clean global HDFS files
-  #   when: "' ' not in bind_dir_on_container"
-  #   shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} bash -c \
-  #     'tmux kill-session -t JAVA_SNITCH && rm -r {{ bind_dir_on_container}}/hadoop_files && rm -r {{ bind_dir_on_container}}/hadoop_logs'"
-  #   args:
-  #     executable: /bin/bash
-  #   tags: never, clean_hdfs
-
-  - name: Stop Java Snitch
-    shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c \
-      'tmux kill-session -t JAVA_SNITCH'"
-    args:
-      executable: /bin/bash
-    tags: never, clean_hdfs
-
-  ## Workaround to remove DNS entries for global hdfs
-  - name: Remove DNS entries for global hdfs
-    tags: never, clean_hdfs
+  ## Clean Global HDFS files
+  - name: Clean pending Global HDFS files and processes
     when: global_hdfs
-    delegate_to: localhost
-    file:
-      path: "{{ dns_path }}/{{ global_hdfs_app_name }}"
-      state: absent
+    tags: never, clean_hdfs
+    block:
+    - name: Stop Java Snitch
+      shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c \
+        'tmux kill-session -t JAVA_SNITCH'"
+      args:
+        executable: /bin/bash
 
-  # # TODO: do not rely on shared folders (NFS and such) to access hadoop_logs
-  # ## Set hadoop logs timestamp
-  # - name: Set hadoop logs timestamp
-  #   delegate_to: localhost
-  #   run_once: yes
-  #   shell: "mv hadoop_logs hadoop_logs_`date +%d-%m-%y--%H-%M-%S`"
-  #   args:
-  #     chdir: "{{ default_bind_path }}/{{ bind_dir_name }}/{{ rm_container }}"
-  #     executable: /bin/bash
-  #   tags: never, set_hadoop_logs_timestamp
+    ## Workaround to remove DNS entries for global hdfs
+    - name: Remove DNS entries for global hdfs
+      delegate_to: localhost
+      file:
+        path: "{{ dns_path }}/{{ global_hdfs_app_name }}"
+        state: absent
 
-  ## TODO: Remove app_jar conditions in these tasks (in the whole file)
 
   ## HDFS
   - name: Create directory on HDFS

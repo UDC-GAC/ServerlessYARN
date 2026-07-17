@@ -74,8 +74,6 @@ DEFAULT_COMMON_FIELDS = {
                                                required=False),
 
         ## Application files
-        # 'add_files_dir': forms.BooleanField(label="Add additional files directory?", required=False),
-        # 'files_dir': forms.CharField(label="Files directory ('{0}' if unset)".format(DEFAULT_APP_VALUES['files_dir']), required=False),
         'add_install': forms.BooleanField(label="Add install script?", required=False),
         'install_script': forms.CharField(label="Install script ('{0}' if unset)".format(DEFAULT_APP_VALUES['install_script']), required=False),
         'add_install_files': forms.BooleanField(label="Add additional files directory for installation?", required=False),
@@ -765,8 +763,6 @@ class AddAppForm(forms.Form):
     energy_boundary_type = common_fields['energy_boundary_type']
 
     # App config
-    # add_files_dir = common_fields['add_files_dir']
-    # files_dir = common_fields['files_dir']
     add_install = common_fields['add_install']
     install_script = common_fields['install_script']
     add_install_files = common_fields['add_install_files']
@@ -832,8 +828,6 @@ class AddAppForm(forms.Form):
         self.helper.layout.append(Field('app_dir'))
         self.helper.layout.append(Field('start_script'))
         self.helper.layout.append(Field('stop_script'))
-        # self.helper.layout.append(Field('add_files_dir', css_class='add_files_dir_condition'))
-        # self.helper.layout.append(Field('files_dir', css_class='additional_files_dir'))
         self.helper.layout.append(Field('add_install', css_class='add_install_condition'))
         self.helper.layout.append(Field('install_script', css_class='additional_install'))
         self.helper.layout.append(Field('add_install_files', css_class='add_install_files_condition'))
@@ -849,7 +843,6 @@ class AddAppForm(forms.Form):
 
 class AddHadoopAppForm(AddAppForm):
     app_type = forms.CharField(label="App type", required=True, initial="hadoop_app")
-    app_jar = forms.CharField(label="App JAR", required=True)
     add_extra_framework = forms.BooleanField(label="Add additional framework?", required=False)
     framework = forms.ChoiceField(label="Additional framework",
             choices = (
@@ -908,8 +901,6 @@ class AddHadoopAppForm(AddAppForm):
         self.helper.layout.append(Field('app_dir'))
         self.helper.layout.append(Field('start_script'))
         self.helper.layout.append(Field('stop_script'))
-        # self.helper.layout.append(Field('add_files_dir', css_class='add_files_dir_condition'))
-        # self.helper.layout.append(Field('files_dir', css_class='additional_files_dir'))
         self.helper.layout.append(Field('add_install', css_class='add_install_condition'))
         self.helper.layout.append(Field('install_script', css_class='additional_install'))
         self.helper.layout.append(Field('add_install_files', css_class='add_install_files_condition'))
@@ -920,7 +911,6 @@ class AddHadoopAppForm(AddAppForm):
         self.helper.layout.append(Field('output_dir', css_class='additional_output_dir'))
         self.helper.layout.append(Field('add_extra_framework', css_class='add_extra_framework_condition'))
         self.helper.layout.append(Field('framework', css_class='framework'))
-        self.helper.layout.append(Field('app_jar'))
 
         # Submit button
         self.helper.layout.append(FormActions(Submit('save', 'Add app', css_class='caja')))
@@ -1039,7 +1029,6 @@ class AddContainersToAppForm(forms.Form):
     fill_with_new_containers = forms.BooleanField(label= "Fill with new containers",
             required=False
             )
-    #files_dir = common_fields['files_dir']
     runtime_files = common_fields['runtime_files']
     output_dir = common_fields['output_dir']
     install_script = common_fields['install_script']
@@ -1058,7 +1047,6 @@ class AddContainersToAppForm(forms.Form):
             Field('name', readonly=True),
             Field('containers_to_add'),
             Field('fill_with_new_containers'),
-            #Field('files_dir',type="hidden", readonly=True),
             Field('runtime_files',type="hidden", readonly=True),
             Field('output_dir',type="hidden", readonly=True),
             Field('install_script',type="hidden", readonly=True),
@@ -1083,7 +1071,6 @@ class RemoveContainersFromAppForm(forms.Form):
             required=False
             )
 
-    #files_dir = common_fields['files_dir']
     runtime_files = common_fields['runtime_files']
     output_dir = common_fields['output_dir']
     install_script = common_fields['install_script']
@@ -1100,7 +1087,6 @@ class RemoveContainersFromAppForm(forms.Form):
             Field('operation', type="hidden", readonly=True),
             Field('app', type="hidden", readonly=True),
             Field('selected_structures'),
-            #Field('files_dir',type="hidden", readonly=True),
             Field('runtime_files',type="hidden", readonly=True),
             Field('output_dir',type="hidden", readonly=True),
             Field('install_script',type="hidden", readonly=True),

@@ -25,6 +25,6 @@ disk_write_boundary_type: "percentage_of_max"
 ## The indicated files should be in the same directory as this configuration file
 start_script: start.sh
 stop_script: stop.sh
-app_jar: app_jar.jar
 
+## Directory in the container where the app should store the data to be persisted
 output_dir: output_dir

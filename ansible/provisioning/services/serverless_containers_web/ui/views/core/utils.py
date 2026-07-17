@@ -445,6 +445,5 @@ def getAppFiles(app):
         'install_script': os.path.basename(app['install_script']),
         'start_script': os.path.basename(app['start_script']),
         'stop_script': os.path.basename(app['stop_script']),
-        'app_jar': os.path.basename(app['app_jar']),
         'app_dir': os.path.dirname(app['start_script'])
     }

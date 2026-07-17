@@ -83,10 +83,6 @@ def processAddApp(request, url, **kwargs):
         else:
             app_files[f] = DEFAULT_APP_VALUES[f]
 
-    # Pure optional parameters
-    for f in ['app_jar']:
-        app_files[f] = request.POST.get(f, "")
-
     # Additional files
     for condition, additional_file in [('add_install', 'install_script'), ('add_install_files', 'install_files'), ('add_runtime_files', 'runtime_files'), ('add_output_dir', 'output_dir')]:
         if request.POST.get(condition, False):
@@ -121,7 +117,6 @@ def processAddApp(request, url, **kwargs):
             'resources': {},
             'guard': False,
             'subtype': "application",
-            #'files_dir': "{0}/{1}".format(app_files['app_dir'], app_files['files_dir']) if app_files['files_dir'] != "" else "",
             'install_script': "{0}/{1}".format(app_files['app_dir'], app_files['install_script']) if app_files['install_script'] != "" else "",
             'install_files': "{0}/{1}".format(app_files['app_dir'], app_files['install_files']) if app_files['install_files'] != "" else "",
             'runtime_files': "{0}/{1}".format(app_files['app_dir'], app_files['runtime_files']) if app_files['runtime_files'] != "" else "",
@@ -129,7 +124,6 @@ def processAddApp(request, url, **kwargs):
             'start_script': "{0}/{1}".format(app_files['app_dir'], app_files['start_script']) if app_files['start_script'] != "" else "",
             'stop_script': "{0}/{1}".format(app_files['app_dir'], app_files['stop_script']) if app_files['stop_script'] != "" else "",
             ## Hadoop app data
-            'app_jar': "{0}/{1}".format(app_files['app_dir'], app_files['app_jar']) if "app_jar" in app_files and app_files['app_jar'] != "" else "",
             'framework': app_files["framework"] if "framework" in app_files else ""
         },
         'limits': {'resources': {}}
@@ -196,7 +190,7 @@ def processStartApp(request, url, **kwargs):
     else:
         return "Error: there is no start script for app {0}".format(kwargs["structure_name"])
 
-    for f in ['install_script', 'runtime_files', 'output_dir', 'start_script', 'stop_script', 'app_jar', 'framework']:
+    for f in ['install_script', 'runtime_files', 'output_dir', 'start_script', 'stop_script', 'framework']:
         app_files[f] = os.path.basename(app[f]) if f in app else ""
 
     app_resources = {}
@@ -386,7 +380,6 @@ def processRemoveContainersFromApp(request, url, **kwargs):
             'start_script': os.path.basename(request.POST['start_script']),
             'stop_script': os.path.basename(request.POST['stop_script']),
             'app_dir': os.path.dirname(request.POST['start_script']),
-            'app_jar': os.path.basename(request.POST['app_jar']) if 'app_jar' in request.POST else ""
         }
     else:
         container_host_duples = kwargs["containers_removed"]
