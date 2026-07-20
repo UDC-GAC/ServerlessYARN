@@ -19,12 +19,12 @@
   tags: build_tcp_tracker
   block:
     - block:
-      - name: Create app directory in server
+      - name: Create app directory in server (TCP tracker)
         file:
           path: "{{ installed_app_directory }}"
           state: directory
 
-      - name: Template definition file
+      - name: Template definition file (TCP tracker)
         template:
           src: "{{ templates_dir }}/apps/{{ definition_file }}"
           dest: "{{ installed_app_directory }}/{{ definition_file }}"
@@ -33,7 +33,7 @@
           - app_base_image_file: "ubuntu_container.sif"
           - track_port: 9866
 
-      - name: Build app image
+      - name: Build app image (TCP tracker)
         shell: "{{ singularity_command_alias }} build {{ installed_app_directory }}/{{ image_file }} {{ installed_app_directory }}/{{ definition_file }}"
         args:
           chdir: "{{ installed_app_directory }}/../.."
