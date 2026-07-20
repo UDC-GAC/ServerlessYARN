@@ -3,7 +3,8 @@
 ## i.e., it is recommended to keep this file in the same directory as the playbooks for easy import
 
 ## Main provision directory
-provision_dir: "{{ (playbook_dir + '/..') | normpath }}" ## get absolute path to get a clean base path
+#provision_dir: "{{ (playbook_dir + '/..') | normpath }}" ## get absolute path to provide a clean base path --> requires ansible-core>=2.15 though
+provision_dir: "{{ playbook_dir + '/..' }}"
 
 ## Common directories
 vars_dir: "{{ provision_dir }}/vars"
