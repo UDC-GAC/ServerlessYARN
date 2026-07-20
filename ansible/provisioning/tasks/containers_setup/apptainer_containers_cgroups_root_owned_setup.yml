@@ -96,7 +96,7 @@
             {% set container_bind_dir = item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') %}
             cp /etc/hosts {{ container_bind_dir }}/hosts \
             && sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
-              'echo nameserver {{ dns_ip }} >> /etc/resolv.conf \
+              'sed '\\''1s/^/nameserver {{ dns_ip }}\\n/'\\'' /etc/resolv.conf > resolv.conf.tmp && cat resolv.conf.tmp > /etc/resolv.conf \
               && cat {{ bind_dir_on_container }}/hosts >> /etc/hosts \
               && chown {{ user_info.user_name }} {{ user_home_on_container }} \
               && chmod 0755 {{ user_home_on_container }}' \

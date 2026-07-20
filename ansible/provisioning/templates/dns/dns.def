@@ -10,7 +10,7 @@ From: ubuntu:24.04
     export DEBIAN_FRONTEND=noninteractive
 
     apt-get -y update
-    apt-get -y install dnsmasq tmux net-tools
+    apt-get -y install dnsmasq tmux net-tools dnsutils
 
 %startscript
 
