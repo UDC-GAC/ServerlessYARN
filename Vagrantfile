@@ -24,13 +24,12 @@ MEMORY_PER_NODE = host_config['memory_per_host']
 
 CGROUPS_VERSION = general_config['cgroups_version']
 
-hostnames = [] ## variable to store hostnames used for the deployed worker nodes
+hostnames = [] ## variable to store hostnames used for the deployed server and worker nodes
 $config_updated = false ## variable to track whether the configuration was modified during a provision
 
 if host_config['server_as_host']
 then
     N -= 1
-    hostnames << SERVER_HOSTNAME
 end
 
 Vagrant.configure("2") do |config|
@@ -49,6 +48,8 @@ Vagrant.configure("2") do |config|
     # Master Node aka Server
     config.vm.define "server", primary: true do |server|
         server.vm.hostname = SERVER_HOSTNAME
+        hostnames << SERVER_HOSTNAME
+
         server.vm.provision "main_setup", type: "shell", path: "provision/server.sh"
 
         server.vm.provision "cgroups_setup", type: "shell", path: "provision/cgroups_setup.sh", args: CGROUPS_VERSION

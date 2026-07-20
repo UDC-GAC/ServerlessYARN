@@ -8,14 +8,11 @@ import re
 import yaml
 import socket
 
-def getHostList(server_as_host=False):
+def getHostList():
     rc = subprocess.Popen(["scontrol", "show", "hostnames"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, err = rc.communicate()
     hostlist = output.decode().splitlines()
     server = hostlist[0]
-    if not server_as_host:
-        hostlist.pop(0)
-
     server_ip = socket.gethostbyname(server)
 
     print("Server: {0}".format(server))
@@ -65,7 +62,7 @@ def getNodesMemory(server, memory_factor):
 
     return int(allocMem * memory_factor)
 
-def update_config_file(config_file_list, server_ip, hosts, cpus_per_node, memory_per_node):
+def update_config_file(config_file_list, server_ip, hosts, cpus_per_node, memory_per_node, server_as_host=False):
 
     def update_config_fields(config_file, new_config):
         out = Path(config_file)
@@ -81,7 +78,7 @@ def update_config_file(config_file_list, server_ip, hosts, cpus_per_node, memory
 
     cpus_server_node = cpus_per_node
     memory_server_node = memory_per_node
-    number_of_hosts = len(hosts)
+    number_of_hosts = len(hosts) if server_as_host else len(hosts) - 1
     cpus_per_host = cpus_per_node
     memory_per_host = memory_per_node
 
@@ -131,13 +128,13 @@ if __name__ == "__main__":
     with open(config_file_list[1], "r") as f:
         hosts_config = yaml.load(f, Loader=yaml.FullLoader)
         server_as_host = hosts_config['server_as_host']
-        disable_smt = hosts_config['disable_ht']
+        disable_smt = hosts_config['disable_smt']
         memory_factor = hosts_config['memory_factor']
 
     # Get deployment info from SLURM environment
-    server, server_ip, hosts = getHostList(server_as_host)
+    server, server_ip, hosts = getHostList()
     cpus_per_node = getNodesCpus(disable_smt)
     memory_per_node = getNodesMemory(server, memory_factor)
 
     # Update config
-    update_config_file(config_file_list, server_ip, hosts, cpus_per_node, memory_per_node)
+    update_config_file(config_file_list, server_ip, hosts, cpus_per_node, memory_per_node, server_as_host)

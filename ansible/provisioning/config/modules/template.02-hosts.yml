@@ -28,5 +28,5 @@ lvm_path: $HOME/lvm
 ### Hostnames
 ## List of hostnames for the hosts to be used within the Ansible inventory
 ## Do not manually change this list, Vagrant or SLURM will override its value
-## the server hostname is not included in this list, unless 'server_as_host' is enabled
-hostnames:
+## The server hostname is also included in this list, being the first item
+hostnames: dummy_value

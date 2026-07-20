@@ -2,7 +2,6 @@
 import sys
 import os
 import yaml
-import socket
 
 scriptDir = os.path.realpath(os.path.dirname(__file__))
 CONFIG_FILE = scriptDir + "/../../config/config.yml"
@@ -46,6 +45,12 @@ def main(flags):
     with open(CONFIG_FILE, "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
+    # Get hostnames
+    if config.get('hostnames', None):
+        hostnames = config['hostnames'].split(',')
+    else:
+        raise Exception("Error in configuration: 'hostnames' key does not exist or has null value. It should have been overriden during Vagrant or SLURM startup")
+
     # Get two copies of the inventory, one for changes and another one to read old parameters
     # (e.g., disk bandwidth when 'reset_disks' is disabled)
     previous_inventory = AnsibleYamlInventory()
@@ -53,7 +58,8 @@ def main(flags):
     inventory.clean_inventory()
 
     # Add server
-    inventory.add_server(host_ip=config['server_ip'], ansible_host=socket.gethostname())
+    server_name = hostnames.pop(0)
+    inventory.add_server(host_ip=config['server_ip'], ansible_host=server_name)
 
     # Get relevant config parameters to build inventory
     number_of_hosts = config['number_of_hosts']
@@ -71,9 +77,7 @@ def main(flags):
     # Add hosts
     ## Add server as host (if enabled)
     if server_as_host:
-        host_name = socket.gethostname()
-        host_containers = create_container_list(host_name, number_of_containers_per_node)
-
+        host_containers = create_container_list(server_name, number_of_containers_per_node)
         server_resources = create_resource_dict(config)
         server_resources['cpu'] = config['cpus_server_node']
         server_resources['mem'] = config['memory_server_node']
@@ -85,24 +89,14 @@ def main(flags):
             server_resources['disks'][disk_name]['path'] = resolve_disk_path(config['global_hdfs_data_dir'])
 
         if not "reset_disks" in flags:
-            update_disks_bandwidths(previous_inventory=previous_inventory, hostname=host_name, resources=server_resources)
+            update_disks_bandwidths(previous_inventory=previous_inventory, hostname=server_name, resources=server_resources)
 
-        inventory.add_node(hostname=host_name, resources=server_resources, containers=host_containers)
+        inventory.add_node(hostname=server_name, resources=server_resources, containers=host_containers)
         number_of_hosts -= 1
 
     ## Add regular hosts
-    hostnames = []
-    if config['hostnames']:
-        hostnames = config['hostnames'].split(',')
-        if server_as_host:
-            hostnames.pop(0)
-
     for i in range(0, number_of_hosts):
-        if hostnames:
-            host_name = hostnames[i]
-        else:
-            host_name = 'host' + str(i)
-
+        host_name = hostnames[i]
         host_containers = create_container_list(host_name, number_of_containers_per_node)
         host_resources = create_resource_dict(config)
 
