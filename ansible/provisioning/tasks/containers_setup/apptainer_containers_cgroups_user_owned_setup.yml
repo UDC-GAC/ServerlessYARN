@@ -71,7 +71,7 @@
     - name: Start apptainer containers
       shell: "
         {% for item in containers_info %}
-          {% if item.host == inventory_hostname and item.container_name not in apptainer_list_output.stdout %}
+          {% if item.host == inventory_hostname and item.container_name not in ((apptainer_list_output.stdout | from_json)['instances'] | default([]) | map(attribute='instance') | list) %}
             {% set container_bind_dir = item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') %}
             {{ singularity_command_alias }} instance start -C --net \ 
               --network \
