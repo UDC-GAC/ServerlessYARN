@@ -6,9 +6,9 @@ from django.conf import settings
 from ui.utils import DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, SUPPORTED_RESOURCES
 from ui.background_tasks import register_task, start_containers_task_v2, remove_containers_task
 
-from ui.views.core.utils import getHostsNames, getLimits, getScalerPollFreq, setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels, compareStructureNames, getFreestDisk, getDbData
+from ui.views.core.utils import getHostsNames, getLimits, setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels, compareStructureNames, getFreestDisk, getDbData
 from ui.views.containers.utils import setAddContainersForm
-
+from ui.views.apps.utils import checkAvailableResources
 
 def getContainers(data, include_forms=True):
     containers = []
@@ -45,8 +45,8 @@ def processAddContainers(request, url, **kwargs):
             max_res = request.POST[f"{resource}_max"]
             min_res = request.POST[f"{resource}_min"]
             if max_res == "" or min_res == "":
-                container_resources[f"{resource}_max"] = "0"
-                container_resources[f"{resource}_min"] = "0"
+                container_resources[f"{resource}_max"] = 0
+                container_resources[f"{resource}_min"] = 0
             else:
                 container_resources[f"{resource}_max"] = max_res
                 container_resources[f"{resource}_min"] = min_res
@@ -66,38 +66,41 @@ def processAddContainers(request, url, **kwargs):
             container_resources[f"{resource}_boundary"] = resource_boundary
             container_resources[f"{resource}_boundary_type"] = resource_boundary_type
 
-    ## Bind specific disk
-    bind_disk = (
-        "disk_read" in SUPPORTED_RESOURCES and "disk_write" in SUPPORTED_RESOURCES and
-        request.POST.get("disk_read_max", "") != "" and request.POST.get("disk_write_max", "") != "" and
-        request.POST.get("disk_read_min", "") != "" and request.POST.get("disk_write_min", "") != ""
-    )
+    # Get host data from StateDabase
+    response = urllib.request.urlopen(settings.BASE_URL + "/structure/")
+    data_json = json.loads(response.read())
+    hosts_full_info = getHostsNames(data_json)
 
-    # TODO: assign disks to containers in a more efficient way, instead of just choosing the same disk for all containers in the same host
     new_containers = {}
     disks = {}
 
-    hosts_full_info = None
-    if bind_disk:
-        response = urllib.request.urlopen(settings.BASE_URL + "/structure/")
-        data_json = json.loads(response.read())
-        hosts_full_info = getHostsNames(data_json)
+    for host in hosts_full_info:
+        hostname = host['name']
+        host_requested_containers = host_list.get(hostname, 0)
+        host_requested_resources = {res: int(container_resources[res]) * host_requested_containers for res in container_resources if "min" in res and res not in ['disk_read_min', 'disk_write_min']}
 
-    for host in host_list:
-        new_containers[host] = host_list[host]
-        if bind_disk:
-            for h in hosts_full_info:
-                if h['name'] == host:
-                    disks[host] = {}
-                    disk = getFreestDisk(h, int(request.POST["disk_read_min"]), int(request.POST["disk_write_min"]))
-                    if not disk:
-                        return f"Error host {host} does not have a disk with enough bandwidth (read: {request.POST['disk_read_min']}, write: {request.POST['disk_write_min']})"
+        if host_requested_containers > 0 and not checkAvailableResources(
+            host,
+            host_requested_resources,
+            [res[:-4] for res in host_requested_resources], ## :-4 removes the '_min' suffix from resources
+            key="min"
+        ):
+            return f"No resources available for {host_requested_containers} containers in host {hostname}"
 
-                    disks[host]['name'] = disk
-                    disks[host]['path'] = h['resources']['disks'][disk]['path']
-                    h['resources']['disks'][disk]['free_read'] -= int(request.POST["disk_read_min"])
-                    h['resources']['disks'][disk]['free_write'] -= int(request.POST["disk_write_min"])
-                    break
+        new_containers[hostname] = host_requested_containers
+
+        if "disk_read" in SUPPORTED_RESOURCES and "disk_write" in SUPPORTED_RESOURCES:
+            disks[hostname] = {}
+            # TODO: assign disks to containers in a more efficient way, instead of just choosing the same disk for all containers in the same host
+            disk = getFreestDisk(host, int(container_resources["disk_read_min"]) * host_requested_containers, int(container_resources["disk_write_min"]) * host_requested_containers)
+            if not disk:
+                return "Error host {0} does not have a disk with enough bandwidth (requested read: {1}, write: {2})".format(
+                    hostname,
+                    int(container_resources["disk_read_min"]) * host_requested_containers,
+                    int(container_resources["disk_write_min"]) * host_requested_containers
+                )
+            disks[hostname]['name'] = disk
+            disks[hostname]['path'] = host['resources']['disks'][disk]['path']
 
     task = start_containers_task_v2.delay(new_containers, container_resources, disks)
     print("Starting task with id {0}".format(task.id))
