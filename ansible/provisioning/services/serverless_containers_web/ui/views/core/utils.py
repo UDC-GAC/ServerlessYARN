@@ -262,7 +262,7 @@ def getHostFreeDiskLoad(host):
     return free_disk_load
 
 
-def getFreestDisk(host):
+def getFreestDisk(host, requested_read_bw, requested_write_bw):
 
     freest_disk = None
 
@@ -303,9 +303,15 @@ def getFreestDisk(host):
             consumed_write = disk["max_write"] - disk["free_write"]
             total_max = max(disk["max_read"],disk["max_write"])
             total_free = total_max - consumed_read - consumed_write
-            if (total_free == 0): continue
 
-            ## TODO: think if it is better to assign a disk with no containers but low bandwidth or a contended disk with high bw
+            if (
+                disk["free_read"] < requested_read_bw or
+                disk["free_write"] < requested_write_bw or
+                total_free < requested_read_bw + requested_write_bw
+            ):
+                continue
+
+            ## TODO: consider if it is better to assign a disk with no containers but low bandwidth or a contended disk with high bw
             if total_free == total_max:
                 freest_disk = disk_name
                 break
@@ -317,28 +323,31 @@ def getFreestDisk(host):
     return freest_disk
 
 
-def GetFreestHost(hosts, container_resources, check_disks, check_energy):
+def getFreestHost(hosts, container_resources, check_disks, check_energy, limit_key="min"):
 
     freest_host = None
     current_min_disk_usage = -1
 
     for host in hosts:
 
-        # Cyclic and Best-effort will now use allocate containers based on min resources instead of max to allow executing multiple containers that try to request all the availables resources from a host
         # Check cpu and mem space
-        if host['resources']['cpu']['free'] < container_resources['cpu_min'] or host['resources']['mem']['free'] < container_resources['mem_min']:
+        if host['resources']['cpu']['free'] < container_resources[f'cpu_{limit_key}'] or host['resources']['mem']['free'] < container_resources[f'mem_{limit_key}']:
             continue
 
-        if check_energy and host['resources']['energy']['free'] < container_resources['energy_min']:
+        if check_energy and host['resources']['energy']['free'] < container_resources[f'energy_{limit_key}']:
             continue
 
         if not check_disks:
             freest_host = host
             break
 
+        # Check that there is at least one suitable disk
+        if getFreestDisk(host, container_resources[f'disk_read_{limit_key}'], container_resources[f'disk_write_{limit_key}']) is None:
+            continue
+
         # Get disk usage percentage
-        disk_usage = 0
-        max_disk_usage = 0
+        host_disk_free = 0
+        host_disk_max = 0
 
         # Based on load
         # if 'disks' in host['resources']:
@@ -348,29 +357,29 @@ def GetFreestHost(hosts, container_resources, check_disks, check_energy):
         #         disk_usage += disk['load']
 
         ## Based on bandwidth
-        ## TODO: think if it is better to assign a disk with no containers but low bandwidth or a contended disk with high bw
+        ## TODO: consider if it is better to assign a disk with no containers but low bandwidth or a contended disk with high bw
         if 'disks' in host['resources']:
             for disk_name in host['resources']['disks']:
                 disk = host['resources']['disks'][disk_name]
                 consumed_read = disk["max_read"] - disk["free_read"]
                 consumed_write = disk["max_write"] - disk["free_write"]
-                total_max = max(disk["max_read"],disk["max_write"])
-                total_free = total_max - consumed_read - consumed_write
+                disk_max = max(disk["max_read"], disk["max_write"])
+                disk_free = disk_max - consumed_read - consumed_write
 
-                max_disk_usage += total_max
-                disk_usage += total_free
+                host_disk_max += disk_max
+                host_disk_free += disk_free
 
-        if max_disk_usage == 0:
+        if host_disk_max == 0:
             continue
 
-        disk_usage_percentage = disk_usage / max_disk_usage
+        host_disk_usage = host_disk_free / host_disk_max
 
-        if disk_usage_percentage == 0:
+        if host_disk_usage == 0:
             freest_host = host
             break
 
-        if current_min_disk_usage == -1 or disk_usage_percentage < current_min_disk_usage:
-            current_min_disk_usage = disk_usage_percentage
+        if current_min_disk_usage == -1 or host_disk_usage < current_min_disk_usage:
+            current_min_disk_usage = host_disk_usage
             freest_host = host
 
     return freest_host

@@ -4,7 +4,7 @@ import urllib
 from django.conf import settings
 from ui.utils import DEFAULT_LIMIT_VALUES
 from ui.forms import StartAppForm, RemoveContainersFromAppForm, AddAppForm, AddHadoopAppForm
-from ui.views.core.utils import getFreestDisk, GetFreestHost, getHostFreeDiskBw
+from ui.views.core.utils import getFreestDisk, getFreestHost, getHostFreeDiskBw
 
 from serverlessyarn_utils.manage_inventory import AnsibleYamlInventory
 
@@ -197,9 +197,9 @@ def getContainerResourcesForApp(number_of_containers, app_resources, app_limits,
 
 
 def checkAvailableDisk(available_disk, requested_disk, key):
-    total = max(requested_disk['disk_read_max'], requested_disk['disk_write_max']) if key == "max" else requested_disk['disk_read_min'] + requested_disk['disk_write_min']
-    return (available_disk["free_read"] >= requested_disk['disk_read_{0}'.format(key)] and
-            available_disk["free_write"] >= requested_disk['disk_write_{0}'.format(key)] and
+    total = requested_disk[f'disk_read_{key}'] + requested_disk[f'disk_write_{key}']
+    return (available_disk["free_read"] >= requested_disk[f'disk_read_{key}'] and
+            available_disk["free_write"] >= requested_disk[f'disk_write_{key}'] and
             available_disk["free_total"] >= total)
 
 
@@ -215,21 +215,19 @@ def containersNotAllocated(containers_to_allocate):
 
 
 def assign_freest_disk(host, container, disk_assignation, limit_key):
-    host_disk = getFreestDisk(host)
+    host_disk = getFreestDisk(host, container[f'disk_read_{limit_key}'], container[f'disk_write_{limit_key}'])
     if host_disk is None:
         return False
 
-    if checkAvailableDisk(disk_assignation[host['name']][host_disk], container, limit_key):
-        disk_assignation[host['name']][host_disk]['free_read'] -= container['disk_read_min']
-        disk_assignation[host['name']][host_disk]['free_write'] -= container['disk_write_min']
-        disk_assignation[host['name']][host_disk]['free_total'] -= (container['disk_read_min'] + container['disk_write_min'])
-        disk_assignation[host['name']][host_disk]['new_containers'] += 1
-        for disk_name in host['resources']['disks']:
-            disk = host['resources']['disks'][disk_name]
-            if disk_name == host_disk:
-                disk['free_read'] -= container['disk_read_min']
-                disk['free_write'] -= container['disk_write_min']
-                break
+    # Update disk assignation
+    disk_assignation[host['name']][host_disk]['free_read'] -= container[f'disk_read_{limit_key}']
+    disk_assignation[host['name']][host_disk]['free_write'] -= container[f'disk_write_{limit_key}']
+    disk_assignation[host['name']][host_disk]['free_total'] -= (container[f'disk_read_{limit_key}'] + container[f'disk_write_{limit_key}'])
+    disk_assignation[host['name']][host_disk]['new_containers'] += 1
+
+    # Update host for consequent operations
+    host['resources']['disks'][host_disk]['free_read'] -= container[f'disk_read_{limit_key}']
+    host['resources']['disks'][host_disk]['free_write'] -= container[f'disk_write_{limit_key}']
 
     return True
 
@@ -246,32 +244,27 @@ def assign_fill_up(hosts, containers_to_allocate, container_resources, assignati
         if containersNotAllocated(containers_to_allocate) <= 0:
             break
 
-        #free_disk_load = getHostFreeDiskLoad(host)
-        available_host_disk = {}
-        if check_disks:
-            available_host_disk["free_read"], available_host_disk["free_write"], available_host_disk["free_total"] = getHostFreeDiskBw(host)
-
         # We try to assign resources in the following order: bigger container, regular containers, smaller container and resourcemanager/namenode container
         for container_type in ["bigger", "regular", "smaller", "rm-nn"]:
             while containers_to_allocate[container_type] > 0:
                 available_resources = checkAvailableResources(host, container_resources[container_type], resources_to_check, limit_key)
                 if container_type != "rm-nn" and check_disks:
-                    available_resources = available_resources and checkAvailableDisk(available_host_disk, container_resources[container_type], limit_key)
+                    available_resources = available_resources and any(checkAvailableDisk(
+                        disk_assignation[host['name']][disk], container_resources[container_type], limit_key)
+                        for disk in disk_assignation[host['name']])
                 if not available_resources:
                     break
 
                 assignation[host['name']][container_type] = assignation[host['name']].get(container_type, 0) + 1
                 containers_to_allocate[container_type] -= 1
-                host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_max']
-                host['resources']['mem']['free'] -= container_resources[container_type]['mem_max']
+                host['resources']['cpu']['free'] -= container_resources[container_type][f'cpu_{limit_key}']
+                host['resources']['mem']['free'] -= container_resources[container_type][f'mem_{limit_key}']
                 if container_type != "rm-nn" and check_disks:
-                    available_host_disk["free_read"] -= container_resources[container_type]['disk_read_max']
-                    available_host_disk["free_write"] -= container_resources["container_type"]['disk_write_max']
-                    available_host_disk["free_total"] -= max(container_resources[container_type]['disk_read_max'], container_resources[container_type]['disk_read_max'])
                     for disk in disk_assignation[host['name']]:
                         if checkAvailableDisk(disk_assignation[host['name']][disk], container_resources[container_type], limit_key):
-                            disk_assignation[host['name']][disk]['free_read'] -= container_resources[container_type]['disk_read_max']
-                            disk_assignation[host['name']][disk]['free_write'] -= container_resources[container_type]['disk_write_max']
+                            disk_assignation[host['name']][disk]['free_read'] -= container_resources[container_type][f'disk_read_{limit_key}']
+                            disk_assignation[host['name']][disk]['free_write'] -= container_resources[container_type][f'disk_write_{limit_key}']
+                            disk_assignation[host['name']][disk]['free_total'] -= (container_resources[container_type][f'disk_read_{limit_key}'] + container_resources[container_type][f'disk_write_{limit_key}'])
                             disk_assignation[host['name']][disk]['new_containers'] += 1
                             break
 
@@ -301,16 +294,16 @@ def assign_cyclic(hosts, containers_to_allocate, container_resources, assignatio
                 if containers_to_allocate[container_type] > 0:
                     available_resources = checkAvailableResources(host, container_resources[container_type], resources_to_check, limit_key)
                     if container_type != "rm-nn" and check_disks:
-                        available_resources = available_resources and checkAvailableDisk(available_host_disk, container_resources[container_type], limit_key)
+                        available_resources = available_resources and any(checkAvailableDisk(
+                            disk_assignation[host['name']][disk], container_resources[container_type], limit_key)
+                            for disk in disk_assignation[host['name']])
 
                     if available_resources:
-                        host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
-                        host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
-
                         if container_type != "rm-nn" and check_disks:
                             if not assign_freest_disk(host, container_resources[container_type], disk_assignation, limit_key):
                                 break
-
+                        host['resources']['cpu']['free'] -= container_resources[container_type][f'cpu_{limit_key}']
+                        host['resources']['mem']['free'] -= container_resources[container_type][f'mem_{limit_key}']
                         containers_to_allocate[container_type] -= 1
                         assignation[host['name']][container_type] = assignation[host['name']].get(container_type, 0) + 1
                         container_allocated = True
@@ -328,7 +321,7 @@ def assign_best_effort(hosts, containers_to_allocate, container_resources, assig
     """
     Prioritizes placing each container on the most suitable host available at that moment. In each step, the algorithm identifies a
     container to be allocated (starting with 'bigger', then 'regular', etc.) and the "freest" host that can fit the container's minimum
-    resource requirements (cpu_min, mem_min). The definition of "freest" is determined by the GetFreestHost function. Once the best host
+    resource requirements (cpu_min, mem_min). The definition of "freest" is determined by the getFreestHost function. Once the best host
     is identified, the container is placed, and its resources are subtracted. This policy aims to keep a balanced load across the hosts
     by always targeting the least-used node for each new allocation.
     """
@@ -336,19 +329,16 @@ def assign_best_effort(hosts, containers_to_allocate, container_resources, assig
         container_allocated = False
         for container_type in ['bigger', 'regular', 'smaller', 'rm-nn']:
             if containers_to_allocate[container_type] > 0:
-                freest_host = GetFreestHost(hosts, container_resources[container_type], container_type != 'rm-nn' and check_disks, check_energy)
+                freest_host = getFreestHost(hosts, container_resources[container_type], container_type != 'rm-nn' and check_disks, check_energy, limit_key)
                 if freest_host is None:
                     break
-
-                freest_host['resources']['cpu']['free'] -= container_resources[container_type]['cpu_min']
-                freest_host['resources']['mem']['free'] -= container_resources[container_type]['mem_min']
-                if check_energy:
-                    freest_host['resources']['energy']['free'] -= container_resources[container_type]['energy_min']
-
                 if container_type != 'rm-nn' and check_disks:
                     if not assign_freest_disk(freest_host, container_resources[container_type], disk_assignation, limit_key):
                         break
-
+                if check_energy:
+                    freest_host['resources']['energy']['free'] -= container_resources[container_type][f'energy_{limit_key}']
+                freest_host['resources']['cpu']['free'] -= container_resources[container_type][f'cpu_{limit_key}']
+                freest_host['resources']['mem']['free'] -= container_resources[container_type][f'mem_{limit_key}']
                 containers_to_allocate[container_type] -= 1
                 assignation[freest_host['name']][container_type] = assignation[freest_host['name']].get(container_type, 0) + 1
                 container_allocated = True
@@ -413,10 +403,35 @@ def getContainerAssignationForApp(assignation_policy, allow_oversubscription, ho
         assign_cyclic(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, check_energy, limit_key)
     elif assignation_policy == "Best-effort":
         assign_best_effort(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, check_energy, limit_key)
+    else:
+        error = f"Assignation policy {assignation_policy} not supported. Try one of [Fill-up, Cyclic, Best-effort]"
+        return new_containers, disk_assignation, error
 
     # Check all containers have been allocated
     if containersNotAllocated(containers_to_allocate) > 0:
-        error = "Could not allocate containers for app {0}: {1}".format(app_name, container_resources)
+        error = "Could not allocate containers for app {0}. Container requested resources: {1}. Hosts free resources: {2}".format(
+            app_name,
+            {
+                c_type: {
+                    res: container_resources[c_type][res] for res in container_resources[c_type] if limit_key in res}
+                    for c_type in container_resources},
+            {
+                h['name']: {
+                    **{res: h['resources'][res]['free'] for res in ['cpu', 'mem']},
+                    **({'energy': h['resources']['energy']['free']} if check_energy else {}),
+                    **({
+                        'disks': {
+                            disk: {
+                                free_bw: h['resources']['disks'][disk][free_bw]
+                                for free_bw in ['free_read', 'free_write']
+                            }
+                            for disk in h['resources']['disks']
+                        }
+                    } if check_disks else {})
+                }
+                for h in hosts
+            },
+        )
         return new_containers, disk_assignation, error
 
     # Format assignation to be used in later phases of the deployment

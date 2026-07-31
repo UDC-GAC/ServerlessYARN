@@ -11,11 +11,11 @@ import uuid
 from django.conf import settings
 from serverless_containers_web.celery import app as celery_app
 
+from ui.views.core.utils import getDbData, getDataAndFilterByApp, getHostsNames
 from ui.update_inventory_file import add_containers_to_hosts, remove_container_from_host, add_host, remove_host, add_disks_to_hosts, add_containers_to_inventory
-from serverlessyarn_utils.web_utils import web_request
 import ui.run_playbooks as run_playbooks
 
-from ui.views.core.utils import getDbData, getDataAndFilterByApp, getHostFreeDiskLoad, getHostsNames
+from serverlessyarn_utils.web_utils import web_request
 
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file: config = yaml.load(config_file, Loader=yaml.FullLoader)
@@ -690,40 +690,41 @@ def wait_for_app_dependency(assignation_requirements, url, app, container_resour
         assignation_policy = assignation_requirements['assignation_policy']
         allow_oversubscription = assignation_requirements['allow_oversubscription']
         number_of_containers = assignation_requirements['number_of_containers']
+        allocation_exclusions = assignation_requirements['allocation_exclusions']
 
-        ## Get updated info about hosts
+        # Get updated info about hosts
         data_json = getDbData(url)
         hosts = getHostsNames(data_json)
 
         # Check if there is space for app
+        ## Note: this simply checks whether there are enough resources for the app across all hosts to ensure no unreasonable requests are being made
+        ## allocation may still fail when trying to assign each container to a host
         free_resources = {}
         for resource in app_resources:
-            if resource == 'disk_read' or resource == "disk_write":
-                continue
             free_resources[resource] = 0
-            for host in hosts:
-                if resource in host['resources']:
-                    free_resources[resource] += host['resources'][resource]['free']
 
-        space_left_for_app = True
-        for resource in free_resources:
-            if free_resources[resource] < app_resources[resource]['min'] - app_resources[resource]['current']:
-                #space_left_for_app = False
-                pass
+        for host in hosts:
+            ## Regular resources
+            for resource in set(free_resources.keys()) - {'disk_read', 'disk_write'}:
+                free_resources[resource] += host['resources'][resource]['free']
 
-        ## TODO: replace/add disk load check for disk I/O bandwidth check
-        # Check if there is enough free disk load (specially important for Hadoop apps)
-        if settings.PLATFORM_CONFIG['disk_capabilities'] and settings.PLATFORM_CONFIG['disk_scaling']:
-            disk_load = number_of_containers
-            free_disk_load = 0
-            for host in hosts:
-                free_disk_load += getHostFreeDiskLoad(host)
+            ## Disk
+            check_disks = settings.PLATFORM_CONFIG['disk_capabilities'] and settings.PLATFORM_CONFIG['disk_scaling']
+            if check_disks and 'disks' in host['resources']:
 
-            if free_disk_load < disk_load: space_left_for_app = False
+                ### Remove reserved disks
+                if host['name'] in allocation_exclusions and 'disks' in allocation_exclusions[host['name']]:
+                    host['resources']['disks'] = {disk: disk_data for disk, disk_data in host['resources']['disks'].items() if disk not in allocation_exclusions[host['name']]['disks']}
 
-        if not space_left_for_app:
-            raise Exception("There is no space left for app {0}".format(app_name))
+                for disk in host['resources']['disks']:
+                    for op in ['read', 'write']:
+                        if f'disk_{op}' in free_resources:
+                            free_resources[f'disk_{op}'] += host['resources']['disks'][disk][f'free_{op}']
 
+        if any(free_resources[resource] < app_resources[resource]['min'] - app_resources[resource]['current'] for resource in free_resources):
+            raise Exception("There is no capacity for app {0}. Requested resources: {1}. Free resources: {2}".format(app_name, app_resources, free_resources))
+
+        # Allocate the containers for each host
         new_containers, disk_assignation, error = getContainerAssignationForApp(assignation_policy, allow_oversubscription, hosts, number_of_containers, container_resources, app_name)
         if error != "":
             raise Exception(error)

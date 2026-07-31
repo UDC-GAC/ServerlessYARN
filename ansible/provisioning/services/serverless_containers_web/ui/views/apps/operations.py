@@ -9,6 +9,7 @@ from ui.background_tasks import register_task, remove_task_by_name, add_app_task
 from ui.views.core.utils import getDbData, getHostsNames, getLimits, getHostFreeDiskLoad, getScalerPollFreq, setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels, compareStructureNames, retrieve_global_hdfs_app, getDataAndFilterByApp, getContainersFromApp, getAppFiles
 from ui.views.apps.utils import getAppInfo, getContainerResourcesForApp, getContainerAssignationForApp, setStartAppForm, setRemoveContainersFromAppForm, setAddAppForm, checkAppUser
 
+from serverlessyarn_utils.manage_inventory import AnsibleYamlInventory
 
 def getApps(data):
     apps = []
@@ -161,34 +162,31 @@ def processAddApp(request, url, **kwargs):
 
 
 def processStartApp(request, url, **kwargs):
-    app_name = kwargs["structure_name"]
-    # Get existing hosts
-    data_json = getDbData(url)
-    hosts = getHostsNames(data_json)
 
-    ## Remove host disks reserved for other uses
+    # Exclude specific resources from container allocation
+    allocation_exclusions = {}
+
+    ## Disk exclusions
     if settings.PLATFORM_CONFIG['disk_capabilities'] and settings.PLATFORM_CONFIG['disk_scaling']:
-        reservations = {}
 
-        ## Global HDFS frontend data transfer
+        ## Exclude disk for global HDFS frontend data transfer
         if settings.PLATFORM_CONFIG['global_hdfs'] and settings.PLATFORM_CONFIG['server_as_host']:
-            if "server" not in reservations: reservations["server"] = []
-            reservations["server"].append(settings.PLATFORM_CONFIG['global_hdfs_disk_name'])
+            server_name = AnsibleYamlInventory().get_server_hostname()
+            allocation_exclusions[server_name] = {}
+            allocation_exclusions[server_name]["disks"] = []
+            allocation_exclusions[server_name]["disks"].append(settings.PLATFORM_CONFIG['global_hdfs_disk_name'])
 
-        for h in hosts:
-            if h['name'] in reservations:
-                for disk in reservations[h['name']]:
-                    del h['resources']['disks'][disk]
+    # App info
+    data_json = getDbData(url)
+    app_name = kwargs["structure_name"]
+    app = getAppInfo(data_json, app_name)
+    app_limits = getLimits(app_name)
 
-    app = getAppInfo(data_json, kwargs["structure_name"])
-    app_limits = getLimits(kwargs["structure_name"])
-
-    ## APP info
     app_files = {}
     if app.get('start_script', ""):
         app_files['app_dir'] = os.path.dirname(app['start_script'])
     else:
-        return "Error: there is no start script for app {0}".format(kwargs["structure_name"])
+        return "Error: there is no start script for app {0}".format(app_name)
 
     for f in ['install_script', 'runtime_files', 'output_dir', 'start_script', 'stop_script', 'framework']:
         app_files[f] = os.path.basename(app[f]) if f in app else ""
@@ -287,7 +285,8 @@ def processStartApp(request, url, **kwargs):
         'app_resources': app_resources,
         'assignation_policy': assignation_policy,
         'allow_oversubscription': allow_oversubscription,
-        'number_of_containers': number_of_containers
+        'number_of_containers': number_of_containers,
+        'allocation_exclusions': allocation_exclusions
     }
 
     if is_hadoop_app:

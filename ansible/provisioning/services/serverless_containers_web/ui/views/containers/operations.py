@@ -41,33 +41,37 @@ def processAddContainers(request, url, **kwargs):
     host_list = json.loads(kwargs["host_list"].replace("\'","\""))
 
     for resource in SUPPORTED_RESOURCES:
-        if resource + "_max" in request.POST:
-            max_res = request.POST[resource + "_max"]
-            min_res = request.POST[resource + "_min"]
+        if f"{resource}_max" in request.POST and f"{resource}_min" in request.POST:
+            max_res = request.POST[f"{resource}_max"]
+            min_res = request.POST[f"{resource}_min"]
             if max_res == "" or min_res == "":
-                container_resources[resource + "_max"] = "0"
-                container_resources[resource + "_min"] = "0"
+                container_resources[f"{resource}_max"] = "0"
+                container_resources[f"{resource}_min"] = "0"
             else:
-                container_resources[resource + "_max"] = max_res
-                container_resources[resource + "_min"] = min_res
-        if resource + "_weight" in request.POST:
-            if request.POST[resource + "_weight"] != "":
-                resource_weight = request.POST[resource + "_weight"]
+                container_resources[f"{resource}_max"] = max_res
+                container_resources[f"{resource}_min"] = min_res
+        if f"{resource}_weight" in request.POST:
+            if request.POST[f"{resource}_weight"] != "":
+                resource_weight = request.POST[f"{resource}_weight"]
             else:
                 resource_weight = DEFAULT_RESOURCE_VALUES["weight"]
-            container_resources[resource + "_weight"] = resource_weight
-        if resource + "_boundary" in request.POST:
-            if request.POST[resource + "_boundary"] != "":
-                resource_boundary = request.POST[resource + "_boundary"]
-                resource_boundary_type = request.POST[resource + "_boundary_type"]
+            container_resources[f"{resource}_weight"] = resource_weight
+        if f"{resource}_boundary" in request.POST:
+            if request.POST[f"{resource}_boundary"] != "":
+                resource_boundary = request.POST[f"{resource}_boundary"]
+                resource_boundary_type = request.POST[f"{resource}_boundary_type"]
             else:
                 resource_boundary = DEFAULT_LIMIT_VALUES["boundary"]
                 resource_boundary_type = DEFAULT_LIMIT_VALUES["boundary_type"]
-            container_resources[resource + "_boundary"] = resource_boundary
-            container_resources[resource + "_boundary_type"] = resource_boundary_type
+            container_resources[f"{resource}_boundary"] = resource_boundary
+            container_resources[f"{resource}_boundary_type"] = resource_boundary_type
 
     ## Bind specific disk
-    bind_disk = "disk_read" in SUPPORTED_RESOURCES and "disk_write" in SUPPORTED_RESOURCES and "disk_read_max" in request.POST and "disk_write_max" in request.POST and request.POST["disk_read_max"] != "" and request.POST["disk_write_max"] != "" and request.POST["disk_read_min"] and request.POST["disk_write_min"]
+    bind_disk = (
+        "disk_read" in SUPPORTED_RESOURCES and "disk_write" in SUPPORTED_RESOURCES and
+        request.POST.get("disk_read_max", "") != "" and request.POST.get("disk_write_max", "") != "" and
+        request.POST.get("disk_read_min", "") != "" and request.POST.get("disk_write_min", "") != ""
+    )
 
     # TODO: assign disks to containers in a more efficient way, instead of just choosing the same disk for all containers in the same host
     new_containers = {}
@@ -85,9 +89,14 @@ def processAddContainers(request, url, **kwargs):
             for h in hosts_full_info:
                 if h['name'] == host:
                     disks[host] = {}
-                    disk = getFreestDisk(h)
+                    disk = getFreestDisk(h, int(request.POST["disk_read_min"]), int(request.POST["disk_write_min"]))
+                    if not disk:
+                        return f"Error host {host} does not have a disk with enough bandwidth (read: {request.POST['disk_read_min']}, write: {request.POST['disk_write_min']})"
+
                     disks[host]['name'] = disk
                     disks[host]['path'] = h['resources']['disks'][disk]['path']
+                    h['resources']['disks'][disk]['free_read'] -= int(request.POST["disk_read_min"])
+                    h['resources']['disks'][disk]['free_write'] -= int(request.POST["disk_write_min"])
                     break
 
     task = start_containers_task_v2.delay(new_containers, container_resources, disks)
