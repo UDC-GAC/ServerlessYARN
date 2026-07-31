@@ -9,7 +9,7 @@ from django.forms import formset_factory
 from django.shortcuts import redirect
 from django.conf import settings
 
-from ui.utils import MAX_DISK_LOAD_DICT, EXCLUDED_VALUES_LABELS
+from ui.utils import EXCLUDED_VALUES_LABELS
 from ui.forms import LimitsForm, StructureResourcesForm, StructureResourcesFormSetHelper, HostResourcesForm, HostResourcesFormSetHelper, UserResourcesForm, UserResourcesFormSetHelper, RemoveStructureForm
 
 
@@ -89,9 +89,6 @@ def getScalerPollFreq():
 
 def checkInvalidConfig():
     error_lines = []
-    #vars_path = "../../vars/main.yml"
-    #with open(vars_path, "r") as vars_file:
-    #    vars_config = yaml.load(vars_file, Loader=yaml.FullLoader)
 
     installation_path = settings.VARS_CONFIG['installation_path']
     if installation_path.startswith("{{ lookup('env', 'HOME') }}"):
@@ -252,43 +249,9 @@ def getHostsNames(data):
     return hosts
 
 
-def getHostFreeDiskLoad(host):
-    free_disk_load = 0
-    if 'disks' in host['resources']:
-        for disk_name in host['resources']['disks']:
-            disk = host['resources']['disks'][disk_name]
-            free_disk_load += MAX_DISK_LOAD_DICT[disk['type']] - disk['load']
-
-    return free_disk_load
-
-
 def getFreestDisk(host, requested_read_bw, requested_write_bw):
 
     freest_disk = None
-
-    ## Based on load
-    # current_min_load = -1
-
-    # disk_type_load_ratio = {}
-    # for disk_type in MAX_DISK_LOAD_DICT:
-    #     disk_type_load_ratio[disk_type] = MAX_DISK_LOAD_DICT["LVM"]/MAX_DISK_LOAD_DICT[disk_type]
-
-    # if 'disks' in host['resources']:
-    #     for disk_name in host['resources']['disks']:
-
-    #         disk = host['resources']['disks'][disk_name]
-
-    #         if disk['load'] == 0:
-    #             freest_disk = disk_name
-    #             break
-
-    #         if (disk['load'] == MAX_DISK_LOAD_DICT[disk['type']]): continue
-
-    #         adjusted_load = disk['load'] * disk_type_load_ratio[disk['type']]
-
-    #         if current_min_load == -1 or adjusted_load < current_min_load:
-    #             current_min_load = adjusted_load
-    #             freest_disk = disk_name
 
     ## Based on Bandwidth
     current_max_bw = -1
@@ -348,13 +311,6 @@ def getFreestHost(hosts, container_resources, check_disks, check_energy, limit_k
         # Get disk usage percentage
         host_disk_free = 0
         host_disk_max = 0
-
-        # Based on load
-        # if 'disks' in host['resources']:
-        #     for disk_name in host['resources']['disks']:
-        #         disk = host['resources']['disks'][disk_name]
-        #         max_disk_usage += MAX_DISK_LOAD_DICT[disk['type']]
-        #         disk_usage += disk['load']
 
         ## Based on bandwidth
         ## TODO: consider if it is better to assign a disk with no containers but low bandwidth or a contended disk with high bw

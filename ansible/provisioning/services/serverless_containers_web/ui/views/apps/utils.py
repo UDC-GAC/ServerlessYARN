@@ -284,7 +284,6 @@ def assign_cyclic(hosts, containers_to_allocate, container_resources, assignatio
             if containersNotAllocated(containers_to_allocate) <= 0:
                 break
 
-            #free_disk_load = getHostFreeDiskLoad(host)
             available_host_disk = {}
             if check_disks:
                 available_host_disk["free_read"], available_host_disk["free_write"], available_host_disk["free_total"] = getHostFreeDiskBw(host)
@@ -390,7 +389,6 @@ def getContainerAssignationForApp(assignation_policy, allow_oversubscription, ho
                 disk_assignation[host['name']][disk_name] = {
                     'new_containers': 0,
                     'disk_path': disk['path'],
-                    #'max_load': MAX_DISK_LOAD_DICT[disk['type']] - disk['load']
                     'free_read': disk['free_read'],
                     'free_write': disk['free_write'],
                     'free_total': max(disk['max_read'],disk['max_write']) - consumed_read - consumed_write

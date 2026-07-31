@@ -1,12 +1,4 @@
 
-# TODO: set and get values from config
-# TODO: set max loads more accurately
-MAX_DISK_LOAD_DICT = {
-    "HDD": 1,
-    "SSD": 4,
-    "LVM": 20
-}
-
 DEFAULT_APP_VALUES = {
     "install_script": "install.sh",
     "start_script": "start.sh",
