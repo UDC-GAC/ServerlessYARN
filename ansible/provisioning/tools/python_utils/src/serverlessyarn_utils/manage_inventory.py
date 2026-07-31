@@ -40,7 +40,7 @@ class AnsibleYamlInventory:
             inventory[group_name] = {"hosts": {}}
 
         # Add hosts dictionary if does not exist
-        if "hosts" not in inventory[group_name] or inventory[group_name]["hosts"] is None:
+        if inventory[group_name].get("hosts") is None:
             inventory[group_name]["hosts"] = {}
 
         # Add group default variables
@@ -49,7 +49,7 @@ class AnsibleYamlInventory:
                 ## Discard null variables
                 if group_vars[var] or var in EMPTIABLE_VARS:
                     # Add vars dictionary if does not exist yet
-                    if "vars" not in inventory[group_name] or inventory[group_name]["vars"] is None:
+                    if inventory[group_name].get("vars") is None:
                         inventory[group_name]["vars"] = {}
                     inventory[group_name]["vars"][var] = group_vars[var]
 
@@ -73,7 +73,7 @@ class AnsibleYamlInventory:
     def _get_host_var(self, group_name, key, hostname=None):
         inventory = self.data
 
-        if not hostname or inventory[group_name]["hosts"][hostname].get(key, None) is None:
+        if not hostname or inventory[group_name]["hosts"].get(hostname, {}).get(key, None) is None:
             # Try to get the default group value
             return inventory[group_name]["vars"].get(key, None)
         else:
@@ -84,7 +84,7 @@ class AnsibleYamlInventory:
         inventory = self.data
 
         if not hostname:
-            if "vars" not in inventory[group_name] or inventory[group_name]["vars"] is None:
+            if inventory[group_name].get("vars") is None:
                 inventory[group_name]["vars"] = {}
             inventory[group_name]["vars"][key] = value
         else:
@@ -179,7 +179,7 @@ class AnsibleYamlInventory:
 
     ## Removes
     def remove_node(self, hostname):
-        self.remove_host(self, HOST_GROUP_NAME, hostname)
+        self._remove_host(HOST_GROUP_NAME, hostname)
 
     def remove_container(self, hostname, container):
         current_containers = self.get_node_resource(resource="containers", hostname=hostname)

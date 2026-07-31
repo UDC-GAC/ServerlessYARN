@@ -1,21 +1,26 @@
 import time
-import subprocess
-from celery import shared_task, group
-from celery.result import AsyncResult
-import redis
 import json
 import timeit
 import yaml
-import urllib
 import uuid
+import redis
+import urllib
+import subprocess
+
+from celery import shared_task, group
+from celery.result import AsyncResult
+
 from django.conf import settings
+
 from serverless_containers_web.celery import app as celery_app
+from serverlessyarn_utils.web_utils import web_request
 
 from ui.views.core.utils import getDbData, getDataAndFilterByApp, getHostsNames
 from ui.update_inventory_file import add_containers_to_hosts, remove_container_from_host, add_host, remove_host, add_disks_to_hosts, add_containers_to_inventory
 import ui.run_playbooks as run_playbooks
 
-from serverlessyarn_utils.web_utils import web_request
+from ui.views.apps.utils import getContainerAssignationForApp
+from ui.views.core.utils import getDbData, getDataAndFilterByApp, getHostsNames
 
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file: config = yaml.load(config_file, Loader=yaml.FullLoader)
@@ -682,7 +687,6 @@ def deploy_app_containers(url, new_containers, app, app_files, container_resourc
 def wait_for_app_dependency(assignation_requirements, url, app, container_resources, dependencies):
 
     def check_space_for_app(assignation_requirements, url, container_resources, app_name):
-        from ui.views.apps.utils import getContainerAssignationForApp
 
         container_resources = convert_strings_to_numbers(container_resources)
 
@@ -791,8 +795,8 @@ def start_hadoop_app_task(self, assignation_requirements, url, app, app_files, c
     if settings.PLATFORM_CONFIG['enable_app_callback']:
         raise Exception("Callback app execution not currently supported by hadoop apps")
 
-        ## Create redis counter to track the containers' status
-        create_app_counter(app, 1)
+    ## Create redis counter to track the containers' status
+    create_app_counter(app, 1)
 
     # Calculate resources for Hadoop cluster
     hadoop_resources = {}
@@ -1273,14 +1277,10 @@ def remove_containers_from_app(url, container_list, app, app_files):
     # Desubscribe containers from app in StateDB
     errors = []
     for container in container_list:
-        full_url = url + "container/{0}/{1}".format(container['container_name'],app)
+        full_url = url + "container/{0}/{1}".format(container['container_name'], app)
         error = remove_container_from_app_db(full_url, container['container_name'], app)
         if error != "":
             errors.append(error)
-
-
-    ## Wait at least for the scaler polling frequency time before re-enabling it
-    #time.sleep(scaler_polling_freq - (end_time - start_time))
 
     # Re-enable Scaler
     manage_scaling_services(enable=True)

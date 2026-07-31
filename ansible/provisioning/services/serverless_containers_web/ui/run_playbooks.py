@@ -84,13 +84,11 @@ def stop_container(host_name, container, bind_path=None, clean_bind_dir=True):
 
     # Stop container
     if container_engine == "lxc":
-        run_adhoc(hosts=[host_name], module="shell", module_args="lxc stop {0}".format(container), ignore_failure=True)
+        run_adhoc(hosts=[host_name], module="shell", module_args="lxc stop {0} || lxc stop -f {0}".format(container), ignore_failure=True)
     elif container_engine == "apptainer":
-        if cgroups_version == "v1":
-            run_adhoc(hosts=[host_name], module="shell", module_args="sudo {0} instance stop {1}".format(singularity_command_alias, container), ignore_failure=True)
-        else:
-            #run_adhoc(hosts=[host_name], module="shell", module_args="{0} instance stop {1}".format(singularity_command_alias, container), ignore_failure=True)
-            run_adhoc(hosts=[host_name], module="shell", module_args="sudo {0} instance stop {1}".format(singularity_command_alias, container), ignore_failure=True)
+        # if cgroups_version == "v1": Used to run without sudo in cgroups V2, currently both versions run this command with root privileges
+        stop_cmd = "sudo {0} instance stop {1} || sudo {0} instance stop -f {1}".format(singularity_command_alias, container)
+        run_adhoc(hosts=[host_name], module="shell", module_args=stop_cmd, ignore_failure=True)
     else:
         raise Exception("No valid container engine")
 
