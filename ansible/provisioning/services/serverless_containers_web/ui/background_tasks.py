@@ -6,6 +6,7 @@ import uuid
 import redis
 import urllib
 import subprocess
+from contextlib import contextmanager
 
 from celery import shared_task, group
 from celery.result import AsyncResult
@@ -367,6 +368,14 @@ def manage_scaling_services(enable, skip_ansible=True):
     else:
         run_playbooks.manage_scaling_services(enable=enable)
 
+@contextmanager
+def scaling_services_disabled():
+    manage_scaling_services(enable=False)
+    try:
+        yield
+    finally:
+        manage_scaling_services(enable=True)
+
 
 ## Adds
 @shared_task
@@ -477,25 +486,19 @@ def add_user_task(full_url, put_field_data, user):
 
 @shared_task
 def subscribe_apps_to_user(url, user_name, user_apps):
-    manage_scaling_services(enable=False)
-
-    # Subscribe containers to app in ServerlessContainers database
-    for app_name in user_apps:
-        full_url = url + "clusters/{0}/{1}".format(user_name, app_name)
-        manage_app_with_user_in_db(full_url, user_name, app_name, "put")
-
-    manage_scaling_services(enable=True)
+    with scaling_services_disabled():
+        # Subscribe containers to app in ServerlessContainers database
+        for app_name in user_apps:
+            full_url = url + "clusters/{0}/{1}".format(user_name, app_name)
+            manage_app_with_user_in_db(full_url, user_name, app_name, "put")
 
 @shared_task
 def desubscribe_apps_from_user(url, user_name, user_apps):
-    manage_scaling_services(enable=False)
-
-    # Subscribe containers to app in ServerlessContainers database
-    for app_name in user_apps:
-        full_url = url + "clusters/{0}/{1}".format(user_name, app_name)
-        manage_app_with_user_in_db(full_url, user_name, app_name, "delete")
-
-    manage_scaling_services(enable=True)
+    with scaling_services_disabled():
+        # Subscribe containers to app in ServerlessContainers database
+        for app_name in user_apps:
+            full_url = url + "clusters/{0}/{1}".format(user_name, app_name)
+            manage_app_with_user_in_db(full_url, user_name, app_name, "delete")
 
 def change_app_state_in_db(url, app, state):
     max_retries = 10
@@ -659,24 +662,19 @@ def deploy_app_containers(url, new_containers, app, app_files, container_resourc
     formatted_containers_info = str(containers_info).replace(' ', '')
 
     # Deploy containers through Ansible
-    ## Stop scaling services
-    manage_scaling_services(enable=False)
-    try:
-        run_playbooks.start_containers_with_app(list(added_containers.keys()), formatted_containers_info, app, app_type, app_files)
-    except Exception as e:
-        ## Ensure containers are removed from inventory and instances are stopped in case of failure
-        for container in containers_info:
-            stop_container(container["host"], container["container_name"])
+    with scaling_services_disabled():
+        try:
+            run_playbooks.start_containers_with_app(list(added_containers.keys()), formatted_containers_info, app, app_type, app_files)
+        except Exception as e:
+            ## Ensure containers are removed from inventory and instances are stopped in case of failure
+            for container in containers_info:
+                stop_container(container["host"], container["container_name"])
 
-        ## Ensure app is stopped
-        change_app_state_in_db(url, app, "stopped")
+            ## Ensure app is stopped
+            change_app_state_in_db(url, app, "stopped")
 
-        ## Re-enable scaling services
-        manage_scaling_services(enable=True)
-
-        ## Then, throw the original exception as the start app process must stop here
-        raise e
-    manage_scaling_services(enable=True)
+            ## Then, throw the original exception as the start app process must stop here
+            raise e
 
     return containers_info
 
@@ -825,20 +823,17 @@ def start_hadoop_app_task(self, assignation_requirements, url, app, app_files, c
     run_playbooks.stop_hadoop_cluster(rm_host, rm_container)
 
     ## Disable scaler and other scaling services, remove all containers from StateDB and re-enable them
-    manage_scaling_services(enable=False)
+    with scaling_services_disabled():
+        start_time = timeit.default_timer()
+        errors = []
+        for container in app_containers:
+            full_url = url + "container/{0}/{1}".format(container['container_name'],app)
+            error = remove_container_from_app_db(full_url, container['container_name'], app)
+            if error != "": errors.append(error)
+        end_time = timeit.default_timer()
 
-    start_time = timeit.default_timer()
-    errors = []
-    for container in app_containers:
-        full_url = url + "container/{0}/{1}".format(container['container_name'],app)
-        error = remove_container_from_app_db(full_url, container['container_name'], app)
-        if error != "": errors.append(error)
-    end_time = timeit.default_timer()
-
-    ## Wait at least for the scaler polling frequency time before re-enabling it
-    time.sleep(scaler_polling_freq - (end_time - start_time))
-
-    manage_scaling_services(enable=True)
+        ## Wait at least for the scaler polling frequency time before re-enabling it
+        time.sleep(scaler_polling_freq - (end_time - start_time))
 
     ## Get timestamp to store output data
     timestamp = None
@@ -871,14 +866,11 @@ def setup_containers_network_task(url, app, app_containers, new_containers):
 
 @shared_task
 def subscribe_containers_to_app(url, app, app_containers):
-    manage_scaling_services(enable=False)
-
-    # Subscribe containers to app in ServerlessContainers database
-    for container in app_containers:
-        full_url = url + "container/{0}/{1}".format(container['container_name'], app)
-        add_container_to_app_in_db(full_url, container['container_name'], app)
-
-    manage_scaling_services(enable=True)
+    with scaling_services_disabled():
+        # Subscribe containers to app in ServerlessContainers database
+        for container in app_containers:
+            full_url = url + "container/{0}/{1}".format(container['container_name'], app)
+            add_container_to_app_in_db(full_url, container['container_name'], app)
 
 @shared_task
 def wait_for_app_on_containers(app, app_containers):
@@ -1096,9 +1088,8 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
     formatted_containers_info = str(containers).replace(' ','')
 
     # Start containers
-    manage_scaling_services(enable=False)
-    run_playbooks.start_containers_with_app(host_list, formatted_containers_info, app, app_files['app_type'], app_files)
-    manage_scaling_services(enable=True)
+    with scaling_services_disabled():
+        run_playbooks.start_containers_with_app(host_list, formatted_containers_info, app, app_files['app_type'], app_files)
 
     ## Setup network and start HDFS
     # Run HDFS + YARN on the global HDFS cluster, thus distcp may be run within the global cluster
@@ -1125,20 +1116,17 @@ def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_fre
     run_playbooks.stop_hadoop_cluster(rm_host, rm_container)
 
     ## Disable scaler and other scaling services, remove all containers from StateDB and re-enable them
-    manage_scaling_services(enable=False)
+    with scaling_services_disabled():
+        start_time = timeit.default_timer()
+        errors = []
+        for container in app_containers:
+            full_url = url + "container/{0}/{1}".format(container['name'],app)
+            error = remove_container_from_app_db(full_url, container['name'], app)
+            if error != "": errors.append(error)
+        end_time = timeit.default_timer()
 
-    start_time = timeit.default_timer()
-    errors = []
-    for container in app_containers:
-        full_url = url + "container/{0}/{1}".format(container['name'],app)
-        error = remove_container_from_app_db(full_url, container['name'], app)
-        if error != "": errors.append(error)
-    end_time = timeit.default_timer()
-
-    ## Wait at least for the scaler polling frequency time before re-enabling it
-    time.sleep(scaler_polling_freq - (end_time - start_time))
-
-    manage_scaling_services(enable=True)
+        ## Wait at least for the scaler polling frequency time before re-enabling it
+        time.sleep(scaler_polling_freq - (end_time - start_time))
 
     # Remove app from db
     full_url = url + "apps" + "/" + app
@@ -1174,8 +1162,7 @@ def remove_host_task(full_url, host_name):
     error, _ = web_request(full_url, "delete", error_message)
 
     ## Remove host
-    if (not error):
-            
+    if not error:
         # Stop node scaler service in host
         run_playbooks.stop_host_scaler(host_name)
 
@@ -1190,15 +1177,12 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
 
     # First, remove all containers from app
     if len(container_list) > 0:
-        manage_scaling_services(enable=False)
-
-        errors = []
-        for container in container_list:
-            full_url = url + "container/{0}/{1}".format(container['name'], app_name)
-            error = remove_container_from_app_db(full_url, container['name'], app_name)
-            if error != "": errors.append(error)
-
-        manage_scaling_services(enable=True)
+        with scaling_services_disabled():
+            errors = []
+            for container in container_list:
+                full_url = url + "container/{0}/{1}".format(container['name'], app_name)
+                error = remove_container_from_app_db(full_url, container['name'], app_name)
+                if error != "": errors.append(error)
 
         ## Get timestamp to store output data
         timestamp = None
@@ -1230,19 +1214,17 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
 def remove_containers_task(url, container_list):
 
     ## Disable scaler and other scaling services, remove all containers from StateDB and re-enable them
-    manage_scaling_services(enable=False)
+    with scaling_services_disabled():
+        # Ensure Scaler finish current iteration and persist host info before removing containers
+        # Sleep is not needed because orchestrator will do safe updated
+        #time.sleep(scaler_polling_freq)
 
-    # Ensure Scaler finish current iteration and persist host info before removing containers
-    # Sleep is not needed because orchestrator will do safe updated
-    #time.sleep(scaler_polling_freq)
+        errors = []
+        for container in container_list:
+            full_url = url + "container/{0}".format(container['name'])
+            error = remove_container_from_db(full_url, container['name'])
+            if error != "": errors.append(error)
 
-    errors = []
-    for container in container_list:
-        full_url = url + "container/{0}".format(container['name'])
-        error = remove_container_from_db(full_url, container['name'])
-        if error != "": errors.append(error)
-
-    manage_scaling_services(enable=True)
 
     ## Stop Containers
     # Stop and remove containers
@@ -1262,26 +1244,16 @@ def remove_containers_task(url, container_list):
 def remove_containers_from_app(url, container_list, app, app_files):
 
     # Disable scaler and other scaling services before removing containers
-    manage_scaling_services(enable=False)
+    with scaling_services_disabled():
+        change_app_state_in_db(url, app, "stopped")
 
-    # Set application in stop state in ServerlessContainers
-    #start_time = timeit.default_timer()
-    change_app_state_in_db(url, app, "stopped")
-    #end_time = timeit.default_timer()
-
-    # Ensure Scaler finish current iteration and persist host info before removing containers
-    #time.sleep(scaler_polling_freq - (end_time - start_time))
-
-    # Desubscribe containers from app in StateDB
-    errors = []
-    for container in container_list:
-        full_url = url + "container/{0}/{1}".format(container['container_name'], app)
-        error = remove_container_from_app_db(full_url, container['container_name'], app)
-        if error != "":
-            errors.append(error)
-
-    # Re-enable Scaler
-    manage_scaling_services(enable=True)
+        # Desubscribe containers from app in StateDB
+        errors = []
+        for container in container_list:
+            full_url = url + "container/{0}/{1}".format(container['container_name'], app)
+            error = remove_container_from_app_db(full_url, container['container_name'], app)
+            if error != "":
+                errors.append(error)
 
     ## Get timestamp to store output data
     timestamp = None
@@ -1302,17 +1274,14 @@ def remove_containers_from_app(url, container_list, app, app_files):
 
 @shared_task
 def remove_users_task(url, users):
-    manage_scaling_services(enable=False)
-
-    errors = []
-    for user_name in users:
-        full_url = "{0}/{1}".format(url, user_name)
-        error_message = "Error removing user {0}".format(user_name)
-        error, _ = web_request(full_url, "delete", error_message)
-        if error != "":
-            errors.append(error)
-
-    manage_scaling_services(enable=True)
+    with scaling_services_disabled():
+        errors = []
+        for user_name in users:
+            full_url = "{0}/{1}".format(url, user_name)
+            error_message = "Error removing user {0}".format(user_name)
+            error, _ = web_request(full_url, "delete", error_message)
+            if error != "":
+                errors.append(error)
 
     if len(errors) > 0:
         raise Exception(str(errors))
