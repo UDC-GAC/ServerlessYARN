@@ -289,8 +289,7 @@ def getFreestDisk(host, requested_read_bw, requested_write_bw):
 def getFreestHost(hosts, container_resources, check_disks, check_energy, limit_key="min"):
 
     freest_host = None
-    current_min_disk_usage = -1
-
+    current_min = -1
     for host in hosts:
 
         # Check cpu and mem space
@@ -300,9 +299,16 @@ def getFreestHost(hosts, container_resources, check_disks, check_energy, limit_k
         if check_energy and host['resources']['energy']['free'] < container_resources[f'energy_{limit_key}']:
             continue
 
-        if not check_disks:
+        if not check_disks and not check_energy:
             freest_host = host
             break
+
+        if check_energy:
+            energy_usage = 1 - host['resources']['energy']['free'] / host['resources']['energy']['max']
+            if current_min == -1 or energy_usage < current_min:
+                current_min = energy_usage
+                freest_host = host
+            continue
 
         # Check that there is at least one suitable disk
         if getFreestDisk(host, container_resources[f'disk_read_{limit_key}'], container_resources[f'disk_write_{limit_key}']) is None:
@@ -334,8 +340,8 @@ def getFreestHost(hosts, container_resources, check_disks, check_energy, limit_k
             freest_host = host
             break
 
-        if current_min_disk_usage == -1 or host_disk_usage < current_min_disk_usage:
-            current_min_disk_usage = host_disk_usage
+        if current_min == -1 or host_disk_usage < current_min:
+            current_min = host_disk_usage
             freest_host = host
 
     return freest_host
