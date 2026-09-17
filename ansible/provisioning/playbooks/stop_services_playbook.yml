@@ -182,3 +182,11 @@
           - "{{ tmpdir }}"
 
     tags: clean_logs
+
+  - name: Stop power sensor
+    when: not virtual_mode and power_budgeting
+    shell: "sudo {{ singularity_command_alias }} instance stop {{ inventory_hostname }}-sensor"
+    args:
+      executable: /bin/bash
+    tags: stop_power_sensor
+    failed_when: false
