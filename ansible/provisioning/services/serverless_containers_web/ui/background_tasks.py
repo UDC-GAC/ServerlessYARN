@@ -749,6 +749,39 @@ def wait_for_app_dependency(assignation_requirements, url, app, container_resour
 
     return new_containers, disk_assignation
 
+def rollback_start_flow(url, app, app_containers, app_files):
+    if app_containers:
+        for container in app_containers:
+            try:
+                run_playbooks.stop_app_on_container(container['host'], container['container_name'], app, app_files,
+                                                    rm_container="", bind_path=container.get('disk_path', ''))
+            except Exception as e:
+                print("[ROLLBACK] Error stopping aplication {0} inside container {1}: {2}".format(app, container['container_name'], str(e)))
+
+        for container in app_containers:
+            try:
+                stop_container(container['host'], container['container_name'], container.get('disk_path', ''))
+            except Exception as e:
+                print("[ROLLBACK] Error removing container {0} from remote host {1}: {2}".format(container['container_name'], container["host"], str(e)))
+
+        for container in app_containers:
+            try:
+                full_url = url + "container/{0}/{1}".format(container['container_name'], app)
+                remove_container_from_app_db(full_url, container['container_name'], app)
+            except Exception as e:
+                print("[ROLLBACK] Error removing container {0} from StateDatabase: {1}".format(container['container_name'], str(e)))
+
+    try:
+        change_app_state_in_db(url, app, "stopped")
+    except Exception as e:
+        print("[ROLLBACK] Error changing application {0} state to stopped: {1}".format(app, str(e)))
+
+    try:
+        manage_scaling_services(enable=True)
+    except Exception as e:
+        print("[ROLLBACK] Error changing enabling Scaler: {0}".format(str(e)))
+
+
 @shared_task(bind=True)
 def start_app_task(self, assignation_requirements, url, app, app_files, container_resources, scaler_polling_freq, app_type=None, dependencies={}):
 
@@ -763,14 +796,20 @@ def start_app_task(self, assignation_requirements, url, app, app_files, containe
     # Set application in running state in ServerlessContainers
     change_app_state_in_db(url, app, "running")
 
-    # Deploy all the containers in the remote hosts and subscribe them to the app
-    app_containers = deploy_app_containers(url, new_containers, app, app_files, container_resources, disk_assignation, app_type)
+    app_containers = None
+    try:
+        # Deploy all the containers in the remote hosts
+        app_containers = deploy_app_containers(url, new_containers, app, app_files, container_resources, disk_assignation, app_type)
 
-    # Setup containers network to enable communications between containers
-    setup_containers_network_task(url, app, app_containers, new_containers)
+        # Setup containers network to enable communications between containers
+        setup_containers_network_task(url, app, app_containers, new_containers)
 
-    # Start app inside all the containers
-    start_app_on_containers(url, app, app_containers, app_files)
+        # Start app inside all the containers
+        start_app_on_containers(url, app, app_containers, app_files)
+
+    except Exception as e:
+        rollback_start_flow(url, app, app_containers, app_files)
+        raise e
 
     if not settings.PLATFORM_CONFIG['enable_app_callback']:
         # Wait for app to finish in all the containers
@@ -1260,14 +1299,23 @@ def remove_containers_from_app(url, container_list, app, app_files):
     if 'output_dir' in app_files and app_files['output_dir'] != '':
         timestamp = time.strftime("%Y-%m-%d--%H-%M-%S")
 
-    ## Stop Containers
-    # Stop and remove containers
+    # Stop app on containers
     for container in container_list:
-        full_url = url + "container/{0}/{1}".format(container['container_name'], app)
-        bind_path = ""
-        if 'disk_path' in container: bind_path = container['disk_path']
-        stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, "", timestamp)
-        register_task(stop_task.id, "stop_container_task")
+        try:
+            run_playbooks.stop_app_on_container(container['host'], container['container_name'], app, app_files,
+                                                rm_container="", bind_path=container.get('disk_path', ''), timestamp=timestamp)
+        except Exception as e:
+            error_msg = "Error stopping aplication {0} inside container {1}: {2}".format(app, container['container_name'], str(e))
+            errors.append(error_msg)
+            print(error_msg)
+
+    # Stop containers on remote hosts and remove from inventory (best-effort, synchronous)
+    for container in container_list:
+        try:
+            stop_container(container['host'], container['container_name'], container.get('disk_path', ''))
+        except Exception as e:
+            errors.append(str(e)) # Error is already formatted inside stop_container
+            print(str(e))
 
     if len(errors) > 0:
         raise Exception(str(errors))
@@ -1325,13 +1373,22 @@ def remove_container_from_app_db(full_url, container_name, app):
 
 @shared_task
 def stop_container(host, container_name, bind_path=None, clean_bind_dir=True):
+    error_msg = ""
+    try:
+        ## Stop container on remote host
+        run_playbooks.stop_container(host, container_name, bind_path, clean_bind_dir)
+    except Exception as e:
+        error_msg += "Error removing container {0} from remote host {1}: {2}".format(container_name, host, str(e))
+    try:
+        # update inventory file
+        with redis_server.lock(lock_key):
+            remove_container_from_host(container_name, host)
+    except Exception as e:
+        error_msg += "\nError removing container {0} from inventory: {1}".format(container_name, str(e))
 
-    ## Stop container
-    run_playbooks.stop_container(host, container_name, bind_path, clean_bind_dir)
+    if error_msg:
+        raise Exception(error_msg)
 
-    # update inventory file
-    with redis_server.lock(lock_key):
-        remove_container_from_host(container_name, host)
 
 @shared_task
 def stop_app_on_container_task(host, container_name, bind_path, app, app_files, rm_container, timestamp=None, download_time=0, upload_time=0):
