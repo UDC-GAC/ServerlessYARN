@@ -6,7 +6,7 @@ From: python:3.12-slim
 
 %post
     export POWERAPI_REPOSITORY="https://github.com/powerapi-ng/powerapi.git"
-    export STABLEWATTS_REPOSITORY="https://github.com/TomeMD/stablewatts-formula.git"
+    export STABLEWATTS_REPOSITORY="https://github.com/UDC-GAC/stablewatts-formula.git"
     export POWERAPI_DIR=/powerapi
     export STABLEWATTS_DIR=/stablewatts
     export POWERAPI_VERSION="v2.10.0"
