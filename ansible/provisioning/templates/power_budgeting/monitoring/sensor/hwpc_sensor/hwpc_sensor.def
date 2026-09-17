@@ -86,7 +86,6 @@ Stage: sensor-runner
 
 %files
     {{ power_sensor_path }}/config/hwpc-sensor-entrypoint.sh /entrypoint.sh
-    {{ power_sensor_path }}/config/hwpc-sensor-config.json /hwpc-config.json
 
 %post
     export DEBIAN_FRONTEND=noninteractive
@@ -117,8 +116,8 @@ Stage: sensor-runner
 
 %runscript
     echo "Running HWPC Sensor..."
-    /entrypoint.sh --config-file /hwpc-config.json
+    /entrypoint.sh --config-file /reporting/hwpc-config.json
 
 %startscript
     echo "Starting HWPC Sensor..."
-    /entrypoint.sh --config-file /hwpc-config.json
+    /entrypoint.sh --config-file /reporting/hwpc-config.json

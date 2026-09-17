@@ -27,13 +27,26 @@
         dest: "{{ power_sensor_path }}/config/{{ item | basename }}"
       loop: "{{ found_config_files }}"
 
+    - name: Template HWPC sensor configuration
+      #when: not stat_output.stat.exists
+      template:
+        src: "{{ templates_dir }}/power_budgeting/monitoring/sensor/{{ power_sensor }}/config/hwpc-sensor-config.json"
+        dest: "{{ sensor_reporting_path }}/hwpc-config.json"
+
     - name: Build image
       when: not stat_output.stat.exists
+      delegate_to: localhost
       shell: "{{ singularity_command_alias }} build image/{{ image_file }} image/{{ definition_file }}"
       args:
         chdir: "{{ power_sensor_path }}"
         executable: /bin/bash
         creates: "image/{{ image_file }}"
+
+    - name: Copy image to hosts
+      when: not stat_output.stat.exists
+      synchronize:
+        src: "{{ power_sensor_path }}/image/{{ image_file }}"
+        dest: "{{ power_sensor_path }}/image/{{ image_file }}"
 
     - name: Check containers status
       shell: "sudo {{ singularity_command_alias }} instance list -j"
@@ -58,7 +71,12 @@
 
     # TODO: Check if it is better to pin sensor to core 0 (--cpuset-cpus 0 --cpus 0.5)
     - name: Start power sensor apptainer container
-      shell: "sudo {{ singularity_command_alias }} instance start -C --net --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} --bind /proc:/host_proc --bind /sys:/sys --bind {{ sensor_reporting_path }}:/reporting image/{{ image_file }} {{ container_name }}"
+      shell: "sudo {{ singularity_command_alias }} instance start -C --net \
+              --network {{ mode }}_{{ inventory_hostname }}{{ extra_connection }} \
+              --bind /proc:/host_proc \
+              --bind /sys:/sys \
+              --bind {{ sensor_reporting_path }}:/reporting \
+              image/{{ image_file }} {{ container_name }}"
       when: "container_name not in apptainer_list_output.stdout"
       args:
         chdir: "{{ power_sensor_path }}"
