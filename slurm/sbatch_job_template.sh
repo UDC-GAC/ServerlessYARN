@@ -24,7 +24,7 @@ echo TMPDIR=$TMPDIR
 ## Load modules
 module load gnu8/8.3.0
 module load python/3.8.13
-module load jdk/openjdk/8u382
+module load jdk/openjdk/8u412
 
 cleanup()
 {
