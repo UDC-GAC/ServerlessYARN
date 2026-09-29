@@ -7,6 +7,8 @@ from serverlessyarn_utils.web_utils import web_request
 
 rescaler_port = "8000"
 
+allocate_current_as_min = False ## False to allow ServerlessContainers to set the initial allocation considering boundaries
+
 # usage example: add_containers.py [{'container_name': 'host1-cont1', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'energy_max': 100, 'energy_min': 30, 'cpu_boundary': 25, 'mem_boundary': 256, 'energy_boundary': 10, 'disk': 'hdd_0', 'disk_path: '$HOME/hdd', 'disk_max': 200, 'disk_min': 50}, {'container_name': 'host1-cont1'...}] config/config.yml
 
 def create_container_info(container_data, resources, config):
@@ -30,11 +32,14 @@ def create_container_info(container_data, resources, config):
         ## Resources
         container_info['container']['resources'][res] = dict()
         container_info['container']['resources'][res]['max'] = int(container_data[f'{res}_max'])
-        container_info['container']['resources'][res]['current'] = int(container_data[f'{res}_min'])
         container_info['container']['resources'][res]['min'] = int(container_data[f'{res}_min'])
         container_info['container']['resources'][res]['guard'] = (container_data.get(f'{res}_guard', 'true') == 'true')
         if f'{res}_weight' in container_data:
             container_info['container']['resources'][res]['weight'] = float(container_data[f'{res}_weight'])
+        if allocate_current_as_min:
+            container_info['container']['resources'][res]['current'] = int(container_data[f'{res}_min'])
+        else:
+            container_info['container']['resources'][res]['current'] = -1 ## use -1 as a signal for ServerlessContainers
 
         ## Limits
         container_info['limits']['resources'][res] = dict()
