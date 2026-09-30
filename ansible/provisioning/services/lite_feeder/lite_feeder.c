@@ -16,6 +16,15 @@
  *   SWP  sys.swap.free (MB)                                                tags host
  *   NET  sys.net.in.mb, sys.net.out.mb (Mbit/s), sys.net.usage (%)         tags host, device
  *
+ * Additional metrics (not included in atop):
+ *
+ *   PRW  proc.cpu.wait                          (clock ticks per second)   tags host, pid, command
+ *
+ * proc.cpu.wait is the time that the threads of the process were runnable but waiting for a CPU (run-queue delay in
+ * /proc/<pid>/task/<tid>/schedstat, the same state that PSI counts as CPU pressure), in the same units as
+ * proc.cpu.user: added up by host, it is the CPU wait of the container in shares (100 = one thread waiting all the
+ * time).
+ *
  * Differences with the original pipeline (none of them changes the data points):
  *   - samples are aligned to multiples of the interval (e.g., every second at x.000 s);
  *   - HTTP requests without gzip, split so that each body stays below MAX_BODY_BYTES (OpenTSDB rejects bodies that its
@@ -26,7 +35,7 @@
  *   -i  sampling interval in seconds (default 5, as atop in ServerlessYARN)
  *   -H/-P  OpenTSDB address (default: OPENTSDB_URL/OPENTSDB_PORT from $BDWATCHDOG_PATH/services_config.yml,
  *          or /opt/BDWatchdog/services_config.yml)
- *   -g  comma-separated groups (default CPU,cpu,MEM,SWP,NET,PRC,PRM,PRD)
+ *   -g  comma-separated groups (default CPU,cpu,MEM,SWP,NET,PRC,PRM,PRD,PRW)
  *   -s  print the JSON documents to stdout (one per line, as atop_to_json.py) instead of sending them
  *   -c  stop after this number of samples (default: run forever)
  *
@@ -36,6 +45,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -56,7 +66,7 @@ typedef unsigned long long u64;
 static int interval = 5, to_stdout = 0;
 static long max_samples = -1;
 static char tsdb_host[256] = "", tsdb_port[16] = "";
-static int g_CPU = 1, g_cpu = 1, g_MEM = 1, g_SWP = 1, g_NET = 1, g_PRC = 1, g_PRM = 1, g_PRD = 1;
+static int g_CPU = 1, g_cpu = 1, g_MEM = 1, g_SWP = 1, g_NET = 1, g_PRC = 1, g_PRM = 1, g_PRD = 1, g_PRW = 1;
 static long hertz, pagesize;
 static char host_tag[512];
 
@@ -402,6 +412,7 @@ typedef struct {
     int pid;
     u64 start, utime, stime, rsz, wsz;  /* rsz/wsz in 512-byte sectors, as atop */
     u64 vmem_kb, rmem_kb;
+    u64 wait_ns;                        /* run-queue delay of its threads during the interval */
     char comm[64], state;
     int io_ok;
 } proc_info;
@@ -409,7 +420,60 @@ typedef struct {
 static proc_info *prev_procs = NULL, *cur_procs = NULL;
 static size_t n_prev = 0, n_cur = 0, cap_prev = 0, cap_cur = 0;
 
+/* Run-queue delay of each thread in the previous sample (sorted by tid), to compute per-thread deltas: a sum per
+   process would lose the whole delay of the threads that exit */
+typedef struct { int tid; u64 delay; } thread_info;
+static thread_info *prev_threads = NULL, *cur_threads = NULL;
+static size_t n_prev_thr = 0, n_cur_thr = 0, cap_prev_thr = 0, cap_cur_thr = 0;
+
 static int cmp_pid(const void *a, const void *b) { return ((const proc_info *)a)->pid - ((const proc_info *)b)->pid; }
+static int cmp_tid(const void *a, const void *b) { return ((const thread_info *)a)->tid - ((const thread_info *)b)->tid; }
+
+static const proc_info *find_prev(int pid) {
+    proc_info key;
+    key.pid = pid;
+    return bsearch(&key, prev_procs, n_prev, sizeof(proc_info), cmp_pid);
+}
+
+/* Run-queue delay (ns) of the threads of a process since the previous sample. /proc/<pid>/schedstat only has the
+   main thread. Threads not seen before (e.g., created during the interval, or all of them in a new process) count
+   since their start, as the counters of new processes do */
+static u64 read_run_delay(int pid, int new_proc) {
+    char path[96], buf[128];
+    snprintf(path, sizeof path, "/proc/%d/task", pid);
+    DIR *d = opendir(path);
+    if (!d) return 0;
+    u64 delta = 0;
+    struct dirent *e;
+    while ((e = readdir(d))) {
+        if (!isdigit((unsigned char)e->d_name[0])) continue;
+        int tid = atoi(e->d_name);
+        snprintf(path, sizeof path, "/proc/%d/task/%d/schedstat", pid, tid);
+        int fd = open(path, O_RDONLY);
+        if (fd < 0) continue;
+        ssize_t n = read(fd, buf, sizeof buf - 1);
+        close(fd);
+        u64 run, delay;
+        if (n <= 0) continue;
+        buf[n] = 0;
+        /* Fields: time on the CPU (ns), time waiting on a run queue (ns), number of time slices */
+        if (sscanf(buf, "%llu %llu", &run, &delay) != 2) continue;
+        if (n_cur_thr == cap_cur_thr) {
+            cap_cur_thr = cap_cur_thr ? cap_cur_thr * 2 : 1024;
+            cur_threads = realloc(cur_threads, cap_cur_thr * sizeof(thread_info));
+        }
+        cur_threads[n_cur_thr].tid = tid;
+        cur_threads[n_cur_thr++].delay = delay;
+        const thread_info *q = NULL;
+        if (!new_proc) {
+            thread_info key = {tid, 0};
+            q = bsearch(&key, prev_threads, n_prev_thr, sizeof(thread_info), cmp_tid);
+        }
+        delta += (q && q->delay <= delay) ? delay - q->delay : delay;
+    }
+    closedir(d);
+    return delta;
+}
 
 static int read_proc(int pid, proc_info *p) {
     char path[64], buf[2048];
@@ -435,6 +499,11 @@ static int read_proc(int pid, proc_info *p) {
     p->rmem_kb = (u64)(rss > 0 ? rss : 0) * (pagesize / 1024);  /* photoproc.c: rmem *= pagesize/1024 */
     p->rsz = p->wsz = 0;
     p->io_ok = 0;
+    p->wait_ns = 0;
+    if (g_PRW) {
+        const proc_info *q = find_prev(pid);
+        p->wait_ns = read_run_delay(pid, !q || q->start != start);
+    }
     if (g_PRD) {
         snprintf(path, sizeof path, "/proc/%d/io", pid);
         f = fopen(path, "r");
@@ -452,12 +521,6 @@ static int read_proc(int pid, proc_info *p) {
     return 1;
 }
 
-static const proc_info *find_prev(int pid) {
-    proc_info key;
-    key.pid = pid;
-    return bsearch(&key, prev_procs, n_prev, sizeof(proc_info), cmp_pid);
-}
-
 /* custom_filter.py: substring match on "(command)" */
 static int command_excluded(const char *cmd, const char *const *list) {
     for (; *list; list++)
@@ -467,6 +530,7 @@ static int command_excluded(const char *cmd, const char *const *list) {
 
 static void sample_procs(long ts, int iv) {
     n_cur = 0;
+    n_cur_thr = 0;
     DIR *d = opendir("/proc");
     if (!d) return;
     struct dirent *e;
@@ -498,15 +562,19 @@ static void sample_procs(long ts, int iv) {
         if (q && q->start != p->start) q = NULL;
         int excluded = command_excluded(cmd, prc_prm_excluded);
 
-        if (g_PRC && !excluded) {
-            u64 du = p->utime - (q ? q->utime : 0), ds = p->stime - (q ? q->stime : 0);
-            snprintf(v1, sizeof v1, "%.2f", 1.0 * du / iv);
-            snprintf(v2, sizeof v2, "%.2f", 1.0 * ds / iv);
-            /* value_filter.py: user + kernel + sleep average (always 0 in current kernels) < 0.05 */
-            if (atof(v1) + atof(v2) + 0.0 >= 0.05) {
-                add_doc("proc.cpu.user", ts, v1, tags);
-                add_doc("proc.cpu.kernel", ts, v2, tags);
-            }
+        u64 du = p->utime - (q ? q->utime : 0), ds = p->stime - (q ? q->stime : 0);
+        snprintf(v1, sizeof v1, "%.2f", 1.0 * du / iv);
+        snprintf(v2, sizeof v2, "%.2f", 1.0 * ds / iv);
+        /* value_filter.py: user + kernel + sleep average (always 0 in current kernels) < 0.05 */
+        int cpu_sent = !excluded && atof(v1) + atof(v2) + 0.0 >= 0.05;
+        if (g_PRC && cpu_sent) {
+            add_doc("proc.cpu.user", ts, v1, tags);
+            add_doc("proc.cpu.kernel", ts, v2, tags);
+        }
+        /* Along with the CPU usage (also 0.00, so that each CPU usage point has its wait), or alone if it waited */
+        if (g_PRW && !excluded) {
+            snprintf(v1, sizeof v1, "%.2f", p->wait_ns * (double)hertz / (1e9 * iv));
+            if (cpu_sent || atof(v1) >= 0.05) add_doc("proc.cpu.wait", ts, v1, tags);
         }
         /* custom_filter.py looks for the command in column 5, which is the state in PRM lines: no PRM line is
            ever excluded by command */
@@ -535,6 +603,13 @@ static void sample_procs(long ts, int iv) {
     size_t tmp_cap = cap_prev;
     prev_procs = cur_procs; cap_prev = cap_cur; n_prev = n_cur;
     cur_procs = tmp; cap_cur = tmp_cap;
+    if (g_PRW) {
+        qsort(cur_threads, n_cur_thr, sizeof(thread_info), cmp_tid);
+        thread_info *ttmp = prev_threads;
+        size_t ttmp_cap = cap_prev_thr;
+        prev_threads = cur_threads; cap_prev_thr = cap_cur_thr; n_prev_thr = n_cur_thr;
+        cur_threads = ttmp; cap_cur_thr = ttmp_cap;
+    }
 }
 
 /* ------------------------------------------------------------------------------------------------ config */
@@ -557,7 +632,7 @@ static void read_services_config(void) {
 }
 
 static void parse_groups(const char *list) {
-    g_CPU = g_cpu = g_MEM = g_SWP = g_NET = g_PRC = g_PRM = g_PRD = 0;
+    g_CPU = g_cpu = g_MEM = g_SWP = g_NET = g_PRC = g_PRM = g_PRD = g_PRW = 0;
     char buf[256];
     snprintf(buf, sizeof buf, "%s", list);
     for (char *t = strtok(buf, ","); t; t = strtok(NULL, ",")) {
@@ -569,6 +644,7 @@ static void parse_groups(const char *list) {
         else if (!strcmp(t, "PRC")) g_PRC = 1;
         else if (!strcmp(t, "PRM")) g_PRM = 1;
         else if (!strcmp(t, "PRD")) g_PRD = 1;
+        else if (!strcmp(t, "PRW")) g_PRW = 1;
         else log_err("unknown group '%s' ignored", t);
     }
 }
@@ -626,7 +702,7 @@ int main(int argc, char **argv) {
         if (g_CPU || g_cpu) sample_cpu(ts, iv);
         sample_mem(ts, iv);
         sample_net(ts, iv);
-        if (g_PRC || g_PRM || g_PRD) sample_procs(ts, iv);
+        if (g_PRC || g_PRM || g_PRD || g_PRW) sample_procs(ts, iv);
         flush_batch();
     }
     return 0;
