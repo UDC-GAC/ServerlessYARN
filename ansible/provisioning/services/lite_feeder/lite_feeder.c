@@ -18,7 +18,8 @@
  *
  * Differences with the original pipeline (none of them changes the data points):
  *   - samples are aligned to multiples of the interval (e.g., every second at x.000 s);
- *   - one HTTP request per sample (chunks of 700 points), without gzip; failed requests are retried once and the
+ *   - HTTP requests without gzip, split so that each body stays below MAX_BODY_BYTES (OpenTSDB rejects bodies that its
+ *     HTTP decoder splits in chunks, i.e., above 8192 bytes); failed requests are retried once and the
  *     sample is dropped, instead of stopping after 3 consecutive failures.
  *
  * Usage: lite_feeder [-i interval] [-H opentsdb_host] [-P opentsdb_port] [-g groups] [-s] [-c count]
@@ -45,7 +46,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAX_BATCH 50
+#define MAX_BODY_BYTES 8000  /* Netty (OpenTSDB) splits bodies above 8192 bytes in chunks, which are rejected */
 #define MAX_CPUS 1024
 #define MAX_IFS 64
 
@@ -146,8 +147,13 @@ static void add_doc(const char *metric, long ts, const char *value, const char *
         printf("{\"metric\": \"%s\", \"timestamp\": \"%ld\", \"value\": \"%s\", \"tags\": {%s}}\n", metric, ts, value, tags);
         return;
     }
-    sb_add(&batch, "%s{\"metric\": \"%s\", \"timestamp\": %ld, \"value\": %s, \"tags\": {%s}}", batch_docs ? ", " : "[", metric, ts, value, tags);
-    if (++batch_docs >= MAX_BATCH) flush_batch();
+    char doc[1400];
+    int len = snprintf(doc, sizeof doc, "{\"metric\": \"%s\", \"timestamp\": %ld, \"value\": %s, \"tags\": {%s}}", metric, ts, value, tags);
+    if (len < 0 || len >= (int)sizeof doc) { log_err("document too long, discarded: %s", metric); return; }
+    /* Body = "[" + docs separated by ", " + "]" */
+    if (batch_docs > 0 && batch.len + 2 + len + 1 > MAX_BODY_BYTES) flush_batch();
+    sb_add(&batch, "%s%s", batch_docs ? ", " : "[", doc);
+    batch_docs++;
 }
 
 static int tsdb_connect(void) {
