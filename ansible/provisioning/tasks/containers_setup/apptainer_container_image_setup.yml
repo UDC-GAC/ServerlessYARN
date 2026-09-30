@@ -50,6 +50,12 @@
           loop_control:
             loop_var: file
 
+        - name: Copy lite_feeder source to BDWatchdog source dir (compiled in the image)
+          when: container_metrics_feeder == "lite"
+          copy:
+            src: "{{ services_dir }}/lite_feeder/lite_feeder.c"
+            dest: "{{ bdwatchdog_source_path }}/MetricsFeeder/lite_feeder/"
+
         ## Copy other files
         # Install script
         - name: Copy app install script if applicable ({{ item }})

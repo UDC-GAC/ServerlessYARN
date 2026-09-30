@@ -11,3 +11,7 @@ cgroups_version: v1
 
 ## Sampling frequency (in seconds) of all the monitoring tools involved in the platform (BDWatchdog, PowerSender,...)
 sampling_frequency: 5
+
+## Metrics feeder run inside the containers: "atop" (atop from BDWatchdog MetricsFeeder) or "lite" (services/lite_feeder)
+## Hadoop/Spark apps keep atop, as they need the Java process name translation
+container_metrics_feeder: atop

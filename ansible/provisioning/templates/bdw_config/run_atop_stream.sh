@@ -24,6 +24,11 @@ source "${scriptDir}/../../set_pythonpath.sh"
 #atop 5 -P $METRIC | python -m cProfile -o "`hostname`_profiling_processer.txt" ./src/atop/atop_to_json.py | python -m cProfile -o "`hostname`_profiling_sender.txt" ./src/pipelines/send_to_OpenTSDB.py
 #atop 5 -P $METRIC | strace -T -ttt -o strace_`hostname`_processer.out python ./src/atop/atop_to_json.py | strace -T -ttt -o strace_`hostname`_sender.out python ./src/pipelines/send_to_OpenTSDB.py
 
+{% if container_metrics_feeder == 'lite' %}
+lite_feeder -i {{ sampling_frequency }} -g $METRIC
+{% else %}
 atop {{ sampling_frequency }} -a -P $METRIC \
   | python3 ${BDWATCHDOG_PATH}/MetricsFeeder/src/atop/atop_to_json.py \
   | python3 ${BDWATCHDOG_PATH}/MetricsFeeder/src/pipelines/send_to_OpenTSDB.py
+{% endif %}
+
