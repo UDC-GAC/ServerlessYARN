@@ -28,7 +28,7 @@ The details of the original pipeline are also replicated, including its quirks:
 * `sys.cpu.usage` counts `iowait` as busy time; `transport` and `network` devices are always reported as
   0.00; `sys.net.usage` is set to the reported speed (0) if the interface does not provide one.
 
-Differences (which do not affect the data points): samples are aligned to interval boundaries (x.000 s), one HTTP request is sent per sample without gzip, and a failed request is retried once before the sample is discarded (the original stopped after 3 failures).
+Differences (which do not affect the data points): samples are aligned to interval boundaries (x.000 s); points are sent without gzip in HTTP requests of at most 8000 bytes (OpenTSDB rejects bodies above 8192 bytes, which its HTTP decoder splits in chunks, unless `tsd.http.request.enable_chunked` is set; the original pipeline stays below that limit thanks to gzip); and a failed request is retried once before its points are discarded (the original stopped after 3 failures).
 
 ## Usage
 
@@ -40,8 +40,13 @@ lite_feeder -i 1 -s -c 5              # Print 5 samples (one JSON object per lin
 lite_feeder -i 1 -H 10.0.0.1 -P 4242 -g PRC,PRM,CPU # Send to a custom OpenTSDB (10.0.0.1)
 ```
 
-In ServerlessYARN, it is enabled with `container_metrics_feeder: lite` in the configuration. The base image (`templates/apps/ubuntu_container.def`) always compiles it, and
-`templates/bdw_config/run_atop_stream.sh` starts it instead of atop. Hadoop/Spark applications continue to use atop because they translate Java process names.
+In ServerlessYARN, it is enabled with `container_metrics_feeder: lite` in the configuration:
+
+* the base image (`templates/apps/ubuntu_container.def`) gets `lite_feeder.c`, compiles it and starts it from
+  `%startscript`, per-process disk metrics (PRD) are only sent if `disk_capabilities` or `disk_scaling` are enabled;
+* Hadoop/Spark applications keep atop + BDWatchdog MetricsFeeder, as they translate Java process names: with
+  `lite`, `hadoop_app.def` copies BDWatchdog and installs them itself (`templates/apps/atop_metrics_feeder.j2`, also
+  used by the base image with `atop`).
 
 ## Validation
 On a node with 573 processes and 1s interval (without OpenTSDB):

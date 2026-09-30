@@ -2,6 +2,10 @@ Bootstrap: localimage
 From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_file }}
 
 %files
+{% if container_metrics_feeder == 'lite' %}
+    # The base image has lite_feeder instead of atop: Hadoop keeps atop + MetricsFeeder (Java process names translation)
+    "{{ bdwatchdog_source_path }}" /opt/BDWatchdog
+{% endif %}
     {{ installed_app_directory }}/hadoop_files /opt/hadoop_files
     {{ installed_app_directory }}/setup.sh /opt/setup.sh
     {{ installed_app_directory }}/java_snitch.sh /opt/java_snitch.sh
@@ -15,6 +19,12 @@ From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_fil
     export DEBIAN_FRONTEND=noninteractive
     apt-get -y update
     apt-get install -y curl wget gettext-base
+{% if container_metrics_feeder == 'lite' %}
+# If base image dis not install atop, hadoop image installs it
+{% include '../bdw_config/atop_metrics_feeder.j2' %}
+
+    cd /opt
+{% endif %}
 
     # Trying to setup firewall (iptables prevent hadoop cluster from working)
     #apt-get remove -y iptables

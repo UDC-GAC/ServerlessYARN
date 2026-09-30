@@ -1,0 +1,24 @@
+## atop + BDWatchdog MetricsFeeder (included by the image definitions that run the atop pipeline)
+## BDWatchdog must be copied to /opt/BDWatchdog through %files
+export ATOP_INSTALL_DIRECTORY="/opt/atop"
+export ATOP_VERSION="2.4.0"
+apt-get -y install build-essential make git libncurses5-dev libncursesw5-dev zlib1g-dev libcap-dev
+apt-get install -y --no-install-recommends python3-pip
+
+# Install atop from source
+mkdir -p "${ATOP_INSTALL_DIRECTORY}"
+git clone https://github.com/Atoptool/atop.git "${ATOP_INSTALL_DIRECTORY}"
+cd "${ATOP_INSTALL_DIRECTORY}"
+git checkout tags/v${ATOP_VERSION}
+# Set NOPERFEVENT flag during compilation to avoid the use of perf event counters
+sed -i 's/ # -DNOPERFEVENT/-DNOPERFEVENT/' "${ATOP_INSTALL_DIRECTORY}/Makefile"
+make clean && make
+
+# Move atop daemon and remove sources
+mv "${ATOP_INSTALL_DIRECTORY}/atop" /usr/local/bin/
+cd / && rm -rf "${ATOP_INSTALL_DIRECTORY}"
+
+# Install MetricsFeeder
+cd /opt/BDWatchdog/MetricsFeeder
+pip3 install -r requirements.txt
+cd /

@@ -33,14 +33,16 @@
             src: "{{ templates_dir }}/apps/{{ definition_file }}"
             dest: "{{ installed_app_directory }}/{{ definition_file }}"
 
-        ## Copy BDWatchdog source
+        ## Copy BDWatchdog source (Hadoop apps always use atop)
         - name: Copy BDWatchdog source
+          when: container_metrics_feeder != "lite" or item == "hadoop_app"
           synchronize:
             src: "{{ externals_dir }}/BDWatchdog/"
             dest: "{{ bdwatchdog_source_path }}"
             recursive: true
 
         - name: Copy BDWatchdog atop scripts to BDWatchdog source dir
+          when: container_metrics_feeder != "lite" or item == "hadoop_app"
           template:
             src: "{{ templates_dir }}/bdw_config/{{ file }}"
             dest: "{{ bdwatchdog_source_path }}/MetricsFeeder/scripts/{{ file }}"
@@ -50,11 +52,22 @@
           loop_control:
             loop_var: file
 
-        - name: Copy lite_feeder source to BDWatchdog source dir (compiled in the image)
-          when: container_metrics_feeder == "lite"
+        - name: Copy lite_feeder source to the base image directory (compiled in the image)
+          when: container_metrics_feeder == "lite" and item == "base"
           copy:
             src: "{{ services_dir }}/lite_feeder/lite_feeder.c"
-            dest: "{{ bdwatchdog_source_path }}/MetricsFeeder/lite_feeder/"
+            dest: "{{ installed_app_directory }}/lite_feeder.c"
+
+        - name: Template lite_feeder scripts to the base image directory
+          when: container_metrics_feeder == "lite" and item == "base"
+          template:
+            src: "{{ services_dir }}/lite_feeder/{{ file }}"
+            dest: "{{ installed_app_directory }}/{{ file }}"
+          with_items:
+            - start.sh
+            - start_tmux.sh
+          loop_control:
+            loop_var: file
 
         ## Copy other files
         # Install script
