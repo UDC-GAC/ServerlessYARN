@@ -12,6 +12,14 @@ from ui.views.core.utils import redirect_with_errors, checkInvalidConfig
 from ui.views.rules.operations import processRulesPost
 from ui.views.rules.utils import jsonBooleanToHumanReadable, getRulesResources
 
+# Form fields used to change the number of events required by a rule and the event counter each one refers to
+EVENTS_REQUIRED_FIELDS = {
+    "up_events_required": "events.scale.up",
+    "down_events_required": "events.scale.down",
+    "idle_events_required": "events.idle",
+    "reclaim_events_required": "events.reclaim",
+}
+
 # ------------------------------------ Rules views ------------------------------------
 
 def rules(request):
@@ -20,8 +28,9 @@ def rules(request):
     if len(request.POST) > 0:
         errors = []
         rule_name = request.POST['name']
-        rules_fields = ["amount","rescale_policy","up_events_required","down_events_required"]
-        rules_fields_put_url = ["amount","policy","events_required","events_required"]
+        rules_fields = ["amount", "rescale_policy"] + list(EVENTS_REQUIRED_FIELDS)
+        rules_fields_put_url = ["amount", "policy"] + ["events_required"] * len(EVENTS_REQUIRED_FIELDS)
+
         rules_fields_dict = dict(zip(rules_fields, rules_fields_put_url))
 
         for field in rules_fields:
@@ -60,17 +69,11 @@ def rules(request):
             form_initial_data['rescale_policy'] = item['rescale_policy']
 
         rule_words = item['rule_readable'].split(" ")
-        if 'events.scale.down' in rule_words:
-            index = rule_words.index("events.scale.down")
-            value = rule_words[index + 2]
-            editable_data += 1
-            form_initial_data['down_events_required'] = value
-
-        if 'events.scale.up' in rule_words:
-            index = rule_words.index("events.scale.up")
-            value = rule_words[index + 2]
-            editable_data += 1
-            form_initial_data['up_events_required'] = value
+        for field, event_var in EVENTS_REQUIRED_FIELDS.items():
+            if event_var in rule_words:
+                index = rule_words.index(event_var)
+                editable_data += 1
+                form_initial_data[field] = rule_words[index + 2]
 
         ruleForm=RuleForm(initial = form_initial_data)
 
@@ -80,11 +83,9 @@ def rules(request):
         if not ('rescale_policy' in item and item.get('rescale_type', "") == "up"):
             ruleForm.helper['rescale_policy'].update_attributes(type="hidden")
 
-        if 'events.scale.down' not in rule_words:
-            ruleForm.helper['down_events_required'].update_attributes(type="hidden")
-
-        if 'events.scale.up' not in rule_words:
-            ruleForm.helper['up_events_required'].update_attributes(type="hidden")
+        for field, event_var in EVENTS_REQUIRED_FIELDS.items():
+            if event_var not in rule_words:
+                ruleForm.helper[field].update_attributes(type="hidden")
 
         item['form'] = ruleForm
         item['editable_data'] = editable_data

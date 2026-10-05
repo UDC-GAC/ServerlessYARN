@@ -3,6 +3,7 @@
 def jsonBooleanToHumanReadable(jsonBoolExpr):
     boolString = ""
     boolOperators = ['and','or','==','>=','<=','<','>','+','-','*','/']
+    unaryOperators = {'!': 'NOT ', '!!': ''}
 
     ## Check if dict or literal
     if type(jsonBoolExpr) is dict:
@@ -18,6 +19,12 @@ def jsonBooleanToHumanReadable(jsonBoolExpr):
             boolString += jsonBooleanToHumanReadable(jsonBoolValues[i])
             if i < len(jsonBoolValues) - 1:
                 boolString += " " + firstElement.upper() + " "
+
+    elif firstElement in unaryOperators:
+        ## Got unary expression (e.g., {"!": [{"var": "cpu.structure.cpu.lent"}]})
+        operand = jsonBoolExpr[firstElement]
+        operand = operand[0] if isinstance(operand, list) else operand
+        boolString = unaryOperators[firstElement] + jsonBooleanToHumanReadable(operand)
 
     elif firstElement == 'var':
         ## Got variable

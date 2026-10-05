@@ -6,13 +6,10 @@ def processRulesPost(request, url, rule_name, field, field_put_url):
     error = ""
     if new_value != '':
         put_field_data = {'value': new_value}
-        if field_put_url == "events_required":
-            if field == "up_events_required":
-                event_type = "up"
-            else:
-                event_type = "down"
 
-            put_field_data['event_type'] = event_type
+        if field_put_url == "events_required":
+            # e.g., 'idle_events_required' -> 'idle'
+            put_field_data['event_type'] = field.replace("_events_required", "")
 
         error_message = "Error submitting {0} for rule {1}".format(field, rule_name)
         error, _ = web_request(full_url, "put", error_message, put_field_data)

@@ -1580,6 +1580,14 @@ class RuleForm(forms.Form):
             min_value=0,
             required=True
             ) 
+    idle_events_required = forms.IntegerField(label="Idle Events Required",
+            min_value=1,
+            required=True
+            )
+    reclaim_events_required = forms.IntegerField(label="Reclaim Events Required",
+            min_value=1,
+            required=True
+            )
     rescale_policy = forms.ChoiceField(label="Rescale Policy",
             choices = (
                 ("proportional", "Proportional"),
@@ -1600,6 +1608,8 @@ class RuleForm(forms.Form):
             Field('amount'),
             Field('up_events_required'),
             Field('down_events_required'),
+            Field('idle_events_required'),
+            Field('reclaim_events_required'),
             Field('rescale_policy'),
             FormActions(
                 Submit('save', 'Save changes', css_class='caja'),
