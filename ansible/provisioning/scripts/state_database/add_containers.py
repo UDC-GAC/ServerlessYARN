@@ -20,7 +20,7 @@ def create_container_info(container_data, resources, config):
             host_rescaler_ip = container_data['host'],
             host_rescaler_port = rescaler_port,
             host = container_data['host'],
-            guard = True,
+            guard = (container_data.get('guard', 'true') == 'true'),
             subtype = 'container'
         ),
         limits = dict(

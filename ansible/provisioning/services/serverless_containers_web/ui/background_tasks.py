@@ -518,6 +518,24 @@ def change_app_state_in_db(url, app, state):
     if actual_try >= max_retries:
         raise Exception("Reached max tries when changing app {0} execution state to {1}".format(app, state))
 
+def enable_container_guard_in_db(url, container_name):
+    max_retries = 10
+    actual_try = 0
+    full_url = f"{url}{container_name}/guard"
+    while actual_try < max_retries:
+
+        error_message = "Error enabling guard for container {0}".format(container_name)
+        error, response = web_request(full_url, "put", error_message)
+
+        if response != "":
+            if not error: break
+            else: raise Exception(error)
+
+        actual_try += 1
+
+    if actual_try >= max_retries:
+        raise Exception("Reached max tries when enabling guard for container {0}".format(container_name))
+
 def add_container_to_app_in_db(full_url, container, app):
     max_retries = 10
     actual_try = 0
@@ -628,6 +646,7 @@ def deploy_app_containers(url, new_containers, app, app_files, container_resourc
                     container_info = {}
                     container_info['container_name'] = container
                     container_info['host'] = host
+                    container_info['guard'] = "false" ## containers are not allowed to scale until the app has actually started running
                     # Resources
                     for resource in ['cpu', 'mem']:
                         for key in ['max', 'min', 'weight', 'boundary', 'boundary_type']:
@@ -931,6 +950,8 @@ def start_app_on_containers(url, app, app_containers, app_files):
     tasks = []
     for container in app_containers:
         full_url = url + "container/{0}/{1}".format(container['container_name'], app)
+        # Containers are allowed to be scaled from now on, as the app is going to start running
+        enable_container_guard_in_db(url, container['container_name'])
         start_task = start_app_on_container_task.si(full_url, container['host'], container, app, app_files)
         tasks.append(start_task)
 
@@ -960,15 +981,21 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
     formatted_app_containers = str(app_containers).replace(' ','')
 
     download_time, upload_time = 0,0
+    # Setup network and hadoop on containers (containers are not guarded yet, so they are not scaled during the setup)
     if not global_hdfs_data:
         run_playbooks.setup_hadoop_network_on_containers(list(new_containers.keys()), app, app_files, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"])
     else:
-        ## Download required input data from global HDFS to local one
-        if "global_input" in  global_hdfs_data and global_hdfs_data["global_input"] != "":
-            change_app_state_in_db(url, app, "hdfs_downloading")
-        download_time = run_playbooks.setup_hadoop_network_with_global_hdfs(list(new_containers.keys()), app, app_files, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"], global_hdfs_data)
-        if "global_input" in  global_hdfs_data and global_hdfs_data["global_input"] != "":
-            change_app_state_in_db(url, app, "running")
+        run_playbooks.setup_hadoop_network_with_global_hdfs(list(new_containers.keys()), app, app_files, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"], global_hdfs_data)
+
+    # Containers are ready, allow them to be scaled from now on (data transfers and app execution)
+    for container in app_containers:
+        enable_container_guard_in_db(url, container['container_name'])
+
+    ## Download required input data from global HDFS to local one
+    if global_hdfs_data and global_hdfs_data.get("global_input", "") != "":
+        change_app_state_in_db(url, app, "hdfs_downloading")
+        download_time = run_playbooks.download_global_hdfs_data_to_local(rm_host, rm_container['container_name'], global_hdfs_data, formatted_app_containers)
+        change_app_state_in_db(url, app, "running")
 
     # Lastly, start app on RM container
     full_url = url + "container/{0}/{1}".format(rm_container['container_name'],app)

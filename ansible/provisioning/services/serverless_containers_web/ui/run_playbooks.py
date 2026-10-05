@@ -242,16 +242,29 @@ def setup_hadoop_network_with_global_hdfs(host_names, app_name, app_files, conta
     extravars.update(hadoop_conf)
     extravars.update(global_hdfs_data)
 
-    tags = ["setup_network", "setup_global_hdfs_connection", "setup_hadoop", "download_to_local"]
+    tags = ["setup_network", "setup_hadoop"]
 
-    _, task_timings = run_playbook(playbook_name="manage_app_on_container.yml", tags=tags, limit=(host_names + [global_hdfs_data["namenode_host"]]), extravars=extravars)
+    run_playbook(playbook_name="manage_app_on_container.yml", tags=tags, limit=(host_names + [global_hdfs_data["namenode_host"]]), extravars=extravars)
 
+
+def get_hdfs_transfer_time(task_timings):
     transfer_time = 0
-    if 'Get input data' in task_timings: transfer_time += task_timings['Get input data']
-    if 'Put input data into target HDFS' in task_timings: transfer_time += task_timings['Put input data into target HDFS']
-    if 'Remove file in temporary location' in task_timings: transfer_time += task_timings['Remove file in temporary location']
-    if 'Transfer data' in task_timings: transfer_time += task_timings['Transfer data']
+    for task_name in ['Get input data', 'Put input data into target HDFS', 'Remove file in temporary location', 'Transfer data']:
+        if task_name in task_timings: transfer_time += task_timings[task_name]
     return transfer_time
+
+def download_global_hdfs_data_to_local(rm_host, rm_container, global_hdfs_data, containers_info):
+
+    extravars = {
+        "rm_host": rm_host,
+        "rm_container": rm_container,
+        "containers_info_str": containers_info
+    }
+    extravars.update(global_hdfs_data)
+
+    _, task_timings = run_playbook(playbook_name="manage_app_on_container.yml", tags=["download_to_local"], limit=[global_hdfs_data['namenode_host']], extravars=extravars)
+
+    return get_hdfs_transfer_time(task_timings)
 
 def upload_local_hdfs_data_to_global(rm_host, rm_container, global_hdfs_data, containers_info):
 
@@ -265,12 +278,7 @@ def upload_local_hdfs_data_to_global(rm_host, rm_container, global_hdfs_data, co
     _, task_timings = run_playbook(playbook_name="manage_app_on_container.yml", tags=["upload_to_global"], limit=[global_hdfs_data['namenode_host']], extravars=extravars)
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["remove_global_hdfs_connection"], extravars=extravars)
 
-    transfer_time = 0
-    if 'Get input data' in task_timings: transfer_time += task_timings['Get input data']
-    if 'Put input data into target HDFS' in task_timings: transfer_time += task_timings['Put input data into target HDFS']
-    if 'Remove file in temporary location' in task_timings: transfer_time += task_timings['Remove file in temporary location']
-    if 'Transfer data' in task_timings: transfer_time += task_timings['Transfer data']
-    return transfer_time
+    return get_hdfs_transfer_time(task_timings)
 
 def clean_hdfs(host_name, container):
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["clean_hdfs"], limit=[host_name], extravars={"container": container})
