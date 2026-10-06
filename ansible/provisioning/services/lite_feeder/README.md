@@ -40,7 +40,7 @@ It is given in the same units as `proc.cpu.user` (clock ticks per second, i.e., 
 it gives the CPU wait of the container in shares. The CPU pressure is `wait / (user + kernel + wait)`: the share of
 the CPU demand of the container that was not served.
 
-* It works regarless of the cgroups version (only needs `/proc`).
+* It works regardless of the cgroups version (only needs `/proc`).
 * Deltas are computed per thread, so a thread that exits does not subtract its accumulated delay. Threads not seen 
   before count since their start, as new processes do. The last interval of a thread that exits is lost.
 * It is sent along with `proc.cpu.user` and `proc.cpu.kernel` (with the same filters, also when it is 0.00, so that
