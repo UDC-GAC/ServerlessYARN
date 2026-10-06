@@ -401,8 +401,13 @@ def getContainerAssignationForApp(assignation_policy, allow_oversubscription, ho
         assign_cyclic(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, check_energy, limit_key)
     elif assignation_policy == "Best-effort":
         assign_best_effort(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, check_energy, limit_key)
+    elif all(name in {h['name'] for h in hosts} for name in assignation_policy.split(",")):
+        # TODO: Add separate option to custom hosts, independently of the assignation policy
+        # Comma-separated list of hosts: containers are placed round-robin on these hosts, in the given order
+        hosts_by_name = {h['name']: h for h in hosts}
+        assign_cyclic([hosts_by_name[name] for name in assignation_policy.split(",")], containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, check_energy, limit_key)
     else:
-        error = f"Assignation policy {assignation_policy} not supported. Try one of [Fill-up, Cyclic, Best-effort]"
+        error = f"Assignation policy {assignation_policy} not supported. Try one of [Fill-up, Cyclic, Best-effort] or a comma-separated list of hosts"
         return new_containers, disk_assignation, error
 
     # Check all containers have been allocated
