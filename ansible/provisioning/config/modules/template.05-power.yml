@@ -3,6 +3,7 @@ power_budgeting: no # "yes" to use power budgets, power will be accounted, restr
 power_modelling: no # "yes" to use power models to get CPU Usage/Power proportionalities instead of using fixed values
 online_learning: no # "yes" to automatically retrain power models in real-time using OpenTSDB time series
 power_meter: "smartwatts" # rapl, smartwatts, selfwatts or stablewatts
+scaling_service: "scaler" # scaler or energy_manager: service of ServerlessContainers that scales the containers
 
 ## WattWizard Config
 structures: "host"
