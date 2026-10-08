@@ -34,4 +34,4 @@ SUPPORTED_RESOURCES = {"cpu", "mem", "disk_read", "disk_write", "net", "energy"}
 
 SUPPORTED_FRAMEWORKS = {"hadoop", "spark"}
 
-EXCLUDED_VALUES_LABELS = {"cpu_cores", "alloc_ratio", "rebalanced"}
+EXCLUDED_VALUES_LABELS = {"cpu_cores", "alloc_ratio", "rebalanced", "lent_mapping"}

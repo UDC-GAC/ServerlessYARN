@@ -7,7 +7,7 @@ from ui.utils import DEFAULT_SERVICE_PARAMETERS
 from ui.background_tasks import register_task, add_host_task, add_disks_to_hosts_task, remove_host_task
 
 from ui.views.core.utils import getStructuresValuesLabels, getLimits, setStructureResourcesForm, setLimitsForm, compareStructureNames, getHostsNames
-from ui.views.hosts.utils import setAddHostForm, getContainersFromHost
+from ui.views.hosts.utils import setAddHostForm, getContainersFromHost, getHostLending
 from ui.views.containers.operations import processRemoveContainers
 
 
@@ -35,6 +35,9 @@ def getHosts(data):
 
             ## we order this list using name container to keep the order consistent with the 'cpu_cores' dict below
             item['containers'] = sorted(containers, key=functools.cmp_to_key(compareStructureNames))
+
+            ## Lent resources (lent_mapping is too wide to be displayed in the resources table, so it has its own table)
+            item['lending'] = getHostLending(item, [c['name'] for c in item['containers']])
 
             # Adjustment to don't let core_usage_mapping be too wide on html display
             if "cpu" in item['resources'] and "core_usage_mapping" in item['resources']['cpu']:

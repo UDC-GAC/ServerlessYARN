@@ -65,6 +65,8 @@
                         <th>Max Read BW</th>
                         <th>Free Write BW</th>
                         <th>Max Write BW</th>
+                        <th>Lent Read BW</th>
+                        <th>Lent Write BW</th>
                     </tr>
                     <!-- rows -->
                     {% for disk, disk_info in values.items %}
@@ -77,6 +79,8 @@
                             <td>{{ disk_info.max_read }}</td>
                             <td>{{ disk_info.free_write }}</td>
                             <td>{{ disk_info.max_write }}</td>
+                            <td>{{ disk_info.lent_read|default:0 }}</td>
+                            <td>{{ disk_info.lent_write|default:0 }}</td>
                         </tr>
                     {% endfor %}
                 </table>
@@ -85,34 +89,82 @@
             {% endif %}
         {% endfor %}
 
-        <!-- Specific table for cpu cores -->
+        <!-- Specific table for cpu cores (collapsible, as it can be very long with many cores) -->
         {% for resource,values in item.resources.items %}
             {% if resource == "cpu_cores" %}
-                <p>Core Usage Mapping</p>
-                <p></p>
+                <button class="accordion">Core Usage Mapping</button>
+                <div class="panel">
+                    <p></p>
+                    <table class="data_table">
+                        <!-- header -->
+                        <tr>
+                            <th>Core</th>
+                            <th>Free</th>
+                            {% for cont in item.containers %}
+                                <th>{{ cont.name }}</th>
+                            {% endfor %}
+                        </tr>
+                        <!-- rows -->
+                        {% for core,mapping in values.items %}
+                            <tr>
+                                <th>{{ core }}</th>
+                                {% for key, value in mapping.items %}
+                                    <td>{{ value }}</td>
+                                {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </table>
+                    <p></p>
+                </div>
+            {% endif %}
+        {% endfor %}
+
+        <!-- Specific table for lent resources (collapsible), one row per lender and borrower -->
+        <button class="accordion">Lent Resources</button>
+        <div class="panel">
+            <p></p>
+            {% if item.lending %}
                 <table class="data_table">
                     <!-- header -->
                     <tr>
-                        <th>Core</th>
-                        <th>Free</th>
-                        {% for cont in item.containers %}
-                            <th>{{ cont.name }}</th>
-                        {% endfor %}
+                        <th>Resource</th>
+                        <th>Lender</th>
+                        <th>Lent</th>
+                        <th>Available</th>
+                        <th>Cores</th>
+                        <th>Borrower</th>
+                        <th>Borrowed</th>
                     </tr>
                     <!-- rows -->
-                    {% for core,mapping in values.items %}
+                    {% for row in item.lending %}
                         <tr>
-                            <th>{{ core }}</th>
-                            {% for key, value in mapping.items %}
-                                <td>{{ value }}</td>
-                            {% endfor %}
-                        </tr>	
+                            <th rowspan="{{ row.borrowers|length|default:1 }}">{{ row.resource }}</th>
+                            <td rowspan="{{ row.borrowers|length|default:1 }}">{{ row.lender }}</td>
+                            <td rowspan="{{ row.borrowers|length|default:1 }}">{{ row.lent }}</td>
+                            <td rowspan="{{ row.borrowers|length|default:1 }}">{{ row.available }}</td>
+                            <td rowspan="{{ row.borrowers|length|default:1 }}">{{ row.cores|default:"–" }}</td>
+                            {% if row.borrowers %}
+                                <td>{{ row.borrowers.0.name }}</td>
+                                <td>{{ row.borrowers.0.amount }}</td>
+                            {% else %}
+                                <td>–</td>
+                                <td>–</td>
+                            {% endif %}
+                        </tr>
+                        {% for borrower in row.borrowers|slice:"1:" %}
+                            <tr>
+                                <td>{{ borrower.name }}</td>
+                                <td>{{ borrower.amount }}</td>
+                            </tr>
+                        {% endfor %}
                     {% endfor %}
                 </table>
-                <p></p>
-                <HR>
+            {% else %}
+                <p>No resources are being lent in this host</p>
             {% endif %}
-        {% endfor %}
+            <p></p>
+        </div>
+        <p></p>
     {% endif %}
 
     <!-- RESOURCES EDIT MODAL -->	
