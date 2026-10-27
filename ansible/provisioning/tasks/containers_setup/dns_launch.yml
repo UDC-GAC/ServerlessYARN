@@ -48,7 +48,7 @@
         executable: /bin/bash 
       vars:
         image_path: "{{ images_build_dir }}/dns/dns.sif"
-        network: "{{ mode }}_{{ hostvars['platform_server'].ansible_host }}{{ ',ptp' if mode == 'ipvlan' else '' }}"
+        network: "{{ mode }}_{{ groups['platform_management'][0] }}{{ ',ptp' if mode == 'ipvlan' else '' }}"
 
     - name: Set base resolutions for DNS
       lineinfile:
