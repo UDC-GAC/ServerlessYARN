@@ -275,6 +275,26 @@ print(json.dumps(info))
         }
         return paths
 
+    def _get_dest_path_for_host(self, host, dest):
+        """
+        Approximate the install path of another host without probing it: the first explicit
+        destination (virtualenv, --target, --prefix, --root) or, if none, its user site.
+        """
+        if host == self._task_vars.get('inventory_hostname'):
+            return dest
+        rendered_args = self._render_task_args_for_host(host, ('virtualenv', 'extra_args'))
+        if rendered_args is None:
+            return dest
+
+        extra = (rendered_args.get('extra_args') or '').strip()
+        explicit_targets = [rendered_args.get('virtualenv')] + [_extract_option_value(extra, opt) for opt in ('--target', '--prefix', '--root')]
+        chosen = next((p for p in explicit_targets if p), None)
+        if chosen:
+            return chosen
+
+        home = (self._task_vars.get('hostvars', {}).get(host, {}).get('ansible_env') or {}).get('HOME')
+        return os.path.join(home, '.local') if home else dest
+
     def run(self, tmp=None, task_vars=None):
         args = self._task.args.copy()
         extra = (args.get('extra_args') or '').strip()
@@ -299,8 +319,7 @@ print(json.dumps(info))
             chosen = next(p for p in install_targets if p)
             my_share_id, leader = self._elect_leader(self._get_play_hosts(), chosen)
             if my_share_id and task_vars['inventory_hostname'] != leader:
-                return {"skipped": True, "changed": False,
-                        "msg": f"pip install path is on shared FS ({my_share_id}); executed on leader {leader}."}
+                return self._skipped_result(f"pip install path is on shared FS ({my_share_id}); executed on leader {leader}.", leader)
 
         # Call the underlying module directly (no special action plugin for pip)
         return self._execute_module(module_name="ansible.builtin.pip", module_args=args, task_vars=task_vars)

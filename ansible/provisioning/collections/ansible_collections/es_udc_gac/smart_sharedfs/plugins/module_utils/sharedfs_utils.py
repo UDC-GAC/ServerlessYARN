@@ -1,4 +1,5 @@
 # plugins/module_utils/sharedfs_utils.py
+import posixpath
 from pathlib import PurePosixPath
 
 DEFAULT_SHARED_FS_TYPES = {
@@ -38,3 +39,9 @@ def share_id_for_mount(mount):
     device = mount.get("device", "unknown")
     # Some FS report dynamic device (e.g., ceph), we still include fstype prefix.
     return f"{fstype}:{device}"
+
+def path_within_mount(mount, dest):
+    # Path of dest relative to the mount point, so that hosts mounting the same share
+    # on different mount points still resolve the same file to the same key
+    mp = mount.get("mount") or "/"
+    return posixpath.relpath(posixpath.normpath(dest), mp)
