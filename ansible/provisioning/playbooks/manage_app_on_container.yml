@@ -93,8 +93,7 @@
     tags: never, setup_network
 
   - name: Start zookeeper
-    delegate_to: "{{ rm_host }}"
-    run_once: yes
+    when: inventory_hostname == rm_host
     shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
       'nohup /opt/zookeeper/bin/zkServer.sh start &'"
     tags: never, start_zookeeper
@@ -224,8 +223,7 @@
         tags: setup_hadoop, setup_hdfs
         block:
           - name: Update ssh known_hosts on ResourceManager/Namenode container & Move RM/NN container ssh public key
-            delegate_to: "{{ rm_host }}"
-            run_once: yes
+            when: inventory_hostname == rm_host
             shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
               'ssh-keyscan -t rsa `hostname` >> ~/.ssh/known_hosts \
               && ssh-keyscan -t rsa -f $HADOOP_CONF_DIR/workers >> ~/.ssh/known_hosts \
@@ -275,8 +273,7 @@
             tags: setup_hadoop, setup_hdfs
             block:
               - name: Format filesystem, start HDFS and YARN (Master)
-                delegate_to: "{{ rm_host }}"
-                run_once: yes
+                when: inventory_hostname == rm_host
                 shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
                   ' \
                   {% if start_hdfs %}
@@ -319,8 +316,7 @@
               - name: Wait for master services to start
                 async_status:
                   jid: "{{ start_rm_services.ansible_job_id }}"
-                delegate_to: "{{ rm_host }}"
-                run_once: yes
+                when: inventory_hostname == rm_host
                 register: rm_job_result
                 until: rm_job_result.finished
                 retries: 120
@@ -577,6 +573,7 @@
               mode: pull
 
           - name: Add info about download and upload time
+            delegate_to: localhost
             when: download_time > 0 or upload_time > 0
             copy:
               dest: "{{ stored_output_dir }}/transfer_times_{{ timestamp }}.txt"
@@ -605,8 +602,7 @@
   - name: Stop hadoop cluster
     block:
       - name: Stop hadoop cluster
-        delegate_to: "{{ rm_host }}"
-        run_once: yes
+        when: inventory_hostname == rm_host
         shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
           'cd $HADOOP_HOME \
           {% if global_hdfs and hdfs_mode == 'rbf' %}
