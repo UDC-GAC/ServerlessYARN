@@ -334,7 +334,7 @@ def getFreestHost(hosts, container_resources, check_disks, check_energy, limit_k
         if host_disk_max == 0:
             continue
 
-        host_disk_usage = host_disk_free / host_disk_max
+        host_disk_usage = 1 - (host_disk_free / host_disk_max)
 
         if host_disk_usage == 0:
             freest_host = host
