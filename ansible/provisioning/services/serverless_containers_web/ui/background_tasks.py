@@ -22,6 +22,7 @@ import ui.run_playbooks as run_playbooks
 
 from ui.views.apps.utils import getContainerAssignationForApp
 from ui.views.core.utils import getDbData, getDataAndFilterByApp, getHostsNames
+from ui.data_locality import get_data_locality_scores, record_deployment, clear_registry
 
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file: config = yaml.load(config_file, Loader=yaml.FullLoader)
@@ -743,8 +744,16 @@ def wait_for_app_dependency(assignation_requirements, url, app, container_resour
         if any(free_resources[resource] < app_resources[resource]['min'] - app_resources[resource]['current'] for resource in free_resources):
             raise Exception("There is no capacity for app {0}. Requested resources: {1}. Free resources: {2}".format(app_name, app_resources, free_resources))
 
+        # Locate the data the app will read (done after waiting for the dependency, as it may produce the input data of this app)
+        locality_scores = None
+        if assignation_policy == "Data-locality":
+            locality_scores, locality_source = get_data_locality_scores(app_name, assignation_requirements['data_locality'], dependencies.get("app"))
+            print("[DATA LOCALITY] Locality scores for app {0} based on {1}: {2}".format(app_name, locality_source, locality_scores))
+            ## Keep the source of the scores to store it in the deployment registry later
+            assignation_requirements['data_locality']['source'] = locality_source
+
         # Allocate the containers for each host
-        new_containers, disk_assignation, error = getContainerAssignationForApp(assignation_policy, allow_oversubscription, hosts, number_of_containers, container_resources, app_name)
+        new_containers, disk_assignation, error = getContainerAssignationForApp(assignation_policy, allow_oversubscription, hosts, number_of_containers, container_resources, app_name, locality_scores)
         if error != "":
             raise Exception(error)
 
@@ -871,6 +880,22 @@ def start_hadoop_app_task(self, assignation_requirements, url, app, app_files, c
     change_app_state_in_db(url, app, "running")
 
     app_containers = deploy_app_containers(url, new_containers, app, app_files, container_resources, disk_assignation, app_type)
+
+    # Keep track of where the app has been deployed to guide future deployments using the Data-locality policy
+    if global_hdfs_data:
+        deployment_info = {
+            "assignation_policy": assignation_requirements['assignation_policy'],
+            "locality_source": assignation_requirements.get('data_locality', {}).get('source'),
+            "dependency_app": dependencies.get("app"),
+            "hdfs_mode": settings.PLATFORM_CONFIG['hdfs_mode'],
+            "global_input": global_hdfs_data.get("global_input"),
+            "global_output": global_hdfs_data.get("global_output")
+        }
+        try:
+            record_deployment(app, new_containers, deployment_info)
+        except Exception as e:
+            print("[DATA LOCALITY] Error recording deployment of app {0}: {1}".format(app, str(e)))
+
     rm_host, rm_container, download_time, upload_time = setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type, global_hdfs_data)
 
     end_time = timeit.default_timer()
@@ -1203,6 +1228,12 @@ def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_fre
     ## This is a workaround, should be executed when stopping cluster
     for container in app_containers:
         run_playbooks.clean_hdfs(container['host'], container['name'])
+
+    ## Previous deployments are no longer close to any data, as global HDFS data has been removed
+    try:
+        clear_registry()
+    except Exception as e:
+        print("[DATA LOCALITY] Error clearing deployment registry: {0}".format(str(e)))
 
     # Stop hdfs frontend container
     if not settings.PLATFORM_CONFIG["server_as_host"]:

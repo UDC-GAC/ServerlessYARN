@@ -827,3 +827,24 @@
       '$HADOOP_HOME/bin/hdfs dfs -ls -R -h /'"
     args:
       executable: /bin/bash
+
+  ## Data locality
+  - name: Get data locality info from HDFS
+    tags: never, get_hdfs_block_locations
+    when: inventory_hostname == namenode_host
+    vars:
+      # relative paths are resolved against the user home directory on HDFS, as done when transferring data
+      target_path: "{{ hdfs_path if (hdfs_path.startswith('/') or '://' in hdfs_path) else '/user/' + user_info.user_name + '/' + hdfs_path }}"
+    block:
+      # output example: "0. BP-...:blk_1073741825_1001 len=134217728 Live_repl=3 [DatanodeInfoWithStorage[10.22.0.3:9866,DS-...,DISK], ...]"
+      - name: Get HDFS block locations
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
+          '$HADOOP_HOME/bin/hdfs fsck {{ target_path }} -files -blocks -locations 2> /dev/null' | grep -E 'blk_[0-9]+.*len=' || true"
+        args:
+          executable: /bin/bash
+
+      # output example: "10.22.0.3       datanode-host0"
+      - name: Resolve HDFS datanode addresses
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} getent hosts {{ datanode_names | join(' ') }} || true"
+        args:
+          executable: /bin/bash

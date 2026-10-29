@@ -29,6 +29,7 @@ container_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/cont
 global_hdfs_app_name: global_hdfs
 hdfs_frontend_container_name: hdfs-frontend
 data_dir_on_container: /opt/transfer
+data_locality_registry_file: "{{ installation_path }}/data_locality_registry.json" # registry of app deployments used by the 'Data-locality' allocation policy
 
 ## Container bind directories variables
 default_bind_path: "{{ installation_path }}"

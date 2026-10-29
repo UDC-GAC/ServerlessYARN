@@ -260,6 +260,9 @@ def processStartApp(request, url, **kwargs):
     assignation_policy = request.POST['assignation_policy']
     allow_oversubscription = request.POST.get('allow_oversubscription', False)
 
+    if assignation_policy == "Data-locality" and not (is_hadoop_app and settings.PLATFORM_CONFIG['global_hdfs']):
+        return "Data-locality allocation policy is only available for Hadoop apps when the global HDFS is enabled"
+
     container_resources["regular"] = {x: str(y) for x, y in container_resources["regular"].items()}
     if "bigger" in container_resources:
         container_resources["irregular"] = {x: str(y) for x, y in container_resources["bigger"].items()}
@@ -319,6 +322,15 @@ def processStartApp(request, url, **kwargs):
                 if request.POST.get(condition, False):
                     for info in additional_info:
                         global_hdfs_data[info] = request.POST.get(info)
+
+            ## Info required to locate the data that the app will read from global HDFS
+            if assignation_policy == "Data-locality":
+                assignation_requirements['data_locality'] = {
+                    'namenode_host': namenode_container['host'],
+                    'namenode_container_name': namenode_container['name'],
+                    'datanodes': {datanode['name']: datanode['host'] for datanode in datanodes},
+                    'global_input': global_hdfs_data.get('global_input', "")
+                }
 
         task = start_hadoop_app_task.delay(assignation_requirements, url, app_name, app_files, container_resources, scaler_polling_freq, virtual_cluster, app_type, global_hdfs_data, dependencies)
     else:

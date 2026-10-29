@@ -29,6 +29,10 @@ def setStartAppForm(structure, form_action, started_app):
         structure['start_app_form'].helper['read_from_global'].update_attributes(type="show")
         structure['start_app_form'].helper['write_to_global'].update_attributes(type="show")
 
+        ## Data locality allocation is only available for Hadoop apps, as they are the only ones exchanging data with the global HDFS
+        assignation_policy_field = structure['start_app_form'].fields['assignation_policy']
+        assignation_policy_field.choices = list(assignation_policy_field.choices) + [("Data-locality", "Data locality")]
+
 def setAddAppForm():
     return {
         'app': AddAppForm(),
@@ -346,7 +350,52 @@ def assign_best_effort(hosts, containers_to_allocate, container_resources, assig
         if not container_allocated:
             break
 
-def getContainerAssignationForApp(assignation_policy, allow_oversubscription, hosts, number_of_containers, container_resources, app_name):
+
+def assign_data_locality(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, check_energy, limit_key, locality_scores):
+    """
+    Places worker containers as close as possible to the data they will read from the global HDFS. Each host has a locality score
+    (e.g., bytes of the input data stored on that host), and workers are distributed among the hosts with a positive score
+    proportionally to their scores following the highest averages method, i.e., each container is placed on the host that can
+    fit it (based on its resource requirements) and maximises 'score / (allocated_workers + 1)'. This way, hosts holding more data
+    receive more workers, while workers are still spread across all the hosts holding data. The remaining workers that do not fit
+    on hosts holding data, as well as the 'rm-nn' container (which does not process data), are allocated following the Best-effort
+    policy, prioritising hosts with lower scores to leave room for workers on the hosts holding data.
+    """
+    resources_to_check = ["cpu", "mem"] + (["energy"] if check_energy else [])
+    data_hosts = [host for host in hosts if locality_scores.get(host['name'], 0) > 0]
+    allocated_workers = {host['name']: 0 for host in data_hosts}
+
+    for container_type in ['bigger', 'regular', 'smaller']:
+        while containers_to_allocate[container_type] > 0:
+            candidate_hosts = []
+            for host in data_hosts:
+                available_resources = checkAvailableResources(host, container_resources[container_type], resources_to_check, limit_key)
+                if check_disks:
+                    available_resources = available_resources and any(checkAvailableDisk(
+                        disk_assignation[host['name']][disk], container_resources[container_type], limit_key)
+                        for disk in disk_assignation.get(host['name'], {}))
+                if available_resources:
+                    candidate_hosts.append(host)
+
+            if not candidate_hosts:
+                break
+
+            best_host = max(candidate_hosts, key=lambda h: locality_scores[h['name']] / (allocated_workers[h['name']] + 1))
+            if check_disks and not assign_freest_disk(best_host, container_resources[container_type], disk_assignation, limit_key):
+                break
+            if check_energy:
+                best_host['resources']['energy']['free'] -= container_resources[container_type][f'energy_{limit_key}']
+            best_host['resources']['cpu']['free'] -= container_resources[container_type][f'cpu_{limit_key}']
+            best_host['resources']['mem']['free'] -= container_resources[container_type][f'mem_{limit_key}']
+            containers_to_allocate[container_type] -= 1
+            assignation[best_host['name']][container_type] = assignation[best_host['name']].get(container_type, 0) + 1
+            allocated_workers[best_host['name']] += 1
+
+    # Allocate the remaining containers (if any) and the 'rm-nn' container
+    sorted_hosts = sorted(hosts, key=lambda h: locality_scores.get(h['name'], 0))
+    assign_best_effort(sorted_hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, check_energy, limit_key)
+
+def getContainerAssignationForApp(assignation_policy, allow_oversubscription, hosts, number_of_containers, container_resources, app_name, locality_scores=None):
     error = ""
     new_containers = {}
     disk_assignation = {}
@@ -401,8 +450,10 @@ def getContainerAssignationForApp(assignation_policy, allow_oversubscription, ho
         assign_cyclic(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, check_energy, limit_key)
     elif assignation_policy == "Best-effort":
         assign_best_effort(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, check_energy, limit_key)
+    elif assignation_policy == "Data-locality":
+        assign_data_locality(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, check_energy, limit_key, locality_scores or {})
     else:
-        error = f"Assignation policy {assignation_policy} not supported. Try one of [Fill-up, Cyclic, Best-effort]"
+        error = f"Assignation policy {assignation_policy} not supported. Try one of [Fill-up, Cyclic, Best-effort, Data-locality]"
         return new_containers, disk_assignation, error
 
     # Check all containers have been allocated

@@ -311,5 +311,21 @@ def get_hdfs_filesystem(namenode_host, namenode_container_name):
     output_key = "{0}_stdout".format(task_name)
     return output[output_key]
 
+def get_hdfs_block_locations(namenode_host, namenode_container_name, hdfs_path, datanode_names):
+
+    extravars = {
+        "namenode_host": namenode_host,
+        "namenode_container_name": namenode_container_name,
+        "hdfs_path": hdfs_path,
+        "datanode_names": datanode_names
+    }
+
+    output, _ = run_playbook(playbook_name="manage_app_on_container.yml", tags=["get_hdfs_block_locations"], limit=[namenode_host], extravars=extravars)
+
+    ## Access to block locations (as datanode addresses) and the resolution of datanode names to addresses
+    blocks_output = output.get("Get HDFS block locations_stdout", "")
+    resolutions_output = output.get("Resolve HDFS datanode addresses_stdout", "")
+    return blocks_output, resolutions_output
+
 def drop_host_caches():
     run_playbook(playbook_name="start_containers_playbook.yml", tags=["drop_caches"])

@@ -54,3 +54,17 @@ distcp_executable: simple_distcp
   ### this is a best-effort estimation, since it depends on the number of blocks of the selected path
   ### an unbalanced block distribution in the files may lower the precision of the resulting distribution
 mappers_assignation: 'best-effort'
+
+# 'Data-locality' allocation policy for Hadoop apps (only available if 'global_hdfs' is enabled)
+## places containers close to the data they will read from global HDFS, which is located using (in order of preference):
+### 1) the block locations of the input data, if explicitly provided when starting the app (only available in 'isolated' mode)
+### 2) a registry of previous deployments: the latest deployment of the app it depends on (if any) and the deployments of any app
+###    (including the same one), since some apps produce the data consumed by others
+### 3) the hosts running a global datanode
+## the deployment registry is cleared when the global HDFS is stopped, as its data is removed
+# number of previous deployments (of any app) stored in the registry
+data_locality_history_size: 20
+# weight decay applied to older deployments (weight = decay ^ age, where age is the position in the registry, 0 being the most recent)
+data_locality_history_decay: 0.8
+# weight of the latest deployment of the app it depends on, relative to the rest of the deployment history (which weighs 1)
+data_locality_dependency_weight: 2
