@@ -97,6 +97,7 @@
       - scaler
       - guardian
       - energy_controller
+      - energy_manager
       - structure_snapshoter
       - database_snapshoter
       - watt_wizard

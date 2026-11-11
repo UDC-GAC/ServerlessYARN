@@ -5,6 +5,8 @@ def processServiceConfigPost(request, url, service_name, config_name):
     json_fields = []
     multiple_choice_fields = ["guardable_resources","structures_persisted","resources_persisted","structures_refeeded",
                               "generated_metrics","documents_persisted","resources_balanced","structures_balanced"]
+    ## Values are sent in lowercase (e.g., "True" -> "true"), except names that are case sensitive
+    case_sensitive_fields = ["power_model"]
 
     error = ""
     error_message = "Error submiting {0} for service {1}".format(config_name, service_name)
@@ -27,7 +29,7 @@ def processServiceConfigPost(request, url, service_name, config_name):
         new_value = request.POST[config_name]
 
         if new_value != '':
-            put_field_data = {'value': new_value.lower()}
+            put_field_data = {'value': new_value if config_name in case_sensitive_fields else new_value.lower()}
             error, _ = web_request(full_url, "put", error_message, put_field_data)
 
     return error

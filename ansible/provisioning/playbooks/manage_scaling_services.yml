@@ -20,6 +20,7 @@
     ### This unified approach makes it easier to expand the task to disable specific services, rather than creating separate tasks
     ### The inner loop of the shell command, rather than an Ansible loop, should run slightly faster
     - name: Disabling services that generate scaling requests
+      when: "scaling_service | default('scaler') != 'energy_manager'"
       shell: |
         {% for item in services_to_disable | select | list %}
           bash scripts/orchestrator/{{ item }}/deactivate.sh &&
@@ -40,6 +41,7 @@
 
     ## Re-enable services
     - name: Re-enabling services that generate scaling requests
+      when: "scaling_service | default('scaler') != 'energy_manager'"
       shell: |
         {% for item in services_to_enable | select | list %}
           bash scripts/orchestrator/{{ item }}/activate.sh &&

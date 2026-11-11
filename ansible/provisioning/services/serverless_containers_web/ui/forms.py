@@ -1564,6 +1564,127 @@ class EnergyControllerForm(forms.Form):
         )
 
 
+class EnergyManagerForm(forms.Form):
+    common_fields = deepcopy(DEFAULT_COMMON_FIELDS)
+    name = common_fields['name']
+    debug = common_fields['debug']
+    polling_frequency = common_fields['polling_frequency']
+    reaction_time = forms.IntegerField(label="Reaction Time (seconds)", required=True, min_value=1)
+    event_timeout = forms.IntegerField(label="Event Timeout (seconds)", required=False, min_value=1)
+    min_energy_points = forms.IntegerField(label="Minimum energy points per sample", required=True, min_value=1)
+    min_cpu_points = forms.IntegerField(label="Minimum CPU points per sample", required=True, min_value=1)
+
+    controller = forms.ChoiceField(label="Power capping method",
+                                   choices = (
+                                       ("ev", "EV: fixed CPU shares per watt"),
+                                       ("tdp", "TDP: CPU shares per watt from the TDP and the idle power"),
+                                       ("ppe-proportional", "PPE: scaling proportional to the power error"),
+                                       ("model-boosted", "MB: first scaling from the power models, then PPE"),
+                                       ("model-only", "MO: scaling from the power models only"),
+                                   ),
+                                   required=True,
+                                   initial="model-boosted"
+                                   )
+
+    allowed_error = forms.FloatField(label="Allowed error (fraction of the budget)", required=True, min_value=0.01, max_value=0.99)
+
+    power_error = forms.ChoiceField(label="Power error",
+                                    choices = (
+                                        ("latest", "Latest points"),
+                                        ("ma", "Moving average since the last scaling"),
+                                        ("ewma", "EWMA since the last scaling"),
+                                        ("ewma-k", "EWMA kept across scalings (SA-EWMA)"),
+                                    ),
+                                    required=True,
+                                    initial="ewma-k"
+                                    )
+
+    events_system = forms.ChoiceField(label="Events system",
+                                      choices = (
+                                          ("dynamic", "Dynamic: fewer events for larger errors"),
+                                          ("static", "Static: a fixed number of events"),
+                                          ("none", "None: every sample out of the band scales"),
+                                      ),
+                                      required=True,
+                                      initial="dynamic"
+                                      )
+
+    scale_up_check = forms.ChoiceField(label="Scale-up check",
+                                       choices = (
+                                           ("boundary", "Boundary: CPU usage close to the CPU limit"),
+                                           ("pressure", "Pressure: CPU pressure (needs the lite metrics feeder)"),
+                                       ),
+                                       required=True,
+                                       initial="boundary"
+                                       )
+
+    pressure_threshold = forms.FloatField(label="CPU pressure threshold", required=True, min_value=0.001, max_value=0.99)
+    ev_ratio = forms.IntegerField(label="EV ratio (CPU shares per watt)", required=True, min_value=1)
+    idle_power = forms.IntegerField(label="Idle power of the host (W, used by TDP)", required=False, min_value=0)
+
+    power_model = forms.CharField(label="Power model name (MB and MO)", required=True)
+    power_model_routing = forms.ChoiceField(label="Power model of the closest core distribution (MB and MO)",
+                                            choices=(
+                                                ("True", "True"),
+                                                ("False", "False"),
+                                            ),
+                                            required=True
+                                            )
+
+    model_reliability = forms.ChoiceField(label="Model reliability",
+                                          choices = (
+                                              ("low", "Low: the power model waits for the events of each new budget"),
+                                              ("high", "High: the power model applies each new budget at once"),
+                                          ),
+                                          required=True,
+                                          initial="low"
+                                          )
+
+    cpu_layout = forms.ChoiceField(label="CPU layout",
+                                   choices = (
+                                       ("scaler", "Scaler: cores assigned as the Scaler does"),
+                                       ("quota", "Quota: fixed cores, only the CPU quota changes"),
+                                       ("topology", "Topology: cores assigned with the host topology"),
+                                   ),
+                                   required=True,
+                                   initial="scaler"
+                                   )
+
+    def __init__(self, *args, **kwargs):
+        super(EnergyManagerForm, self).__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_id = 'id-energyManagerForm'
+        self.helper.form_class = 'form-group'
+        self.helper.form_method = 'post'
+        self.helper.form_action = 'services'
+        self.helper.layout = Layout(
+            Field('name', type="hidden", readonly=True),
+            Field('debug'),
+            Field('controller'),
+            Field('polling_frequency'),
+            Field('reaction_time'),
+            Field('allowed_error'),
+            Field('power_error'),
+            Field('events_system'),
+            Field('event_timeout'),
+            Field('min_energy_points'),
+            Field('min_cpu_points'),
+            Field('scale_up_check'),
+            Field('pressure_threshold'),
+            Field('ev_ratio'),
+            Field('idle_power'),
+            Field('power_model'),
+            Field('power_model_routing'),
+            Field('model_reliability'),
+            Field('cpu_layout'),
+            FormActions(
+                Submit('save', 'Save changes', css_class='caja'),
+            )
+        )
+
+
+
+
 ### Rules
 class RuleForm(forms.Form):
     common_fields = deepcopy(DEFAULT_COMMON_FIELDS)

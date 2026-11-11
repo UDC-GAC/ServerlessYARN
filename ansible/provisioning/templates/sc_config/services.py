@@ -156,7 +156,39 @@ energy_controller = dict(
     )
 )
 
+# {% if scaling_service | default('scaler') == 'energy_manager' -%}
+energy_manager = dict(
+    name="energy_manager",
+    type="service",
+    heartbeat="",
+    config=dict(
+        POLLING_FREQUENCY=int("{{ sampling_frequency }}"),  # One sample per sampling period of the meters
+        MIN_ENERGY_POINTS=1,
+        MIN_CPU_POINTS=1,
+        METER_LAG=0,
+        REACTION_TIME=5 * int("{{ sampling_frequency }}"),  # The power error and its events cover the last 5 samples
+        ALLOWED_ERROR=0.05,                                 # Power within the budget +-ALLOWED_ERROR/2 is not scaled
+        CONTROLLER="{{ 'model-boosted' if power_modelling else 'ppe-proportional' }}",
+        EV_RATIO=10,
+        BUDGET_POLICY="direct",
+        POWER_ERROR="ewma-k",
+        EVENTS_SYSTEM="dynamic",
+        SCALE_UP_CHECK="{{ 'pressure' if container_metrics_feeder | default('atop') == 'lite' else 'boundary' }}",
+        PRESSURE_THRESHOLD=0.05,
+        POWER_MODEL="{{ guardian_default_model }}",
+        POWER_MODEL_ROUTING=True,
+        MODEL_RELIABILITY="low",
+        CPU_LAYOUT="scaler",
+        ACTIVE=False,
+        DEBUG=True
+    )
+)
+
+# {%- endif %}
+
+
 # {% if power_modelling and online_learning -%}
+# WattTrainer retrains the power models online
 watt_trainer = dict(
     name="watt_trainer",
     type="service",
@@ -191,7 +223,12 @@ if __name__ == "__main__":
         # {% if power_budgeting -%}
         # Aditional services for power_budgeting
         handler.add_service(energy_controller)
-        # {% if online_learning -%}
+        # {% if scaling_service | default('scaler') == 'energy_manager' -%}
+        # The EnergyManager instead of the Guardian, Scaler, ReBalancer and EnergyController
+        handler.add_service(energy_manager)
+        # {%- endif %}
+        # {% if power_modelling and online_learning -%}
+        # WattTrainer
         handler.add_service(watt_trainer)
         # {%- endif %}
         # {%- endif %}

@@ -1,4 +1,4 @@
-from ui.forms import DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm, EnergyControllerForm, WattTrainerForm
+from ui.forms import DBSnapshoterForm, GuardianForm, ScalerForm, StructuresSnapshoterForm, SanityCheckerForm, RefeederForm, ReBalancerForm, EnergyControllerForm, EnergyManagerForm, WattTrainerForm
 
 SERVICES_OPTIONS = {
     "database_snapshoter": ["debug","documents_persisted","polling_frequency"],
@@ -9,6 +9,9 @@ SERVICES_OPTIONS = {
     "refeeder": ["debug","structures_refeeded","generated_metrics","window_delay","window_timelapse"],
     "rebalancer": ["debug","diff_percentage","stolen_percentage","window_delay","window_timelapse","resources_balanced","structures_balanced","containers_scope","balancing_policy","balancing_method","only_running"],
     "energy_controller": ["polling_frequency", "event_timeout", "window_timelapse", "window_delay", "debug", "structure_guarded", "control_policy", "power_model"],
+    "energy_manager": ["debug", "controller", "polling_frequency", "reaction_time", "allowed_error", "power_error", "events_system", "event_timeout",
+                       "min_energy_points", "min_cpu_points", "scale_up_check", "pressure_threshold", "ev_ratio", "idle_power", "power_model",
+                       "power_model_routing", "model_reliability", "cpu_layout"],
     "watt_trainer": ["window_timelapse", "window_delay", "generated_metrics", "models_to_train", "debug"]
 }
 
@@ -21,5 +24,6 @@ SERVICES_FORMS = {
     "refeeder": lambda **kwargs: RefeederForm(**kwargs),
     "rebalancer": lambda **kwargs: ReBalancerForm(**kwargs),
     "energy_controller": lambda **kwargs: EnergyControllerForm(**kwargs),
+    "energy_manager": lambda **kwargs: EnergyManagerForm(**kwargs),
     "watt_trainer": lambda **kwargs: WattTrainerForm(**kwargs)
 }

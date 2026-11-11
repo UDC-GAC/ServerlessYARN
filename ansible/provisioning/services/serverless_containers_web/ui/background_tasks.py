@@ -345,6 +345,11 @@ def extract_hadoop_resources(hadoop_resources):
 
 
 def manage_scaling_services(enable, skip_ansible=True):
+    # When the EnergyManager is running none of Scaler, Guardian, Rebalancer or EnergyController run
+    # EnergyManager is paused by the Orchestrator when a host is being modified
+    if settings.PLATFORM_CONFIG.get("scaling_service", "scaler") == "energy_manager":
+        return
+
     if skip_ansible:
         sc_path = "{0}/ServerlessContainers".format(settings.INSTALLATION_PATH)
         services = ["Scaler", "Guardian", "Rebalancer"] + (["EnergyController"] if settings.PLATFORM_CONFIG["power_budgeting"] else [])
