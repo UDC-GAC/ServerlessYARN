@@ -157,6 +157,7 @@ energy_controller = dict(
 )
 
 # {% if scaling_service | default('scaler') == 'energy_manager' -%}
+# EnergyManager
 energy_manager = dict(
     name="energy_manager",
     type="service",
