@@ -45,7 +45,7 @@
          {{ image_path }} {{ dns_container_name }}"
       when: "dns_container_name not in apptainer_list_output.stdout"
       args:
-        executable: /bin/bash 
+        executable: /bin/bash
       vars:
         image_path: "{{ images_build_dir }}/dns/dns.sif"
         network: "{{ mode }}_{{ groups['platform_management'][0] }}{{ ',ptp' if mode == 'ipvlan' else '' }}"
@@ -57,7 +57,8 @@
         create: true
         line: "{{ item }}"
       loop:
-        - "{{ server_ip }} opentsdb data_server"
+        - "{{ server_ip }} data_server"
+        - "{{ server_ip if deploy_local_opentsdb else opentsdb_url }} opentsdb"
 
 - name: Stop DNS
   tags: never, stop_dns

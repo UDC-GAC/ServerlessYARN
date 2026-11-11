@@ -21,6 +21,6 @@ WATTWIZARD_PORT: "{{ wattwizard_port }}"
 COUCHDB_URL: "127.0.0.1"
 COUCHDB_PORT: "{{ couchdb_port }}"
 
-# OpenTSDB:
-OPENTSDB_URL: "127.0.0.1"
+# OpenTSDB: local DB if deploy_local_opentsdb: yes, opentsdb_url otherwise
+OPENTSDB_URL: "{{ '127.0.0.1' if deploy_local_opentsdb else opentsdb_url }}"
 OPENTSDB_PORT: "{{ opentsdb_port }}"

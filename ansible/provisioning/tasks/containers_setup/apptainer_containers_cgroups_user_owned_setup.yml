@@ -102,7 +102,7 @@
             {% set container_bind_dir = item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') %}
             cp /etc/hosts {{ container_bind_dir }}/hosts \
             && {{ singularity_command_alias }} exec instance://{{ item.container_name }} bash -c \
-            'echo {{ server_ip }} opentsdb data_server >> /etc/hosts \
+            'echo {{ server_ip }} data_server >> /etc/hosts && echo {{ server_ip if deploy_local_opentsdb else opentsdb_url }} opentsdb >> /etc/hosts \
             && cat {{ bind_dir_on_container }}/hosts >> /etc/hosts \
             && rm {{ bind_dir_on_container }}/hosts' &&
           {% endif  %}
