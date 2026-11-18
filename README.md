@@ -16,9 +16,9 @@ WattsCap runs Singularity/Apptainer containers on clusters with Intel or AMD CPU
 
 WattsCap controls the power of each container through its CPU allocation, that is, the CPU time that its processes can use, in CPU shares (100 shares are one core). The control loop runs every second:
 
-1. **Monitoring.** A lightweight agent (lite) reports different CPU metrics of each container (e.g., usage, pressure). The HwPC Sensor reads per-container Performance Monitoring Counters (PMC) ans sends this events to [StableWatts](https://github.com/UDC-GAC/stablewatts-formula), which estimates the power of each container through online power models that correlate RAPL package power with these HwPC events. Using these models, StableWatts attributes a fraction of the active power of the CPU to each container running on the worker node(s).
-2. **Decision.** The EnergyManager compares the power of each container with its budget. When the power is out of a band around the budget (±2.5 % by default), it computes a new CPU allocation using the selected power capping method. This service determines both the CPU share and core allocation deemed appropriate to ensure that each container complies with its power budget, and sends this information to the NodeRescaler (or NodeRescalers) running on the hosts where the affected containers are running.
-3. **Actuation.** The NodeRescaler(s) of the host(s) apply the new allocation to the container(s) via cgroups.
+1. **Monitoring.** A lightweight agent (lite) reports different CPU metrics of each container (e.g., usage, pressure). The HWPC Sensor reads per-container Performance Monitoring Counters (PMC) ans sends this events to [StableWatts](https://github.com/UDC-GAC/stablewatts-formula), which estimates the power of each container through online power models that correlate RAPL package power with these PMC events. Using these models, StableWatts attributes a fraction of the active power of the CPU to each container running on the worker node(s).
+2. **Decision.** The [EnergyManager](https://github.com/UDC-GAC/ServerlessContainers/tree/master/src/EnergyManager) service from ServerlessContainers compares the power of each container with its budget. When the power is out of a band around the budget (±2.5 % by default), it computes a new CPU allocation using the selected power capping method. This service determines both the CPU share and core allocation deemed appropriate to ensure that each container complies with its power budget, and sends this information to the Scaler services ([NodeRescaler](https://github.com/UDC-GAC/ServerlessContainers/tree/master/src/NodeRescaler) from ServerlessContainers) running on the hosts where the affected containers are running.
+3. **Actuation.** The Scaler service(s) of the host(s) apply the new allocation to the container(s) via cgroups.
 
 ![High-level architecture overview of the platform (Light)](docs/images/architecture_overview_light.png#gh-light-mode-only)
 ![High-level architecture overview of the platform (Dark)](docs/images/architecture_overview_dark.png#gh-dark-mode-only)
@@ -31,7 +31,7 @@ The EnergyManager does not react to every fluctuation of the applications:
 
 **Power budgets.** A power budget (in W) can be set on a container and adjusted at runtime. Multiple containers running on the same host can have assigned independent and asymmetric power budgets. 
 
-**Power models.** [WattWizard](https://github.com/UDC-GAC/ServerlessContainers/tree/master/src/WattWizard) trains models of the power of the CPU as a function of its CPU usage, from training data collected with [CPUPowerWatcher](https://github.com/TomeMD/CPUPowerWatcher). The MB and MO methods use them to predict the CPU allocation that meets a budget. WattWizard trains a model for each available core distribution on the modelled host, and the EnergyManager uses the one closest to the current core distribution of each host.
+**Power models.** [WattWizard](https://github.com/UDC-GAC/ServerlessContainers/tree/master/src/WattWizard) trains models of the power of the CPU as a function of its CPU usage, from training data collected with [CPUPowerWatcher](https://github.com/UDC-GAC/CPUPowerWatcher.git). The MB and MO methods use them to predict the CPU allocation that meets a budget. WattWizard trains a model for each available core distribution on the modelled host, and the EnergyManager uses the one closest to the current core distribution of each host.
 
 
 
@@ -181,7 +181,7 @@ With the default configuration (`template.01-general.yml` and `template.05-power
 
   ​	`ansible/provisioning/templates/power_budgeting/wattwizard/timestamps/<modelled_cpu>`
 
-  **Note: The default timestamps belong to training data from our CPUs stored in our private databases. For your CPUs, collect training runs with [CPUPowerWatcher](https://github.com/TomeMD/CPUPowerWatcher), add their timestamps to that directory, and set `modelled_cpu`, `train_files` and the InfluxDB connection in `template.05-power.yml`. MB and MO need these models: without them, MB works as PPE and MO cannot apply new budgets.**
+  **Note: The default timestamps belong to training data from our CPUs stored in our private databases. For your CPUs, collect training runs with [CPUPowerWatcher](https://github.com/UDC-GAC/CPUPowerWatcher), add their timestamps to that directory, and set `modelled_cpu`, `train_files` and the InfluxDB connection in `template.05-power.yml`. MB and MO need these models: without them, MB works as PPE and MO cannot apply new budgets.**
 
 - **StableWatts:** set the idle power and the base frequency of the CPU in:
 
