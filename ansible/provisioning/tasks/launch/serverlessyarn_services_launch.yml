@@ -12,6 +12,13 @@
     chdir: "{{ services_dir }}/redis_server"
     executable: /bin/bash
 
+- name: Starting Services - Celery
+  shell: "bash start_tmux.sh {{ celery_autoreload | default(false) | bool | lower }}"
+  when: "'celery' not in tmux_sessions"
+  args:
+    chdir: "{{ services_dir }}/celery"
+    executable: /bin/bash
+
 - name: Starting other Services
   shell: "bash start_tmux.sh"
   when: "item not in tmux_sessions"
@@ -19,7 +26,6 @@
     chdir: "{{ services_dir }}/{{ item }}"
     executable: /bin/bash
   with_items:
-    - celery
     - config_updater
 
  ## Always launch 'rebooter' last to avoid conflicts with service startup

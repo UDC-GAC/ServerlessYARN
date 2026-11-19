@@ -31,3 +31,8 @@ deploy_local_opentsdb: yes
 ## Rebooter
 # The rebooter service monitors running services and restarts them if they are down
 enable_rebooter: yes
+
+## Celery
+# Development only: automatically restart the Celery worker when Python code of the web interface (or its utilities) changes, as Django's runserver does
+# Running tasks are given 60 seconds to finish before the worker is forcibly restarted
+celery_autoreload: no

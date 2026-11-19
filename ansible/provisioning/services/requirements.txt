@@ -9,6 +9,7 @@ selenium
 celery
 gevent<25
 ansible_runner
+watchdog[watchmedo] # 'watchmedo' CLI used to autoreload the worker in development
 
 ## Redis server
 redis
