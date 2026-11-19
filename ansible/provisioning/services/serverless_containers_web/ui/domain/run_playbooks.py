@@ -1,6 +1,5 @@
 #!/usr/bin/python
 
-from celery import shared_task
 import yaml
 import logging
 import sys
@@ -33,7 +32,6 @@ def add_disks(host_names, new_disks):
     run_playbook(playbook_name="install_playbook.yml", tags=["add_disks"], limit=host_names, extravars={"new_disks_dict_str": new_disks})
     run_playbook(playbook_name="launch_playbook.yml", tags=["add_disks"], extravars={"new_disks_dict_str": new_disks})
 
-@shared_task
 def extend_lv(host_names, new_disks, extra_disk, measure_host_list, throttle_containers_bw=False):
     ## External Python script
     sys.path.append(f"{PROVISION_DIR}/scripts")

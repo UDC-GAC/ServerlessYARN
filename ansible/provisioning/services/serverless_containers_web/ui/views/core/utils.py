@@ -1,5 +1,4 @@
 import os
-import json
 import urllib
 
 from django.forms import formset_factory
@@ -36,14 +35,6 @@ def guard_switch(request, structure_name):
         pass
 
 
-def getScalerPollFreq():
-    url = settings.BASE_URL + "/service/scaler"
-    response = urllib.request.urlopen(url)
-    data_json = json.loads(response.read())
-
-    return data_json.get('config', {}).get('POLLING_FREQUENCY', 5)
-
-
 def checkInvalidConfig():
     error_lines = []
 
@@ -76,15 +67,6 @@ def checkInvalidConfig():
 
 # ------------------------------------ Common functions for resource/limits management ------------------------------------
 
-def getLimits(structure_name):
-    url = settings.BASE_URL + "/structure/" + structure_name + "/limits"
-    try:
-        response = urllib.request.urlopen(url)
-        data_json = json.loads(response.read())
-    except urllib.error.HTTPError:
-        data_json = {}
-
-    return data_json
 
 def getStructuresValuesLabels(item, field):
     values_labels = set()
@@ -183,45 +165,3 @@ def setRemoveStructureForm(structures, form_action):
             removeStructuresForm.fields['selected_structures'].choices.append((structure['name'],structure['name']))
 
     return removeStructuresForm
-
-
-# ------------------------------------ Common functions for app management ------------------------------------
-
-def retrieve_app(apps, app_name):
-    found_app = None
-
-    for app in apps:
-        if app['name'] == app_name:
-            found_app = app
-            break
-
-    return found_app
-
-def retrieve_global_hdfs_app(apps):
-    namenode_container_info = None
-    datanodes = []
-    global_hdfs_app = retrieve_app(apps, settings.VARS_CONFIG['global_hdfs_app_name'])
-
-    if global_hdfs_app:
-        for container in global_hdfs_app['containers_full']:
-            if 'namenode' in container['name']:
-                namenode_container_info = container
-            elif 'datanode' in container['name']:
-                datanodes.append(container)
-
-    return global_hdfs_app, namenode_container_info, datanodes
-
-
-def getContainersFromApp(data, app):
-    return [item for item in data if item['subtype'] == 'container' and item['name'] in app['containers']]
-
-
-def getAppFiles(app):
-    return {
-        'runtime_files': os.path.basename(app['runtime_files']),
-        'output_dir': os.path.basename(app['output_dir']),
-        'install_script': os.path.basename(app['install_script']),
-        'start_script': os.path.basename(app['start_script']),
-        'stop_script': os.path.basename(app['stop_script']),
-        'app_dir': os.path.dirname(app['start_script'])
-    }

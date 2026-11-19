@@ -2,8 +2,8 @@ import yaml
 from django.conf import settings
 from ui.utils import DEFAULT_RESOURCE_VALUES, DEFAULT_LIMIT_VALUES
 from ui.background.tasks import register_task, stop_hdfs_task, remove_app_task, start_global_hdfs_task
-from ui.views.core.utils import getScalerPollFreq, getContainersFromApp, getAppFiles
-from ui.background.structures import getDbData, getHostsNames, getDataAndFilterByApp
+from ui.domain.state_db import getScalerPollFreq, getDbData, getDataAndFilterByApp
+from ui.domain.structures import getContainersFromApp, getAppFiles, getHostsNames
 
 from serverlessyarn_utils.manage_inventory import AnsibleYamlInventory, HOST_CONTAINER_SEPARATOR
 

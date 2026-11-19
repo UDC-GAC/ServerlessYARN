@@ -6,8 +6,9 @@ from django.conf import settings
 from ui.utils import DEFAULT_SERVICE_PARAMETERS
 from ui.background.tasks import register_task, add_host_task, add_disks_to_hosts_task, remove_host_task
 
-from ui.views.core.utils import getStructuresValuesLabels, getLimits, setStructureResourcesForm, setLimitsForm
-from ui.background.structures import compareStructureNames, getHostsNames
+from ui.views.core.utils import getStructuresValuesLabels, setStructureResourcesForm, setLimitsForm
+from ui.domain.state_db import getLimits
+from ui.domain.structures import compareStructureNames, getHostsNames
 from ui.views.hosts.utils import setAddHostForm, getContainersFromHost, getHostLending
 from ui.views.containers.operations import processRemoveContainers
 

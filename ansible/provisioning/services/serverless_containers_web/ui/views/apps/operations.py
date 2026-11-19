@@ -6,9 +6,11 @@ from django.conf import settings
 
 from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, SUPPORTED_RESOURCES, SUPPORTED_FRAMEWORKS
 from ui.background.tasks import register_task, remove_task_by_name, add_app_task, start_app_task, start_hadoop_app_task, remove_app_task, remove_containers_from_app
-from ui.views.core.utils import getLimits, getScalerPollFreq, setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels, retrieve_global_hdfs_app, getContainersFromApp, getAppFiles
-from ui.background.structures import getDbData, compareStructureNames, getDataAndFilterByApp
-from ui.views.apps.utils import getAppInfo, getContainerResourcesForApp, setStartAppForm, setRemoveContainersFromAppForm, setAddAppForm, checkAppUser
+from ui.domain.state_db import getLimits, getScalerPollFreq, getDbData, getDataAndFilterByApp, checkAppUser
+from ui.views.core.utils import setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels
+from ui.domain.structures import retrieve_global_hdfs_app, getContainersFromApp, getAppFiles, compareStructureNames, getAppInfo
+from ui.domain.container_resources import getContainerResourcesForApp
+from ui.views.apps.utils import setStartAppForm, setRemoveContainersFromAppForm, setAddAppForm
 
 from serverlessyarn_utils.manage_inventory import AnsibleYamlInventory
 

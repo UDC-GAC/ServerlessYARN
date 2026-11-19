@@ -6,7 +6,7 @@ import redis
 
 from django.conf import settings
 
-import ui.background.run_playbooks as run_playbooks
+import ui.domain.run_playbooks as run_playbooks
 
 ## Data locality support for the 'Data-locality' allocation policy
 # Computes a locality score for each host, i.e., how close it is to the data that an app will read from the global HDFS.

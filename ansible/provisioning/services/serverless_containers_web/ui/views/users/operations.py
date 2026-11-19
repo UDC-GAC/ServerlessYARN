@@ -4,8 +4,9 @@ from ui.utils import SUPPORTED_RESOURCES
 
 from ui.background.tasks import register_task, add_user_task, subscribe_apps_to_user, desubscribe_apps_from_user, remove_users_task
 
-from ui.views.core.utils import getStructuresValuesLabels, getLimits, setStructureResourcesForm, setLimitsForm
-from ui.background.structures import compareStructureNames
+from ui.views.core.utils import getStructuresValuesLabels, setStructureResourcesForm, setLimitsForm
+from ui.domain.state_db import getLimits
+from ui.domain.structures import compareStructureNames
 from ui.views.users.utils import setAddAppToUserForm, setSubscriptionManagementForm, setAddUserForm
 
 
