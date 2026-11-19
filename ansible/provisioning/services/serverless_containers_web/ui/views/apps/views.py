@@ -4,11 +4,12 @@ from django.shortcuts import render, redirect
 from django.conf import settings
 
 from ui.views.core.operations import processStructures
-from ui.views.core.utils import getDbData, guard_switch, redirect_with_errors
+from ui.views.core.utils import guard_switch, redirect_with_errors
+from ui.background.structures import getDbData
 from ui.views.apps.operations import getApps, processAddApp, processStartApp, processStopApp, processRemoveApps, processRemoveContainersFromApp
 
-from ui.run_playbooks import drop_host_caches
-from ui.background_tasks import monitor_global_hdfs_replication, register_task
+from ui.background.run_playbooks import drop_host_caches
+from ui.background.tasks import monitor_global_hdfs_replication, register_task
 
 # ------------------------------------ Apps views ------------------------------------
 

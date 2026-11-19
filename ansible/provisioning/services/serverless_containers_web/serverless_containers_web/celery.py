@@ -19,4 +19,5 @@ def setup_loggers(logger, *args, **kwargs):
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "serverless_containers_web.settings")
 app = Celery("serverless_containers_web")
 app.config_from_object("django.conf:settings", namespace="CELERY")
-app.autodiscover_tasks()
+## Register the tasks explicitly (from ui/background/tasks.py) instead of relying on Django checks importing them through the views
+app.autodiscover_tasks(["ui.background"])

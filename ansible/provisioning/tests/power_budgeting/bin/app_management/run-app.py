@@ -13,10 +13,10 @@ WEB_INTERFACE_URL = "http://localhost:9000"
 ORCHESTRATOR_URL = "http://localhost:5000"
 BENEVOLENCE = "-1"  # -1: "Manual", 1: "Lax", 2: "Medium", 3: "Strict"
 POLLING_FREQUENCY = 20
-ACTIVE_TASK_NAMES = ["ui.background_tasks.start_app_task",
-                     "ui.background_tasks.start_app_on_container_task",
-                     "ui.background_tasks.stop_app_on_container_task",
-                     "ui.background_tasks.wait_for_app_on_container_task"]
+ACTIVE_TASK_NAMES = ["ui.background.tasks.start_app_task",
+                     "ui.background.tasks.start_app_on_container_task",
+                     "ui.background.tasks.stop_app_on_container_task",
+                     "ui.background.tasks.wait_for_app_on_container_task"]
 
 
 def get_csrf_token(session):

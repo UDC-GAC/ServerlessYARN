@@ -2,10 +2,10 @@ from django.conf import settings
 
 # General utilities
 from serverlessyarn_utils.web_utils import web_request
-from ui.views.core.utils import getDbData
+from ui.background.structures import getDbData
 
 # Background tasks
-from ui.background_tasks import get_pending_tasks_messages
+from ui.background.tasks import get_pending_tasks_messages
 
 # Views
 from ui.views.core.utils import setRemoveStructureForm

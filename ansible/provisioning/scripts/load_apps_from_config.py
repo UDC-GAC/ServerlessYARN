@@ -7,6 +7,7 @@ from serverlessyarn_utils.web_utils import web_request
 
 scriptDir = os.path.realpath(os.path.dirname(__file__))
 sys.path.append(scriptDir + "/../services/serverless_containers_web/ui")
+sys.path.append(scriptDir + "/../services/serverless_containers_web/ui/background")
 from utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES
 from run_playbooks import create_app
 

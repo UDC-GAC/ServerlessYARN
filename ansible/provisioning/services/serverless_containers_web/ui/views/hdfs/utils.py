@@ -2,7 +2,7 @@ from selenium import webdriver
 from selenium.webdriver import FirefoxOptions
 from selenium.common.exceptions import WebDriverException
 
-from ui.background_tasks import register_task, create_dir_on_hdfs, add_file_to_hdfs, get_file_from_hdfs, remove_file_from_hdfs
+from ui.background.tasks import register_task, create_dir_on_hdfs, add_file_to_hdfs, get_file_from_hdfs, remove_file_from_hdfs
 
 class State(object):
 

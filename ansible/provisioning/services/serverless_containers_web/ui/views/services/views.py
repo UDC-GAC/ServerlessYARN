@@ -5,7 +5,7 @@ import urllib
 from django.shortcuts import render, redirect
 from django.conf import settings
 
-from ui.background_tasks import get_pending_tasks_messages
+from ui.background.tasks import get_pending_tasks_messages
 from serverlessyarn_utils.web_utils import web_request
 
 

@@ -4,11 +4,12 @@ import functools
 from django.conf import settings
 
 from ui.utils import DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, SUPPORTED_RESOURCES
-from ui.background_tasks import register_task, start_containers_task_v2, remove_containers_task
+from ui.background.tasks import register_task, start_containers_task_v2, remove_containers_task
 
-from ui.views.core.utils import getHostsNames, getLimits, setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels, compareStructureNames, getFreestDisk, getDbData
+from ui.views.core.utils import getLimits, setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels
+from ui.background.structures import getHostsNames, compareStructureNames, getFreestDisk, getDbData
 from ui.views.containers.utils import setAddContainersForm
-from ui.views.apps.utils import checkAvailableResources
+from ui.background.allocation import checkAvailableResources
 
 def getContainers(data, include_forms=True):
     containers = []

@@ -16,13 +16,11 @@ from django.conf import settings
 from serverless_containers_web.celery import app as celery_app
 from serverlessyarn_utils.web_utils import web_request
 
-from ui.views.core.utils import getDbData, getDataAndFilterByApp, getHostsNames
-from ui.update_inventory_file import add_containers_to_hosts, remove_container_from_host, add_host, remove_host, add_disks_to_hosts, add_containers_to_inventory
-import ui.run_playbooks as run_playbooks
-
-from ui.views.apps.utils import getContainerAssignationForApp
-from ui.views.core.utils import getDbData, getDataAndFilterByApp, getHostsNames
-from ui.data_locality import get_data_locality_scores, record_deployment, clear_registry
+from ui.background.structures import getDbData, getDataAndFilterByApp, getHostsNames
+from ui.background.allocation import getContainerAssignationForApp
+from ui.background.update_inventory_file import add_containers_to_hosts, remove_container_from_host, add_host, remove_host, add_disks_to_hosts, add_containers_to_inventory
+import ui.background.run_playbooks as run_playbooks
+from ui.background.data_locality import get_data_locality_scores, record_deployment, clear_registry
 
 config_path = "../../config/config.yml"
 with open(config_path, "r") as config_file: config = yaml.load(config_file, Loader=yaml.FullLoader)
@@ -1065,7 +1063,7 @@ def remove_file_from_hdfs(self, namenode_host, namenode_container, path_to_delet
 @shared_task(bind=True)
 def monitor_global_hdfs_replication(self, global_app_name, global_namenode_host, global_namenode_name):
 
-    from ui.views.core.utils import getHostsNames
+    from ui.background.structures import getHostsNames
     def reload_db_info(global_app_url, global_namenode_url):
         ## Global app
         global_app = getDbData(global_app_url)

@@ -7,7 +7,7 @@ from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 
 from ui.views.apps.operations import processStartApp, processStopApp
-from ui.background_tasks import remove_task, create_artificial_task, update_task_runtime, get_app_counter, create_app_counter, remove_app_counter
+from ui.background.tasks import remove_task, create_artificial_task, update_task_runtime, get_app_counter, create_app_counter, remove_app_counter
 
 # ------------------------------------ Common views across all endpoints ------------------------------------
 

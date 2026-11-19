@@ -5,7 +5,7 @@ import urllib
 from django.conf import settings
 from django.shortcuts import render, redirect
 
-from ui.background_tasks import get_pending_tasks_messages
+from ui.background.tasks import get_pending_tasks_messages
 from ui.forms import RuleForm
 
 from ui.views.core.utils import redirect_with_errors, checkInvalidConfig
