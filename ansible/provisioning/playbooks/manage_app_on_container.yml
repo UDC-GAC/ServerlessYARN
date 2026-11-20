@@ -93,8 +93,8 @@
     tags: never, setup_network
 
   - name: Start zookeeper
-    when: inventory_hostname == rm_host
-    shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
+    when: inventory_hostname == master_host
+    shell: "sudo {{ singularity_command_alias }} exec instance://{{ master_container }} su - {{ user_info.user_name }} -c \
       'nohup /opt/zookeeper/bin/zkServer.sh start &'"
     tags: never, start_zookeeper
 
@@ -120,7 +120,7 @@
             vars:
               worker_list: "{{ containers_info | 
                       map(attribute='container_name') |
-                      reject('search', rm_container) | list}}"
+                      reject('search', master_container) | list}}"
 
       - name: Prepare and copy all config files to containers
         tags: setup_hadoop, setup_hdfs
@@ -222,19 +222,19 @@
       - name: Setup SSH connection
         tags: setup_hadoop, setup_hdfs
         block:
-          - name: Update ssh known_hosts on ResourceManager/Namenode container & Move RM/NN container ssh public key
-            when: inventory_hostname == rm_host
-            shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
+          - name: Update ssh known_hosts on master container & Move master container ssh public key
+            when: inventory_hostname == master_host
+            shell: "sudo {{ singularity_command_alias }} exec instance://{{ master_container }} su - {{ user_info.user_name }} -c \
               'ssh-keyscan -t rsa `hostname` >> ~/.ssh/known_hosts \
               && ssh-keyscan -t rsa -f $HADOOP_CONF_DIR/workers >> ~/.ssh/known_hosts \
-              && cp ~/.ssh/id_rsa.pub {{ bind_dir_on_container }}/{{ rm_container }}.pub'"
+              && cp ~/.ssh/id_rsa.pub {{ bind_dir_on_container }}/{{ master_container }}.pub'"
             args:
               executable: /bin/bash
 
-          - name: Prepare RM/NN container bind path variable
-            when: "item.container_name == rm_container"
+          - name: Prepare master container bind path variable
+            when: "item.container_name == master_container"
             set_fact:
-              rm_container_bind_path: "{{ item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') }}"
+              master_container_bind_path: "{{ item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') }}"
             with_items:
             - "{{ containers_info }}"
 
@@ -243,22 +243,22 @@
               path: "{{ app_ssh_keys_dir }}/{{ app_name }}/"
               state: directory
 
-          - name: Copy RM/NN container ssh public key to hosts
-            delegate_to: "{{ rm_host }}" # this will push from rm_host to each host, i.e., a remote host to remote host copy
+          - name: Copy master container ssh public key to hosts
+            delegate_to: "{{ master_host }}" # this will push from master_host to each host, i.e., a remote host to remote host copy
             vars:
               ansible_ssh_extra_args: "" ## required to avoid failure; synchronize and delegating to hosts other than 'localhost' introduce unexpected interactions
             synchronize:
-              src: "{{ rm_container_bind_path }}/{{ rm_container }}.pub"
-              dest: "{{ app_ssh_keys_dir }}/{{ app_name }}/{{ rm_container }}.pub"
+              src: "{{ master_container_bind_path }}/{{ master_container }}.pub"
+              dest: "{{ app_ssh_keys_dir }}/{{ app_name }}/{{ master_container }}.pub"
 
-          - name: Copy and append RM/NN container ssh public key to the other containers
+          - name: Copy and append master container ssh public key to the other containers
             shell: "{% for item in containers_info %}
-              {% if item.host == inventory_hostname and item.container_name != rm_container %}
+              {% if item.host == inventory_hostname and item.container_name != master_container %}
               {% set container_bind_dir = item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') %}
-              cp {{ app_ssh_keys_dir }}/{{ app_name }}/{{ rm_container }}.pub {{ container_bind_dir }}/{{ rm_container }}.pub && \
+              cp {{ app_ssh_keys_dir }}/{{ app_name }}/{{ master_container }}.pub {{ container_bind_dir }}/{{ master_container }}.pub && \
               sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
-              'cat {{ bind_dir_on_container }}/{{ rm_container }}.pub >> ~/.ssh/authorized_keys \
-              && rm {{ bind_dir_on_container }}/{{ rm_container }}.pub' && 
+              'cat {{ bind_dir_on_container }}/{{ master_container }}.pub >> ~/.ssh/authorized_keys \
+              && rm {{ bind_dir_on_container }}/{{ master_container }}.pub' && 
               {% endif  %}
               {% endfor %}true"
             args:
@@ -273,8 +273,8 @@
             tags: setup_hadoop, setup_hdfs
             block:
               - name: Format filesystem, start HDFS and YARN (Master)
-                when: inventory_hostname == rm_host
-                shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
+                when: inventory_hostname == master_host
+                shell: "sudo {{ singularity_command_alias }} exec instance://{{ master_container }} su - {{ user_info.user_name }} -c \
                   ' \
                   {% if start_hdfs %}
                     cd $HADOOP_HOME && bash format_filesystem.sh && \ 
@@ -291,11 +291,11 @@
                   executable: /bin/bash
                 async: 10800
                 poll: 0
-                register: start_rm_services
+                register: start_master_services
 
               - name: Start HDFS and YARN (Worker)
                 shell: "{% for item in containers_info %}
-                  {% if item.host == inventory_hostname and item.container_name != rm_container %}
+                  {% if item.host == inventory_hostname and item.container_name != master_container %}
                     sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
                     ' \
                     {% if start_hdfs %}
@@ -315,10 +315,10 @@
 
               - name: Wait for master services to start
                 async_status:
-                  jid: "{{ start_rm_services.ansible_job_id }}"
-                when: inventory_hostname == rm_host
-                register: rm_job_result
-                until: rm_job_result.finished
+                  jid: "{{ start_master_services.ansible_job_id }}"
+                when: inventory_hostname == master_host
+                register: master_job_result
+                until: master_job_result.finished
                 retries: 120
                 delay: 0.5
 
@@ -408,12 +408,12 @@
 
       - name: Copy runtime files to NameNode
         when:
-          - item.container_name == rm_container
+          - item.container_name == master_container
           - item.host == inventory_hostname
         synchronize:
           src: "{{ apps_dir }}/{{ app_dir }}/{{ runtime_files }}"
           dest: "{{ item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') }}/"
-        loop: "{{ containers_info | selectattr('container_name', 'equalto', rm_container) | list }}"
+        loop: "{{ containers_info | selectattr('container_name', 'equalto', master_container) | list }}"
 
     ## Start
   - name: Start app on container
@@ -602,8 +602,8 @@
   - name: Stop hadoop cluster
     block:
       - name: Stop hadoop cluster
-        when: inventory_hostname == rm_host
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ rm_container }} su - {{ user_info.user_name }} -c \
+        when: inventory_hostname == master_host
+        shell: "sudo {{ singularity_command_alias }} exec instance://{{ master_container }} su - {{ user_info.user_name }} -c \
           'cd $HADOOP_HOME \
           {% if global_hdfs and hdfs_mode == 'rbf' %}
             && bin/hdfs --daemon stop dfsrouter \ 
@@ -685,7 +685,7 @@
     tags: never
     when: inventory_hostname == namenode_host
     vars:
-      local_namenode_ip: "\\$(getent hosts {{ rm_container }} | awk '{print \\$1 }' | head -n 1)"  # Resolve IP for distcp, ensuring to get only one IP
+      local_namenode_ip: "\\$(getent hosts {{ master_container }} | awk '{print \\$1 }' | head -n 1)"  # Resolve IP for distcp, ensuring to get only one IP
       local_namenode_url: "hdfs://{{ local_namenode_ip }}:8020"
     block:
       - name: Handle data transfer between global and local HDFS

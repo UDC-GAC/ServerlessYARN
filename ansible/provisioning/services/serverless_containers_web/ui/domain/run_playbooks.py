@@ -126,7 +126,7 @@ def wait_for_app_on_container(host_name, container):
     extravars = {"container": container}
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["wait_app"], limit=[host_name], extravars=extravars)
 
-def stop_app_on_container(host_name, container, app_name, app_files, rm_container, bind_path=None, timestamp=None, download_time=0, upload_time=0):
+def stop_app_on_container(host_name, container, app_name, app_files, master_container, bind_path=None, timestamp=None, download_time=0, upload_time=0):
 
     bind_path = check_container_bind_path(container, bind_path)
 
@@ -134,7 +134,7 @@ def stop_app_on_container(host_name, container, app_name, app_files, rm_containe
         "container": container,
         "app_name": app_name,
         "container_bind_dir": bind_path,
-        "rm_container": rm_container,
+        "master_container": master_container,
         "timestamp": timestamp,
         "download_time": download_time,
         "upload_time": upload_time
@@ -162,12 +162,12 @@ def stop_host_scaler(host_name):
 
 
 ## Hadoop
-def setup_hadoop_network_on_containers(host_names, app_name, app_files, containers_info, rm_host, rm_container, hadoop_conf, start_zookeeper=False):
+def setup_hadoop_network_on_containers(host_names, app_name, app_files, containers_info, master_host, master_container, hadoop_conf, start_zookeeper=False):
     extravars = {
         "app_name": app_name,
         "containers_info_str": containers_info,
-        "rm_host": rm_host,
-        "rm_container": rm_container
+        "master_host": master_host,
+        "master_container": master_container
     }
     extravars.update(app_files)
     extravars.update(hadoop_conf)
@@ -177,19 +177,19 @@ def setup_hadoop_network_on_containers(host_names, app_name, app_files, containe
 
     run_playbook(playbook_name="manage_app_on_container.yml", tags=tags, limit=host_names, extravars=extravars)
 
-def stop_hadoop_cluster(rm_host, rm_container):
-    run_playbook(playbook_name="manage_app_on_container.yml", tags=["stop_hadoop_cluster"], limit=[rm_host], extravars={"rm_host": rm_host, "rm_container": rm_container})
+def stop_hadoop_cluster(master_host, master_container):
+    run_playbook(playbook_name="manage_app_on_container.yml", tags=["stop_hadoop_cluster"], limit=[master_host], extravars={"master_host": master_host, "master_container": master_container})
 
 
 ## HDFS
-def setup_hdfs_network(host_names, app_name, app_type, containers_info, rm_host, rm_container, hdfs_resources):
+def setup_hdfs_network(host_names, app_name, app_type, containers_info, master_host, master_container, hdfs_resources):
 
     extravars = {
         "app_name": app_name,
         "app_type": app_type,
         "containers_info_str": containers_info,
-        "rm_host": rm_host,
-        "rm_container": rm_container
+        "master_host": master_host,
+        "master_container": master_container
     }
     extravars.update(hdfs_resources)
 
@@ -228,13 +228,13 @@ def get_file_from_hdfs(host_name, namenode_container, file_to_download, dest_pat
         "frontend_container": frontend_container
     })
 
-def setup_hadoop_network_with_global_hdfs(host_names, app_name, app_files, containers_info, rm_host, rm_container, hadoop_conf, global_hdfs_data):
+def setup_hadoop_network_with_global_hdfs(host_names, app_name, app_files, containers_info, master_host, master_container, hadoop_conf, global_hdfs_data):
 
     extravars = {
         "app_name": app_name,
         "containers_info_str": containers_info,
-        "rm_host": rm_host,
-        "rm_container": rm_container
+        "master_host": master_host,
+        "master_container": master_container
     }
     extravars.update(app_files)
     extravars.update(hadoop_conf)
@@ -251,11 +251,11 @@ def get_hdfs_transfer_time(task_timings):
         if task_name in task_timings: transfer_time += task_timings[task_name]
     return transfer_time
 
-def download_global_hdfs_data_to_local(rm_host, rm_container, global_hdfs_data, containers_info):
+def download_global_hdfs_data_to_local(master_host, master_container, global_hdfs_data, containers_info):
 
     extravars = {
-        "rm_host": rm_host,
-        "rm_container": rm_container,
+        "master_host": master_host,
+        "master_container": master_container,
         "containers_info_str": containers_info
     }
     extravars.update(global_hdfs_data)
@@ -264,11 +264,11 @@ def download_global_hdfs_data_to_local(rm_host, rm_container, global_hdfs_data, 
 
     return get_hdfs_transfer_time(task_timings)
 
-def upload_local_hdfs_data_to_global(rm_host, rm_container, global_hdfs_data, containers_info):
+def upload_local_hdfs_data_to_global(master_host, master_container, global_hdfs_data, containers_info):
 
     extravars = {
-        "rm_host": rm_host,
-        "rm_container": rm_container,
+        "master_host": master_host,
+        "master_container": master_container,
         "containers_info_str": containers_info
     }
     extravars.update(global_hdfs_data)

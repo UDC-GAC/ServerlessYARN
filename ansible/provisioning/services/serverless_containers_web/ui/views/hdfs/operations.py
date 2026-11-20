@@ -154,18 +154,18 @@ def stop_global_hdfs(request, app_name, url, resources, nn_container_prefix, web
     app_files = getAppFiles(app)
     scaler_polling_freq = getScalerPollFreq()
 
-    rm_host = None
-    rm_container = None
+    master_host = None
+    master_container = None
     for container in container_list:
         if nn_container_prefix in container['name']:
-            rm_container = container['name']
-            rm_host = container['host']
+            master_container = container['name']
+            master_host = container['host']
             break
 
     webdriver_state.__stop_webdriver__()
 
     error = ""
-    if not rm_container:
+    if not master_container:
         error = "Missing namenode container on hdfs app"
         # Just remove the app and its containers
         task = remove_app_task.delay(url, "apps", app_name, container_list, app_files)
@@ -173,7 +173,7 @@ def stop_global_hdfs(request, app_name, url, resources, nn_container_prefix, web
         register_task(task.id,"remove_app_task")
     else:
         # First stop the cluster and then remove the app and its containers
-        task = stop_hdfs_task.delay(url, app_name, app_files, container_list, scaler_polling_freq, rm_host, rm_container)
+        task = stop_hdfs_task.delay(url, app_name, app_files, container_list, scaler_polling_freq, master_host, master_container)
         print("Starting task with id {0}".format(task.id))
         register_task(task.id,"stop_hdfs_task")
 

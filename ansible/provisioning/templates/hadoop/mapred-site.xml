@@ -90,7 +90,7 @@
 
     <property>
         <name>mapreduce.jobhistory.address</name>
-        <value>{{ rm_container }}:10020</value>
+        <value>{{ master_container }}:10020</value>
     </property>
 
     <property>

@@ -115,8 +115,6 @@
                   {%- endfor -%}
                   {{ containers_info }}
             - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
-            ## TODO: merge the "master_container" parameter with "rm_container" as they are both used for the same purpose
-            - master_container: "{{ (containers_info | first).container_name }}" # This container will act as RM/NM on distributed deployments with Hadoop/Spark
 
         ## Launch global HDFS frontend container
         - import_tasks: "{{ launch_tasks }}/global_hdfs_frontend_launch.yml"

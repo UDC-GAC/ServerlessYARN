@@ -160,7 +160,7 @@ def assign_freest_disk(host, container, disk_assignation, limit_key):
 def assign_fill_up(hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, check_energy, limit_key):
     """
     Completely fills each host with as many containers as possible before moving to the next one. Iterates through the list of hosts sequentially.
-    For each host, it allocates containers starting with the largest type ('bigger'), then 'regular', 'smaller', and finally 'rm-nn', until the
+    For each host, it allocates containers starting with the largest type ('bigger'), then 'regular', 'smaller', and finally 'master', until the
     host can no longer fit any more containers of that type based on its maximum resource requirements (cpu_max, mem_max). This policy aims to
     consolidate many resources onto a few hosts, leaving other hosts completely free if possible.
     """
@@ -170,10 +170,10 @@ def assign_fill_up(hosts, containers_to_allocate, container_resources, assignati
             break
 
         # We try to assign resources in the following order: bigger container, regular containers, smaller container and resourcemanager/namenode container
-        for container_type in ["bigger", "regular", "smaller", "rm-nn"]:
+        for container_type in ["bigger", "regular", "smaller", "master"]:
             while containers_to_allocate[container_type] > 0:
                 available_resources = checkAvailableResources(host, container_resources[container_type], resources_to_check, limit_key)
-                if container_type != "rm-nn" and check_disks:
+                if container_type != "master" and check_disks:
                     available_resources = available_resources and any(checkAvailableDisk(
                         disk_assignation[host['name']][disk], container_resources[container_type], limit_key)
                         for disk in disk_assignation[host['name']])
@@ -184,7 +184,7 @@ def assign_fill_up(hosts, containers_to_allocate, container_resources, assignati
                 containers_to_allocate[container_type] -= 1
                 host['resources']['cpu']['free'] -= container_resources[container_type][f'cpu_{limit_key}']
                 host['resources']['mem']['free'] -= container_resources[container_type][f'mem_{limit_key}']
-                if container_type != "rm-nn" and check_disks:
+                if container_type != "master" and check_disks:
                     for disk in disk_assignation[host['name']]:
                         if checkAvailableDisk(disk_assignation[host['name']][disk], container_resources[container_type], limit_key):
                             disk_assignation[host['name']][disk]['free_read'] -= container_resources[container_type][f'disk_read_{limit_key}']
@@ -215,16 +215,16 @@ def assign_cyclic(hosts, containers_to_allocate, container_resources, assignatio
                 available_host_disk["free_read"], available_host_disk["free_write"], available_host_disk["free_total"] = getHostFreeDiskBw(host)
 
             container_allocated = False
-            for container_type in ['bigger', 'regular', 'smaller', 'rm-nn']:
+            for container_type in ['bigger', 'regular', 'smaller', 'master']:
                 if containers_to_allocate[container_type] > 0:
                     available_resources = checkAvailableResources(host, container_resources[container_type], resources_to_check, limit_key)
-                    if container_type != "rm-nn" and check_disks:
+                    if container_type != "master" and check_disks:
                         available_resources = available_resources and any(checkAvailableDisk(
                             disk_assignation[host['name']][disk], container_resources[container_type], limit_key)
                             for disk in disk_assignation[host['name']])
 
                     if available_resources:
-                        if container_type != "rm-nn" and check_disks:
+                        if container_type != "master" and check_disks:
                             if not assign_freest_disk(host, container_resources[container_type], disk_assignation, limit_key):
                                 break
                         host['resources']['cpu']['free'] -= container_resources[container_type][f'cpu_{limit_key}']
@@ -252,12 +252,12 @@ def assign_best_effort(hosts, containers_to_allocate, container_resources, assig
     """
     while containersNotAllocated(containers_to_allocate) > 0:
         container_allocated = False
-        for container_type in ['bigger', 'regular', 'smaller', 'rm-nn']:
+        for container_type in ['bigger', 'regular', 'smaller', 'master']:
             if containers_to_allocate[container_type] > 0:
-                freest_host = getFreestHost(hosts, container_resources[container_type], container_type != 'rm-nn' and check_disks, check_energy, limit_key)
+                freest_host = getFreestHost(hosts, container_resources[container_type], container_type != 'master' and check_disks, check_energy, limit_key)
                 if freest_host is None:
                     break
-                if container_type != 'rm-nn' and check_disks:
+                if container_type != 'master' and check_disks:
                     if not assign_freest_disk(freest_host, container_resources[container_type], disk_assignation, limit_key):
                         break
                 if check_energy:
@@ -280,7 +280,7 @@ def assign_data_locality(hosts, containers_to_allocate, container_resources, ass
     proportionally to their scores following the highest averages method, i.e., each container is placed on the host that can
     fit it (based on its resource requirements) and maximises 'score / (allocated_workers + 1)'. This way, hosts holding more data
     receive more workers, while workers are still spread across all the hosts holding data. The remaining workers that do not fit
-    on hosts holding data, as well as the 'rm-nn' container (which does not process data), are allocated following the Best-effort
+    on hosts holding data, as well as the 'master' container (which does not process data), are allocated following the Best-effort
     policy, prioritising hosts with lower scores to leave room for workers on the hosts holding data.
     """
     resources_to_check = ["cpu", "mem"] + (["energy"] if check_energy else [])
@@ -313,7 +313,7 @@ def assign_data_locality(hosts, containers_to_allocate, container_resources, ass
             assignation[best_host['name']][container_type] = assignation[best_host['name']].get(container_type, 0) + 1
             allocated_workers[best_host['name']] += 1
 
-    # Allocate the remaining containers (if any) and the 'rm-nn' container
+    # Allocate the remaining containers (if any) and the 'master' container
     sorted_hosts = sorted(hosts, key=lambda h: locality_scores.get(h['name'], 0))
     assign_best_effort(sorted_hosts, containers_to_allocate, container_resources, assignation, disk_assignation, check_disks, check_energy, limit_key)
 
@@ -329,15 +329,15 @@ def getContainerAssignationForApp(assignation_policy, allow_oversubscription, ho
     containers_to_allocate = {
         "bigger": 1 if "bigger" in container_resources else 0,
         "smaller": 1 if "smaller" in container_resources else 0,
-        "rm-nn": 1 if "rm-nn" in container_resources else 0
+        "master": 1 if "master" in container_resources else 0
     }
-    containers_to_allocate["regular"] = number_of_containers - containers_to_allocate["bigger"] - containers_to_allocate["smaller"] - containers_to_allocate["rm-nn"]
+    containers_to_allocate["regular"] = number_of_containers - containers_to_allocate["bigger"] - containers_to_allocate["smaller"] - containers_to_allocate["master"]
 
     # Initialise assignation
     assignation = {}
 
     # Reserve server for master containers
-    if "rm-nn" in container_resources and settings.PLATFORM_CONFIG['server_as_host'] and settings.PLATFORM_CONFIG['reserve_server_for_master']:
+    if "master" in container_resources and settings.PLATFORM_CONFIG['server_as_host'] and settings.PLATFORM_CONFIG['reserve_server_for_master']:
         inventory = AnsibleYamlInventory()
         server_name = inventory.get_server_hostname()
 
@@ -347,8 +347,8 @@ def getContainerAssignationForApp(assignation_policy, allow_oversubscription, ho
                 hosts.remove(h)
                 break
 
-        assignation[server_name] = {"rm-nn": 1}
-        containers_to_allocate["rm-nn"] = 0
+        assignation[server_name] = {"master": 1}
+        containers_to_allocate["master"] = 0
 
 
     for host in hosts:
@@ -412,7 +412,7 @@ def getContainerAssignationForApp(assignation_policy, allow_oversubscription, ho
             new_containers.setdefault(host, {})["regular"] = host_assignation["regular"]
         if "smaller" in host_assignation or "bigger" in host_assignation:
             new_containers.setdefault(host, {})["irregular"] = host_assignation.get("bigger", 0) + host_assignation.get("smaller", 0)
-        if "rm-nn" in host_assignation:
-            new_containers.setdefault(host, {})["rm-nn"] = host_assignation["rm-nn"]
+        if "master" in host_assignation:
+            new_containers.setdefault(host, {})["master"] = host_assignation["master"]
 
     return new_containers, disk_assignation, error

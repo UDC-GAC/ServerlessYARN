@@ -22,7 +22,7 @@
         <name>fs.defaultFS</name>
         <!-- HOST: global namenode if running a single global HDFS without local app HDFS, local namenode otherwise -->
         <!-- PORT: 8020 for regular namenode (global or local), 8888 for federated router -->
-        <value>hdfs://{{ namenode_container_name if global_hdfs and hdfs_mode == 'single' and namenode_container_name is defined else rm_container }}:{{ 8888 if global_hdfs and hdfs_mode == 'rbf' else 8020 }}</value>
+        <value>hdfs://{{ namenode_container_name if global_hdfs and hdfs_mode == 'single' and namenode_container_name is defined else master_container }}:{{ 8888 if global_hdfs and hdfs_mode == 'rbf' else 8020 }}</value>
     </property>
 
     <property>

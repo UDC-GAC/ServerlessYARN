@@ -245,17 +245,17 @@ def processStartApp(request, url, **kwargs):
         container_resources["irregular"] = {x: str(y) for x, y in container_resources["bigger"].items()}
     if "smaller" in container_resources:
         container_resources["irregular"] = {x: str(y) for x, y in container_resources["smaller"].items()}
-    if "rm-nn" in container_resources:
-        container_resources["rm-nn"] = {x: str(y) for x, y in container_resources["rm-nn"].items()}
+    if "master" in container_resources:
+        container_resources["master"] = {x: str(y) for x, y in container_resources["master"].items()}
 
     if is_hadoop_app:
-        container_resources['rm-nn'] = {}
+        container_resources['master'] = {}
         for resource in ["cpu", "mem"]:
             for key in master_container_resources[resource]:
-                container_resources['rm-nn'][f"{resource}_{key}"] = master_container_resources[resource][key]
+                container_resources['master'][f"{resource}_{key}"] = master_container_resources[resource][key]
         if settings.PLATFORM_CONFIG['power_budgeting']:
             for key in master_container_resources["energy"]:
-                container_resources['rm-nn'][f"energy_{key}"] = master_container_resources["energy"][key]
+                container_resources['master'][f"energy_{key}"] = master_container_resources["energy"][key]
 
         number_of_containers += 1
 
@@ -271,8 +271,8 @@ def processStartApp(request, url, **kwargs):
         container_resources["irregular"] = {x: str(y) for x, y in container_resources["bigger"].items()}
     if "smaller" in container_resources:
         container_resources["irregular"] = {x: str(y) for x, y in container_resources["smaller"].items()}
-    if "rm-nn" in container_resources:
-        container_resources["rm-nn"] = {x: str(y) for x, y in container_resources["rm-nn"].items()}
+    if "master" in container_resources:
+        container_resources["master"] = {x: str(y) for x, y in container_resources["master"].items()}
 
     ## Get scaler polling frequency
     scaler_polling_freq = getScalerPollFreq()

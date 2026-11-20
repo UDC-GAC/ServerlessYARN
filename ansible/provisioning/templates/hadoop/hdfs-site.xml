@@ -21,7 +21,7 @@
 
     <property>
         <name>dfs.namenode.rpc-address</name>
-        <value>{{ rm_container }}:8020</value>
+        <value>{{ master_container }}:8020</value>
     </property>
 
     <property>
@@ -48,7 +48,7 @@
 
         <property>
             <name>dfs.namenode.rpc-address.ns-{{ app_name | replace('_','-') }}.nn1</name>
-            <value>{{ rm_container }}:8020</value>
+            <value>{{ master_container }}:8020</value>
         </property>
 
         <property>

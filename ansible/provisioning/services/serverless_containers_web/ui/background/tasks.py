@@ -637,14 +637,14 @@ def deploy_app_containers(url, new_containers, app, app_files, container_resourc
     with redis_server.lock(lock_key):
         for host in new_containers:
             added_containers[host] = {}
-            for container_type in ['rm-nn','irregular','regular']:
+            for container_type in ['master','irregular','regular']:
                 if container_type in new_containers[host]:
                     added_containers[host][container_type] = add_containers_to_hosts({host: new_containers[host][container_type]})[host]
 
     # Format containers info to use in Ansible playbooks
     containers_info = []
     for host in added_containers:
-        for container_type in ['rm-nn', 'irregular', 'regular']:
+        for container_type in ['master', 'irregular', 'regular']:
             if container_type in added_containers[host]:
                 for container in added_containers[host][container_type]:
                     container_info = {}
@@ -663,7 +663,7 @@ def deploy_app_containers(url, new_containers, app, app_files, container_resourc
                             container_info[resource] = container_resources[container_type][resource]
 
                     # Disks
-                    if config['disk_capabilities'] and config['disk_scaling'] and container_type != 'rm-nn':
+                    if config['disk_capabilities'] and config['disk_scaling'] and container_type != 'master':
                         for disk in disk_assignation[host]:
                             if disk_assignation[host][disk]['new_containers'] > 0:
                                 disk_assignation[host][disk]['new_containers'] -= 1
@@ -785,7 +785,7 @@ def rollback_start_flow(url, app, app_containers, app_files):
         for container in app_containers:
             try:
                 run_playbooks.stop_app_on_container(container['host'], container['container_name'], app, app_files,
-                                                    rm_container="", bind_path=container.get('disk_path', ''))
+                                                    master_container="", bind_path=container.get('disk_path', ''))
             except Exception as e:
                 print("[ROLLBACK] Error stopping aplication {0} inside container {1}: {2}".format(app, container['container_name'], str(e)))
 
@@ -899,14 +899,14 @@ def start_hadoop_app_task(self, assignation_requirements, url, app, app_files, c
         except Exception as e:
             print("[DATA LOCALITY] Error recording deployment of app {0}: {1}".format(app, str(e)))
 
-    rm_host, rm_container, download_time, upload_time = setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type, global_hdfs_data)
+    master_host, master_container, download_time, upload_time = setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type, global_hdfs_data)
 
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)
     update_task_runtime(self.request.id, runtime)
 
     # Stop hadoop cluster
-    run_playbooks.stop_hadoop_cluster(rm_host, rm_container)
+    run_playbooks.stop_hadoop_cluster(master_host, master_container)
 
     ## Disable scaler and other scaling services, remove all containers from StateDB and re-enable them
     with scaling_services_disabled():
@@ -931,10 +931,10 @@ def start_hadoop_app_task(self, assignation_requirements, url, app, app_files, c
         full_url = url + "container/{0}/{1}".format(container['container_name'],app)
         bind_path = ""
         if 'disk_path' in container: bind_path = container['disk_path']
-        if container['container_name'] == rm_container:
-            stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, rm_container, timestamp, download_time, upload_time)
+        if container['container_name'] == master_container:
+            stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, master_container, timestamp, download_time, upload_time)
         else:
-            stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, rm_container, timestamp)
+            stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, master_container, timestamp)
         register_task(stop_task.id,"stop_container_task")
 
     # Set application in running state in ServerlessContainers
@@ -994,14 +994,14 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
 
     app_files['app_type'] = app_type
 
-    # Get rm-nn container (it is the first container from the host that got that container)
+    # Get master container (it is the first container from the host that got that container)
     for host in new_containers:
-        if "rm-nn" in new_containers[host]:
-            rm_host = host
+        if "master" in new_containers[host]:
+            master_host = host
             for container in app_containers:
-                ## TODO: maybe differentiate rm_container using another parameter and not disk in case you dont want disk scaling on hadoop app
-                if container['host'] == rm_host and 'disk' not in container:
-                    rm_container = container
+                ## TODO: maybe differentiate master_container using another parameter and not disk in case you dont want disk scaling on hadoop app
+                if container['host'] == master_host and 'disk' not in container:
+                    master_container = container
                     break
             break
 
@@ -1011,9 +1011,9 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
     download_time, upload_time = 0,0
     # Setup network and hadoop on containers (containers are not guarded yet, so they are not scaled during the setup)
     if not global_hdfs_data:
-        run_playbooks.setup_hadoop_network_on_containers(list(new_containers.keys()), app, app_files, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"])
+        run_playbooks.setup_hadoop_network_on_containers(list(new_containers.keys()), app, app_files, formatted_app_containers, master_host, master_container['container_name'], hadoop_resources["regular"])
     else:
-        run_playbooks.setup_hadoop_network_with_global_hdfs(list(new_containers.keys()), app, app_files, formatted_app_containers, rm_host, rm_container['container_name'], hadoop_resources["regular"], global_hdfs_data)
+        run_playbooks.setup_hadoop_network_with_global_hdfs(list(new_containers.keys()), app, app_files, formatted_app_containers, master_host, master_container['container_name'], hadoop_resources["regular"], global_hdfs_data)
 
     # Containers are ready, allow them to be scaled from now on (data transfers and app execution)
     for container in app_containers:
@@ -1022,22 +1022,22 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
     ## Download required input data from global HDFS to local one
     if global_hdfs_data and global_hdfs_data.get("global_input", "") != "":
         change_app_state_in_db(url, app, "hdfs_downloading")
-        download_time = run_playbooks.download_global_hdfs_data_to_local(rm_host, rm_container['container_name'], global_hdfs_data, formatted_app_containers)
+        download_time = run_playbooks.download_global_hdfs_data_to_local(master_host, master_container['container_name'], global_hdfs_data, formatted_app_containers)
         change_app_state_in_db(url, app, "running")
 
-    # Lastly, start app on RM container
-    full_url = url + "container/{0}/{1}".format(rm_container['container_name'],app)
-    start_app_on_container_task(full_url, rm_host, rm_container, app, app_files, global_hdfs_data)
+    # Lastly, start app on master container
+    full_url = url + "container/{0}/{1}".format(master_container['container_name'],app)
+    start_app_on_container_task(full_url, master_host, master_container, app, app_files, global_hdfs_data)
 
-    # Wait for RM container to finish
-    wait_for_app_on_container_task(rm_host, rm_container, app)
+    # Wait for master container to finish
+    wait_for_app_on_container_task(master_host, master_container, app)
 
     if global_hdfs_data:
         ## Upload generated output data from local HDFS to global one
         change_app_state_in_db(url, app, "hdfs_uploading")
-        upload_time = run_playbooks.upload_local_hdfs_data_to_global(rm_host, rm_container['container_name'], global_hdfs_data, formatted_app_containers)
+        upload_time = run_playbooks.upload_local_hdfs_data_to_global(master_host, master_container['container_name'], global_hdfs_data, formatted_app_containers)
 
-    return rm_host, rm_container['container_name'], download_time, upload_time
+    return master_host, master_container['container_name'], download_time, upload_time
 
 @shared_task(bind=True)
 def create_dir_on_hdfs(self, namenode_host, namenode_container, dir_to_create):
@@ -1203,10 +1203,10 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
     update_task_runtime(self.request.id, runtime)
 
 @shared_task(bind=True)
-def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_freq, rm_host, rm_container):
+def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_freq, master_host, master_container):
 
     # Stop hadoop cluster
-    run_playbooks.stop_hadoop_cluster(rm_host, rm_container)
+    run_playbooks.stop_hadoop_cluster(master_host, master_container)
 
     ## Disable scaler and other scaling services, remove all containers from StateDB and re-enable them
     with scaling_services_disabled():
@@ -1363,7 +1363,7 @@ def remove_containers_from_app(url, container_list, app, app_files):
     for container in container_list:
         try:
             run_playbooks.stop_app_on_container(container['host'], container['container_name'], app, app_files,
-                                                rm_container="", bind_path=container.get('disk_path', ''), timestamp=timestamp)
+                                                master_container="", bind_path=container.get('disk_path', ''), timestamp=timestamp)
         except Exception as e:
             error_msg = "Error stopping aplication {0} inside container {1}: {2}".format(app, container['container_name'], str(e))
             errors.append(error_msg)
@@ -1451,6 +1451,6 @@ def stop_container(host, container_name, bind_path=None, clean_bind_dir=True):
 
 
 @shared_task
-def stop_app_on_container_task(host, container_name, bind_path, app, app_files, rm_container, timestamp=None, download_time=0, upload_time=0):
-    run_playbooks.stop_app_on_container(host, container_name, app, app_files, rm_container, bind_path, timestamp, download_time, upload_time)
+def stop_app_on_container_task(host, container_name, bind_path, app, app_files, master_container, timestamp=None, download_time=0, upload_time=0):
+    run_playbooks.stop_app_on_container(host, container_name, app, app_files, master_container, bind_path, timestamp, download_time, upload_time)
     stop_container(host, container_name, bind_path)

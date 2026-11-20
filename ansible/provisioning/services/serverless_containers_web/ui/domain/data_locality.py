@@ -62,8 +62,8 @@ def save_registry(registry):
     os.replace(tmp_path, registry_path)
 
 def record_deployment(app_name, new_containers, deployment_info=None):
-    # new_containers example = {'host0': {'regular': 2, 'rm-nn': 1}, 'host1': {'regular': 1, 'irregular': 1}}
-    # Only workers are recorded, since the 'rm-nn' container does not read or write data from HDFS
+    # new_containers example = {'host0': {'regular': 2, 'master': 1}, 'host1': {'regular': 1, 'irregular': 1}}
+    # Only workers are recorded, since the 'master' container does not read or write data from HDFS
     worker_hosts = {}
     for host, host_containers in new_containers.items():
         number_of_workers = host_containers.get("regular", 0) + host_containers.get("irregular", 0)

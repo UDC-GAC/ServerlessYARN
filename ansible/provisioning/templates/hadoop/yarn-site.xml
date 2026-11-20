@@ -21,7 +21,7 @@
 
     <property>
         <name>yarn.resourcemanager.hostname</name>
-        <value>{{ rm_container }}</value>
+        <value>{{ master_container }}</value>
     </property>
 
     <property>
@@ -157,7 +157,7 @@
     <!-- Zookeeper node for global HDFS RBF -->
     <property>
         <name>hadoop.zk.address</name>
-        <value>{{ namenode_container_name if namenode_container_name is defined else rm_container }}:2181</value>
+        <value>{{ namenode_container_name if namenode_container_name is defined else master_container }}:2181</value>
     </property>
     {% endif %}
 
