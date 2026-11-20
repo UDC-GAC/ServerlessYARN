@@ -1,0 +1,117 @@
+#jinja2: line_statement_prefix: '#%', variable_start_string: '${', variable_end_string: '}'
+# Services loaded into the ServerlessContainers State Database (by 'conf/StateDatabase/services.py' in ServerlessContainers)
+#
+# This file is an Ansible template, but it is kept as valid YAML thanks to the '#jinja2:' header above (don't remove it):
+#   - Jinja statements are written as YAML comments starting with '#%' (e.g., '#% if power_budgeting')
+#   - Jinja expressions start with a dollar sign and use single braces instead of double ones
+#     (e.g., WINDOW_TIMELAPSE of 'watt_trainer' in services.yml)
+#   Both are processed anywhere in the file, comments included, so don't use those character sequences for anything else
+#
+# services: <service name> -> configuration
+#   Each entry is loaded as a service document whose 'config' is the given mapping. Remove (or comment out) a service
+#   to skip it.
+
+#% set disk_scaling_enabled = disk_capabilities and disk_scaling
+services:
+  scaler:
+    ACTIVE: false
+    DEBUG: true
+    REQUEST_TIMEOUT: 60
+    POLLING_FREQUENCY: 5
+
+  # TODO: Check use cases to add mem in GUARDABLE_RESOURCES
+  guardian:
+    ACTIVE: false
+    DEBUG: true
+    EVENT_TIMEOUT: 60
+    WINDOW_DELAY: 20
+    WINDOW_TIMELAPSE: 10
+    GUARDABLE_RESOURCES:
+      - cpu
+      #% if disk_scaling_enabled
+      - disk_read
+      - disk_write
+      #% endif
+      #% if power_budgeting
+      - energy
+      #% endif
+
+  database_snapshoter:
+    ACTIVE: false
+    DEBUG: true
+
+  structures_snapshoter:
+    POLLING_FREQUENCY: 5
+    ACTIVE: false
+    DEBUG: true
+    STRUCTURES_PERSISTED: [application]
+    RESOURCES_PERSISTED:
+      - cpu
+      - mem
+      #% if disk_scaling_enabled
+      - disk_read
+      - disk_write
+      #% endif
+      #% if power_budgeting
+      - energy
+      #% endif
+
+  refeeder:
+    ACTIVE: false
+    DEBUG: true
+    WINDOW_DELAY: 20
+    WINDOW_TIMELAPSE: 10
+    STRUCTURES_REFEEDED: [application]
+    GENERATED_METRICS:
+      - cpu
+      - mem
+      #% if disk_scaling_enabled
+      - disk_read
+      - disk_write
+      #% endif
+      #% if power_budgeting
+      - energy
+      #% endif
+
+  sanity_checker:
+    ACTIVE: false
+    DEBUG: true
+    DELAY: 30
+
+  rebalancer:
+    ACTIVE: false
+    DEBUG: true
+    DIFF_PERCENTAGE: 0.40
+    STOLEN_PERCENTAGE: 0.40
+    RESOURCES_BALANCED:
+      - cpu
+      #% if disk_scaling_enabled
+      - disk_read
+      - disk_write
+      #% endif
+    STRUCTURES_BALANCED: [container]
+    BALANCING_METHOD: pair_swapping
+    CONTAINERS_SCOPE: application
+    BALANCING_POLICY: rules
+    ONLY_RUNNING: false
+    WINDOW_DELAY: 10
+    WINDOW_TIMELAPSE: 35
+
+  #% if power_budgeting
+  # Additional services for power budgeting
+  energy_controller:
+    EVENT_TIMEOUT: 20
+    CONTROL_POLICY: "${ 'model-boosted' if power_modelling else 'ppe-proportional' }"
+    WINDOW_TIMELAPSE: 10
+    WINDOW_DELAY: 0
+    POLLING_FREQUENCY: 5
+    ACTIVE: false
+    DEBUG: true
+
+  #% if power_modelling and online_learning
+  watt_trainer:
+    ACTIVE: false
+    DEBUG: true
+    WINDOW_TIMELAPSE: ${ sampling_frequency }
+  #% endif
+  #% endif
