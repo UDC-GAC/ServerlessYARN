@@ -1,10 +1,6 @@
 Bootstrap: localimage
 From: {{ installed_app_directory }}/../{{ app_base_type }}/{{ app_base_image_file }}
 
-%files
-    # To avoid repeating spark download while debugging
-    #"{{ installed_app_directory }}/spark-{{ spark_version }}-bin-without-hadoop.tgz" /opt/spark-{{ spark_version }}-bin-without-hadoop.tgz
-
 %post
     ##################################### Java ##############################################
     export JAVA_HOME=/usr/lib/jvm/java-{{ openjdk_version }}-openjdk-amd64

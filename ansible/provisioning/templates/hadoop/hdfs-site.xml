@@ -114,11 +114,6 @@
         <value>{{ bind_dir_on_container }}/hadoop_files/data_dir/hdfs/datanode</value>
     </property>
 
-    <!-- <property>
-        <name>dfs.datanode.hostname</name>
-        <value>${HOSTNAME}</value>
-    </property> -->
-
     <property>
         <name>dfs.blocksize</name>
         <value>134217728</value>
@@ -141,30 +136,20 @@
         <value>0</value>
     </property>
 
-    <!--
+    <!-- 
     <property>
-        <name>dfs.domain.socket.path</name>
-        <value>/var/lib/hdfs/oscar.castellanos/dn_socket</value>
-    </property>
-
+        <name>dfs.datanode.hostname</name>
+        <value>${HOSTNAME}</value>
+    </property> 
     <property>
-        <name>dfs.namenode.checkpoint.dir</name>
-        <value>/scratch/slurm/oscar.castellanos/24194/dfs/namesecondary,/scratch/ssd/slurm/oscar.castellanos/24194/dfs/namesecondary</value>
-    </property>
-
-    <property>
-        <name>dfs.datanode.dns.interface</name>
-        <value>eth0</value>
-    </property>
-    -->
-    <!-- <property>
         <name>dfs.datanode.dns.interface</name>
         <value>eth0</value>
     </property>
     <property>
         <name>dfs.client.local.interfaces</name>
         <value>eth0</value>
-    </property> -->
+    </property> 
+    -->
 
     <property>
         <name>dfs.datanode.use.datanode.hostname</name>
