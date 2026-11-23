@@ -57,6 +57,8 @@
     - paths.yml
     - "{{ main_vars }}"
     - "{{ main_config }}"
+    - "{{ default_secrets }}"
+    - ["{{ user_secrets }}", /dev/null]
 
   tasks:
   - import_tasks: "{{ util_tasks }}/get_tmux_sessions.yml"
@@ -113,12 +115,11 @@
     failed_when: false
 
   - name: Clean CouchDB
-    shell: "curl -u admin:{{ couchdb_admin_pass }} -X DELETE http://127.0.0.1:{{ couchdb_port }}/{{ item }}"
+    shell: "curl -u {{ ('admin:' ~ couchdb_admin_pass) | quote }} -X DELETE http://127.0.0.1:{{ couchdb_port }}/{{ item }}"
     args:
       executable: /bin/bash
     loop: ["events","limits","requests","rules","services","structures","users"]
-    vars:
-      couchdb_admin_pass: admin
+    no_log: "{{ ansible_verbosity > 0 }}" ## avoid leaking the CouchDB admin password
     tags: clean_couchdb
 
 # Stop services from server and nodes

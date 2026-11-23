@@ -1,8 +1,9 @@
 
 # Initializing State Database
 - name: Check existing tables in CouchDB
-  shell: "curl -u admin:{{ couchdb_admin_pass }} -X GET http://127.0.0.1:{{ couchdb_port }}/_all_dbs"
+  shell: "curl -u {{ ('admin:' ~ couchdb_admin_pass) | quote }} -X GET http://127.0.0.1:{{ couchdb_port }}/_all_dbs"
   register: couchdb_tables
+  no_log: "{{ ansible_verbosity > 0 }}" ## avoid leaking the CouchDB admin password
   args:
     executable: /bin/bash
 

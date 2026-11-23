@@ -19,6 +19,8 @@
     - "{{ main_vars }}"
     - "{{ defaults }}"
     - "{{ main_config }}"
+    - "{{ default_secrets }}"
+    - ["{{ user_secrets }}", /dev/null]
 
   environment:
     HOME: "{{ lookup('env', 'HOME') }}"

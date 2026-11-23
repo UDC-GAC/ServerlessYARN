@@ -23,10 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 
-## Default key
-#SECRET_KEY = 'django-insecure-sqy8cfm^_e-=_!4!ftw94k&9fdm*sc41kcjp!@^5hpn^8foii*'
-
-## Key read from file
+## Key read from file (written by Ansible from the 'django_secret_key' variable, see vars/secrets.yml)
 scriptDir = os.path.realpath(os.path.dirname(__file__))
 config_file = scriptDir + "/../../../config/config.yml"
 vars_file = scriptDir + "/../../../vars/main.yml"

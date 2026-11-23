@@ -17,11 +17,8 @@
     - "{{ main_vars }}"
     - "{{ defaults }}"
     - "{{ main_config }}"
-
-  vars:
-    # change admin password both here and in config/debian_couchdb_conf.dat to effectively change it
-    ## TODO: centralize this password
-    - couchdb_admin_pass: admin
+    - "{{ default_secrets }}"
+    - ["{{ user_secrets }}", /dev/null]
 
   environment:
     INSTALLATION_PATH: "{{ installation_path }}"

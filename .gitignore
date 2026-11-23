@@ -40,3 +40,7 @@ ansible/provisioning/apps/user/*
 ## Exclude configuration files for tests except README.md
 ansible/provisioning/tests/power_budgeting/etc/**
 !ansible/provisioning/tests/power_budgeting/etc/README.md
+
+# Secrets
+## User-provided secrets overriding the insecure defaults in ansible/provisioning/vars/secrets.yml
+ansible/provisioning/config/secrets.yml

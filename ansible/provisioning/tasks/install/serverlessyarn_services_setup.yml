@@ -26,12 +26,13 @@
     requirements: "{{ services_dir }}/requirements.txt"
     executable: pip3
 
-- name: Copy Django secret key file
+- name: Write Django secret key file
   copy:
-    src: "{{ config_dir }}/django_secret_key.txt"
+    content: "{{ django_secret_key }}\n"
     dest: "{{ installation_path }}/.django_secret_key.txt"
     owner: "{{ user_info.user_name }}"
     mode: "0600"
+  no_log: true
 
 - name: Check for redis installation
   stat:

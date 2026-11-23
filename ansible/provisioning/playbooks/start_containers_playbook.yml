@@ -150,6 +150,8 @@
     - "{{ main_vars }}"
     - "{{ defaults }}"
     - "{{ main_config }}"
+    - "{{ default_secrets }}"
+    - ["{{ user_secrets }}", /dev/null]
 
   environment:
     BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"

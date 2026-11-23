@@ -6,7 +6,7 @@ Flags: seen
 
 Name: couchdb/cookie
 Template: couchdb/cookie
-Value: abcd
+Value: {{ couchdb_cookie }}
 Owners: couchdb
 Flags: seen
 
@@ -18,12 +18,12 @@ Flags: seen
 
 Name: couchdb/adminpass
 Template: couchdb/adminpass
-Value: admin
+Value: {{ couchdb_admin_pass }}
 Owners: couchdb
 Flags: seen
 
 Name: couchdb/adminpass_again
 Template: couchdb/adminpass_again
-Value: admin
+Value: {{ couchdb_admin_pass }}
 Owners: couchdb
 Flags: seen

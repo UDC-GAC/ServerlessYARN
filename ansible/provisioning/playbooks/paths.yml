@@ -25,3 +25,11 @@ install_tasks: "{{ tasks_dir }}/install"
 container_tasks: "{{ tasks_dir }}/containers_setup"
 launch_tasks: "{{ tasks_dir }}/launch"
 util_tasks: "{{ tasks_dir }}/utils"
+
+## Secrets: insecure defaults (tracked in git) and optional user-provided overrides (git-ignored, may be encrypted with Ansible Vault)
+### Load them in a play with:
+###   vars_files:
+###     - "{{ default_secrets }}"
+###     - ["{{ user_secrets }}", /dev/null] ## first found: loads user secrets only if the file exists
+default_secrets: "{{ vars_dir }}/secrets.yml"
+user_secrets: "{{ config_dir }}/secrets.yml"

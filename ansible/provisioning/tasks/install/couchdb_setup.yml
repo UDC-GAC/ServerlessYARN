@@ -63,11 +63,33 @@
 
     - name: Prepare non-interactive installation and install CouchDB
       when: "'couchdb' not in services"
-      shell: "debconf-copydb importmedb configdb  \
-        --config=Name:importmedb               \
-        --config=Driver:File                   \
-        --config=Filename:{{ templates_dir }}/couchdb/debian_couchdb_conf.dat && \
-        apt-get install -y couchdb"
+      block:
+        - name: Create temporary file for CouchDB debconf answers
+          tempfile:
+            state: file
+            suffix: .dat
+          register: couchdb_debconf_file
+
+        - name: Render CouchDB debconf answers (includes the admin password)
+          template:
+            src: "{{ templates_dir }}/couchdb/debian_couchdb_conf.dat"
+            dest: "{{ couchdb_debconf_file.path }}"
+            mode: "0600"
+          no_log: true
+
+        - name: Install CouchDB non-interactively
+          shell: "debconf-copydb importmedb configdb  \
+            --config=Name:importmedb               \
+            --config=Driver:File                   \
+            --config=Filename:{{ couchdb_debconf_file.path }} && \
+            apt-get install -y couchdb"
+
+      always:
+        - name: Remove temporary CouchDB debconf answers
+          when: couchdb_debconf_file.path is defined
+          file:
+            path: "{{ couchdb_debconf_file.path }}"
+            state: absent
 
     - name: Start couchdb
       become: true

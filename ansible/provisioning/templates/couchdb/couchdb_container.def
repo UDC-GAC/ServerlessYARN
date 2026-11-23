@@ -24,6 +24,8 @@ From: ubuntu:24.04
     apt-get -y update
     debconf-copydb importmedb configdb --config=Name:importmedb --config=Driver:File --config=Filename:/opt/debian_couchdb_conf.dat
     apt-get install -y couchdb
+    # Remove debconf answers as they include the admin password in plain text
+    rm -f /opt/debian_couchdb_conf.dat
 
     # Set CouchDB log and data directory
     mkdir -p "${COUCHDB_DATA_DIR}" "${COUCHDB_LOG_DIR}"
