@@ -1,0 +1,31 @@
+--- /home/vagrant/hadoop/hadoop-3.4.2-src/hadoop-hdfs-project/hadoop-hdfs-client/src/main/java/org/apache/hadoop/hdfs/NameNodeProxiesClient.java	2025-08-07 14:11:05.000000000 +0200
++++ /vagrant/ansible/provisioning/tools/java_libraries/hdfs_replication_patch/NameNodeProxiesClient.java	2026-10-28 10:06:51.842795936 +0100
+@@ -15,6 +15,7 @@
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  */
++// PATH: hadoop-hdfs-project/hadoop-hdfs-client/src/main/java/org/apache/hadoop/hdfs
+ package org.apache.hadoop.hdfs;
+ 
+ import java.io.IOException;
+@@ -376,8 +377,9 @@
+ 
+     if (withRetries) { // create the proxy with retries
+       Map<String, RetryPolicy> methodNameToPolicyMap = new HashMap<>();
++      // [PATCH]
+       ClientProtocol translatorProxy =
+-          new ClientNamenodeProtocolTranslatorPB(proxy);
++          new ClientNamenodeProtocolTranslatorPB(proxy, conf);
+       return (ClientProtocol) RetryProxy.create(
+           ClientProtocol.class,
+           new DefaultFailoverProxyProvider<>(ClientProtocol.class,
+@@ -385,7 +387,8 @@
+           methodNameToPolicyMap,
+           defaultPolicy);
+     } else {
+-      return new ClientNamenodeProtocolTranslatorPB(proxy);
++      // [PATCH]
++      return new ClientNamenodeProtocolTranslatorPB(proxy, conf);
+     }
+   }
+ 

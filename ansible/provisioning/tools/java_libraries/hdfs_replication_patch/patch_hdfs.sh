@@ -14,15 +14,24 @@ fi
 CLIENT_PATH="${HADOOP_HOME}/hadoop-hdfs-project/hadoop-hdfs-client/src/main/java/org/apache/hadoop/hdfs"
 NN_PATH="${HADOOP_HOME}/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode"
 
-for i in "NameNodeProxiesClient.java ${CLIENT_PATH}" "ClientNamenodeProtocolTranslatorPB.java ${CLIENT_PATH}/protocolPB" "FSNamesystem.java ${NN_PATH}"; do
+for i in "NameNodeProxiesClient ${CLIENT_PATH}" "ClientNamenodeProtocolTranslatorPB ${CLIENT_PATH}/protocolPB" "FSNamesystem ${NN_PATH}"; do
 
     a=( $i )
 
-    file="${a[0]}"
+    filename="${a[0]}"
     dest="${a[1]}"
 
-    echo "Copying ${file} into ${dest}..."
-    cp ${scriptDir}/${file} ${dest}
+    patch_file=${scriptDir}/${filename}.patch
+    src_file=${dest}/${filename}.java
+
+    # echo "Creating ${patch_file}..."
+    # diff -u ${src_file} ${scriptDir}/${filename}.java.bak > ${patch_file} ## this is how the patch was created
+
+    echo "Applying ${patch_file} to ${src_file}..."
+    patch ${src_file} < ${patch_file}
+
+    # echo "Comparing patched file with desired result..."
+    # diff ${src_file} ${scriptDir}/${filename}.java.bak ## this is how to check if the patch was properly applied
 
 done
 

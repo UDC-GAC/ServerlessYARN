@@ -1,0 +1,115 @@
+--- /home/vagrant/hadoop/hadoop-3.4.2-src/hadoop-hdfs-project/hadoop-hdfs-client/src/main/java/org/apache/hadoop/hdfs/protocolPB/ClientNamenodeProtocolTranslatorPB.java	2025-08-07 14:11:05.000000000 +0200
++++ /vagrant/ansible/provisioning/tools/java_libraries/hdfs_replication_patch/ClientNamenodeProtocolTranslatorPB.java	2026-10-28 10:06:51.841795928 +0100
+@@ -15,6 +15,7 @@
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  */
++// PATH: hadoop-hdfs-project/hadoop-hdfs-client/src/main/java/org/apache/hadoop/hdfs/protocolPB
+ package org.apache.hadoop.hdfs.protocolPB;
+ 
+ import java.io.Closeable;
+@@ -263,6 +264,13 @@
+ import static org.apache.hadoop.ipc.internal.ShadedProtobufHelper.getRemoteException;
+ import static org.apache.hadoop.ipc.internal.ShadedProtobufHelper.ipc;
+ 
++// [PATCH]
++import org.apache.hadoop.conf.Configuration;
++import org.apache.hadoop.hdfs.HdfsConfiguration;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
++
++
+ /**
+  * This class forwards NN's ClientProtocol calls as RPC calls to the NN server
+  * while translating from the parameter types used in ClientProtocol to the
+@@ -273,6 +281,43 @@
+ public class ClientNamenodeProtocolTranslatorPB implements
+     ProtocolMetaInterface, ClientProtocol, Closeable, ProtocolTranslator {
+   final private ClientNamenodeProtocolPB rpcProxy;
++  // [PATCH]
++  final private Configuration clientConf;
++
++  // [PATCH] --- Begin Replication override additions ---
++  public static final Logger REPLOG = LoggerFactory.getLogger(ClientNamenodeProtocolTranslatorPB.class);
++
++  private static boolean isExplicitlyConfigured(Configuration conf, String key) {
++      String[] sources = conf.getPropertySources(key);
++      for (String source : sources) {
++          if (!source.contains("hdfs-default.xml") && !source.contains("job.xml")) {
++              return true;
++          }
++      }
++      return false;
++  }
++
++  /**
++   * Decide the replication to send to the NameNode according to:
++   *  - Respect client explicit settings (-Ddfs.replication or hdfs-site.xml).
++   *  - If nothing explicit is set,
++   *    send -1 so the server-side default is used.
++   */
++  private static short decideReplication(String path, short requestedByCaller, Configuration conf) {
++    boolean clientExplicit = isExplicitlyConfigured(conf, "dfs.replication");
++    short effective;
++
++    if (!clientExplicit) {
++      // No explicit setting anywhere, caller just propagated the default -> send -1
++      effective = (short)-1;
++    } else {
++      // Respect either the explicit config or the caller's explicit value
++      effective = requestedByCaller;
++    }
++    return effective;
++  }
++  // --- [PATCH] End Replication override additions ---
++
+ 
+   static final GetServerDefaultsRequestProto VOID_GET_SERVER_DEFAULT_REQUEST =
+       GetServerDefaultsRequestProto.newBuilder().build();
+@@ -321,6 +366,14 @@
+ 
+   public ClientNamenodeProtocolTranslatorPB(ClientNamenodeProtocolPB proxy) {
+     rpcProxy = proxy;
++    // [PATCH]
++    clientConf = null;
++  }
++
++  // [PATCH]
++  public ClientNamenodeProtocolTranslatorPB(ClientNamenodeProtocolPB proxy, Configuration config) {
++    rpcProxy = proxy;
++    clientConf = config;
+   }
+ 
+   @Override
+@@ -357,13 +410,22 @@
+       CryptoProtocolVersion[] supportedVersions, String ecPolicyName,
+       String storagePolicy)
+       throws IOException {
++
++    // [PATCH] Detect whether the replication was explicitly specified
++    final short effectiveReplication;
++    if (clientConf != null) {
++      effectiveReplication = decideReplication(src, replication, clientConf);
++    } else {
++      effectiveReplication = replication;
++    }
++
+     CreateRequestProto.Builder builder = CreateRequestProto.newBuilder()
+         .setSrc(src)
+         .setMasked(PBHelperClient.convert(masked))
+         .setClientName(clientName)
+         .setCreateFlag(PBHelperClient.convertCreateFlag(flag))
+         .setCreateParent(createParent)
+-        .setReplication(replication)
++        .setReplication(effectiveReplication)
+         .setBlockSize(blockSize);
+     if (ecPolicyName != null) {
+       builder.setEcPolicyName(ecPolicyName);
+@@ -379,6 +441,7 @@
+         PBHelperClient.convert(supportedVersions));
+     CreateRequestProto req = builder.build();
+     CreateResponseProto res = ipc(() -> rpcProxy.create(null, req));
++
+     return res.hasFs() ? PBHelperClient.convert(res.getFs()) : null;
+   }
+ 

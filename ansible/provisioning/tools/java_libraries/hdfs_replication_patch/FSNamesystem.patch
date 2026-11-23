@@ -1,0 +1,58 @@
+--- /home/vagrant/hadoop/hadoop-3.4.2-src/hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode/FSNamesystem.java	2025-08-07 14:12:58.000000000 +0200
++++ /vagrant/ansible/provisioning/tools/java_libraries/hdfs_replication_patch/FSNamesystem.java	2026-10-28 10:06:51.842795936 +0100
+@@ -15,6 +15,7 @@
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  */
++// PATH: hadoop-hdfs-project/hadoop-hdfs/src/main/java/org/apache/hadoop/hdfs/server/namenode
+ package org.apache.hadoop.hdfs.server.namenode;
+ 
+ import static org.apache.commons.text.StringEscapeUtils.escapeJava;
+@@ -509,6 +510,9 @@
+   private final boolean isSnapshotTrashRootEnabled;
+   private final int snapshotDiffReportLimit;
+ 
++  // [PATCH] for intercepting replication factor
++  private final int replicationOverride;
++
+   /**
+    * Whether enable checkOperation when call getBlocks.
+    * It is enabled  by default.
+@@ -1070,6 +1074,9 @@
+           DFSConfigKeys.DFS_NAMENODE_GETBLOCKS_CHECK_OPERATION_KEY,
+           DFSConfigKeys.DFS_NAMENODE_GETBLOCKS_CHECK_OPERATION_DEFAULT);
+ 
++      // [PATCH] for intercepting replication factor
++      this.replicationOverride = conf.getInt("dfs.namenode.replication.default.override", 0);
++
+     } catch(IOException e) {
+       LOG.error(getClass().getSimpleName() + " initialization failed.", e);
+       close();
+@@ -2727,6 +2734,7 @@
+       long blockSize, CryptoProtocolVersion[] supportedVersions,
+       String ecPolicyName, String storagePolicy, boolean logRetryCache)
+       throws IOException {
++
+     if (NameNode.stateChangeLog.isDebugEnabled()) {
+       StringBuilder builder = new StringBuilder();
+       builder.append("DIR* NameSystem.startFile: src=").append(src)
+@@ -2779,8 +2787,18 @@
+             DFSConfigKeys.DFS_NAMENODE_MIN_BLOCK_SIZE_KEY + "=" + minBlockSize);
+       }
+ 
++      // [PATCH] for aplying different replication factors
++      short nnDefaultReplication = (short) this.replicationOverride;
++      if (replication == -1) {
++        if (nnDefaultReplication > 0 && (ecPolicyName == null || ecPolicyName.isEmpty())) {
++            replication = nnDefaultReplication;
++        } else {
++            LOG.error("[PATCH] Wrong override replication", nnDefaultReplication);
++            throw new IOException("[PATCH] Wrong override replication " + nnDefaultReplication + " or set ecPolicy " + ecPolicyName);
++        }
++      }
+       if (shouldReplicate) {
+-        blockManager.verifyReplication(src, replication, clientMachine);
++          blockManager.verifyReplication(src, replication, clientMachine);
+       } else {
+         final ErasureCodingPolicy ecPolicy = FSDirErasureCodingOp
+             .getErasureCodingPolicy(this, ecPolicyName, iip);
