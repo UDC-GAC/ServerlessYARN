@@ -143,6 +143,10 @@ def stop_app_on_container(host_name, container, app_name, app_files, master_cont
 
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["stop_app"], limit=[host_name], extravars=extravars)
 
+def remove_app_dns_entries(host_name, app_name):
+    # The DNS entries are removed from the server, so it is enough to run the playbook on just one host of the app
+    run_playbook(playbook_name="manage_app_on_container.yml", tags=["remove_dns_entries"], limit=[host_name], extravars={"app_name": app_name})
+
 
 ## Manage services
 def disable_scaler():
@@ -277,9 +281,6 @@ def upload_local_hdfs_data_to_global(master_host, master_container, global_hdfs_
     run_playbook(playbook_name="manage_app_on_container.yml", tags=["remove_global_hdfs_connection"], extravars=extravars)
 
     return get_hdfs_transfer_time(task_timings)
-
-def clean_hdfs(host_name, container):
-    run_playbook(playbook_name="manage_app_on_container.yml", tags=["clean_hdfs"], limit=[host_name], extravars={"container": container})
 
 def set_global_hdfs_replication(nn_host, nn_container, replication_factor):
 

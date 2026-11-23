@@ -3,9 +3,21 @@ from django.conf import settings
 from ui.utils import DEFAULT_RESOURCE_VALUES, DEFAULT_LIMIT_VALUES
 from ui.background.tasks import register_task, stop_hdfs_task, remove_app_task, start_global_hdfs_task
 from ui.domain.state_db import getScalerPollFreq, getDbData, getDataAndFilterByApp
-from ui.domain.structures import getContainersFromApp, getAppFiles, getHostsNames
+from ui.domain.structures import getContainersFromApp, getHostsNames
 
 from serverlessyarn_utils.manage_inventory import AnsibleYamlInventory, HOST_CONTAINER_SEPARATOR
+
+def get_global_hdfs_app_files(app_name):
+    # App files of the global HDFS, used both to start and stop it
+    # NOTE: they cannot be retrieved from StateDB as usual (getAppFiles), since the app directory is inferred from the start script, which is not defined
+    app_files = {
+        'app_dir': "base/" + app_name,
+        'app_type': "hadoop_app",
+        'runtime_files': "runtime_files",
+        'output_dir': "output_dir" ## used to store the HDFS logs when the cluster is stopped
+    }
+    for key in ['start_script', 'stop_script', 'install_script', 'install_files']: app_files[key] = ""
+    return app_files
 
 def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn_container_prefix, webdriver_state):
     # Get host data
@@ -102,11 +114,7 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
     url = url + "apps/" + app_name
 
     ## APP info
-    app_files = {}
-    app_files['app_dir'] = "base/" + app_name
-    app_files['app_type'] = "hadoop_app"
-    app_files['runtime_files'] = "runtime_files"
-    for key in ['start_script', 'stop_script', 'install_script', 'install_files', 'output_dir']: app_files[key] = ""
+    app_files = get_global_hdfs_app_files(app_name)
 
     put_field_data = {
         'app': {
@@ -119,7 +127,7 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
             'stop_script': "",
             'install_files': "",
             'runtime_files': app_files['runtime_files'],
-            'output_dir': "", ## actually I might use this to store logs
+            'output_dir': app_files['output_dir'],
             'framework': "hadoop"
         },
         'limits': {'resources': {}}
@@ -151,7 +159,7 @@ def start_global_hdfs(request, app_name, url, resources, nn_container_prefix, dn
 def stop_global_hdfs(request, app_name, url, resources, nn_container_prefix, webdriver_state):
     data, app = getDataAndFilterByApp(url, app_name)
     container_list = getContainersFromApp(data, app)
-    app_files = getAppFiles(app)
+    app_files = get_global_hdfs_app_files(app_name)
     scaler_polling_freq = getScalerPollFreq()
 
     master_host = None

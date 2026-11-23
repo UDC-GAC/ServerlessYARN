@@ -376,7 +376,8 @@
               loop_var: file
               label: "{{ file.path }}"
 
-        when: "runtime_files != ''"
+        ## When stopping, runtime files are only needed if there is a stop script to run
+        when: "runtime_files != '' and ('start_app' in ansible_run_tags or stop_script | default('') != '')"
         delegate_to: localhost
         run_once: yes
 
@@ -581,22 +582,29 @@
                 "Download time (global-->local) = {{ download_time }}"
                 "Upload time (local-->global) = {{ upload_time }}"
 
+          ## Once persisted, output data is removed from the container bind directory
+          ## Required for containers whose bind directory is kept after stopping them (e.g., global HDFS NameNode), so data is not stored again in later runs
+          - name: Remove persisted output data from container
+            file:
+              path: "{{ container_bind_dir }}/{{ output_dir }}"
+              state: absent
+
           vars:
             stored_output_dir: "{{ app_output_data }}/{{ app_name }}/{{ timestamp }}/{{ output_dir }}-{{ container }}"
 
         when: "output_dir is defined and output_dir != ''"
 
-      ## Removing the whole file is enough, since per-app files are used
-      ## This task will be executed by every container in the app due to the pipeline design
-      ## Race conditions should not occur due to Ansible's indempotency, but further testing is required
-      ## A better approach would require just running this task once
-      - name: Remove DNS entries for app
-        delegate_to: localhost
-        file:
-          path: "{{ dns_path }}/{{ app_name }}"
-          state: absent
-
     tags: never, stop_app
+
+  ## Remove the DNS entries of an app
+  ## Run just once after all the app containers have been stopped (removing the whole file is enough, since per-app files are used)
+  - name: Remove DNS entries for app
+    delegate_to: localhost
+    run_once: yes
+    file:
+      path: "{{ dns_path }}/{{ app_name }}"
+      state: absent
+    tags: never, remove_dns_entries
 
   ## Stop hadoop
   - name: Stop hadoop cluster
@@ -615,24 +623,6 @@
           executable: /bin/bash
         failed_when: false
     tags: never, stop_hadoop_cluster
-
-  ## Clean Global HDFS files
-  - name: Clean pending Global HDFS files and processes
-    when: global_hdfs
-    tags: never, clean_hdfs
-    block:
-    - name: Stop Java Snitch
-      shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c \
-        'tmux kill-session -t JAVA_SNITCH'"
-      args:
-        executable: /bin/bash
-
-    ## Workaround to remove DNS entries for global hdfs
-    - name: Remove DNS entries for global hdfs
-      delegate_to: localhost
-      file:
-        path: "{{ dns_path }}/{{ global_hdfs_app_name }}"
-        state: absent
 
 
   ## HDFS

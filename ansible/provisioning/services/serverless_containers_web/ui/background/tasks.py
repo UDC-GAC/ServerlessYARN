@@ -782,18 +782,12 @@ def wait_for_app_dependency(assignation_requirements, url, app, container_resour
 
 def rollback_start_flow(url, app, app_containers, app_files):
     if app_containers:
-        for container in app_containers:
-            try:
-                run_playbooks.stop_app_on_container(container['host'], container['container_name'], app, app_files,
-                                                    master_container="", bind_path=container.get('disk_path', ''))
-            except Exception as e:
-                print("[ROLLBACK] Error stopping aplication {0} inside container {1}: {2}".format(app, container['container_name'], str(e)))
-
-        for container in app_containers:
-            try:
-                stop_container(container['host'], container['container_name'], container.get('disk_path', ''))
-            except Exception as e:
-                print("[ROLLBACK] Error removing container {0} from remote host {1}: {2}".format(container['container_name'], container["host"], str(e)))
+        try:
+            errors = stop_app_on_containers(app, app_files, app_containers)
+        except Exception as e:
+            errors = [str(e)]
+        for error in errors:
+            print("[ROLLBACK] {0}".format(error))
 
         for container in app_containers:
             try:
@@ -905,40 +899,9 @@ def start_hadoop_app_task(self, assignation_requirements, url, app, app_files, c
     runtime = "{:.2f}".format(end_time-start_time)
     update_task_runtime(self.request.id, runtime)
 
-    # Stop hadoop cluster
-    run_playbooks.stop_hadoop_cluster(master_host, master_container)
-
-    ## Disable scaler and other scaling services, remove all containers from StateDB and re-enable them
-    with scaling_services_disabled():
-        start_time = timeit.default_timer()
-        errors = []
-        for container in app_containers:
-            full_url = url + "container/{0}/{1}".format(container['container_name'],app)
-            error = remove_container_from_app_db(full_url, container['container_name'], app)
-            if error != "": errors.append(error)
-        end_time = timeit.default_timer()
-
-        ## Wait at least for the scaler polling frequency time before re-enabling it
-        time.sleep(scaler_polling_freq - (end_time - start_time))
-
-    ## Get timestamp to store output data
-    timestamp = None
-    if 'output_dir' in app_files and app_files['output_dir'] != '':
-        timestamp = time.strftime("%Y-%m-%d--%H-%M-%S")
-
-    # Stop and remove containers
-    for container in app_containers:
-        full_url = url + "container/{0}/{1}".format(container['container_name'],app)
-        bind_path = ""
-        if 'disk_path' in container: bind_path = container['disk_path']
-        if container['container_name'] == master_container:
-            stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, master_container, timestamp, download_time, upload_time)
-        else:
-            stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], bind_path, app, app_files, master_container, timestamp)
-        register_task(stop_task.id,"stop_container_task")
-
-    # Set application in running state in ServerlessContainers
-    change_app_state_in_db(url, app, "stopped")
+    # Stop hadoop cluster, set app as stopped, persist output data and remove containers
+    errors = stop_hadoop_app(url, app, app_files, app_containers, scaler_polling_freq, master_host, master_container,
+                             download_time=download_time, upload_time=upload_time)
 
     if len(errors) > 0: raise Exception(str(errors))
 
@@ -1205,31 +1168,15 @@ def start_global_hdfs_task(self, url, app, app_files, containers, virtual_cluste
 @shared_task(bind=True)
 def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_freq, master_host, master_container):
 
-    # Stop hadoop cluster
-    run_playbooks.stop_hadoop_cluster(master_host, master_container)
+    # Containers come from StateDB, so convert them to the same format used when deploying apps
+    app_containers = [get_container_deployment_info(container) for container in app_containers]
 
-    ## Disable scaler and other scaling services, remove all containers from StateDB and re-enable them
-    with scaling_services_disabled():
-        start_time = timeit.default_timer()
-        errors = []
-        for container in app_containers:
-            full_url = url + "container/{0}/{1}".format(container['name'],app)
-            error = remove_container_from_app_db(full_url, container['name'], app)
-            if error != "": errors.append(error)
-        end_time = timeit.default_timer()
-
-        ## Wait at least for the scaler polling frequency time before re-enabling it
-        time.sleep(scaler_polling_freq - (end_time - start_time))
-
-    # Remove app from db
-    full_url = url + "apps" + "/" + app
-    error_message = "Error removing app {0}".format(app)
-    error, _ = web_request(full_url, "delete", error_message)
-
-    ## Clean datanodes data_dir and avoid errors when creating new global_hdfs cluster
-    ## This is a workaround, should be executed when stopping cluster
-    for container in app_containers:
-        run_playbooks.clean_hdfs(container['host'], container['name'])
+    # Same workflow as Hadoop apps: stop cluster, persist HDFS logs and remove containers. Additionally:
+    ## - The app is removed from StateDB, as the global HDFS app is created each time the cluster is started
+    ## - The NameNode bind directory is kept, as it may be a disk directly used by the server (e.g., when the server is used as host)
+    ##   Removing the datanodes bind directories also cleans their data dirs, avoiding errors when creating a new global HDFS cluster
+    errors = stop_hadoop_app(url, app, app_files, app_containers, scaler_polling_freq, master_host, master_container,
+                             keep_bind_dir=[master_container], remove_app=True)
 
     ## Previous deployments are no longer close to any data, as global HDFS data has been removed
     try:
@@ -1241,16 +1188,7 @@ def stop_hdfs_task(self, url, app, app_files, app_containers, scaler_polling_fre
     if not settings.PLATFORM_CONFIG["server_as_host"]:
         run_playbooks.stop_container("platform_server", vars_config['hdfs_frontend_container_name'])
 
-    # Stop containers
-    for container in app_containers:
-        bind_path, clean_bind_dir = "", True
-        if 'disk' in container['resources'] and 'path' in container['resources']['disk']:
-            bind_path = container['resources']['disk']['path']
-        if "namenode" in container['name']:
-            clean_bind_dir = False
-
-        stop_task = stop_container.delay(container['host'], container['name'], bind_path, clean_bind_dir)
-        register_task(stop_task.id,"stop_container_task")
+    if len(errors) > 0: raise Exception(str(errors))
 
 
 ## Removes
@@ -1274,25 +1212,14 @@ def remove_host_task(full_url, host_name):
 @shared_task
 def remove_app_task(url, structure_type_url, app_name, container_list, app_files, user=None):
 
+    errors = []
+
     # First, remove all containers from app
     if len(container_list) > 0:
-        with scaling_services_disabled():
-            errors = []
-            for container in container_list:
-                full_url = url + "container/{0}/{1}".format(container['name'], app_name)
-                error = remove_container_from_app_db(full_url, container['name'], app_name)
-                if error != "": errors.append(error)
-
-        ## Get timestamp to store output data
-        timestamp = None
-        if 'output_dir' in app_files and app_files['output_dir'] != '':
-            timestamp = time.strftime("%Y-%m-%d--%H-%M-%S")
-
-        for container in container_list:
-            full_url = url + "container/{0}/{1}".format(container['name'], app_name)
-            bind_path = container.get('disk_path', "")
-            task = stop_app_on_container_task.delay(container['host'], container['name'], bind_path, app_name, app_files, "", timestamp)
-            register_task(task.id, "stop_app_on_container_task")
+        # Containers come from StateDB, so convert them to the same format used when deploying apps
+        app_containers = [get_container_deployment_info(container) for container in container_list]
+        errors += remove_app_containers_from_db(url, app_name, app_containers)
+        errors += stop_app_on_containers(app_name, app_files, app_containers)
 
     # If app is associated with a user, desubscribe app from user
     if user and user != "":
@@ -1301,13 +1228,14 @@ def remove_app_task(url, structure_type_url, app_name, container_list, app_files
         error, _ = web_request(full_url, "delete", error_message)
 
         if error:
-            raise Exception(error)
+            errors.append(error)
+            raise Exception(str(errors))
 
     # Then, actually remove app
-    full_url = url + structure_type_url + "/" + app_name
+    error = remove_app_from_db(url, app_name, structure_type_url)
+    if error: errors.append(error)
 
-    error_message = "Error removing app {0}".format(app_name)
-    error, _ = web_request(full_url, "delete", error_message)
+    if len(errors) > 0: raise Exception(str(errors))
 
 @shared_task
 def remove_containers_task(url, container_list):
@@ -1340,44 +1268,17 @@ def remove_containers_task(url, container_list):
     if len(errors) > 0: raise Exception(str(errors))
 
 @shared_task
-def remove_containers_from_app(url, container_list, app, app_files):
+def remove_containers_from_app(url, container_list, app, app_files, remove_dns_entries=True):
+    # 'remove_dns_entries' should be disabled when just a subset of the app containers is removed, as the app DNS entries are still needed
 
-    # Disable scaler and other scaling services before removing containers
-    with scaling_services_disabled():
-        change_app_state_in_db(url, app, "stopped")
+    # Set app as stopped and desubscribe containers from app in StateDB
+    errors = remove_app_containers_from_db(url, app, container_list, app_state="stopped")
 
-        # Desubscribe containers from app in StateDB
-        errors = []
-        for container in container_list:
-            full_url = url + "container/{0}/{1}".format(container['container_name'], app)
-            error = remove_container_from_app_db(full_url, container['container_name'], app)
-            if error != "":
-                errors.append(error)
-
-    ## Get timestamp to store output data
-    timestamp = None
-    if 'output_dir' in app_files and app_files['output_dir'] != '':
-        timestamp = time.strftime("%Y-%m-%d--%H-%M-%S")
-
-    # Stop app on containers
-    for container in container_list:
-        try:
-            run_playbooks.stop_app_on_container(container['host'], container['container_name'], app, app_files,
-                                                master_container="", bind_path=container.get('disk_path', ''), timestamp=timestamp)
-        except Exception as e:
-            error_msg = "Error stopping aplication {0} inside container {1}: {2}".format(app, container['container_name'], str(e))
-            errors.append(error_msg)
-            print(error_msg)
-
-    # Stop containers on remote hosts and remove from inventory (best-effort, synchronous)
-    for container in container_list:
-        try:
-            stop_container(container['host'], container['container_name'], container.get('disk_path', ''))
-        except Exception as e:
-            errors.append(str(e)) # Error is already formatted inside stop_container
-            print(str(e))
+    # Stop app on containers (persisting output data) and stop containers on remote hosts
+    errors += stop_app_on_containers(app, app_files, container_list, remove_dns_entries=remove_dns_entries)
 
     if len(errors) > 0:
+        for error in errors: print(error)
         raise Exception(str(errors))
 
 @shared_task
@@ -1451,6 +1352,130 @@ def stop_container(host, container_name, bind_path=None, clean_bind_dir=True):
 
 
 @shared_task
-def stop_app_on_container_task(host, container_name, bind_path, app, app_files, master_container, timestamp=None, download_time=0, upload_time=0):
-    run_playbooks.stop_app_on_container(host, container_name, app, app_files, master_container, bind_path, timestamp, download_time, upload_time)
-    stop_container(host, container_name, bind_path)
+def stop_app_on_container_task(host, container_name, bind_path, app, app_files, master_container, timestamp=None, download_time=0, upload_time=0, clean_bind_dir=True):
+    error_msg = ""
+    try:
+        ## Run stop script and persist output data
+        run_playbooks.stop_app_on_container(host, container_name, app, app_files, master_container, bind_path, timestamp, download_time, upload_time)
+    except Exception as e:
+        error_msg = "Error stopping application {0} inside container {1}: {2}".format(app, container_name, str(e))
+        ## The container is stopped anyway so it is not left running, but its bind directory is kept to avoid losing non-persisted output data
+        clean_bind_dir = False
+    try:
+        stop_container(host, container_name, bind_path, clean_bind_dir)
+    except Exception as e:
+        error_msg += ("\n" if error_msg else "") + str(e) # Error is already formatted inside stop_container
+
+    if error_msg:
+        raise Exception(error_msg)
+
+
+## Stop workflows
+def get_container_deployment_info(container):
+    """
+    Convert a container retrieved from StateDB (e.g., {'name': ..., 'host': ..., 'resources': {'disk': {'path': ...}}})
+    to the format used when deploying apps (e.g., {'container_name': ..., 'host': ..., 'disk_path': ...}).
+    """
+    if 'container_name' in container:
+        return container
+    return {
+        'container_name': container['name'],
+        'host': container['host'],
+        'disk_path': container.get('resources', {}).get('disk', {}).get('path', '')
+    }
+
+def wait_for_tasks(tasks, polling_period=1):
+    """
+    Wait for a list of already dispatched tasks to finish and return the errors raised by them.
+    Results are not retrieved through AsyncResult.get(), as Celery does not allow waiting for subtasks that way within a task.
+    """
+    while not all(task.ready() for task in tasks):
+        time.sleep(polling_period)
+    return [str(task.result) for task in tasks if task.failed()]
+
+def remove_app_from_db(url, app, structure_type_url="apps"):
+    full_url = url + structure_type_url + "/" + app
+    error_message = "Error removing app {0}".format(app)
+    error, _ = web_request(full_url, "delete", error_message)
+    return error
+
+def remove_app_containers_from_db(url, app, app_containers, scaler_polling_freq=0, app_state=None):
+    """
+    Remove the app containers from StateDB while scaling services are disabled, and then optionally change the app state.
+    If 'scaler_polling_freq' is set, wait at least that time before re-enabling the scaling services.
+    """
+    errors = []
+    with scaling_services_disabled():
+        start_time = timeit.default_timer()
+        for container in app_containers:
+            full_url = url + "container/{0}/{1}".format(container['container_name'], app)
+            error = remove_container_from_app_db(full_url, container['container_name'], app)
+            if error != "": errors.append(error)
+
+        ## Wait at least for the scaler polling frequency time before re-enabling it
+        elapsed_time = timeit.default_timer() - start_time
+        if scaler_polling_freq > elapsed_time:
+            time.sleep(scaler_polling_freq - elapsed_time)
+
+        if app_state:
+            change_app_state_in_db(url, app, app_state)
+
+    return errors
+
+def stop_app_on_containers(app, app_files, app_containers, master_container="", download_time=0, upload_time=0, keep_bind_dir=None, remove_dns_entries=True):
+    """
+    Common stop workflow for the containers of any app (generic, Hadoop or global HDFS). In parallel, for each container:
+      - Run the app stop script (if any)
+      - Persist its output data (if any), including Hadoop logs for Hadoop-based apps
+      - Stop the container and remove its bind directory (unless the container is included in 'keep_bind_dir')
+    Once all the containers are stopped, the app DNS entries are removed just once.
+    'app_containers' must follow the format used when deploying apps (check get_container_deployment_info).
+    Returns a list with the errors found.
+    """
+    if not app_containers: return []
+    keep_bind_dir = keep_bind_dir or []
+
+    ## Get timestamp to store output data (shared by all containers)
+    timestamp = None
+    if app_files.get('output_dir', '') != '':
+        timestamp = time.strftime("%Y-%m-%d--%H-%M-%S")
+
+    stop_tasks = []
+    for container in app_containers:
+        is_master = container['container_name'] == master_container
+        stop_task = stop_app_on_container_task.delay(container['host'], container['container_name'], container.get('disk_path', ''),
+                                                     app, app_files, master_container, timestamp,
+                                                     download_time if is_master else 0, upload_time if is_master else 0,
+                                                     clean_bind_dir=container['container_name'] not in keep_bind_dir)
+        register_task(stop_task.id, "stop_app_on_container_task")
+        stop_tasks.append(stop_task)
+
+    errors = wait_for_tasks(stop_tasks)
+
+    if remove_dns_entries:
+        try:
+            run_playbooks.remove_app_dns_entries(app_containers[0]['host'], app)
+        except Exception as e:
+            errors.append("Error removing DNS entries of app {0}: {1}".format(app, str(e)))
+
+    return errors
+
+def stop_hadoop_app(url, app, app_files, app_containers, scaler_polling_freq, master_host, master_container, download_time=0, upload_time=0, keep_bind_dir=None, remove_app=False):
+    """
+    Stop workflow shared by Hadoop apps and the global HDFS cluster:
+      1. Gracefully stop the Hadoop cluster (HDFS + YARN) from the master container
+      2. Remove the containers from StateDB, and then set the app as stopped (or remove it if 'remove_app' is set)
+      3. Stop the app on each container, persist output data (including Hadoop logs) and stop the containers
+      4. Remove the app DNS entries
+    Returns a list with the errors found.
+    """
+    run_playbooks.stop_hadoop_cluster(master_host, master_container)
+
+    errors = remove_app_containers_from_db(url, app, app_containers, scaler_polling_freq, app_state=None if remove_app else "stopped")
+    if remove_app:
+        error = remove_app_from_db(url, app)
+        if error: errors.append(error)
+
+    errors += stop_app_on_containers(app, app_files, app_containers, master_container, download_time, upload_time, keep_bind_dir)
+
+    return errors

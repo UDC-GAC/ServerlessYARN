@@ -409,7 +409,10 @@ def processRemoveContainersFromApp(request, url, **kwargs):
 
         container_list.append({'container_name': container, 'host': host, 'disk_path': disk_path})
 
-    task = remove_containers_from_app.delay(url, container_list, app, app_files)
+    # When requested by the user, just some of the app containers may be removed, so its DNS entries must be kept
+    # Otherwise, the whole app is being stopped (processStopApp)
+    remove_dns_entries = request is None
+    task = remove_containers_from_app.delay(url, container_list, app, app_files, remove_dns_entries)
     print("Starting task with id {0}".format(task.id))
     register_task(task.id,"remove_containers_from_app")
 
