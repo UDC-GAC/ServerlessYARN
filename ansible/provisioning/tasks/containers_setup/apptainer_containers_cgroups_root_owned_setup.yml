@@ -9,7 +9,7 @@
 
     - name: Copy apptainer containers cgroup config
       template:
-        src: "{{ templates_dir }}/{{ cgroups_file }}"
+        src: "{{ templates_dir }}/containers/{{ cgroups_file }}"
         dest: "{{ installation_path }}/{{ cgroups_file }}"
 
     ## Workaround to get the right permissions on root-owned cgroups files

@@ -13,7 +13,7 @@
 
         - name: Copy CouchDB definition file and configuration files
           template:
-            src: "{{ templates_dir }}/couchdb/{{ item }}"
+            src: "{{ templates_dir }}/services/couchdb/{{ item }}"
             dest: "{{ couchdb_path }}/{{ item }}"
             mode: "{{ '0600' if item == 'debian_couchdb_conf.dat' else omit }}" ## contains the admin password
           with_items:

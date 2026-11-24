@@ -161,7 +161,7 @@
         when: enable_app_callback
         delegate_to: localhost
         template:
-          src: "{{ templates_dir }}/start_wrapper.sh"
+          src: "{{ templates_dir }}/containers/start_wrapper.sh"
           dest: "{{ app_tmpdir }}/{{ container }}/"
           mode: preserve
 

@@ -42,7 +42,7 @@
 - name: Setup network plugin config
   when: item.key == inventory_hostname
   template:
-    src: "{{ templates_dir }}/cni_{{ mode }}_network.conflist"
+    src: "{{ templates_dir }}/containers/cni/cni_{{ mode }}_network.conflist"
     dest: "{{ apptainer_config_path }}/network/{{ mode }}_{{ inventory_hostname }}.conflist"
   with_dict: "{{ subnet_dict.stdout }}"
   vars:

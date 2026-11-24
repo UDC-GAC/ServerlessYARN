@@ -43,12 +43,12 @@
       when: "container_engine == 'apptainer'"
       vars:
         - app_type: "{{ 'generic_app' if install_script is defined and install_script != '' else 'base' }}"
-        - generic_app_mapping:
+        - generic_app_mapping: # definition files are relative to the templates directory
             base:
-              definition_file: ubuntu_container.def
+              definition_file: images/ubuntu_container.def
               image: ubuntu_container.sif
             generic_app:
-              definition_file: generic_app.def
+              definition_file: images/generic_app.def
               image: "{{ app_dir|basename + '.sif' if app_dir is defined }}"
               install_extra_files: "{{ app_dir if app_dir is defined }}" # directory relative to ansible/provisioning/apps
               image_dependency: base

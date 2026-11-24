@@ -72,7 +72,7 @@
 
         - name: Render CouchDB debconf answers (includes the admin password)
           template:
-            src: "{{ templates_dir }}/couchdb/debian_couchdb_conf.dat"
+            src: "{{ templates_dir }}/services/couchdb/debian_couchdb_conf.dat"
             dest: "{{ couchdb_debconf_file.path }}"
             mode: "0600"
           no_log: true

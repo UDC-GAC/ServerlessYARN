@@ -94,25 +94,25 @@
 
   - name: Copy service aliases and port configuration to ServerlessContainers dir
     template:
-      src: "{{ templates_dir }}/sc_config/services_config.yml"
+      src: "{{ templates_dir }}/services/serverless_containers/services_config.yml"
       dest: "{{ serverless_containers_path }}/services_config.yml"
 
   - name: Copy custom env file in ServerlessContainers to avoid using yq
     template:
-      src: "{{ templates_dir }}/sc_config/set_env.sh"
+      src: "{{ templates_dir }}/services/serverless_containers/set_env.sh"
       dest: "{{ serverless_containers_path }}/scripts/orchestrator/set_env.sh"
     when: "not virtual_mode"
 
   # Read by conf/StateDatabase/services.py when initializing the State Database
   - name: Copy ServerlessContainers services configuration
     template:
-      src: "{{ templates_dir }}/sc_config/services.yml"
+      src: "{{ templates_dir }}/services/serverless_containers/services.yml"
       dest: "{{ serverless_containers_path }}/conf/StateDatabase/services.yml"
 
   # Read by conf/StateDatabase/rules.py when initializing the State Database
   - name: Copy ServerlessContainers rules configuration
     template:
-      src: "{{ templates_dir }}/sc_config/rules.yml"
+      src: "{{ templates_dir }}/services/serverless_containers/rules.yml"
       dest: "{{ serverless_containers_path }}/conf/StateDatabase/rules.yml"
   tags: restart_services
 

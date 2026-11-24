@@ -6,7 +6,7 @@
 
 - name: Copy data server install/start scripts
   template:
-    src: "{{ templates_dir }}/data_server/{{ item }}"
+    src: "{{ templates_dir }}/services/data_server/{{ item }}"
     dest: "{{ data_server_path }}/{{ item }}"
   with_items:
     - sources.list

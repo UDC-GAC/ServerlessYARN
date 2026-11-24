@@ -1,23 +1,24 @@
 ## Big Data (Hadoop / Spark / HDFS) specific variables
-## Loaded by every play along with vars/main.yml (see 'bigdata_vars' in playbooks/paths.yml)
+## Loaded only by the plays that use them, along with vars/main.yml (see 'bigdata_vars' in playbooks/paths.yml)
 
 ## App types
 ## Apps deployed as a Hadoop cluster (HDFS + YARN), i.e., with a master container and worker containers
 bigdata_app_types: [hadoop_app, spark_app]
 
 ## Container images of Big Data apps (merged with the generic ones on 'app_mapping', see start_containers_playbook.yml)
+## Definition files are relative to the templates directory
 bigdata_app_mapping:
   hadoop_app:
-    definition_file: hadoop_app.def
+    definition_file: bigdata/images/hadoop_app.def
     image: hadoop_app.sif
     install_extra_files: base/hadoop_app
     image_dependency: base
   spark_app:
-    definition_file: spark_app.def
+    definition_file: bigdata/images/spark_app.def
     image: spark_app.sif
     image_dependency: hadoop_app
   hdfs_frontend:
-    definition_file: hdfs_frontend.def
+    definition_file: bigdata/images/hdfs_frontend.def
     image: hdfs_frontend.sif
     image_dependency: hadoop_app
 

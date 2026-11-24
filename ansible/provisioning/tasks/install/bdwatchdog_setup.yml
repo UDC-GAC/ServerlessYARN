@@ -68,6 +68,6 @@
 
 - name: Copy service aliases and port configuration to BDWatchdog dir
   template:
-    src: "{{ templates_dir }}/bdw_config/services_config.yml"
+    src: "{{ templates_dir }}/services/bdwatchdog/services_config.yml"
     dest: "{{ bdwatchdog_path }}/services_config.yml"
   tags: restart_services

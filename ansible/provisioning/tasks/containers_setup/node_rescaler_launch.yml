@@ -20,7 +20,7 @@
 
   - name: Copy Node Scaler start script
     template:
-      src: "{{ templates_dir }}/node_scaler_start.sh"
+      src: "{{ templates_dir }}/services/serverless_containers/node_scaler_start.sh"
       dest: "{{ serverless_containers_path }}/scripts/services/node_scaler/start.sh"
 
   - import_tasks: "{{ util_tasks }}/get_tmux_sessions.yml"

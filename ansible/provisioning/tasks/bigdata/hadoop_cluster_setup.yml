@@ -49,25 +49,25 @@
                       # remove hdfs-rbf-site if not using RBF
                       file_list: "{{ hdfs_file_list if start_rbf else hdfs_file_list | difference(['hdfs-rbf-site.xml']) }}",
                       destination: "\"$HADOOP_CONF_DIR\"",
-                      template_dir: "hadoop",
+                      template_dir: "bigdata/hadoop",
                       condition: "{{ start_hdfs }}"
                     }
                   - {
                       file_list: "{{ hadoop_file_list + (['core-site.xml'] if not start_hdfs else []) }}",
                       destination: "\"$HADOOP_CONF_DIR\"",
-                      template_dir: "hadoop",
+                      template_dir: "bigdata/hadoop",
                       condition: "{{ setup_yarn }}"
                     }
                   - {
                       file_list: "{{ shellprofile_file_list }}",
                       destination: "\"$HADOOP_CONF_DIR\"/shellprofile.d",
-                      template_dir: "hadoop/shellprofile.d",
+                      template_dir: "bigdata/hadoop/shellprofile.d",
                       condition: "{{ start_hdfs }}"
                     }
                   - {
                       file_list: "{{ spark_file_list }}",
                       destination: "\"$SPARK_CONF_DIR\"",
-                      template_dir: "spark",
+                      template_dir: "bigdata/spark",
                       condition: "{{ setup_spark }}"
                     }
 

@@ -5,7 +5,8 @@
   tags: create_app, setup_hdfs
   vars:
     ## item in this context is 'app_type'
-    - definition_file: "{{ app_mapping[item]['definition_file'] }}"
+    - definition_template: "{{ app_mapping[item]['definition_file'] }}" # relative to the templates directory
+    - definition_file: "{{ definition_template | basename }}"
     - image_file: "{{ app_mapping[item]['image'] }}"
     - app_base_type: "{{ app_mapping[item]['image_dependency'] if 'image_dependency' in app_mapping[item] }}"
     - app_base_image_file: "{{ app_mapping[app_base_type]['image'] if app_base_type is not none }}" # will be used in the definition image templates
@@ -30,7 +31,7 @@
 
         - name: Copy app definition file ({{ item }})
           template:
-            src: "{{ templates_dir }}/apps/{{ definition_file }}"
+            src: "{{ templates_dir }}/{{ definition_template }}"
             dest: "{{ installed_app_directory }}/{{ definition_file }}"
 
         ## Copy BDWatchdog source
@@ -42,7 +43,7 @@
 
         - name: Copy BDWatchdog atop scripts to BDWatchdog source dir
           template:
-            src: "{{ templates_dir }}/bdw_config/{{ file }}"
+            src: "{{ templates_dir }}/services/bdwatchdog/{{ file }}"
             dest: "{{ bdwatchdog_source_path }}/MetricsFeeder/scripts/{{ file }}"
           with_items:
             - run_atop_stream.sh
