@@ -4,6 +4,7 @@ __pycache__/
 .idea/
 id_rsa*.pub
 artifacts/
+db.sqlite3
 *.log
 *.jar
 *.bak
