@@ -1,5 +1,5 @@
-from django.conf import settings
-from ui.forms import StartAppForm, RemoveContainersFromAppForm, AddAppForm, AddHadoopAppForm
+from ui.forms import StartAppForm, RemoveContainersFromAppForm, AddAppForm
+from ui.bigdata.forms import AddHadoopAppForm, set_bigdata_start_app_form
 
 
 def setStartAppForm(structure, form_action, started_app):
@@ -10,13 +10,8 @@ def setStartAppForm(structure, form_action, started_app):
     structure['start_app_form'] = startAppForm
     structure['started_app'] = started_app
 
-    if settings.PLATFORM_CONFIG['global_hdfs'] and 'framework' in structure and structure['framework'] in ["hadoop", "spark"]:
-        structure['start_app_form'].helper['read_from_global'].update_attributes(type="show")
-        structure['start_app_form'].helper['write_to_global'].update_attributes(type="show")
-
-        ## Data locality allocation is only available for Hadoop apps, as they are the only ones exchanging data with the global HDFS
-        assignation_policy_field = structure['start_app_form'].fields['assignation_policy']
-        assignation_policy_field.choices = list(assignation_policy_field.choices) + [("Data-locality", "Data locality")]
+    ## Big Data specific options (e.g., read/write data from/to the global HDFS)
+    set_bigdata_start_app_form(structure)
 
 def setAddAppForm():
     return {

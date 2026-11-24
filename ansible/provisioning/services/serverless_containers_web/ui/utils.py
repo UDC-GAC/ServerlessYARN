@@ -17,11 +17,6 @@ DEFAULT_RESOURCE_VALUES = {
     "weight": 1
 }
 
-DEFAULT_HDFS_VALUES = {
-    "local_output": "/user/{username}",
-    "global_output": "/user/{username}"
-}
-
 DEFAULT_SERVICE_PARAMETERS = {
     "lv_extension": {
         "threshold": 0.2,
@@ -31,7 +26,5 @@ DEFAULT_SERVICE_PARAMETERS = {
 }
 
 SUPPORTED_RESOURCES = {"cpu", "mem", "disk_read", "disk_write", "net", "energy"}
-
-SUPPORTED_FRAMEWORKS = {"hadoop", "spark"}
 
 EXCLUDED_VALUES_LABELS = {"cpu_cores", "alloc_ratio", "rebalanced", "lent_mapping"}

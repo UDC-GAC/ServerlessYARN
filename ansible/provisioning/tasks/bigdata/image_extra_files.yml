@@ -1,0 +1,25 @@
+## Copy the extra files required to build the Hadoop image (Spark and HDFS frontend images are built on top of it)
+## Imported within the image creation flow of tasks/containers_setup/apptainer_container_image_setup.yml ('item' is the app type)
+
+- name: Copy necessary files for hadoop apps ({{ item }})
+  when: "item == 'hadoop_app'"
+  copy:
+    src: "{{ extra_files_directory }}/{{ file }}"
+    dest: "{{ installed_app_directory }}/"
+  with_items:
+    - setup.sh
+    - java_snitch.sh
+    - hadoop_files
+  loop_control:
+    loop_var: file
+
+- name: Copy hadoop patch files ({{ item }})
+  when: "item == 'hadoop_app' and hdfs_replication_mode == 'hdfs_patch'"
+  copy:
+    src: "{{ extra_files_directory }}/{{ file }}"
+    dest: "{{ installed_app_directory }}/"
+  with_items:
+    - "hadoop-hdfs-{{ hadoop_version }}.jar"
+    - "hadoop-hdfs-client-{{ hadoop_version }}.jar"
+  loop_control:
+    loop_var: file

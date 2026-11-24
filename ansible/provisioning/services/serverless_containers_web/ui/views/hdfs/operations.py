@@ -1,7 +1,8 @@
 import yaml
 from django.conf import settings
 from ui.utils import DEFAULT_RESOURCE_VALUES, DEFAULT_LIMIT_VALUES
-from ui.background.tasks import register_task, stop_hdfs_task, remove_app_task, start_global_hdfs_task
+from ui.background.tasks import register_task, remove_app_task
+from ui.background.bigdata_tasks import stop_hdfs_task, start_global_hdfs_task
 from ui.domain.state_db import getScalerPollFreq, getDbData, getDataAndFilterByApp
 from ui.domain.structures import getContainersFromApp, getHostsNames
 

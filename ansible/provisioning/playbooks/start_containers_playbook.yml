@@ -15,6 +15,7 @@
   vars_files:
     - paths.yml
     - "{{ main_vars }}"
+    - "{{ bigdata_vars }}"
     - "{{ defaults }}"
     - "{{ main_config }}"
 
@@ -42,7 +43,7 @@
       when: "container_engine == 'apptainer'"
       vars:
         - app_type: "{{ 'generic_app' if install_script is defined and install_script != '' else 'base' }}"
-        - app_mapping:
+        - generic_app_mapping:
             base:
               definition_file: ubuntu_container.def
               image: ubuntu_container.sif
@@ -51,19 +52,8 @@
               image: "{{ app_dir|basename + '.sif' if app_dir is defined }}"
               install_extra_files: "{{ app_dir if app_dir is defined }}" # directory relative to ansible/provisioning/apps
               image_dependency: base
-            hadoop_app:
-              definition_file: hadoop_app.def
-              image: hadoop_app.sif
-              install_extra_files: base/hadoop_app
-              image_dependency: base
-            spark_app:
-              definition_file: spark_app.def
-              image: spark_app.sif
-              image_dependency: hadoop_app
-            hdfs_frontend:
-              definition_file: hdfs_frontend.def
-              image: hdfs_frontend.sif
-              image_dependency: hadoop_app
+        ## Big Data images (hadoop_app, spark_app, hdfs_frontend) are defined in vars/bigdata.yml
+        - app_mapping: "{{ generic_app_mapping | combine(bigdata_app_mapping) }}"
       block:
         ## Image creation
         - include_tasks: "{{ container_tasks }}/apptainer_container_image_setup.yml" # beware of the differences of 'include_tasks' vs 'import_tasks', such as tagging
@@ -116,8 +106,9 @@
                   {{ containers_info }}
             - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
 
+        ## ===== Big Data (Hadoop / Spark / HDFS) =====
         ## Launch global HDFS frontend container
-        - import_tasks: "{{ launch_tasks }}/global_hdfs_frontend_launch.yml"
+        - import_tasks: "{{ bigdata_tasks }}/global_hdfs_frontend_launch.yml"
           when: global_hdfs
           tags: never, setup_hdfs
           vars:

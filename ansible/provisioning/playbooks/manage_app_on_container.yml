@@ -14,6 +14,7 @@
   vars_files:
     - paths.yml
     - "{{ main_vars }}"
+    - "{{ bigdata_vars }}"
     - "{{ defaults }}"
     - "{{ main_config }}"
 
@@ -21,10 +22,6 @@
     - jid_file: "{{ ansible_async_dir }}/{{ container }}.jid"
     - singularity_env_file: "/.singularity.d/env/90-environment.sh"
     - container_bind_dir: "{{ [bind_dir, container] | join('/') if container is defined }}"
-    - hdfs_file_list: ["core-site.xml", "hdfs-site.xml", "hadoop-env.sh", "rack_topology.py", "hdfs-rbf-site.xml"]
-    - hadoop_file_list: ["yarn-site.xml", "mapred-site.xml", "yarn-env.sh", "capacity-scheduler.xml"]
-    - shellprofile_file_list: ["tools.sh"]
-    - spark_file_list: ["spark-defaults.conf"]
     - app_tmpdir: "{{ tmpdir }}/{{ app_name }}"
 
   environment:
@@ -37,6 +34,10 @@
   tasks:
   - import_tasks: "{{ util_tasks }}/get_user_ids.yml"
     tags: always
+
+  ##############################################################################
+  ## Generic apps
+  ##############################################################################
 
   ## Setup network
   ## TODO: fix iptables
@@ -92,249 +93,6 @@
       - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
     tags: never, setup_network
 
-  - name: Start zookeeper
-    when: inventory_hostname == master_host
-    shell: "sudo {{ singularity_command_alias }} exec instance://{{ master_container }} su - {{ user_info.user_name }} -c \
-      'nohup /opt/zookeeper/bin/zkServer.sh start &'"
-    tags: never, start_zookeeper
-
-  - name: Setup hadoop on containers
-    block:
-      - name: Workers file setup
-        tags: setup_hadoop, setup_hdfs
-        block:
-          - name: Copy app files already on containers & Update workers file on containers
-            shell: "
-              {% for item in containers_info %}
-                {% if item.host == inventory_hostname %}
-                  sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c '\ 
-                    cp -pr /opt/hadoop_files {{ bind_dir_on_container }}/ && 
-                    {% for item in worker_list %}
-                      echo {{ item }} >> $HADOOP_CONF_DIR/workers && 
-                    {% endfor %}true
-                  ' && 
-                {% endif  %}
-              {% endfor %}true"
-            args:
-              executable: /bin/bash
-            vars:
-              worker_list: "{{ containers_info | 
-                      map(attribute='container_name') |
-                      reject('search', master_container) | list}}"
-
-      - name: Prepare and copy all config files to containers
-        tags: setup_hadoop, setup_hdfs
-        block:
-          - name: Setup configuration files to transfer
-            delegate_to: localhost
-            run_once: yes
-            block:
-              - name: Create temporary directory to store templated config files
-                file:
-                  path: "{{ app_tmpdir }}"
-                  state: directory
-
-              - name: Set file list to transfer
-                vars:
-                  start_hdfs: yes
-                  start_rbf: "{{ global_hdfs and hdfs_mode == 'rbf' }}"
-                  setup_spark: "{{ app_type is defined and app_type == 'spark_app' and 'setup_hdfs' not in ansible_run_tags }}"
-                  setup_yarn: "{{ (not global_hdfs or app_name != global_hdfs_app_name or hdfs_mode in ['isolated', 'rbf']) and 'setup_hdfs' not in ansible_run_tags }}" ## RBF requires yarn-site.xml for zookeeper conf
-                set_fact:
-                  transfer_file_dict:
-                    - {
-                        # remove hdfs-rbf-site if not using RBF
-                        file_list: "{{ hdfs_file_list if start_rbf else hdfs_file_list | difference(['hdfs-rbf-site.xml']) }}",
-                        destination: "\"$HADOOP_CONF_DIR\"",
-                        template_dir: "hadoop",
-                        condition: "{{ start_hdfs }}"
-                      }
-                    - {
-                        file_list: "{{ hadoop_file_list + (['core-site.xml'] if not start_hdfs else []) }}",
-                        destination: "\"$HADOOP_CONF_DIR\"",
-                        template_dir: "hadoop",
-                        condition: "{{ setup_yarn }}"
-                      }
-                    - {
-                        file_list: "{{ shellprofile_file_list }}",
-                        destination: "\"$HADOOP_CONF_DIR\"/shellprofile.d",
-                        template_dir: "hadoop/shellprofile.d",
-                        condition: "{{ start_hdfs }}"
-                      }
-                    - {
-                        file_list: "{{ spark_file_list }}",
-                        destination: "\"$SPARK_CONF_DIR\"",
-                        template_dir: "spark",
-                        condition: "{{ setup_spark }}"
-                      }
-
-              - name: Copy config files to master
-                when: item.0.condition | default(true)
-                template:
-                  src: "{{ templates_dir }}/{{ item.0.template_dir }}/{{ item.1 }}"
-                  dest: "{{ app_tmpdir }}/{{ item.1 }}"
-                  mode: preserve
-                loop: "{{ transfer_file_dict | subelements('file_list') }}"
-
-          - name: Copy config files to hosts
-            synchronize:
-              src: "{{ app_tmpdir }}/"
-              dest: "{{ app_tmpdir }}/"
-
-          - name: Copy and update config files to containers
-            shell: |
-              {% for item in containers_info -%}
-                {% if item.host == inventory_hostname -%}
-                  {% set container_bind_dir = item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') -%}
-                  {% for file_set in transfer_file_dict -%}
-                    {% if file_set.condition | default (true) -%}
-                      {% for file in file_set.file_list -%}
-                        cp {{ app_tmpdir }}/{{ file }} {{ container_bind_dir }}/{{ file }} && \
-                      {% endfor -%}
-                    {% endif -%}
-                  {% endfor -%}
-                  sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
-                  '{% for file_set in transfer_file_dict -%}
-                    {% if file_set.condition | default (true) -%}
-                      {% for file in file_set.file_list -%}
-                        cp {{ bind_dir_on_container }}/{{ file }} {{ file_set.destination }}/{{ file }} && \
-                      {% endfor -%}
-                    {% endif -%}
-                  {% endfor -%}true' && \
-                {% endif -%}
-              {% endfor -%}true
-            args:
-              executable: /bin/bash
-
-          - block:
-            - name: Remove temporary directory in server
-              file:
-                path: "{{ app_tmpdir }}"
-                state: absent
-              delegate_to: localhost
-              run_once: yes
-            - name: Remove temporary directory in hosts
-              file:
-                path: "{{ app_tmpdir }}"
-                state: absent
-            tags: setup_hdfs
-
-      - name: Setup SSH connection
-        tags: setup_hadoop, setup_hdfs
-        block:
-          - name: Update ssh known_hosts on master container & Move master container ssh public key
-            when: inventory_hostname == master_host
-            shell: "sudo {{ singularity_command_alias }} exec instance://{{ master_container }} su - {{ user_info.user_name }} -c \
-              'ssh-keyscan -t rsa `hostname` >> ~/.ssh/known_hosts \
-              && ssh-keyscan -t rsa -f $HADOOP_CONF_DIR/workers >> ~/.ssh/known_hosts \
-              && cp ~/.ssh/id_rsa.pub {{ bind_dir_on_container }}/{{ master_container }}.pub'"
-            args:
-              executable: /bin/bash
-
-          - name: Prepare master container bind path variable
-            when: "item.container_name == master_container"
-            set_fact:
-              master_container_bind_path: "{{ item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') }}"
-            with_items:
-            - "{{ containers_info }}"
-
-          - name: Create temporary app directory on hosts for ssh public key
-            file:
-              path: "{{ app_ssh_keys_dir }}/{{ app_name }}/"
-              state: directory
-
-          - name: Copy master container ssh public key to hosts
-            delegate_to: "{{ master_host }}" # this will push from master_host to each host, i.e., a remote host to remote host copy
-            vars:
-              ansible_ssh_extra_args: "" ## required to avoid failure; synchronize and delegating to hosts other than 'localhost' introduce unexpected interactions
-            synchronize:
-              src: "{{ master_container_bind_path }}/{{ master_container }}.pub"
-              dest: "{{ app_ssh_keys_dir }}/{{ app_name }}/{{ master_container }}.pub"
-
-          - name: Copy and append master container ssh public key to the other containers
-            shell: "{% for item in containers_info %}
-              {% if item.host == inventory_hostname and item.container_name != master_container %}
-              {% set container_bind_dir = item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') %}
-              cp {{ app_ssh_keys_dir }}/{{ app_name }}/{{ master_container }}.pub {{ container_bind_dir }}/{{ master_container }}.pub && \
-              sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
-              'cat {{ bind_dir_on_container }}/{{ master_container }}.pub >> ~/.ssh/authorized_keys \
-              && rm {{ bind_dir_on_container }}/{{ master_container }}.pub' && 
-              {% endif  %}
-              {% endfor %}true"
-            args:
-              executable: /bin/bash
-
-      - name: Start Hadoop services
-        vars:
-          start_hdfs: "{{ not global_hdfs or hdfs_mode != 'single' or app_name == global_hdfs_app_name }}"
-          start_yarn: "{{ (not global_hdfs or app_name != global_hdfs_app_name or hdfs_mode == 'isolated') and 'setup_hdfs' not in ansible_run_tags }}"
-        block:
-          - name: Start HDFS + YARN
-            tags: setup_hadoop, setup_hdfs
-            block:
-              - name: Format filesystem, start HDFS and YARN (Master)
-                when: inventory_hostname == master_host
-                shell: "sudo {{ singularity_command_alias }} exec instance://{{ master_container }} su - {{ user_info.user_name }} -c \
-                  ' \
-                  {% if start_hdfs %}
-                    cd $HADOOP_HOME && bash format_filesystem.sh && \ 
-                    $HADOOP_HOME/bin/hdfs --daemon start namenode && \ 
-                    {% if global_hdfs and hdfs_mode == 'rbf' %}
-                      $HADOOP_HOME/bin/hdfs --daemon start dfsrouter && \ 
-                    {% endif %}
-                  {% endif %}
-                  {% if start_yarn %}
-                    $HADOOP_HOME/bin/yarn --daemon start resourcemanager && \ 
-                  {% endif %}
-                  'true"
-                args:
-                  executable: /bin/bash
-                async: 10800
-                poll: 0
-                register: start_master_services
-
-              - name: Start HDFS and YARN (Worker)
-                shell: "{% for item in containers_info %}
-                  {% if item.host == inventory_hostname and item.container_name != master_container %}
-                    sudo {{ singularity_command_alias }} exec instance://{{ item.container_name }} su - {{ user_info.user_name }} -c \
-                    ' \
-                    {% if start_hdfs %}
-                      $HADOOP_HOME/bin/hdfs --daemon start datanode && \ 
-                    {% endif %}
-                    {% if start_yarn %}
-                      $HADOOP_HOME/bin/yarn --daemon start nodemanager && \
-                    {% endif %}
-                    true' &&
-                  {% endif %}
-                  {% endfor %}true"
-                args:
-                  executable: /bin/bash
-                async: 10800
-                poll: 0
-                register: start_worker_services
-
-              - name: Wait for master services to start
-                async_status:
-                  jid: "{{ start_master_services.ansible_job_id }}"
-                when: inventory_hostname == master_host
-                register: master_job_result
-                until: master_job_result.finished
-                retries: 120
-                delay: 0.5
-
-              - name: Wait for worker services to start
-                async_status:
-                  jid: "{{ start_worker_services.ansible_job_id }}"
-                register: worker_job_result
-                until: worker_job_result.finished
-                retries: 120
-                delay: 0.5
-                when: start_worker_services.ansible_job_id is defined
-    vars:
-      - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
-      - global_datanodes_info: "{{ datanodes_info_str | replace('\n','') | replace(' ','') }}"
-    tags: never
-
   ## Copy app files
   - name: Copy app files to container
     block:
@@ -389,34 +147,7 @@
 
     tags: never, start_app, stop_app
 
-  - name: Copy files to NN
-    tags: never, copy_files
-    vars:
-      - containers_info: "{{ containers_info_str | replace('\n','') | replace(' ','') }}"
-    block:
-      - name: Check that simple-distcp JAR is available
-        when: distcp_executable == 'simple_distcp'
-        block:
-          - name: Check if simple-distcp.jar exists
-            stat:
-              path: "{{ apps_dir }}/{{ app_dir }}/runtime_files/simple-distcp.jar"
-            register: file_status
-
-          - name: Fail if simple-distcp.jar does not exist
-            when: not file_status.stat.exists
-            fail:
-              msg: "{{ apps_dir }}/{{ app_dir }}/runtime_files/simple-distcp.jar does not exist"
-
-      - name: Copy runtime files to NameNode
-        when:
-          - item.container_name == master_container
-          - item.host == inventory_hostname
-        synchronize:
-          src: "{{ apps_dir }}/{{ app_dir }}/{{ runtime_files }}"
-          dest: "{{ item.disk_path if item.disk_path is defined else [bind_dir, item.container_name] | join('/') }}/"
-        loop: "{{ containers_info | selectattr('container_name', 'equalto', master_container) | list }}"
-
-    ## Start
+  ## Start
   - name: Start app on container
     block:
       - name: Template app start script
@@ -553,12 +284,8 @@
           set_fact:
             timestamp: "{{ now(fmt='%Y-%m-%d--%H-%M-%S') }}"
 
-        - name: Move hadoop logs to output_dir
-          when: "app_type is defined and app_type in ['hadoop_app', 'spark_app']"
-          shell: "mv {{ container_bind_dir }}/hadoop_logs {{ container_bind_dir }}/{{ output_dir }}/hadoop_logs"
-          args:
-            executable: /bin/bash
-          failed_when: false
+        - name: Move Hadoop logs to output_dir (Big Data apps)
+          import_tasks: "{{ bigdata_tasks }}/collect_hadoop_logs.yml"
 
         - block:
           - name: Create output directory on server
@@ -606,235 +333,27 @@
       state: absent
     tags: never, remove_dns_entries
 
-  ## Stop hadoop
-  - name: Stop hadoop cluster
-    block:
-      - name: Stop hadoop cluster
-        when: inventory_hostname == master_host
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ master_container }} su - {{ user_info.user_name }} -c \
-          'cd $HADOOP_HOME \
-          {% if global_hdfs and hdfs_mode == 'rbf' %}
-            && bin/hdfs --daemon stop dfsrouter \ 
-          {% endif %}
-          && sbin/stop-yarn.sh \
-          && sbin/stop-dfs.sh \
-          '"
-        args:
-          executable: /bin/bash
-        failed_when: false
-    tags: never, stop_hadoop_cluster
+  ##############################################################################
+  ## Big Data (Hadoop / Spark / HDFS)
+  ## Order matters when several tags are run together, e.g.,
+  ##   setup_network -> start_zookeeper -> setup_hadoop -> copy_files
+  ##############################################################################
 
+  ## Tags: start_zookeeper
+  - import_tasks: "{{ bigdata_tasks }}/zookeeper_start.yml"
 
-  ## HDFS
-  - name: Create directory on HDFS
-    when: dest_path is defined and dest_path != ''
-    shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c \
-      '$HADOOP_HOME/bin/hdfs dfs -mkdir -p {{ dest_path }} \
-      {% if hdfs_mode == 'rbf' %}&& $HADOOP_HOME/bin/hdfs dfsrouteradmin -add {{ dest_path }} ns-{{ global_hdfs_app_name | replace('_','-') }} {{ dest_path }}{% endif %}
-      '"
-    args:
-      executable: /bin/bash
-    tags: never, create_dir_on_hdfs
+  ## Tags: setup_hadoop, setup_hdfs
+  - import_tasks: "{{ bigdata_tasks }}/hadoop_cluster_setup.yml"
 
-  - name: Remove file from HDFS
-    when: dest_path is defined and dest_path != ''
-    shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c '$HADOOP_HOME/bin/hdfs dfs -rm -r {{ dest_path }}'"
-    args:
-      executable: /bin/bash
-    tags: never, remove_file_from_hdfs
+  ## Tags: copy_files, download_to_local, upload_to_global
+  - import_tasks: "{{ bigdata_tasks }}/hdfs_data_transfer.yml"
 
-  - name: Upload file(s) to HDFS
-    tags: never, add_file_to_hdfs
-    when: dest_path is defined and dest_path != '' and origin_path is defined and origin_path != ''
-    delegate_to: localhost
-    vars:
-      global_namenode_url: "hdfs://{{ namenode_container }}:8020"
-      origin_container_path: "{{ bind_dir_on_container }}/{{ origin_path.rstrip('/') | basename }}"
-    block:
-      - name: Put data on HDFS
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ frontend_container }} su - {{ user_info.user_name }} -c \
-          '$HADOOP_HOME/bin/hdfs dfs -put {{ origin_container_path }} {{ global_namenode_url }}/{{ dest_path }}'"
-        args:
-          executable: /bin/bash
+  ## Tags: stop_hadoop_cluster
+  - import_tasks: "{{ bigdata_tasks }}/hadoop_cluster_stop.yml"
 
-  - name: Download file(s) from HDFS
-    tags: never, get_file_from_hdfs
-    when: dest_path is defined and origin_path is defined and origin_path != ''
-    delegate_to: localhost
-    vars:
-      global_namenode_url: "hdfs://{{ namenode_container }}:8020"
-      dest_container_path: "{{ bind_dir_on_container }}/{{ dest_path.rstrip('/') }}"
-    block:
-      - name: Get data from HDFS
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ frontend_container }} su - {{ user_info.user_name }} -c \ 
-          '$HADOOP_HOME/bin/hdfs dfs -get {{ global_namenode_url }}/{{ origin_path }} {{ dest_container_path }}'"
-        args:
-          executable: /bin/bash
+  ## Tags: create_dir_on_hdfs, remove_file_from_hdfs, add_file_to_hdfs, get_file_from_hdfs,
+  ##       set_hdfs_replication, get_hdfs_filesystem
+  - import_tasks: "{{ bigdata_tasks }}/hdfs_file_ops.yml"
 
-  - name: Move data between global and local HDFS
-    tags: never
-    when: inventory_hostname == namenode_host
-    vars:
-      local_namenode_ip: "\\$(getent hosts {{ master_container }} | awk '{print \\$1 }' | head -n 1)"  # Resolve IP for distcp, ensuring to get only one IP
-      local_namenode_url: "hdfs://{{ local_namenode_ip }}:8020"
-    block:
-      - name: Handle data transfer between global and local HDFS
-        tags: download_to_local, upload_to_global
-        when:
-          - ('download_to_local' in ansible_run_tags and global_input is defined and global_input != '') or
-            ('upload_to_global' in ansible_run_tags  and local_input is defined and local_input != '')
-        vars:
-          # Set variables dynamically based on the tag
-          origin: >-
-            {%- if 'download_to_local' in ansible_run_tags -%}
-              {{ global_input }}
-            {%- else -%}
-              {{ local_namenode_url }}/{{ local_input }}
-            {%- endif -%}
-          dest_output: >-
-            {%- if 'download_to_local' in ansible_run_tags -%}
-              {%- if local_output is not defined -%}
-                {{ '/user/' + user_info.user_name +'/' }}
-              {%- elif not local_output.startswith('/') -%}
-                {{ '/user/' + user_info.user_name +'/' + local_output }}
-              {%- else -%}
-                {{ local_output }}
-              {%- endif -%}
-            {%- else -%}
-              {%- if global_output is not defined -%}
-                {{ '/user/' + user_info.user_name +'/' }}
-              {%- elif not global_output.startswith('/') -%}
-                {{ '/user/' + user_info.user_name +'/' + global_output }}
-              {%- else -%}
-                {{ global_output }}
-              {%- endif -%}
-            {%- endif -%}
-          dest: >-
-            {%- if 'download_to_local' in ansible_run_tags -%}
-              {{ local_namenode_url }}/{{ dest_output }}/{{ global_input | basename }}
-            {%- else -%}
-              {{ dest_output }}/{{ local_input | basename }}
-            {%- endif -%}
-          replication_factor: >-
-            {%- if 'download_to_local' in ansible_run_tags -%}
-              {{ local_hdfs_replication }}
-            {%- else -%}
-              {{ global_hdfs_replication }}
-            {%- endif -%}
-        block:
-          - name: Get requested data size
-            shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \"\\$HADOOP_HOME/bin/hdfs dfs -du -s {{ origin }} | awk '{print \\$1}' \""
-            args:
-              executable: /bin/bash
-            register: data_size
-
-          - name: Small data size ({{ data_size.stdout }}) --> Run get/put
-            when: (data_size.stdout | int) <= (distcp_threshold | size_to_bytes)
-            block:
-              - name: "Get input data"
-                shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
-                  \"\\$HADOOP_HOME/bin/hdfs dfs -get -f {{ origin }} {{ user_home_on_container }}\""
-                args:
-                  executable: /bin/bash
-
-              - name: "Put input data into target HDFS"
-                shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
-                  \"\\$HADOOP_HOME/bin/hdfs dfs -mkdir -p {{ dest | dirname }} && \\$HADOOP_HOME/bin/hdfs dfs -D dfs.replication={{ replication_factor }} -put -f {{ user_home_on_container }}/{{ origin | basename }} {{ dest }}\""
-                args:
-                  executable: /bin/bash
-
-              - name: "Remove file in temporary location"
-                shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c 'rm -r {{ user_home_on_container }}/{{ origin | basename }}'"
-                args:
-                  executable: /bin/bash
-
-          - name: Large data size ({{ data_size.stdout }} > {{ distcp_threshold }}) --> Run distcp
-            when: (data_size.stdout | int) > (distcp_threshold | size_to_bytes)
-            block:
-              - name: Run Simple distcp
-                when: distcp_executable == 'simple_distcp'
-                block:
-                  - name: "Transfer data"
-                    shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
-                        \"\\$HADOOP_HOME/bin/hadoop jar {{ bind_dir_on_container }}/runtime_files/simple-distcp.jar {{ origin }} {{ dest }} {{ replication_factor }}\""
-                    args:
-                      executable: /bin/bash
-
-              - name: Run Hadoop distcp
-                when: distcp_executable == 'hadoop_distcp'
-                vars:
-                  global_datanodes_info: "{{ datanodes_info_str | replace('\n','') | replace(' ','') }}"
-                  datanodes_max_write_bw: "{{ global_datanodes_info[0].resources.disk_write.max | int }}" ## write bw is usually more restrictive than read, specially considering that replication speeds up reads
-                  mappers_per_node: "{{ ( (datanodes_max_write_bw)|int / 100 ) | round(1, 'ceil') }}"
-                  max_mappers: "{{ ( (number_of_datanodes)|int * (mappers_per_node)|int ) | int }}"
-                block:
-                  - name: Get blocks_per_chunk when mappers_assignation == 'distcp-default' or 'mapred-default' --> avoid additional calculations
-                    when: mappers_assignation == 'distcp-default' or mappers_assignation == 'mapred-default'
-                    set_fact:
-                      blocks_per_chunk: "{{ '0' if mappers_assignation == 'distcp-default' else '1' }}"
-
-                  - name: Calculate blocks_per_chunk based on additional calculations
-                    when: blocks_per_chunk is not defined
-                    block:
-                    - name: "Get number of files and blocks to transfer"
-                      shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
-                        \"\\$HADOOP_HOME/bin/hdfs dfs -count {{ origin }} | awk '{print \\$2}' && \
-                        \\$HADOOP_HOME/bin/hdfs fsck {{ origin }} | grep -o 'Total blocks.*' | awk '{print \\$4}' \""
-                      args:
-                        executable: /bin/bash
-                      register: data_transfer_info
-
-                    - name: Calculate mappers
-                      get_mappers:
-                        number_of_blocks: "{{ data_transfer_info.stdout_lines[0] }}"
-                        number_of_files: "{{ data_transfer_info.stdout_lines[1] }}"
-                        max_mappers: "{{ max_mappers }}"
-                        mode: "{{ mappers_assignation }}"
-                      register: mappers_result
-
-                    - name: Calculate blocks_per_chunk based on additional calculations
-                      set_fact:
-                        blocks_per_chunk: "{{ mappers_result.mappers }}"
-
-                  - name: "Transfer data"
-                    shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
-                      \"\\$HADOOP_HOME/bin/hadoop distcp -D dfs.replication={{ replication_factor }} -m {{ max_mappers }} -strategy dynamic -blocksperchunk {{ blocks_per_chunk }} {{ origin }} {{ dest }}\""
-                    args:
-                      executable: /bin/bash
-
-  - name: Set global HDFS replication
-    tags: never, set_hdfs_replication
-    when: inventory_hostname == namenode_host
-    shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
-      '$HADOOP_HOME/bin/hdfs dfs -setrep -w -R {{ replication_factor }} /'"
-    args:
-      executable: /bin/bash
-
-  - name: Get HDFS filesystem
-    tags: never, get_hdfs_filesystem
-    when: inventory_hostname == namenode_host
-    shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
-      '$HADOOP_HOME/bin/hdfs dfs -ls -R -h /'"
-    args:
-      executable: /bin/bash
-
-  ## Data locality
-  - name: Get data locality info from HDFS
-    tags: never, get_hdfs_block_locations
-    when: inventory_hostname == namenode_host
-    vars:
-      # relative paths are resolved against the user home directory on HDFS, as done when transferring data
-      target_path: "{{ hdfs_path if (hdfs_path.startswith('/') or '://' in hdfs_path) else '/user/' + user_info.user_name + '/' + hdfs_path }}"
-    block:
-      # output example: "0. BP-...:blk_1073741825_1001 len=134217728 Live_repl=3 [DatanodeInfoWithStorage[10.22.0.3:9866,DS-...,DISK], ...]"
-      - name: Get HDFS block locations
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
-          '$HADOOP_HOME/bin/hdfs fsck {{ target_path }} -files -blocks -locations 2> /dev/null' | grep -E 'blk_[0-9]+.*len=' || true"
-        args:
-          executable: /bin/bash
-
-      # output example: "10.22.0.3       datanode-host0"
-      - name: Resolve HDFS datanode addresses
-        shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} getent hosts {{ datanode_names | join(' ') }} || true"
-        args:
-          executable: /bin/bash
+  ## Tags: get_hdfs_block_locations
+  - import_tasks: "{{ bigdata_tasks }}/hdfs_data_locality.yml"

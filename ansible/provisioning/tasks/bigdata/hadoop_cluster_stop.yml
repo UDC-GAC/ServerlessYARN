@@ -1,0 +1,19 @@
+## Gracefully stop the Hadoop cluster (HDFS + YARN, and RBF router if used) from the master container
+## Tags: stop_hadoop_cluster
+
+- name: Stop hadoop cluster
+  block:
+    - name: Stop hadoop cluster
+      when: inventory_hostname == master_host
+      shell: "sudo {{ singularity_command_alias }} exec instance://{{ master_container }} su - {{ user_info.user_name }} -c \
+        'cd $HADOOP_HOME \
+        {% if global_hdfs and hdfs_mode == 'rbf' %}
+          && bin/hdfs --daemon stop dfsrouter \ 
+        {% endif %}
+        && sbin/stop-yarn.sh \
+        && sbin/stop-dfs.sh \
+        '"
+      args:
+        executable: /bin/bash
+      failed_when: false
+  tags: never, stop_hadoop_cluster

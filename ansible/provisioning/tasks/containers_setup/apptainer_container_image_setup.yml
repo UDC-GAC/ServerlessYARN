@@ -84,29 +84,9 @@
                 loop_var: file ## we need to change this inner loop variable to avoid collisions re-using the 'item' variable from the outer loop
                 label: "{{ file.path }}" # label to display on output
 
-        # Hadoop files
-        - name: Copy necessary files for hadoop apps ({{ item }})
-          when: "item == 'hadoop_app'"
-          copy:
-            src: "{{ extra_files_directory }}/{{ file }}"
-            dest: "{{ installed_app_directory }}/"
-          with_items:
-            - setup.sh
-            - java_snitch.sh
-            - hadoop_files
-          loop_control:
-            loop_var: file
-
-        - name: Copy hadoop patch files ({{ item }})
-          when: "item == 'hadoop_app' and hdfs_replication_mode == 'hdfs_patch'"
-          copy:
-            src: "{{ extra_files_directory }}/{{ file }}"
-            dest: "{{ installed_app_directory }}/"
-          with_items:
-            - "hadoop-hdfs-{{ hadoop_version }}.jar"
-            - "hadoop-hdfs-client-{{ hadoop_version }}.jar"
-          loop_control:
-            loop_var: file
+        # Big Data (Hadoop) files
+        - name: Copy extra files for Big Data images ({{ item }})
+          import_tasks: "{{ bigdata_tasks }}/image_extra_files.yml"
 
         - name: Build app image ({{ item }})
           shell: "{{ singularity_command_alias }} build {{ installed_app_directory }}/{{ image_file }} {{ installed_app_directory }}/{{ definition_file }}"

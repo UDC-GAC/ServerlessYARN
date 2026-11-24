@@ -27,12 +27,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 scriptDir = os.path.realpath(os.path.dirname(__file__))
 config_file = scriptDir + "/../../../config/config.yml"
 vars_file = scriptDir + "/../../../vars/main.yml"
+bigdata_vars_file = scriptDir + "/../../../vars/bigdata.yml"
 
 with open(config_file, "r") as f:
     PLATFORM_CONFIG = yaml.load(f, Loader=yaml.FullLoader)
 
 with open(vars_file, "r") as f:
     VARS_CONFIG = yaml.load(f, Loader=yaml.FullLoader)
+
+## Big Data (Hadoop / Spark / HDFS) variables are kept in a separate file, but exposed along with the generic ones
+with open(bigdata_vars_file, "r") as f:
+    VARS_CONFIG.update(yaml.load(f, Loader=yaml.FullLoader))
 
 installation_path = VARS_CONFIG['installation_path']
 

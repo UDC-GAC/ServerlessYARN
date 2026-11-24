@@ -18,6 +18,7 @@ externals_dir: "{{ provision_dir }}/external"
 
 ## Specific paths
 main_vars: "{{ vars_dir }}/main.yml"
+bigdata_vars: "{{ vars_dir }}/bigdata.yml"
 defaults: "{{ vars_dir }}/defaults.yml"
 main_config: "{{ config_dir }}/config.yml"
 config_modules: "{{ config_dir }}/modules"
@@ -25,6 +26,7 @@ install_tasks: "{{ tasks_dir }}/install"
 container_tasks: "{{ tasks_dir }}/containers_setup"
 launch_tasks: "{{ tasks_dir }}/launch"
 util_tasks: "{{ tasks_dir }}/utils"
+bigdata_tasks: "{{ tasks_dir }}/bigdata"
 
 ## Secrets: insecure defaults (tracked in git) and optional user-provided overrides (git-ignored, may be encrypted with Ansible Vault)
 ### Load them in a play with:

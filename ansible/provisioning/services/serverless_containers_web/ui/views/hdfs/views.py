@@ -12,7 +12,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import WebDriverException
 
 
-from ui.forms import AddHdfsFileForm, GetHdfsFileForm, AddHdfsDirForm, DeleteHdfsFileForm
+from ui.bigdata.forms import AddHdfsFileForm, GetHdfsFileForm, AddHdfsDirForm, DeleteHdfsFileForm
 from ui.background.tasks import get_pending_tasks_messages
 
 from ui.views.apps.operations import getApps
@@ -21,7 +21,7 @@ from ui.views.hdfs.operations import start_global_hdfs, stop_global_hdfs
 from ui.views.core.utils import redirect_with_errors
 from ui.domain.structures import retrieve_global_hdfs_app
 
-from ui.domain.run_playbooks import get_hdfs_filesystem
+from ui.bigdata.playbooks import get_hdfs_filesystem
 
 webdriver_state = State()
 

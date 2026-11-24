@@ -1,18 +1,21 @@
 import os
-import yaml
 import functools
 
 from django.conf import settings
 
-from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, SUPPORTED_RESOURCES, SUPPORTED_FRAMEWORKS
-from ui.background.tasks import register_task, remove_task_by_name, add_app_task, start_app_task, start_hadoop_app_task, remove_app_task, remove_containers_from_app
+from ui.utils import DEFAULT_APP_VALUES, DEFAULT_LIMIT_VALUES, DEFAULT_RESOURCE_VALUES, SUPPORTED_RESOURCES
+from ui.background.tasks import register_task, remove_task_by_name, add_app_task, start_app_task, remove_app_task, remove_containers_from_app
 from ui.domain.state_db import getLimits, getScalerPollFreq, getDbData, getDataAndFilterByApp, checkAppUser
 from ui.views.core.utils import setStructureResourcesForm, setLimitsForm, getStructuresValuesLabels
-from ui.domain.structures import retrieve_global_hdfs_app, getContainersFromApp, getAppFiles, compareStructureNames, getAppInfo
+from ui.domain.structures import getContainersFromApp, getAppFiles, compareStructureNames, getAppInfo
 from ui.domain.container_resources import getContainerResourcesForApp
 from ui.views.apps.utils import setStartAppForm, setRemoveContainersFromAppForm, setAddAppForm
 
-from serverlessyarn_utils.manage_inventory import AnsibleYamlInventory
+## Big Data (Hadoop / Spark / HDFS) apps
+from ui.bigdata import is_bigdata_app, get_framework_app_type
+from ui.bigdata.start import (set_bigdata_app_files, add_global_hdfs_allocation_exclusions, reserve_master_container_resources,
+                              set_master_container_resources, check_data_locality_policy, get_global_hdfs_data)
+from ui.background.bigdata_tasks import start_hadoop_app_task
 
 def getApps(data):
     apps = []
@@ -104,15 +107,8 @@ def processAddApp(request, url, **kwargs):
     elif app_files.get("install_script", "") != "":
         app_files["app_type"] = "generic_app"
 
-    ## Hadoop apps specific config
-    if app_files["app_type"] == "hadoop_app":
-        if request.POST.get("add_extra_framework", False) and "framework" in request.POST:
-            ## An extra framework has been selected (e.g., Spark), we change the app_type to build the corresponding container image
-            app_files["framework"] = request.POST["framework"]
-            if app_files["framework"] == "spark": app_files["app_type"] = "spark_app"
-        else:
-            ## If no extra framework has been selected, we select Hadoop to differentiate hadoop apps when retrieving them later from the StateDB
-            app_files["framework"] = "hadoop"
+    ## Big Data apps specific config
+    set_bigdata_app_files(request.POST, app_files)
 
     put_field_data = {
         'app': {
@@ -173,11 +169,7 @@ def processStartApp(request, url, **kwargs):
     if settings.PLATFORM_CONFIG['disk_capabilities'] and settings.PLATFORM_CONFIG['disk_scaling']:
 
         ## Exclude disk for global HDFS frontend data transfer
-        if settings.PLATFORM_CONFIG['global_hdfs'] and settings.PLATFORM_CONFIG['server_as_host']:
-            server_name = AnsibleYamlInventory().get_server_hostname()
-            allocation_exclusions[server_name] = {}
-            allocation_exclusions[server_name]["disks"] = []
-            allocation_exclusions[server_name]["disks"].append(settings.PLATFORM_CONFIG['global_hdfs_disk_name'])
+        add_global_hdfs_allocation_exclusions(allocation_exclusions)
 
     # App info
     data_json = getDbData(url)
@@ -210,32 +202,14 @@ def processStartApp(request, url, **kwargs):
     ## App type
     app_type = "base"
     if app_files.get('framework', "") != "":
-        if app_files['framework'] not in SUPPORTED_FRAMEWORKS:
-            raise Exception("{0} framework not supported, currently supported frameworks: {1}".format(app_files['framework'], SUPPORTED_FRAMEWORKS))
-        app_type = "{0}_app".format(app_files['framework'])
+        app_type = get_framework_app_type(app_files['framework'])
     elif app_files.get('install_script', "") != "":
         app_type = "generic_app"
-    is_hadoop_app = app_type in ["hadoop_app", "spark_app"]
+    is_hadoop_app = is_bigdata_app(app_type)
 
     ## ResourceManager/NameNode resources
     if is_hadoop_app:
-        master_resources_config_file = str(settings.BASE_DIR) + "/../../apps/base/hadoop_app/master_config.yml"
-        with open(master_resources_config_file, "r") as f: master_container_resources = yaml.load(f, Loader=yaml.FullLoader)
-
-        app_resources['cpu']['max'] -= master_container_resources['cpu']['max']
-        app_resources['cpu']['min'] -= master_container_resources['cpu']['min']
-        app_resources['mem']['max'] -= master_container_resources['mem']['max']
-        app_resources['mem']['min'] -= master_container_resources['mem']['min']
-        if settings.PLATFORM_CONFIG['power_budgeting']:
-            app_resources['energy']['max'] -= master_container_resources['energy']['max']
-            app_resources['energy']['min'] -= master_container_resources['energy']['min']
-
-        ## Load default values
-        for resource in master_container_resources:
-            res = master_container_resources[resource]
-            if res["weight"]        == "default": res["weight"]        = DEFAULT_RESOURCE_VALUES['weight']
-            if res["boundary"]      == "default": res["boundary"]      = DEFAULT_LIMIT_VALUES['boundary']
-            if res["boundary_type"] == "default": res["boundary_type"] = DEFAULT_LIMIT_VALUES["boundary_type"]
+        master_container_resources = reserve_master_container_resources(app_resources)
 
     # Get resources for containers
     container_resources = getContainerResourcesForApp(number_of_containers, app_resources, app_limits, benevolence, is_hadoop_app)
@@ -249,22 +223,15 @@ def processStartApp(request, url, **kwargs):
         container_resources["master"] = {x: str(y) for x, y in container_resources["master"].items()}
 
     if is_hadoop_app:
-        container_resources['master'] = {}
-        for resource in ["cpu", "mem"]:
-            for key in master_container_resources[resource]:
-                container_resources['master'][f"{resource}_{key}"] = master_container_resources[resource][key]
-        if settings.PLATFORM_CONFIG['power_budgeting']:
-            for key in master_container_resources["energy"]:
-                container_resources['master'][f"energy_{key}"] = master_container_resources["energy"][key]
-
+        set_master_container_resources(container_resources, master_container_resources)
         number_of_containers += 1
 
     ## Container assignation to hosts
     assignation_policy = request.POST['assignation_policy']
     allow_oversubscription = request.POST.get('allow_oversubscription', False)
 
-    if assignation_policy == "Data-locality" and not (is_hadoop_app and settings.PLATFORM_CONFIG['global_hdfs']):
-        return "Data-locality allocation policy is only available for Hadoop apps when the global HDFS is enabled"
+    error = check_data_locality_policy(assignation_policy, is_hadoop_app)
+    if error: return error
 
     container_resources["regular"] = {x: str(y) for x, y in container_resources["regular"].items()}
     if "bigger" in container_resources:
@@ -298,42 +265,9 @@ def processStartApp(request, url, **kwargs):
     if is_hadoop_app:
         global_hdfs_data = None
         if settings.PLATFORM_CONFIG['global_hdfs']:
-
-            ## Currently this block of code will return an error when running a Hadoop app if the global HDFS is enabled but not running
-
-            global_hdfs_data = {}
-            ## Add global Namenode
             apps, _ = getApps(data_json)
-            global_hdfs_app, namenode_container, datanodes = retrieve_global_hdfs_app(apps)
-            for datanode in datanodes:
-                datanode.pop('resources_form', None)
-                datanode.pop('resources_form_helper', None)
-                datanode.pop('limits_form', None)
-
-            if not global_hdfs_app:
-                return "Global HDFS requested but not found"
-            if not namenode_container:
-                return "Namenode not found in global HDFS"
-            global_hdfs_data['namenode_container_name'] = namenode_container['name']
-            global_hdfs_data['namenode_host'] = namenode_container['host']
-            global_hdfs_data['number_of_datanodes'] = len(datanodes)
-            global_hdfs_data['datanodes_info_str'] = str(datanodes).replace(' ', '')
-
-            ## Get additional info (read/write data from/to hdfs)
-            for condition, additional_info in [('read_from_global', ['global_input', 'local_output']),
-                                                ('write_to_global', ['local_input', 'global_output'])]:
-                if request.POST.get(condition, False):
-                    for info in additional_info:
-                        global_hdfs_data[info] = request.POST.get(info)
-
-            ## Info required to locate the data that the app will read from global HDFS
-            if assignation_policy == "Data-locality":
-                assignation_requirements['data_locality'] = {
-                    'namenode_host': namenode_container['host'],
-                    'namenode_container_name': namenode_container['name'],
-                    'datanodes': {datanode['name']: datanode['host'] for datanode in datanodes},
-                    'global_input': global_hdfs_data.get('global_input', "")
-                }
+            global_hdfs_data, error = get_global_hdfs_data(request.POST, apps, assignation_policy, assignation_requirements)
+            if error: return error
 
         task = start_hadoop_app_task.delay(assignation_requirements, url, app_name, app_files, container_resources, scaler_polling_freq, virtual_cluster, app_type, global_hdfs_data, dependencies)
     else:

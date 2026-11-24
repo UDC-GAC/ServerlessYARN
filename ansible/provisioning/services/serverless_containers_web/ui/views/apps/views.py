@@ -9,7 +9,8 @@ from ui.domain.state_db import getDbData
 from ui.views.apps.operations import getApps, processAddApp, processStartApp, processStopApp, processRemoveApps, processRemoveContainersFromApp
 
 from ui.domain.run_playbooks import drop_host_caches
-from ui.background.tasks import monitor_global_hdfs_replication, register_task
+from ui.background.tasks import register_task
+from ui.background.bigdata_tasks import monitor_global_hdfs_replication
 
 # ------------------------------------ Apps views ------------------------------------
 

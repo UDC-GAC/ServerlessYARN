@@ -1,0 +1,9 @@
+## Move Hadoop logs into the app output directory so they are persisted along with the output data
+## Imported within the 'stop_app' flow of manage_app_on_container.yml
+
+- name: Move hadoop logs to output_dir
+  when: "app_type is defined and app_type in bigdata_app_types"
+  shell: "mv {{ container_bind_dir }}/hadoop_logs {{ container_bind_dir }}/{{ output_dir }}/hadoop_logs"
+  args:
+    executable: /bin/bash
+  failed_when: false

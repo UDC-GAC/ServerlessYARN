@@ -17,6 +17,7 @@
   vars_files:
     - paths.yml
     - "{{ main_vars }}"
+    - "{{ bigdata_vars }}"
     - "{{ defaults }}"
     - "{{ main_config }}"
     - "{{ default_secrets }}"

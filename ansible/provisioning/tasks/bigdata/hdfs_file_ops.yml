@@ -1,0 +1,64 @@
+## Operations on HDFS files and filesystem
+## Tags: create_dir_on_hdfs, remove_file_from_hdfs, add_file_to_hdfs, get_file_from_hdfs,
+##       set_hdfs_replication, get_hdfs_filesystem
+
+- name: Create directory on HDFS
+  when: dest_path is defined and dest_path != ''
+  shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c \
+    '$HADOOP_HOME/bin/hdfs dfs -mkdir -p {{ dest_path }} \
+    {% if hdfs_mode == 'rbf' %}&& $HADOOP_HOME/bin/hdfs dfsrouteradmin -add {{ dest_path }} ns-{{ global_hdfs_app_name | replace('_','-') }} {{ dest_path }}{% endif %}
+    '"
+  args:
+    executable: /bin/bash
+  tags: never, create_dir_on_hdfs
+
+- name: Remove file from HDFS
+  when: dest_path is defined and dest_path != ''
+  shell: "sudo {{ singularity_command_alias }} exec instance://{{ container }} su - {{ user_info.user_name }} -c '$HADOOP_HOME/bin/hdfs dfs -rm -r {{ dest_path }}'"
+  args:
+    executable: /bin/bash
+  tags: never, remove_file_from_hdfs
+
+- name: Upload file(s) to HDFS
+  tags: never, add_file_to_hdfs
+  when: dest_path is defined and dest_path != '' and origin_path is defined and origin_path != ''
+  delegate_to: localhost
+  vars:
+    global_namenode_url: "hdfs://{{ namenode_container }}:8020"
+    origin_container_path: "{{ bind_dir_on_container }}/{{ origin_path.rstrip('/') | basename }}"
+  block:
+    - name: Put data on HDFS
+      shell: "sudo {{ singularity_command_alias }} exec instance://{{ frontend_container }} su - {{ user_info.user_name }} -c \
+        '$HADOOP_HOME/bin/hdfs dfs -put {{ origin_container_path }} {{ global_namenode_url }}/{{ dest_path }}'"
+      args:
+        executable: /bin/bash
+
+- name: Download file(s) from HDFS
+  tags: never, get_file_from_hdfs
+  when: dest_path is defined and origin_path is defined and origin_path != ''
+  delegate_to: localhost
+  vars:
+    global_namenode_url: "hdfs://{{ namenode_container }}:8020"
+    dest_container_path: "{{ bind_dir_on_container }}/{{ dest_path.rstrip('/') }}"
+  block:
+    - name: Get data from HDFS
+      shell: "sudo {{ singularity_command_alias }} exec instance://{{ frontend_container }} su - {{ user_info.user_name }} -c \ 
+        '$HADOOP_HOME/bin/hdfs dfs -get {{ global_namenode_url }}/{{ origin_path }} {{ dest_container_path }}'"
+      args:
+        executable: /bin/bash
+
+- name: Set global HDFS replication
+  tags: never, set_hdfs_replication
+  when: inventory_hostname == namenode_host
+  shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
+    '$HADOOP_HOME/bin/hdfs dfs -setrep -w -R {{ replication_factor }} /'"
+  args:
+    executable: /bin/bash
+
+- name: Get HDFS filesystem
+  tags: never, get_hdfs_filesystem
+  when: inventory_hostname == namenode_host
+  shell: "sudo {{ singularity_command_alias }} exec instance://{{ namenode_container_name }} su - {{ user_info.user_name }} -c \
+    '$HADOOP_HOME/bin/hdfs dfs -ls -R -h /'"
+  args:
+    executable: /bin/bash

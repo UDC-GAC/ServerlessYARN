@@ -25,11 +25,7 @@ sensor_reporting_path : /tmp/powerapi-sensor-reporting
 host_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/host"
 container_timestamps_dir: "{{ serverless_containers_path }}/conf/WattWizard/container"
 
-## Global HDFS
-global_hdfs_app_name: global_hdfs
-hdfs_frontend_container_name: hdfs-frontend
-data_dir_on_container: /opt/transfer
-data_locality_registry_file: "{{ installation_path }}/data_locality_registry.json" # registry of app deployments used by the 'Data-locality' allocation policy
+## Big Data (Hadoop / Spark / HDFS) variables are defined in vars/bigdata.yml
 
 ## Container bind directories variables
 default_bind_path: "{{ installation_path }}"
@@ -38,10 +34,7 @@ bind_dir_name: singularity_binds
 bind_dir: "{{ bind_path }}/{{ bind_dir_name }}"
 bind_dir_on_container: /opt/bind
 
-## Framework versions
-hadoop_version: 3.4.2
-spark_version: 3.4.3
-zookeeper_version: 3.9.4 # used for global HDFS rbf mode
+## Java version (used by Big Data images, but also available to generic apps)
 openjdk_version: 8
 
 ## Other

@@ -17,26 +17,40 @@ if [ "${autoreload,,}" == "true" ]; then
     # SIGTERM triggers a Celery warm shutdown (running tasks are allowed to finish) and SIGKILL is sent after the timeout
     # Celery is not restarted when it exits on its own (e.g., a syntax error) to avoid a crash loop, it waits for the next change instead
     # Polling is forced because inotify does not receive changes made from the host on shared folders (e.g., vboxsf in virtual mode)
-    # Only the code run by the worker is watched (non-recursively): the Celery tasks (ui/background), the platform logic they use (ui/domain)
-    # and the constants it imports (ui/utils.py), the Celery/Django setup, the serverlessyarn_utils package and the only state_database
-    # script imported by the tasks
+    # Only the code run by the worker is watched (non-recursively):
+    # - the Celery tasks (ui/background)
+    # - the platform logic they use (ui/domain)
+    # - the Big Data specific logic (ui/bigdata)
+    # - the constants it imports (ui/utils.py)
+    # - the Celery/Django setup
+    # - the serverlessyarn_utils package
+    # - and the only state_database script imported by the tasks
+    # Specific files located in watched directories that are not relevant to Celery are excluded
     WATCHED_PATTERNS=(
         '**/ui/background/*.py'
         '**/ui/domain/*.py'
+        '**/ui/bigdata/*.py'
         '**/ui/utils.py'
         '**/serverless_containers_web/celery.py'
         '**/serverless_containers_web/settings.py'
         '**/serverlessyarn_utils/*.py'
         '**/state_database/limit_containers_bw.py'
     )
+    IGNORED_PATTERNS=(
+        '**/ui/domain/container_resources.py'
+        '**/ui/bigdata/forms.py'
+        '**/ui/bigdata/start.py'
+    )
     exec watchmedo auto-restart \
         -d $WEB_DIR/ui \
         -d $WEB_DIR/ui/background \
         -d $WEB_DIR/ui/domain \
+        -d $WEB_DIR/ui/bigdata \
         -d $WEB_DIR/serverless_containers_web \
         -d $PROVISION_DIR/tools/python_utils/src/serverlessyarn_utils \
         -d $PROVISION_DIR/scripts/state_database \
         -p "$(IFS=';'; echo "${WATCHED_PATTERNS[*]}")" \
+        -i "$(IFS=';'; echo "${IGNORED_PATTERNS[*]}")" \
         --debug-force-polling \
         --signal SIGTERM \
         --kill-after $AUTORELOAD_KILL_AFTER \

@@ -1,0 +1,8 @@
+## Start ZooKeeper on the master container (required by global HDFS in RBF mode)
+## Tags: start_zookeeper
+
+- name: Start zookeeper
+  when: inventory_hostname == master_host
+  shell: "sudo {{ singularity_command_alias }} exec instance://{{ master_container }} su - {{ user_info.user_name }} -c \
+    'nohup /opt/zookeeper/bin/zkServer.sh start &'"
+  tags: never, start_zookeeper

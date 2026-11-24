@@ -6,7 +6,7 @@ import redis
 
 from django.conf import settings
 
-import ui.domain.run_playbooks as run_playbooks
+import ui.bigdata.playbooks as bigdata_playbooks
 
 ## Data locality support for the 'Data-locality' allocation policy
 # Computes a locality score for each host, i.e., how close it is to the data that an app will read from the global HDFS.
@@ -123,7 +123,7 @@ def get_input_data_scores(locality_info):
     # Score = bytes of input data that can be read locally from each host (i.e., bytes of the blocks with a replica on that host)
     datanodes = locality_info['datanodes'] # {datanode_container_name: host_name}
 
-    blocks_output, resolutions_output = run_playbooks.get_hdfs_block_locations(
+    blocks_output, resolutions_output = bigdata_playbooks.get_hdfs_block_locations(
         locality_info['namenode_host'], locality_info['namenode_container_name'], locality_info['global_input'], list(datanodes.keys()))
 
     ## Map datanode addresses to hosts
