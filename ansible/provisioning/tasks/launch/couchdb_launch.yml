@@ -1,9 +1,31 @@
 - name: Start couchdb service
-  become: true
   when: "virtual_mode"
-  service: 
-    name: couchdb 
-    state: started
+  block:
+    ## Start CouchDB installed on the host (virtual mode) listening on 'couchdb_port'
+    # Only the port option is managed, so other settings CouchDB may write to local.ini at runtime are kept
+    - name: Set CouchDB port
+      become: true
+      community.general.ini_file:
+        path: /opt/couchdb/etc/local.ini
+        section: chttpd
+        option: port
+        value: "{{ couchdb_port }}"
+        owner: couchdb
+        group: couchdb
+      register: couchdb_port_config
+
+    - name: Start couchdb service (restart it if its port has changed)
+      become: true
+      service:
+        name: couchdb
+        state: "{{ 'restarted' if couchdb_port_config is changed else 'started' }}"
+
+    - name: Wait for CouchDB to listen on its port
+      wait_for:
+        host: 127.0.0.1
+        port: "{{ couchdb_port }}"
+        timeout: 60
+
 
 ## This assumes that the container engine in question is already installed in the server node
 - name: Start couchdb inside a container
@@ -46,12 +68,19 @@
         #     chdir: "{{ installation_path }}"
         #     executable: /bin/bash
 
+        # local.ini is bound (instead of only being copied into the image when it is built) so that changes such as the port apply without rebuilding the image
         - name: Start couchdb apptainer container
-          shell: "{{ singularity_command_alias }} instance start -C --bind {{ couchdb_path }}/data:/couchdb_data --bind {{ couchdb_path }}/log:/var/log/couchdb {{ image_file }} {{ container_name }}"
+          shell: "{{ singularity_command_alias }} instance start -C --bind {{ couchdb_path }}/data:/couchdb_data --bind {{ couchdb_path }}/log:/var/log/couchdb --bind {{ couchdb_path }}/local.ini:/opt/couchdb/etc/local.ini {{ image_file }} {{ container_name }}"
           when: "container_name not in apptainer_list_output.stdout"
           args:
             chdir: "{{ couchdb_path }}"
             executable: /bin/bash 
+
+        - name: Wait for CouchDB to listen on its port
+          wait_for:
+            host: 127.0.0.1
+            port: "{{ couchdb_port }}"
+            timeout: 60
 
       when: "container_engine == 'apptainer'"
       vars:

@@ -51,6 +51,12 @@
           loop_control:
             loop_var: file
 
+        # Default config baked into the image
+        - name: Copy BDWatchdog services config to BDWatchdog source dir
+          template:
+            src: "{{ templates_dir }}/services/bdwatchdog/container_services_config.yml"
+            dest: "{{ bdwatchdog_source_path }}/services_config.yml"
+
         ## Copy other files
         # Install script
         - name: Copy app install script if applicable ({{ item }})

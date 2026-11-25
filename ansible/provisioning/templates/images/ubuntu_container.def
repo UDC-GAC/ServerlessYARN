@@ -8,6 +8,8 @@ From: ubuntu:20.04
     export PLATFORM_SERVER_IP={{ server_ip }}
     export DATA_SERVER_IP={{ data_server_url }}
     export DATA_SERVER_PORT={{ data_server_port }}
+    # Port of BDWatchdog's Eve server, used by TimestampsSnitch (signal_experiment.py/signal_test.py)
+    export MONGODB_PORT={{ eve_server_port | default(8000) }}
 
 %post
     export ATOP_INSTALL_DIRECTORY="/opt/atop"

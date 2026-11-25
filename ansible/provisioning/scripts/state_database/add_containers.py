@@ -5,7 +5,7 @@ import requests
 import json
 from serverlessyarn_utils.web_utils import web_request
 
-rescaler_port = "8000"
+default_rescaler_port = 8000
 
 allocate_current_as_min = False ## False to allow ServerlessContainers to set the initial allocation considering boundaries
 
@@ -18,7 +18,7 @@ def create_container_info(container_data, resources, config):
             name = container_data['container_name'],
             resources = dict(),
             host_rescaler_ip = container_data['host'],
-            host_rescaler_port = rescaler_port,
+            host_rescaler_port = str(config.get('node_scaler_port', default_rescaler_port)),
             host = container_data['host'],
             guard = (container_data.get('guard', 'true') == 'true'),
             subtype = 'container'

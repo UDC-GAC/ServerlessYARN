@@ -91,10 +91,4 @@
             path: "{{ couchdb_debconf_file.path }}"
             state: absent
 
-    - name: Start couchdb
-      become: true
-      service:
-        name: couchdb
-        state: started
-
   when: "virtual_mode"

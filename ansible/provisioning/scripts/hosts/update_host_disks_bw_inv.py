@@ -3,8 +3,6 @@ import sys
 import yaml
 from serverlessyarn_utils.manage_inventory import AnsibleYamlInventory
 
-rescaler_port = "8000"
-
 bandwidth_conversion = {}
 bandwidth_conversion["B/s"] =  0.00000095367432
 bandwidth_conversion["KB/s"] = 0.0009765625

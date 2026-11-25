@@ -5,14 +5,14 @@ import requests
 import json
 from serverlessyarn_utils.web_utils import web_request
 
-rescaler_port = "8000"
+default_rescaler_port = 8000
 
 base_host_to_API = dict(
     name = "base_host",
     host = "base_host",
     subtype = "host",
     host_rescaler_ip = "base_host",
-    host_rescaler_port = rescaler_port,
+    host_rescaler_port = str(default_rescaler_port),
     resources = dict()
 )
 
@@ -41,6 +41,7 @@ if __name__ == "__main__":
         put_field_data['name'] = new_host
         put_field_data['host'] = new_host
         put_field_data['host_rescaler_ip'] = new_host
+        put_field_data['host_rescaler_port'] = str(config.get('node_scaler_port', default_rescaler_port))
 
         for resource in host_resources:
             value = int(host_resources[resource])

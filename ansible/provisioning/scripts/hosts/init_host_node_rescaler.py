@@ -1,17 +1,32 @@
 #!/usr/bin/python
 import json
+import os
 import requests
 import sys
 import itertools
 import time
+import yaml
 import src.StateDatabase.couchdb as couchDB
 from serverlessyarn_utils.web_utils import web_request
 
 # usage example: init_host_node_rescaler.py host1,host2 [{'container_name': 'host1-cont0', 'host': 'host1', 'cpu_max': 200, 'cpu_min': 50, 'mem_max': 2048, 'mem_min': 1024, 'disk': 'ssd_0', 'disk_path': '$HOME/ssd', 'disk_max': 200, 'disk_min': 50, 'energy_max': 100, 'energy_min': 30}, {'container_name': 'host1-cont1'...}] ['cpu','mem','disk','energy']
 
-NODE_RESCALER_PORT = 8000
+DEFAULT_NODE_RESCALER_PORT = 8000
 COUCHDB_INIT_TRIES = 10
 COUCHDB_INIT_WAIT = 0.5
+
+
+def get_node_rescaler_port():
+    # NODE_SCALER_PORT is set in ServerlessContainers' services_config.yml (templated from 'node_scaler_port')
+    try:
+        with open(os.environ['SERVERLESS_PATH'] + "/services_config.yml", "r") as f:
+            config = yaml.load(f, Loader=yaml.FullLoader) or {}
+        return int(config.get('NODE_SCALER_PORT', DEFAULT_NODE_RESCALER_PORT))
+    except (KeyError, OSError, ValueError, yaml.YAMLError):
+        return DEFAULT_NODE_RESCALER_PORT
+
+
+NODE_RESCALER_PORT = get_node_rescaler_port()
 
 
 def get_integer_list_range(list_num):
@@ -27,7 +42,7 @@ if __name__ == "__main__":
     database = "structures"
 
     if len(sys.argv) > 3:
-        hosts = sys.argv[1]
+        hosts = sys.argv[1].split(',')
         containers = json.loads(sys.argv[2].replace('\'', '"'))
         resources = json.loads(sys.argv[3].replace('\'', '"'))
 

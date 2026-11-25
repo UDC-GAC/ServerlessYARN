@@ -6,6 +6,13 @@
     recursive: true
   tags: restart_services
 
+# Must be templated before installing, as the OpenTSDB installation reads its port from this file
+- name: Copy service aliases and port configuration to BDWatchdog dir
+  template:
+    src: "{{ templates_dir }}/services/bdwatchdog/services_config.yml"
+    dest: "{{ bdwatchdog_path }}/services_config.yml"
+  tags: restart_services
+
 # TODO: read BDWatchdog_data path from BDWatchdog/deployment/config or viceversa
 - name: Create a BDWatchdog data directory
   file:
@@ -65,9 +72,3 @@
     state: directory
     owner: "{{ user_info.user_name }}"
     recurse: yes
-
-- name: Copy service aliases and port configuration to BDWatchdog dir
-  template:
-    src: "{{ templates_dir }}/services/bdwatchdog/services_config.yml"
-    dest: "{{ bdwatchdog_path }}/services_config.yml"
-  tags: restart_services

@@ -1,0 +1,6 @@
+# OpenTSDB:
+OPENTSDB_URL: "opentsdb"
+OPENTSDB_PORT: {{ opentsdb_port }}
+
+# Eve server (TimestampsSnitch REST API on top of MongoDB):
+EVE_SERVER_PORT: {{ eve_server_port | default(8000) }}

@@ -5,6 +5,9 @@ SINGULARITY_COMMAND_ALIAS: "{{ singularity_command_alias }}" # singularity or ap
 ## Cgroups version: v1 (Lecacy or Hybrid mode) or v2 (Unified mode)
 CGROUPS_VERSION: "{{ cgroups_version }}"
 
+## NodeScaler (used by every host node)
+NODE_SCALER_PORT: "{{ node_scaler_port | default(8000) }}"
+
 ### Only used by server node
 ## Orchestrator
 ORCHESTRATOR_URL: "127.0.0.1"
