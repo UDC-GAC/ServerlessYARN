@@ -1,5 +1,21 @@
 ## Sizing of the containers of an app from its resources, limits and number of containers
+from django.conf import settings
+
 from ui.utils import DEFAULT_LIMIT_VALUES
+
+
+def get_app_cores(cores):
+    """Number of cores an app should size its own parameters to, given the cores allocated to one of its containers.
+
+    It depends on the SMT mode actually applied by the platform ('effective_smt_mode', set during Vagrant or SLURM startup):
+     - 'disabled' or 'enabled': apps use all the cores allocated to the container
+     - 'hybrid': the container is allocated logical cores, but apps size their parameters to the physical ones
+       (assuming 2 threads per core). E.g., Hadoop/Spark vcores, whose JVM background threads (GC, JIT, shuffle...)
+       may then take advantage of the SMT siblings
+    """
+    if settings.PLATFORM_CONFIG.get('effective_smt_mode', 'disabled') == 'hybrid':
+        return max(1, cores // 2)
+    return cores
 
 
 def getContainerResourcesForApp(number_of_containers, app_resources, app_limits, benevolence, is_hadoop_app):

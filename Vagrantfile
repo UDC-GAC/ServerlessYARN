@@ -111,8 +111,17 @@ Vagrant.configure("2") do |config|
                 host_raw_config = File.read(host_config_file)
                 clean_hostnames = hostnames.map(&:strip).join(',')
                 updated_content = host_raw_config.gsub(/^(\s*hostnames:\s*).*\n/, "\hostnames: #{clean_hostnames}\n")
+
+                ### Update config parameter 'effective_smt_mode'
+                #### VirtualBox VMs expose one thread per virtual CPU, so SMT is never available within the VMs
+                if updated_content.match?(/^\s*effective_smt_mode:/)
+                    updated_content = updated_content.gsub(/^(\s*effective_smt_mode:\s*).*(\n|\z)/, "effective_smt_mode: disabled\n")
+                else
+                    updated_content = updated_content.chomp + "\neffective_smt_mode: disabled\n"
+                end
+
                 File.write(host_config_file, updated_content)
-                puts "==> trigger: File #{host_config_file} has been updated with hostnames: #{hostnames}"
+                puts "==> trigger: File #{host_config_file} has been updated with hostnames: #{hostnames} and effective_smt_mode: disabled"
                 $config_updated = true
             else
                 puts "==> trigger: File #{host_config_file} was already updated. Skipping..."

@@ -1,5 +1,7 @@
 from django.conf import settings
 
+from ui.domain.container_resources import get_app_cores
+
 ## Resources calculation for Hadoop clusters (HDFS + YARN)
 
 def get_node_reserved_memory(node_memory):
@@ -84,21 +86,18 @@ def set_hadoop_resources(container_resources, virtual_cluster, number_of_workers
 
     if virtual_cluster:
         ## Virtual cluster config (test environment with low resources)
-        hyperthreading = False
         app_master_heapsize = 128
         datanode_heapsize = 128
         nodemanager_heapsize = 128
     else:
         ## Physical cluster config (real environment with (presumably) high resources)
-        hyperthreading = True
         app_master_heapsize = 1024
         datanode_heapsize = 1024
         nodemanager_heapsize = 1024
 
-    ## adjust total_cores to hyperthreading system
-    ## TODO: check if system actually has hyperthreading
-    if hyperthreading:
-        total_cores = total_cores // 2
+    ## Adjust vcores to the SMT mode (in 'hybrid' mode, vcores are restricted to the physical cores)
+    total_cores = get_app_cores(total_cores)
+    min_cores = get_app_cores(min_cores)
 
     app_master_memory_overhead = int(app_master_heapsize * 0.1)
     if app_master_memory_overhead < 384:
@@ -140,7 +139,7 @@ def set_hadoop_resources(container_resources, virtual_cluster, number_of_workers
 
     hadoop_resources = {
         "vcores": str(total_cores),
-        "min_vcores": str(min_cores),
+        "min_vcores": str(min_cores), ## deprecated parameter that was used in older versions of the yarn-site.yml template
         "scheduler_maximum_memory": str(scheduler_maximum_memory),
         "scheduler_minimum_memory": str(scheduler_minimum_memory),
         "nodemanager_memory": str(nodemanager_memory),

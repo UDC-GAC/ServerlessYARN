@@ -5,10 +5,19 @@ memory_server_node: 4096
 web_interface_port: 9000
 server_as_host: no # 'yes' will use/deploy number_of_hosts-1 additional hosts since the server itself will be a host (worker)
 
+## SMT (Simultaneous Multithreading, e.g., Hyper-Threading) config
+# Mode in which the platform deals with the logical cores provided by SMT (SMT is not actually enabled or disabled on the hosts):
+#  - disabled: use only the physical cores, ignoring their SMT siblings
+#  - enabled: use all the logical cores, both for the platform and the apps
+#  - hybrid: the platform uses all the logical cores, but apps may size their own parameters to the physical cores
+#            (e.g., Hadoop/Spark vcores). Useful for experimentation, for instance with Hadoop-based apps, whose
+#            JVM background threads (GC, JIT, shuffle...) may take advantage of the SMT siblings
+# If the hosts have no SMT, all available cores are used regardless of the mode
+# The mode actually applied is written to 'effective_smt_mode' (see below)
+# Currently, only the number of cores is adjusted; i.e., it won't check whether each core used is physical or logical
+smt_mode: disabled
+
 ## SLURM specific config
-# You may disable SMT; i.e., the platform will only use the physical cores (it won't actually disable SMT on the hosts)
-# Basically, it will use the first half of the cores; i.e., it won't check whether each core is physical or logical
-disable_smt: no
 # How much of the total allocated memory is actually used (it is recommended to leave some for SLURM processes themselves)
 memory_factor: 0.9
 
@@ -30,3 +39,9 @@ lvm_path: $HOME/lvm
 ## Do not manually change this list, Vagrant or SLURM will override its value
 ## The server hostname is also included in this list, being the first item
 hostnames: dummy_value
+
+### Effective SMT mode
+## SMT mode actually applied by the platform, based on 'smt_mode' and the SMT availability on the hosts
+## (i.e., it is always 'disabled' if the hosts have no SMT)
+## Do not manually change this value, Vagrant or SLURM will override it (Vagrant always disables it)
+effective_smt_mode: disabled
