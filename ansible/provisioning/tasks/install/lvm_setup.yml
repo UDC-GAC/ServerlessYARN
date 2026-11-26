@@ -11,7 +11,7 @@
       block:
         - name: Create LV
           block:
-            - name: Create LV (virtual cluster)
+            - name: Create LV (virtual cluster) ## we can rely on specific Ansible modules
               when: virtual_mode
               block:
                 - name: Create pvs and a volume group
@@ -27,7 +27,7 @@
                     size: 95%VG
                     opts: "{{ '--type raid0 --stripes ' + (host_disk_list | length)|string if (host_disk_list | length) > 1 else '--type linear' }}"
 
-            - name: Create LV (non-virtual cluster)
+            - name: Create LV (non-virtual cluster) ## we have to rely on shell commands
               when: not virtual_mode
               block:
                 - name: Check if pvs exist
@@ -72,8 +72,6 @@
                   vars:
                     size_opts: -l 95%VG
                     lv_opts: "{{ '--type raid0 --stripes ' + (host_disk_list | length)|string if (host_disk_list | length) > 1 else '--type linear' }}"
-          vars:
-            host_disk_list: "{{ (hostvars[inventory_hostname].disks | ansible.utils.remove_keys(target=['lvm'])) | dict2items | map(attribute='value.path') }}"
 
         - name: Create directory if does not exist
           file:
@@ -151,13 +149,34 @@
 
     - name: Unmount and remove LV
       block:
-        # TODO: virtual cluster version
-        # - name: Delete LV (virtual cluster)
-        #   when: not virtual_mode
-        #   block:
+        - name: Delete LV (virtual cluster)
+          when: virtual_mode
+          block:
+            - name: Unmount the lv
+              mount:
+                path: "{{ lv_path }}"
+                state: unmounted
+
+            - name: Remove logical volume
+              lvol:
+                vg: "{{ vg_name }}"
+                lv: "{{ lv_name }}"
+                state: absent
+                force: true
+
+            - name: Remove volume group
+              lvg:
+                vg: "{{ vg_name }}"
+                state: absent
+
+            - name: Remove pvs
+              lvm_pv:
+                device: "{{ item }}"
+                state: absent
+              loop: "{{ host_disk_list }}"
 
         - name: Delete LV (non-virtual cluster)
-          #when: not virtual_mode
+          when: not virtual_mode
           block:
             - name: Check if volume is mounted
               shell: "mount"
@@ -209,14 +228,11 @@
               args:
                 executable: /bin/bash
               loop: "{{ host_disk_list }}"
-              vars:
-                host_disk_list: "{{ (hostvars[inventory_hostname].disks | ansible.utils.remove_keys(target=['lvm'])) | dict2items | map(attribute='value.path') }}"
       tags: never, remove_lv
 
     - name: Extend LV
       block:
         - name: Extend LV (non-virtual cluster)
-          #when: not virtual_mode
           block:
             - name: Check if logical volume exists
               shell: "sudo lvs {{ vg_name }}/{{ lv_name }}"
@@ -236,6 +252,7 @@
       tags: never, extend_lv
 
   vars:
+    host_disk_list: "{{ (hostvars[inventory_hostname].disks | ansible.utils.remove_keys(target=['lvm'])) | dict2items | map(attribute='value.path') }}"
     vg_name: "vg_{{ inventory_hostname }}"
     lv_name: "lv_{{ inventory_hostname }}"
     lv_path: "{{ hostvars[inventory_hostname].disks['lvm']['path'] }}"
