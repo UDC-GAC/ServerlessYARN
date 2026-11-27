@@ -152,9 +152,9 @@
           state: absent
         with_items: # it is important to use 'with_items' here to flatten lists
           # ServerlessYARN
-          - "{{ lookup('fileglob', 'services/rebooter/rebooter_*.log', wantlist=True) }}"
-          - "{{ lookup('fileglob', 'services/config_updater/config_updater_*.log', wantlist=True) }}"
-          - "{{ lookup('fileglob', 'services/celery/celery_*.log', wantlist=True) }}"
+          - "{{ lookup('fileglob', services_dir + '/rebooter/rebooter_*.log', wantlist=True) }}"
+          - "{{ lookup('fileglob', services_dir + '/config_updater/config_updater_*.log', wantlist=True) }}"
+          - "{{ lookup('fileglob', services_dir + '/celery/celery_*.log', wantlist=True) }}"
           # ServerlessContainers
           - "{{ lookup('fileglob', serverless_containers_path ~ '/*.log*', wantlist=True) }}"
           - "{{ installation_path }}/couchdb/log/couchdb.log"
