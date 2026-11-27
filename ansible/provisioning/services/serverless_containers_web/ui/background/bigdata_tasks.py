@@ -69,34 +69,38 @@ def start_hadoop_app_task(self, assignation_requirements, url, app, app_files, c
         except Exception as e:
             print("[DATA LOCALITY] Error recording deployment of app {0}: {1}".format(app, str(e)))
 
-    master_host, master_container, download_time, upload_time = setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type, global_hdfs_data)
+    master_container = get_master_container(app, app_containers)
+
+    download_time, upload_time = setup_containers_hadoop_network_task(app_containers, master_container, url, app, app_files, hadoop_resources, new_containers, app_type, global_hdfs_data)
+    master_host = master_container['host']
 
     end_time = timeit.default_timer()
     runtime = "{:.2f}".format(end_time-start_time)
     update_task_runtime(self.request.id, runtime)
 
     # Stop hadoop cluster, set app as stopped, persist output data and remove containers
-    errors = stop_hadoop_app(url, app, app_files, app_containers, scaler_polling_freq, master_host, master_container,
+    errors = stop_hadoop_app(url, app, app_files, app_containers, scaler_polling_freq, master_host, master_container['container_name'],
                              download_time=download_time, upload_time=upload_time)
 
     if len(errors) > 0: raise Exception(str(errors))
 
 
+def get_master_container(app, app_containers):
+    """
+    Return the master container of a Hadoop app from the containers deployed by deploy_app_containers,
+    which tags each container with the 'role' it was created for ('master', 'irregular' or 'regular').
+    """
+    masters = [container for container in (app_containers or []) if container.get('role') == 'master']
+    if len(masters) != 1:
+        raise Exception("Expected exactly one master container for app {0}, found {1}. Containers: {2}".format(app, len(masters), app_containers))
+    return masters[0]
+
+
 @shared_task
-def setup_containers_hadoop_network_task(app_containers, url, app, app_files, hadoop_resources, new_containers, app_type="hadoop_app", global_hdfs_data=None):
+def setup_containers_hadoop_network_task(app_containers, master_container, url, app, app_files, hadoop_resources, new_containers, app_type="hadoop_app", global_hdfs_data=None):
 
     app_files['app_type'] = app_type
-
-    # Get master container (it is the first container from the host that got that container)
-    for host in new_containers:
-        if "master" in new_containers[host]:
-            master_host = host
-            for container in app_containers:
-                ## TODO: maybe differentiate master_container using another parameter and not disk in case you dont want disk scaling on hadoop app
-                if container['host'] == master_host and 'disk' not in container:
-                    master_container = container
-                    break
-            break
+    master_host = master_container['host']
 
     # app_containers example = [{'container_name':'host1-cont0','host':'host1','cpu_max':200,'disk':'ssd_0',...},{'container_name':'host2-cont0','host':'host2',...}]
     formatted_app_containers = str(app_containers).replace(' ','')
@@ -130,7 +134,7 @@ def setup_containers_hadoop_network_task(app_containers, url, app, app_files, ha
         change_app_state_in_db(url, app, "hdfs_uploading")
         upload_time = bigdata_playbooks.upload_local_hdfs_data_to_global(master_host, master_container['container_name'], global_hdfs_data, formatted_app_containers)
 
-    return master_host, master_container['container_name'], download_time, upload_time
+    return download_time, upload_time
 
 ## HDFS operations
 @shared_task(bind=True)

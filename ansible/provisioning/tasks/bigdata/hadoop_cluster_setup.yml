@@ -23,7 +23,7 @@
           vars:
             worker_list: "{{ containers_info | 
                     map(attribute='container_name') |
-                    reject('search', master_container) | list}}"
+                    reject('equalto', master_container) | list}}"
 
     - name: Prepare and copy all config files to containers
       tags: setup_hadoop, setup_hdfs

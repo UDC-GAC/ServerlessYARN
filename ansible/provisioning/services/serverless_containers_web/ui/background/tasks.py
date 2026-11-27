@@ -470,6 +470,7 @@ def deploy_app_containers(url, new_containers, app, app_files, container_resourc
                     container_info = {}
                     container_info['container_name'] = container
                     container_info['host'] = host
+                    container_info['role'] = container_type ## 'master', 'irregular' or 'regular', used to identify the master container of Hadoop apps
                     container_info['guard'] = "false" ## containers are not allowed to scale until the app has actually started running
                     # Resources
                     for resource in ['cpu', 'mem']:
