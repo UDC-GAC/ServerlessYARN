@@ -169,10 +169,24 @@
                 vg: "{{ vg_name }}"
                 state: absent
 
+            # - name: Remove pvs ## the lvm_pv module requires community.general >= 11.0.0, which requires ansible >= 2.19.0
+            #   lvm_pv:
+            #     device: "{{ item }}"
+            #     state: absent
+            #   loop: "{{ host_disk_list }}"
+
+            # Workaround for older Ansible versions
+            - name: Check if pvs exist
+              shell: "sudo pvs"
+              args:
+                executable: /bin/bash
+              register: pvs_output
+
             - name: Remove pvs
-              lvm_pv:
-                device: "{{ item }}"
-                state: absent
+              when: "item in pvs_output.stdout"
+              shell: "sudo pvremove {{ item }}"
+              args:
+                executable: /bin/bash
               loop: "{{ host_disk_list }}"
 
         - name: Delete LV (non-virtual cluster)
