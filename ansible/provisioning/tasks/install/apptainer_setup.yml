@@ -69,17 +69,18 @@
         owner: "{{ user_info.user_name }}"
         recurse: yes
 
-# TODO: avoid execution on localhost
-- name: Create group to manipulate cgroups as non-root user
-  group:
-    name: "{{ singularity_cgroups_group }}"
-    state: present
+- block:
+  - name: Create group to manipulate cgroups as non-root user
+    group:
+      name: "{{ singularity_cgroups_group }}"
+      state: present
 
-- name: Add user to group
-  user:
-    name: "{{ user_info.user_name }}"
-    groups: "{{ singularity_cgroups_group }}"
-    append: true
+  - name: Add user to group
+    user:
+      name: "{{ user_info.user_name }}"
+      groups: "{{ singularity_cgroups_group }}"
+      append: true
+  when: inventory_hostname != 'localhost'
 
 # Directory .apptainer is created the first time an apptainer command is executed
 - name: Create .apptainer directory with non-root permissions
