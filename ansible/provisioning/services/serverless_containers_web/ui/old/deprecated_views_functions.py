@@ -191,7 +191,6 @@ def getNewPossibleContainers(url, app_name):
     max_mem_app = app['resources']['mem']['max']
     min_mem_app = app['resources']['mem']['min']
 
-    # TODO: read cpu values from config file OR app parameter (not added) OR get it somehow dinamically
     max_cpu_containers = 400
     min_cpu_containers = 50
     max_mem_containers = 4096
@@ -205,7 +204,6 @@ def getNewPossibleContainers(url, app_name):
     # MEM
     min_min_conts_app_mem = int(min_mem_app / min_mem_containers)
     max_min_conts_host_mem = int(total_free_mem / min_mem_containers)
-    # TODO: fix free memory showing 0 on host
     #mem_space_left = max_min_conts_host_mem > min_min_conts_app_mem
     mem_space_left = True
 

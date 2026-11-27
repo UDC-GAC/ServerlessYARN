@@ -51,7 +51,6 @@ def start_containers_task(host, new_containers, container_resources):
 ## Not used ATM
 #@shared_task
 def start_containers_with_app_task(already_added_containers, url, host, new_containers, app, app_files, container_resources):
-    #TODO: merge function with start_containers_task
 
     if new_containers == 0:
         # Nothing to do
@@ -93,8 +92,6 @@ def start_containers_with_app_task(already_added_containers, url, host, new_cont
 
 ## Not used ATM
 def start_app(url, app, app_files, new_containers, container_resources, disk_assignation):
-
-    # TODO: setup network before starting app on containers -> first start containers (without starting app) then setup network and start app on the same task
 
     setup_network_task = setup_containers_network_task.s(url, app, app_files)
     start_containers_tasks = []
