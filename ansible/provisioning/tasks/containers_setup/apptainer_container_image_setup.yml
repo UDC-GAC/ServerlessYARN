@@ -37,7 +37,7 @@
         ## Copy BDWatchdog source
         - name: Copy BDWatchdog source
           synchronize:
-            src: "{{ externals_dir }}/BDWatchdog/"
+            src: "{{ externals_dir }}/{{ bdwatchdog_repo }}/"
             dest: "{{ bdwatchdog_source_path }}"
             recursive: true
 

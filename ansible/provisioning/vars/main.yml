@@ -1,7 +1,12 @@
+## External repositories (useful for custom locations of repos; paths are relative to the 'external' directory)
+bdwatchdog_repo: BDWatchdog
+serverless_containers_repo: ServerlessContainers
+
 ## Installation path variables
 installation_path: "{{ lookup('env', 'HOME') }}/ServerlessYARN_install"
 data_server_path: "{{ installation_path }}/data_server"
 bdwatchdog_path: "{{ installation_path }}/BDWatchdog"
+bdwatchdog_data_path: "{{ installation_path }}/BDWatchdog_data"
 bdwatchdog_source_path: "{{ installation_path }}/BDWatchdog_source"
 serverless_containers_path: "{{ installation_path }}/ServerlessContainers"
 apptainer_repo_path: "{{ installation_path }}/apptainer"

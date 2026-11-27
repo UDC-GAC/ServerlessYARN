@@ -54,7 +54,7 @@
 
 - name: Install specified python requirements
   pip:
-    requirements: "{{ externals_dir }}/ServerlessContainers/requirements.txt"
+    requirements: "{{ externals_dir }}/{{ serverless_containers_repo }}/requirements.txt"
     executable: pip3
 
 - name: Check if OpenSSL is installed
@@ -88,7 +88,7 @@
 - block:
   - name: Copy ServerlessContainers
     synchronize:
-      src: "{{ externals_dir }}/ServerlessContainers/"
+      src: "{{ externals_dir }}/{{ serverless_containers_repo }}/"
       dest: "{{ serverless_containers_path }}"
       recursive: true
 

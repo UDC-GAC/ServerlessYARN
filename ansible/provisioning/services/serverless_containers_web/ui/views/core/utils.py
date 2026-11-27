@@ -38,12 +38,7 @@ def guard_switch(request, structure_name):
 def checkInvalidConfig():
     error_lines = []
 
-    installation_path = settings.VARS_CONFIG['installation_path']
-    if installation_path.startswith("{{ lookup('env', 'HOME') }}"):
-        home_directory = os.path.expanduser("~")
-        installation_path = installation_path.replace("{{ lookup('env', 'HOME') }}", home_directory)
-
-    serverless_containers_path = installation_path + "/ServerlessContainers"
+    serverless_containers_path = settings.VARS_CONFIG['serverless_containers_path']
     full_path = serverless_containers_path + "/sanity_checker.log"
     with open(full_path, 'r') as file:
         lines = file.readlines()

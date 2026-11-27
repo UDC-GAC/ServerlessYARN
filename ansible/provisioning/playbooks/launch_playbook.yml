@@ -23,6 +23,7 @@
   environment:
     INSTALLATION_PATH: "{{ installation_path }}"
     BDWATCHDOG_PATH: "{{ bdwatchdog_path }}"
+    BDWATCHDOG_DATA_DIR: "{{ bdwatchdog_data_path }}"
     SERVERLESS_PATH: "{{ serverless_containers_path }}"
     PYTHONPATH: "{{ bdwatchdog_path }}:{{ serverless_containers_path }}"
     CELERY_BROKER: "redis://127.0.0.1:6379/0"

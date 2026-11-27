@@ -1,7 +1,7 @@
 
 - name: Copy BDWatchdog
   synchronize:
-    src: "{{ externals_dir }}/BDWatchdog/"
+    src: "{{ externals_dir }}/{{ bdwatchdog_repo }}/"
     dest: "{{ bdwatchdog_source_path }}"
     recursive: true
   tags: restart_services

@@ -1,7 +1,7 @@
 
 - name: Copy BDWatchdog
   synchronize:
-    src: "{{ externals_dir }}/BDWatchdog/"
+    src: "{{ externals_dir }}/{{ bdwatchdog_repo }}/"
     dest: "{{ bdwatchdog_path }}"
     recursive: true
   tags: restart_services
@@ -13,10 +13,9 @@
     dest: "{{ bdwatchdog_path }}/services_config.yml"
   tags: restart_services
 
-# TODO: read BDWatchdog_data path from BDWatchdog/deployment/config or viceversa
 - name: Create a BDWatchdog data directory
   file:
-    path: "{{ installation_path }}/BDWatchdog_data"
+    path: "{{ bdwatchdog_data_path }}"
     state: directory
     owner: "{{ user_info.user_name }}"
     recurse: yes
@@ -68,7 +67,7 @@
 
 - name: Change BDWatchdog data dir owner
   file:
-    path: "{{ installation_path }}/BDWatchdog_data"
+    path: "{{ bdwatchdog_data_path }}"
     state: directory
     owner: "{{ user_info.user_name }}"
     recurse: yes

@@ -20,7 +20,7 @@ import ui.bigdata.playbooks as bigdata_playbooks
 redis_server = redis.StrictRedis()
 registry_lock_key = "data_locality_registry_lock"
 
-DEFAULT_REGISTRY_FILE = "{{ installation_path }}/data_locality_registry.json"
+DEFAULT_REGISTRY_FILE = "data_locality_registry.json" # relative to the installation path
 DEFAULT_HISTORY_SIZE = 20
 DEFAULT_HISTORY_DECAY = 0.8
 DEFAULT_DEPENDENCY_WEIGHT = 2
@@ -29,8 +29,7 @@ DEFAULT_DEPENDENCY_WEIGHT = 2
 ## Deployment registry
 # Format: {"deployments": [{"app": app_name, "timestamp": ..., "hosts": {host_name: number_of_workers, ...}, ...}, ...]} (most recent deployments first)
 def get_registry_path():
-    registry_file = settings.VARS_CONFIG.get('data_locality_registry_file', DEFAULT_REGISTRY_FILE)
-    return registry_file.replace("{{ installation_path }}", settings.INSTALLATION_PATH)
+    return settings.VARS_CONFIG.get('data_locality_registry_file', os.path.join(settings.INSTALLATION_PATH, DEFAULT_REGISTRY_FILE))
 
 def load_registry():
     registry_path = get_registry_path()

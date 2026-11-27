@@ -166,7 +166,7 @@ def convert_strings_to_numbers(data):
 
 def manage_scaling_services(enable, skip_ansible=True):
     if skip_ansible:
-        sc_path = "{0}/ServerlessContainers".format(settings.INSTALLATION_PATH)
+        sc_path = settings.VARS_CONFIG['serverless_containers_path']
         services = ["Scaler", "Guardian", "Rebalancer"] + (["EnergyController"] if settings.PLATFORM_CONFIG["power_budgeting"] else [])
         script = "activate.sh" if enable else "deactivate.sh"
 

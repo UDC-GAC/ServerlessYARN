@@ -27,6 +27,7 @@
     HOME: "{{ lookup('env', 'HOME') }}"
     INSTALLATION_PATH: "{{ installation_path }}"
     OPENTSDB_LOG_PATH: "{{ opentsdb_log_path | quote }}"
+    BDWATCHDOG_DATA_DIR: "{{ bdwatchdog_data_path }}"
 
   tasks:
     - import_tasks: "{{ util_tasks }}/get_user_ids.yml"

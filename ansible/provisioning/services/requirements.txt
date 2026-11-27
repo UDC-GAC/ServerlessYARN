@@ -10,6 +10,7 @@ celery
 gevent<25
 ansible_runner
 watchdog[watchmedo] # 'watchmedo' CLI used to autoreload the worker in development
+jinja2 # render Ansible vars files (see serverlessyarn_utils/ansible_vars.py)
 
 ## Redis server
 redis

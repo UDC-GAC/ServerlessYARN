@@ -2,7 +2,7 @@
 
 - name: Copy BDWatchdog's source code to node
   synchronize:
-    src: "{{ externals_dir }}/BDWatchdog/"
+    src: "{{ externals_dir }}/{{ bdwatchdog_repo }}/"
     dest: "{{ bdwatchdog_source_path }}"
 
 - name: Copy disk_atop code to node

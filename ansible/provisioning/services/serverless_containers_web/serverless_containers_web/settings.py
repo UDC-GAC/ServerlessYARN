@@ -14,6 +14,8 @@ from pathlib import Path
 import os
 import yaml
 
+from serverlessyarn_utils.ansible_vars import load_ansible_vars
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -32,18 +34,12 @@ bigdata_vars_file = scriptDir + "/../../../vars/bigdata.yml"
 with open(config_file, "r") as f:
     PLATFORM_CONFIG = yaml.load(f, Loader=yaml.FullLoader)
 
-with open(vars_file, "r") as f:
-    VARS_CONFIG = yaml.load(f, Loader=yaml.FullLoader)
-
 ## Big Data (Hadoop / Spark / HDFS) variables are kept in a separate file, but exposed along with the generic ones
-with open(bigdata_vars_file, "r") as f:
-    VARS_CONFIG.update(yaml.load(f, Loader=yaml.FullLoader))
+## Unlike config.yml, vars files are not pre-rendered, so their Jinja2 expressions are rendered here (as Ansible would)
+## config.yml is loaded after the vars files in the playbooks, so its values take precedence
+VARS_CONFIG = load_ansible_vars([vars_file, bigdata_vars_file], overrides=PLATFORM_CONFIG)
 
 installation_path = VARS_CONFIG['installation_path']
-
-if installation_path.startswith("{{ lookup('env', 'HOME') }}"):
-    home_directory = os.path.expanduser("~")
-    installation_path = installation_path.replace("{{ lookup('env', 'HOME') }}", home_directory)
 
 with open(installation_path + '/.django_secret_key.txt', "r") as f:
     SECRET_KEY = f.read().strip()
